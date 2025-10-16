@@ -1,0 +1,7 @@
+{
+  "name": "Fretboard Trainer v3",
+  "description": "An interactive trainer to help you learn the notes on the guitar fretboard.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
