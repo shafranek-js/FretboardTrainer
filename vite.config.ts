@@ -4,7 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  const basePath = env.VITE_BASE_PATH || '/';
   return {
+    base: basePath,
     server: {
       port: 3000,
       host: '0.0.0.0',
@@ -20,10 +22,10 @@ export default defineConfig(({ mode }) => {
           theme_color: '#1e293b',
           background_color: '#0f172a',
           display: 'standalone',
-          start_url: '/',
+          start_url: basePath,
           icons: [
             {
-              src: '/pwa-icon.svg',
+              src: `${basePath}pwa-icon.svg`,
               sizes: 'any',
               type: 'image/svg+xml',
               purpose: 'any maskable',
