@@ -1,0 +1,212 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NATURAL_NOTES } from '../constants';
+
+const { mockDom, mockState, setPromptTextMock } = vi.hoisted(() => ({
+  mockDom: {
+    stringSelector: {
+      querySelectorAll: vi.fn(),
+    },
+    startFret: { value: '0' },
+    endFret: { value: '12' },
+    difficulty: { value: 'natural' },
+    scaleSelector: { value: 'C Major' },
+    randomizeChords: { checked: false },
+    chordSelector: {
+      value: 'C Major',
+      options: [] as { value: string }[],
+    },
+    arpeggioPatternSelector: { value: 'ascending' },
+  },
+  mockState: {
+    currentInstrument: {
+      FRETBOARD: {} as Record<string, Record<string, number>>,
+      STRING_ORDER: [] as string[],
+      CHORD_FINGERINGS: {} as Record<string, { note: string; string: string; fret: number }[]>,
+    },
+    previousNote: null as string | null,
+    scaleNotes: [] as { note: string; string: string }[],
+    currentScaleIndex: 0,
+    currentProgression: [] as string[],
+    currentProgressionIndex: 0,
+    currentArpeggioIndex: 0,
+    currentPrompt: null as {
+      baseChordName: string | null;
+      targetChordNotes: string[];
+      targetChordFingering: { note: string; string: string; fret: number }[];
+    } | null,
+    isListening: false,
+  },
+  setPromptTextMock: vi.fn(),
+}));
+
+vi.mock('../state', () => ({
+  dom: mockDom,
+  state: mockState,
+}));
+
+vi.mock('../ui-signals', () => ({
+  setPromptText: setPromptTextMock,
+}));
+
+import { RandomNoteMode } from './random-note';
+import { IntervalTrainingMode } from './interval-training';
+import { ScalePracticeMode } from './scale-practice';
+import { ChordTrainingMode } from './chord-training';
+import { ChordProgressionMode } from './chord-progression';
+import { ArpeggioTrainingMode } from './arpeggio-training';
+
+function setEnabledStrings(strings: string[]) {
+  mockDom.stringSelector.querySelectorAll.mockReturnValue(
+    strings.map((value) => ({ value })) as HTMLInputElement[]
+  );
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubGlobal('alert', vi.fn());
+
+  mockDom.startFret.value = '0';
+  mockDom.endFret.value = '5';
+  mockDom.difficulty.value = 'natural';
+  mockDom.scaleSelector.value = 'C Major';
+  mockDom.randomizeChords.checked = false;
+  mockDom.chordSelector.value = 'C Major';
+  mockDom.chordSelector.options = [{ value: 'C Major' }, { value: 'G Major' }];
+  mockDom.arpeggioPatternSelector.value = 'ascending';
+
+  mockState.currentInstrument.FRETBOARD = {
+    E: { E: 0, F: 1, G: 3, A: 5 },
+    A: { A: 0, B: 2, C: 3, D: 5 },
+  };
+  mockState.currentInstrument.STRING_ORDER = ['A', 'E'];
+  mockState.currentInstrument.CHORD_FINGERINGS = {
+    'C Major': [
+      { note: 'C', string: 'A', fret: 3 },
+      { note: 'E', string: 'E', fret: 0 },
+      { note: 'G', string: 'E', fret: 3 },
+    ],
+    'G Major': [
+      { note: 'G', string: 'E', fret: 3 },
+      { note: 'B', string: 'A', fret: 2 },
+      { note: 'D', string: 'A', fret: 5 },
+    ],
+  };
+  mockState.previousNote = null;
+  mockState.scaleNotes = [];
+  mockState.currentScaleIndex = 0;
+  mockState.currentProgression = ['C Major', 'G Major'];
+  mockState.currentProgressionIndex = 0;
+  mockState.currentArpeggioIndex = 0;
+  mockState.currentPrompt = null;
+  mockState.isListening = false;
+  setEnabledStrings(['E', 'A']);
+});
+
+describe('RandomNoteMode', () => {
+  it('generates a playable prompt for enabled strings and range', () => {
+    setEnabledStrings(['E']);
+    const mode = new RandomNoteMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt!.targetString).toBe('E');
+    expect(prompt!.targetNote).toBeTruthy();
+    expect(prompt!.displayText).toContain('Find:');
+  });
+
+  it('returns null when no strings are enabled', () => {
+    setEnabledStrings([]);
+    const mode = new RandomNoteMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).toBeNull();
+    expect(globalThis.alert).toHaveBeenCalled();
+  });
+});
+
+describe('IntervalTrainingMode', () => {
+  it('generates interval target note within natural pool', () => {
+    const mode = new IntervalTrainingMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt!.targetString).toBeNull();
+    expect(prompt!.targetNote).toBeTruthy();
+    expect(NATURAL_NOTES).toContain(prompt!.targetNote!);
+    expect(prompt!.displayText).toContain('Find:');
+  });
+});
+
+describe('ScalePracticeMode', () => {
+  it('builds sequence and emits prompt from scale notes', () => {
+    const mode = new ScalePracticeMode();
+    const prompt = mode.generatePrompt();
+
+    expect(mockState.scaleNotes.length).toBeGreaterThan(0);
+    expect(prompt).not.toBeNull();
+    expect(prompt!.targetNote).toBeTruthy();
+    expect(prompt!.targetString).toBeTruthy();
+  });
+
+  it('signals completion when sequence is exhausted', () => {
+    const mode = new ScalePracticeMode();
+    mockState.scaleNotes = [{ note: 'C', string: 'A' }];
+    mockState.currentScaleIndex = 1;
+
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).toBeNull();
+    expect(setPromptTextMock).toHaveBeenCalledWith('Scale complete!');
+  });
+});
+
+describe('ChordTrainingMode', () => {
+  it('generates chord prompt from selected chord', () => {
+    const mode = new ChordTrainingMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt!.baseChordName).toBe('C Major');
+    expect(prompt!.targetChordNotes).toEqual(['C', 'E', 'G']);
+    expect(prompt!.targetChordFingering.length).toBeGreaterThan(0);
+  });
+});
+
+describe('ChordProgressionMode', () => {
+  it('iterates and loops through progression chords', () => {
+    const mode = new ChordProgressionMode();
+
+    const first = mode.generatePrompt();
+    const second = mode.generatePrompt();
+    const third = mode.generatePrompt();
+
+    expect(first!.baseChordName).toBe('C Major');
+    expect(second!.baseChordName).toBe('G Major');
+    expect(third!.baseChordName).toBe('C Major');
+  });
+});
+
+describe('ArpeggioTrainingMode', () => {
+  it('generates note-by-note prompts from chord notes', () => {
+    const mode = new ArpeggioTrainingMode();
+
+    const first = mode.generatePrompt();
+    expect(first).not.toBeNull();
+    expect(first!.targetNote).toBe('C');
+
+    mockState.currentArpeggioIndex = 1;
+    const second = mode.generatePrompt();
+    expect(second).not.toBeNull();
+    expect(second!.targetNote).toBe('E');
+  });
+
+  it('applies asc-desc pattern on arpeggio start', () => {
+    mockDom.arpeggioPatternSelector.value = 'asc-desc';
+    const mode = new ArpeggioTrainingMode();
+
+    mode.generatePrompt();
+
+    expect(mockState.currentPrompt).not.toBeNull();
+    expect(mockState.currentPrompt!.targetChordNotes).toEqual(['C', 'E', 'G', 'E', 'C']);
+  });
+});

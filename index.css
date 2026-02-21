@@ -1,0 +1,30 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #2b3e50 0%, #1a252f 100%);
+}
+
+/* Hides the arrows in number inputs for a cleaner look */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* A small helper to ensure the tuner display transition works smoothly with Tailwind's invisible class */
+.tuner-display.visible {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0s;
+}
