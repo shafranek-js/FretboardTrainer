@@ -6,7 +6,7 @@ import { scheduleSessionTimeout, startListening, stopListening } from '../logic'
 import { instruments } from '../instruments';
 import { clearResultMessage, setResultMessage } from '../ui-signals';
 import { getEnabledStrings } from '../fretboard-ui-state';
-import { isChordAudioReferenceMode } from '../training-mode-groups';
+import { buildPromptAudioPlan } from '../prompt-audio-plan';
 
 function findPlayableStringForNote(note: string): string | null {
   const instrumentData = state.currentInstrument;
@@ -77,37 +77,18 @@ export function registerSessionControls() {
     const prompt = state.currentPrompt;
     if (!prompt) return;
 
-    const trainingMode = dom.trainingMode.value;
-    // Arpeggios are played note-by-note, so we treat them like single-note modes for sound playback.
-    const isChordBased = isChordAudioReferenceMode(trainingMode);
+    const audioPlan = buildPromptAudioPlan({
+      prompt,
+      trainingMode: dom.trainingMode.value,
+      instrument: state.currentInstrument,
+      calibratedA4: state.calibratedA4,
+      enabledStrings: getEnabledStrings(dom.stringSelector),
+    });
 
-    if (isChordBased && prompt.targetChordFingering.length > 0) {
-      const notesToPlay = prompt.targetChordFingering
-        .map((noteInfo) =>
-          state.currentInstrument.getNoteWithOctave(noteInfo.string, noteInfo.fret)
-        )
-        .filter((note): note is string => note !== null);
-
-      if (notesToPlay.length > 0) {
-        playSound(notesToPlay);
-      }
-      return;
-    }
-
-    if (!prompt.targetNote) return;
-
-    const targetString = findPlayableStringForNote(prompt.targetNote);
-    if (!targetString) return;
-
-    const fret =
-      state.currentInstrument.FRETBOARD[
-        targetString as keyof typeof state.currentInstrument.FRETBOARD
-      ][prompt.targetNote as keyof typeof state.currentInstrument.FRETBOARD.e];
-    if (typeof fret !== 'number') return;
-
-    const noteToPlay = state.currentInstrument.getNoteWithOctave(targetString, fret);
-    if (noteToPlay) {
-      playSound(noteToPlay);
+    if (audioPlan.notesToPlay.length === 1) {
+      playSound(audioPlan.notesToPlay[0]);
+    } else if (audioPlan.notesToPlay.length > 1) {
+      playSound(audioPlan.notesToPlay);
     }
   });
 
