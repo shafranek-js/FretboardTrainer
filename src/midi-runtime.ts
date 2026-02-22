@@ -55,6 +55,8 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   state.inputSource = inputSource === 'midi' && !supportsWebMidi() ? 'microphone' : inputSource;
   dom.inputSource.value = state.inputSource;
   const usingMidi = state.inputSource === 'midi';
+  dom.audioInputRow.classList.toggle('hidden', usingMidi);
+  dom.audioInputInfo.classList.toggle('hidden', usingMidi);
   dom.midiInputRow.classList.toggle('hidden', !usingMidi);
   dom.midiInputInfo.classList.toggle('hidden', !usingMidi);
   updateSessionInputStatusHud();

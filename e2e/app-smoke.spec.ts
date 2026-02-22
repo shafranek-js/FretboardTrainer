@@ -26,14 +26,17 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
   if (midiOptionDisabled) {
     await expect(page.locator('#inputSource')).toHaveValue('microphone');
     await expect(page.locator('#midiInputRow')).toBeHidden();
+    await expect(page.locator('#audioInputRow')).toBeVisible();
     await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
   } else {
     await page.locator('#inputSource').selectOption('midi');
     await expect(page.locator('#midiInputRow')).toBeVisible();
+    await expect(page.locator('#audioInputRow')).toBeHidden();
     await expect(page.locator('#inputStatusBar')).toContainText(/MIDI:/i);
 
     await page.locator('#inputSource').selectOption('microphone');
     await expect(page.locator('#midiInputRow')).toBeHidden();
+    await expect(page.locator('#audioInputRow')).toBeVisible();
     await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
   }
 

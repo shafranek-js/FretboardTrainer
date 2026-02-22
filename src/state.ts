@@ -17,6 +17,7 @@ export const dom = {
   tuningPreset: document.getElementById('tuningPreset') as HTMLSelectElement,
   difficulty: document.getElementById('difficulty') as HTMLSelectElement,
   noteNaming: document.getElementById('noteNaming') as HTMLSelectElement,
+  audioInputRow: document.getElementById('audioInputRow') as HTMLElement,
   audioInputDevice: document.getElementById('audioInputDevice') as HTMLSelectElement,
   midiInputRow: document.getElementById('midiInputRow') as HTMLElement,
   midiInputDevice: document.getElementById('midiInputDevice') as HTMLSelectElement,
