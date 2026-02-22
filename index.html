@@ -582,9 +582,11 @@
 
     <div
       id="statsModal"
-      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4"
     >
-      <div class="modal-content relative bg-slate-700 p-8 rounded-lg shadow-xl w-full max-w-md">
+      <div
+        class="modal-content relative bg-slate-700 p-5 sm:p-7 rounded-lg shadow-xl w-full max-w-6xl"
+      >
         <button
           id="closeStatsBtn"
           class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
@@ -592,101 +594,150 @@
         >
           &times;
         </button>
-        <h2 class="text-2xl font-bold mb-6 text-white text-center">My Statistics</h2>
-        <div class="stats-grid grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 mb-5 text-lg">
-          <div class="font-bold text-slate-400 text-right">High Score:</div>
-          <div id="statsHighScore" class="font-bold text-white">0</div>
-          <div class="font-bold text-slate-400 text-right">Overall Accuracy:</div>
-          <div id="statsAccuracy" class="font-bold text-white">0%</div>
-          <div class="font-bold text-slate-400 text-right">Avg. Time / Note:</div>
-          <div id="statsAvgTime" class="font-bold text-white">0s</div>
-        </div>
-        <div class="problem-notes mb-5">
-          <h4 class="mb-2 text-center font-semibold text-slate-400">
-            Problem Notes (Slowest / Least Accurate)
-          </h4>
-          <ul id="statsProblemNotes" class="list-none p-0 text-center space-y-1">
-            <li class="bg-slate-600 p-2 rounded">No data yet. Play a few rounds!</li>
-          </ul>
-        </div>
-        <div id="statsLastSessionSection" class="mb-5 hidden">
-          <h4 class="mb-2 text-center font-semibold text-slate-400">Last Session Summary</h4>
-          <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 mb-3 text-sm">
-            <div class="text-slate-400 text-right">Mode:</div>
-            <div id="statsLastSessionMode" class="text-white font-medium">-</div>
-            <div class="text-slate-400 text-right">Duration:</div>
-            <div id="statsLastSessionDuration" class="text-white font-medium">-</div>
-            <div class="text-slate-400 text-right">Attempts:</div>
-            <div id="statsLastSessionAttempts" class="text-white font-medium">-</div>
-            <div class="text-slate-400 text-right">Accuracy:</div>
-            <div id="statsLastSessionAccuracy" class="text-white font-medium">-</div>
-            <div class="text-slate-400 text-right">Avg. Time / Correct:</div>
-            <div id="statsLastSessionAvgTime" class="text-white font-medium">-</div>
-            <div class="text-slate-400 text-right">Best Correct Streak:</div>
-            <div id="statsLastSessionBestStreak" class="text-white font-medium">-</div>
+        <h2 class="text-2xl font-bold mb-4 sm:mb-5 text-white text-center">My Statistics</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <div class="rounded-lg border border-slate-600 bg-slate-800/45 px-3 py-2 text-center">
+            <div class="text-[11px] uppercase tracking-wide text-slate-400">High Score</div>
+            <div id="statsHighScore" class="mt-1 text-xl sm:text-2xl font-bold text-white">0</div>
           </div>
-          <div
-            id="statsLastSessionCoachTip"
-            class="mb-3 text-xs leading-4 text-amber-100 bg-amber-900/20 border border-amber-700/35 rounded-md px-3 py-2"
-            role="note"
-          >
-            -
+          <div class="rounded-lg border border-slate-600 bg-slate-800/45 px-3 py-2 text-center">
+            <div class="text-[11px] uppercase tracking-wide text-slate-400">Overall Accuracy</div>
+            <div id="statsAccuracy" class="mt-1 text-xl sm:text-2xl font-bold text-white">0%</div>
           </div>
-          <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
-            Weak Spots This Session
-          </h5>
-          <ul id="statsLastSessionWeakSpots" class="list-none p-0 text-center space-y-1">
-            <li class="bg-slate-600 p-2 rounded">No graded note attempts in the last session.</li>
-          </ul>
-          <div id="statsLastSessionRhythmSummary" class="mt-3 hidden">
-            <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
-              Rhythm Timing Summary
-            </h5>
-            <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-              <div class="text-slate-400 text-right">On Beat:</div>
-              <div id="statsRhythmOnBeat" class="text-white">-</div>
-              <div class="text-slate-400 text-right">Early:</div>
-              <div id="statsRhythmEarly" class="text-white">-</div>
-              <div class="text-slate-400 text-right">Late:</div>
-              <div id="statsRhythmLate" class="text-white">-</div>
-              <div class="text-slate-400 text-right">Avg Abs Offset:</div>
-              <div id="statsRhythmAvgOffset" class="text-white">-</div>
-              <div class="text-slate-400 text-right">Best Offset:</div>
-              <div id="statsRhythmBestOffset" class="text-white">-</div>
+          <div class="rounded-lg border border-slate-600 bg-slate-800/45 px-3 py-2 text-center">
+            <div class="text-[11px] uppercase tracking-wide text-slate-400">Avg. Time / Note</div>
+            <div id="statsAvgTime" class="mt-1 text-xl sm:text-2xl font-bold text-white">0s</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-4 items-start">
+          <div class="problem-notes rounded-lg border border-slate-600 bg-slate-800/35 p-3 sm:p-4">
+            <h4 class="mb-2 text-center font-semibold text-slate-300 text-sm">
+              Problem Notes (Slowest / Least Accurate)
+            </h4>
+            <ul id="statsProblemNotes" class="list-none p-0 text-center space-y-1 text-sm">
+              <li class="bg-slate-600 p-2 rounded">No data yet. Play a few rounds!</li>
+            </ul>
+          </div>
+
+          <div id="statsLastSessionSection" class="hidden rounded-lg border border-slate-600 bg-slate-800/35 p-3 sm:p-4">
+            <h4 class="mb-3 text-center font-semibold text-slate-300 text-sm">Last Session Summary</h4>
+
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-3 text-xs">
+              <div class="rounded-md bg-slate-700/70 px-2 py-2">
+                <div class="text-slate-400">Mode</div>
+                <div id="statsLastSessionMode" class="text-white font-medium truncate">-</div>
+              </div>
+              <div class="rounded-md bg-slate-700/70 px-2 py-2">
+                <div class="text-slate-400">Duration</div>
+                <div id="statsLastSessionDuration" class="text-white font-medium">-</div>
+              </div>
+              <div class="rounded-md bg-slate-700/70 px-2 py-2">
+                <div class="text-slate-400">Attempts</div>
+                <div id="statsLastSessionAttempts" class="text-white font-medium">-</div>
+              </div>
+              <div class="rounded-md bg-slate-700/70 px-2 py-2">
+                <div class="text-slate-400">Accuracy</div>
+                <div id="statsLastSessionAccuracy" class="text-white font-medium">-</div>
+              </div>
+              <div class="rounded-md bg-slate-700/70 px-2 py-2">
+                <div class="text-slate-400">Avg. Time / Correct</div>
+                <div id="statsLastSessionAvgTime" class="text-white font-medium">-</div>
+              </div>
+              <div class="rounded-md bg-slate-700/70 px-2 py-2">
+                <div class="text-slate-400">Best Streak</div>
+                <div id="statsLastSessionBestStreak" class="text-white font-medium">-</div>
+              </div>
             </div>
-          </div>
-          <div class="mt-3">
-            <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
-              Target Zone Heatmap (errors by prompt position)
-            </h5>
+
             <div
-              id="statsLastSessionHeatmap"
-              class="bg-slate-800/60 border border-slate-600 rounded-md p-2 overflow-x-auto"
+              id="statsLastSessionCoachTip"
+              class="mb-3 text-xs leading-4 text-amber-100 bg-amber-900/20 border border-amber-700/35 rounded-md px-3 py-2"
+              role="note"
             >
-              <div class="text-center text-xs text-slate-400">
-                Heatmap appears after string-specific note practice.
+              -
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div>
+                <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
+                  Weak Spots This Session
+                </h5>
+                <ul id="statsLastSessionWeakSpots" class="list-none p-0 text-center space-y-1 text-sm">
+                  <li class="bg-slate-600 p-2 rounded">
+                    No graded note attempts in the last session.
+                  </li>
+                </ul>
+              </div>
+
+              <div class="space-y-3">
+                <div id="statsLastSessionRhythmSummary" class="hidden">
+                  <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
+                    Rhythm Timing Summary
+                  </h5>
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="rounded-md bg-slate-700/70 px-2 py-1.5">
+                      <div class="text-slate-400">On Beat</div>
+                      <div id="statsRhythmOnBeat" class="text-white">-</div>
+                    </div>
+                    <div class="rounded-md bg-slate-700/70 px-2 py-1.5">
+                      <div class="text-slate-400">Early</div>
+                      <div id="statsRhythmEarly" class="text-white">-</div>
+                    </div>
+                    <div class="rounded-md bg-slate-700/70 px-2 py-1.5">
+                      <div class="text-slate-400">Late</div>
+                      <div id="statsRhythmLate" class="text-white">-</div>
+                    </div>
+                    <div class="rounded-md bg-slate-700/70 px-2 py-1.5">
+                      <div class="text-slate-400">Avg Abs Offset</div>
+                      <div id="statsRhythmAvgOffset" class="text-white">-</div>
+                    </div>
+                    <div class="rounded-md bg-slate-700/70 px-2 py-1.5 col-span-2">
+                      <div class="text-slate-400">Best Offset</div>
+                      <div id="statsRhythmBestOffset" class="text-white">-</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
+                    Target Zone Heatmap (errors by prompt position)
+                  </h5>
+                  <div
+                    id="statsLastSessionHeatmap"
+                    class="bg-slate-800/60 border border-slate-600 rounded-md p-2 overflow-x-auto"
+                  >
+                    <div class="text-center text-xs text-slate-400">
+                      Heatmap appears after string-specific note practice.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <button
-          id="repeatLastSessionBtn"
-          class="block mx-auto mt-2 mb-3 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-        >
-          Repeat Last Session Setup
-        </button>
-        <button
-          id="practiceWeakSpotsBtn"
-          class="block mx-auto mt-2 mb-3 py-2 px-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md transition-colors"
-        >
-          Practice Weak Spots
-        </button>
-        <button
-          id="resetStatsBtn"
-          class="block mx-auto mt-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
-        >
-          Reset All Stats
-        </button>
+
+        <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <button
+            id="repeatLastSessionBtn"
+            class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+          >
+            Repeat Last Session Setup
+          </button>
+          <button
+            id="practiceWeakSpotsBtn"
+            class="py-2 px-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md transition-colors text-sm"
+          >
+            Practice Weak Spots
+          </button>
+          <button
+            id="resetStatsBtn"
+            class="py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm"
+          >
+            Reset All Stats
+          </button>
+        </div>
       </div>
     </div>
 
