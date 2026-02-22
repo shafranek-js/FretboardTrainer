@@ -299,6 +299,12 @@ export function loadStats() {
       ) {
         state.lastSessionStats = {
           ...(loadedLastSession as SessionStats),
+          inputSource:
+            loadedLastSession.inputSource === 'midi' ? 'midi' : 'microphone',
+          inputDeviceLabel:
+            typeof loadedLastSession.inputDeviceLabel === 'string'
+              ? loadedLastSession.inputDeviceLabel
+              : '',
           tuningPresetKey:
             typeof loadedLastSession.tuningPresetKey === 'string' ? loadedLastSession.tuningPresetKey : '',
           currentCorrectStreak:

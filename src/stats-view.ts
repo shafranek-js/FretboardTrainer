@@ -18,6 +18,7 @@ export interface StatsViewModel {
 
 export interface LastSessionViewModel {
   modeLabel: string;
+  inputText: string;
   durationText: string;
   attemptsText: string;
   accuracyText: string;
@@ -241,6 +242,7 @@ function buildLastSessionViewModel(
 
   return {
     modeLabel: sessionStats.modeLabel,
+    inputText: `${sessionStats.inputSource === 'midi' ? 'MIDI' : 'Mic'}: ${sessionStats.inputDeviceLabel || 'Default'}`,
     durationText: formatDurationMs(durationMs),
     attemptsText: `${sessionStats.correctAttempts}/${sessionStats.totalAttempts} correct`,
     accuracyText: `${accuracy.toFixed(1)}%`,

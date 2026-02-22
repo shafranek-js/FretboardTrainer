@@ -537,6 +537,13 @@
             >
               MIDI input requires a browser with Web MIDI support (Chrome/Edge desktop).
             </div>
+            <div
+              id="midiConnectionStatus"
+              class="mt-2 hidden text-[11px] leading-4 text-slate-200 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="status"
+            >
+              MIDI Connection: -
+            </div>
           </div>
           <button
             id="openCalibrateBtn"
@@ -677,6 +684,10 @@
               <div class="rounded-md bg-slate-700/70 px-2 py-2">
                 <div class="text-slate-400">Mode</div>
                 <div id="statsLastSessionMode" class="text-white font-medium truncate">-</div>
+              </div>
+              <div class="rounded-md bg-slate-700/70 px-2 py-2">
+                <div class="text-slate-400">Input</div>
+                <div id="statsLastSessionInput" class="text-white font-medium truncate" title="-">-</div>
               </div>
               <div class="rounded-md bg-slate-700/70 px-2 py-2">
                 <div class="text-slate-400">Duration</div>

@@ -253,6 +253,8 @@ function renderStatsView(statsView: StatsViewModel) {
   if (statsView.lastSession) {
     dom.statsLastSessionSection.classList.remove('hidden');
     dom.statsLastSessionMode.textContent = formatMusicText(statsView.lastSession.modeLabel);
+    dom.statsLastSessionInput.textContent = statsView.lastSession.inputText;
+    dom.statsLastSessionInput.title = statsView.lastSession.inputText;
     dom.statsLastSessionDuration.textContent = statsView.lastSession.durationText;
     dom.statsLastSessionAttempts.textContent = statsView.lastSession.attemptsText;
     dom.statsLastSessionAccuracy.textContent = statsView.lastSession.accuracyText;

@@ -24,6 +24,8 @@ interface CreateSessionStatsInput {
   modeLabel: string;
   instrumentName?: string;
   tuningPresetKey?: string;
+  inputSource?: 'microphone' | 'midi';
+  inputDeviceLabel?: string;
   stringOrder?: string[];
   enabledStrings?: string[];
   minFret?: number;
@@ -55,6 +57,8 @@ export function createSessionStats({
   modeLabel,
   instrumentName = '',
   tuningPresetKey = '',
+  inputSource = 'microphone',
+  inputDeviceLabel = '',
   stringOrder = [],
   enabledStrings = [],
   minFret = 0,
@@ -68,6 +72,8 @@ export function createSessionStats({
     endedAtMs: null,
     instrumentName,
     tuningPresetKey,
+    inputSource,
+    inputDeviceLabel,
     stringOrder: [...stringOrder],
     enabledStrings: [...enabledStrings],
     minFret,

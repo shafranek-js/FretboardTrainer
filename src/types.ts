@@ -24,6 +24,8 @@ export interface SessionStats {
   endedAtMs: number | null;
   instrumentName: string;
   tuningPresetKey: string;
+  inputSource?: 'microphone' | 'midi';
+  inputDeviceLabel?: string;
   stringOrder: string[];
   enabledStrings: string[];
   minFret: number;

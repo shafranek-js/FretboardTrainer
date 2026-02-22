@@ -43,6 +43,37 @@ export function refreshInputSourceAvailabilityUi() {
   }
 }
 
+function updateMidiConnectionStatusUi() {
+  const isMidiSelected = state.inputSource === 'midi';
+  dom.midiConnectionStatus.classList.toggle('hidden', !isMidiSelected);
+  if (!isMidiSelected) return;
+
+  if (!supportsWebMidi()) {
+    dom.midiConnectionStatus.textContent = 'MIDI Connection: Unsupported in this browser';
+    return;
+  }
+
+  if (!state.midiAccess) {
+    dom.midiConnectionStatus.textContent = 'MIDI Connection: Not initialized';
+    return;
+  }
+
+  const inputs = Array.from(state.midiAccess.inputs.values());
+  if (inputs.length === 0) {
+    dom.midiConnectionStatus.textContent = 'MIDI Connection: No devices detected';
+    return;
+  }
+
+  const activeInputName =
+    state.midiInput?.name?.trim() ||
+    inputs.find((input) => input.id === (state.preferredMidiInputDeviceId ?? ''))?.name?.trim() ||
+    inputs[0]?.name?.trim() ||
+    'Default MIDI device';
+
+  const isLiveBound = Boolean(state.midiInput);
+  dom.midiConnectionStatus.textContent = `MIDI Connection: ${isLiveBound ? 'Listening' : 'Ready'} (${activeInputName})`;
+}
+
 export function normalizeInputSource(value: unknown): InputSourceKind {
   return value === 'midi' ? 'midi' : 'microphone';
 }
@@ -60,12 +91,14 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   dom.midiInputRow.classList.toggle('hidden', !usingMidi);
   dom.midiInputInfo.classList.toggle('hidden', !usingMidi);
   updateSessionInputStatusHud();
+  updateMidiConnectionStatusUi();
 }
 
 export function setPreferredMidiInputDeviceId(deviceId: string | null) {
   state.preferredMidiInputDeviceId = deviceId;
   dom.midiInputDevice.value = deviceId ?? '';
   updateSessionInputStatusHud();
+  updateMidiConnectionStatusUi();
 }
 
 function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
@@ -80,6 +113,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
   if (!midiAccess) {
     dom.midiInputDevice.disabled = true;
     dom.midiInputInfo.textContent = 'Web MIDI is not supported in this browser (Chrome/Edge desktop recommended).';
+    updateMidiConnectionStatusUi();
     return;
   }
 
@@ -96,6 +130,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
     dom.midiInputInfo.textContent = 'No MIDI input devices detected. Connect a device and reopen Settings.';
     dom.midiInputDevice.value = '';
     state.preferredMidiInputDeviceId = null;
+    updateMidiConnectionStatusUi();
     return;
   }
 
@@ -107,6 +142,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
   dom.midiInputInfo.textContent =
     'MIDI input supports single-note and chord/progression practice (Web MIDI / note-on + held notes).';
   updateSessionInputStatusHud();
+  updateMidiConnectionStatusUi();
 }
 
 export async function refreshMidiInputDevices(requestAccess = true) {
@@ -186,9 +222,11 @@ export async function startMidiInput(noteHandler: MidiNoteHandler) {
 
   // Keep UI selection aligned if we auto-selected the first device.
   setPreferredMidiInputDeviceId(selectedInput.id);
+  updateMidiConnectionStatusUi();
 }
 
 export function stopMidiInput() {
   heldMidiNoteNumbers.clear();
   detachMidiInputListener();
+  updateMidiConnectionStatusUi();
 }

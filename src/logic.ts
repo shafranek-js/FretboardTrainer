@@ -514,11 +514,18 @@ export async function startListening(forCalibration = false) {
     if (!forCalibration) {
       const selectedMode = dom.trainingMode.selectedOptions[0];
       const { minFret, maxFret } = getSelectedFretRange(dom.startFret.value, dom.endFret.value);
+      const inputSource = state.inputSource;
+      const inputDeviceLabel =
+        inputSource === 'midi'
+          ? dom.midiInputDevice.selectedOptions[0]?.textContent?.trim() || 'Default MIDI device'
+          : dom.audioInputDevice.selectedOptions[0]?.textContent?.trim() || 'Default microphone';
       state.activeSessionStats = createSessionStats({
         modeKey: dom.trainingMode.value,
         modeLabel: selectedMode?.textContent?.trim() || dom.trainingMode.value,
         instrumentName: state.currentInstrument.name,
         tuningPresetKey: state.currentTuningPresetKey,
+        inputSource,
+        inputDeviceLabel,
         stringOrder: state.currentInstrument.STRING_ORDER,
         enabledStrings: Array.from(getEnabledStrings(dom.stringSelector)),
         minFret,
