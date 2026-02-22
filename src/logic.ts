@@ -53,6 +53,10 @@ import { buildSessionStartPlan } from './session-start-preflight';
 import { ensureAudioRuntime, teardownAudioRuntime } from './audio-runtime';
 import { refreshAudioInputDeviceOptions } from './audio-input-devices';
 import { startMidiInput, stopMidiInput, type MidiNoteEvent } from './midi-runtime';
+import {
+  areMidiHeldNotesMatchingTargetChord,
+  formatDetectedMidiChordNotes,
+} from './midi-chord-evaluation';
 import { buildSessionSuccessPlan } from './session-success-plan';
 import { buildSessionNextPromptPlan } from './session-next-prompt-plan';
 import {
@@ -169,19 +173,6 @@ function handleRhythmModeStableNote(detectedNote: string) {
   setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
 }
 
-function formatDetectedChordNotesText(notes: Iterable<string>) {
-  const normalized = [...new Set(notes)].sort();
-  return normalized.join(',') || '...';
-}
-
-function areMidiHeldNotesMatchingTargetChord(heldNoteNames: string[], targetChordNotes: string[]) {
-  const target = [...new Set(targetChordNotes)].sort();
-  const held = [...new Set(heldNoteNames)].sort();
-  if (target.length === 0) return false;
-  if (held.length !== target.length) return false;
-  return held.every((note, index) => note === target[index]);
-}
-
 function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
   const prompt = state.currentPrompt;
   if (!prompt) return;
@@ -191,7 +182,7 @@ function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
   const uniqueTargetNotes = [...new Set(targetChordNotes)];
   if (uniqueTargetNotes.length === 0) return;
 
-  const detectedNotesText = formatDetectedChordNotesText(heldNoteNames);
+  const detectedNotesText = formatDetectedMidiChordNotes(heldNoteNames);
   state.lastDetectedChord = detectedNotesText;
 
   if (event.kind === 'noteoff' && heldNoteNames.length === 0) {
