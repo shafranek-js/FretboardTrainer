@@ -1,4 +1,5 @@
 import { dom, state } from './state';
+import { updateSessionInputStatusHud } from './input-source-status';
 
 function buildAudioInputOptionLabel(device: MediaDeviceInfo, index: number) {
   const trimmedLabel = device.label.trim();
@@ -14,6 +15,7 @@ export function setPreferredAudioInputDeviceId(deviceId: string | null) {
   if (dom.audioInputDevice) {
     dom.audioInputDevice.value = deviceId ?? '';
   }
+  updateSessionInputStatusHud();
 }
 
 export async function refreshAudioInputDeviceOptions() {
@@ -53,10 +55,12 @@ export async function refreshAudioInputDeviceOptions() {
     if (!hasCurrentValue) {
       state.preferredAudioInputDeviceId = null;
     }
+    updateSessionInputStatusHud();
   } catch (error) {
     console.warn('Failed to enumerate audio input devices:', error);
     dom.audioInputDevice.innerHTML = '<option value="">Default microphone</option>';
     dom.audioInputDevice.disabled = false;
     dom.audioInputDevice.value = '';
+    updateSessionInputStatusHud();
   }
 }

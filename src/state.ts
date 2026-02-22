@@ -85,6 +85,7 @@ export const dom = {
   tunerCents: document.getElementById('tunerCents') as HTMLElement,
   volumeBar: document.getElementById('volumeBar')!,
   statusBar: document.getElementById('statusBar')!,
+  inputStatusBar: document.getElementById('inputStatusBar') as HTMLElement,
   loadingOverlay: document.getElementById('loadingOverlay') as HTMLElement,
   loadingMessage: document.getElementById('loadingMessage') as HTMLElement,
   settingsModal: document.getElementById('settingsModal') as HTMLElement,

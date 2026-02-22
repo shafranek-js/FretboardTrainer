@@ -23,11 +23,19 @@
         </div>
 
         <div
-          class="session-status absolute top-1.5 right-2 sm:top-2 sm:right-4 flex items-center gap-1.5 sm:gap-2 bg-slate-800/90 border border-slate-600 rounded-md px-2 sm:px-3 py-1 text-[11px] sm:text-xs"
+          class="session-status absolute top-1.5 right-2 sm:top-2 sm:right-4 flex flex-col items-start gap-0.5 bg-slate-800/90 border border-slate-600 rounded-md px-2 sm:px-3 py-1 text-[11px] sm:text-xs"
           role="status"
         >
-          <span class="hidden sm:inline text-slate-400 uppercase tracking-wide">Status</span>
-          <span id="statusBar" class="text-slate-200 font-semibold">Ready</span>
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <span class="hidden sm:inline text-slate-400 uppercase tracking-wide">Status</span>
+            <span id="statusBar" class="text-slate-200 font-semibold">Ready</span>
+          </div>
+          <div class="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px]">
+            <span class="hidden sm:inline text-slate-500 uppercase tracking-wide">Input</span>
+            <span id="inputStatusBar" class="text-slate-300 truncate max-w-[120px] sm:max-w-[180px]">
+              Mic: Default
+            </span>
+          </div>
         </div>
 
         <div class="prompt-container flex items-center justify-center gap-3 sm:gap-4">

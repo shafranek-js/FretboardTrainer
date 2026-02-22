@@ -1,4 +1,6 @@
 import { dom, state } from './state';
+import { updateSessionInputStatusHud } from './input-source-status';
+import { parseMidiMessageData } from './midi-message';
 
 export type InputSourceKind = 'microphone' | 'midi';
 
@@ -13,7 +15,6 @@ export interface MidiNoteEvent {
 
 type MidiNoteHandler = (event: MidiNoteEvent) => void;
 
-const MIDI_PITCH_CLASSES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 const heldMidiNoteNumbers = new Set<number>();
 
 function getRequestMIDIAccess():
@@ -43,15 +44,13 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   const usingMidi = inputSource === 'midi';
   dom.midiInputRow.classList.toggle('hidden', !usingMidi);
   dom.midiInputInfo.classList.toggle('hidden', !usingMidi);
+  updateSessionInputStatusHud();
 }
 
 export function setPreferredMidiInputDeviceId(deviceId: string | null) {
   state.preferredMidiInputDeviceId = deviceId;
   dom.midiInputDevice.value = deviceId ?? '';
-}
-
-export function midiNoteNumberToPitchClass(noteNumber: number) {
-  return MIDI_PITCH_CLASSES[((noteNumber % 12) + 12) % 12];
+  updateSessionInputStatusHud();
 }
 
 function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
@@ -92,6 +91,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
   }
   dom.midiInputInfo.textContent =
     'MIDI input supports single-note and chord/progression practice (Web MIDI / note-on + held notes).';
+  updateSessionInputStatusHud();
 }
 
 export async function refreshMidiInputDevices(requestAccess = true) {
@@ -142,32 +142,11 @@ function getSelectedMidiInput(midiAccess: MIDIAccess): MIDIInput | null {
 }
 
 function parseMidiNoteEvent(event: MIDIMessageEvent): MidiNoteEvent | null {
-  const data = event.data;
-  if (!data || data.length < 3) return null;
-
-  const status = data[0] & 0xf0;
-  const noteNumber = data[1];
-  const velocity = data[2];
-  let kind: 'noteon' | 'noteoff' | null = null;
-  if (status === 0x90 && velocity > 0) {
-    heldMidiNoteNumbers.add(noteNumber);
-    kind = 'noteon';
-  } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
-    heldMidiNoteNumbers.delete(noteNumber);
-    kind = 'noteoff';
-  }
-  if (!kind) return null;
-
-  const heldNoteNames = [...new Set([...heldMidiNoteNumbers].map((num) => midiNoteNumberToPitchClass(num)))].sort();
-
-  return {
-    kind,
-    noteNumber,
-    noteName: midiNoteNumberToPitchClass(noteNumber),
-    velocity,
-    timestampMs: typeof event.timeStamp === 'number' ? event.timeStamp : performance.now(),
-    heldNoteNames,
-  };
+  return parseMidiMessageData(
+    event.data,
+    typeof event.timeStamp === 'number' ? event.timeStamp : performance.now(),
+    heldMidiNoteNumbers
+  );
 }
 
 export async function startMidiInput(noteHandler: MidiNoteHandler) {
