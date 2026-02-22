@@ -52,7 +52,7 @@ import { createSessionStopResetState } from './session-reset-state';
 import { buildSessionStartPlan } from './session-start-preflight';
 import { ensureAudioRuntime, teardownAudioRuntime } from './audio-runtime';
 import { refreshAudioInputDeviceOptions } from './audio-input-devices';
-import { startMidiInput, stopMidiInput } from './midi-runtime';
+import { startMidiInput, stopMidiInput, type MidiNoteEvent } from './midi-runtime';
 import { buildSessionSuccessPlan } from './session-success-plan';
 import { buildSessionNextPromptPlan } from './session-next-prompt-plan';
 import {
@@ -167,6 +167,56 @@ function handleRhythmModeStableNote(detectedNote: string) {
     timing.tone === 'success'
   );
   setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
+}
+
+function formatDetectedChordNotesText(notes: Iterable<string>) {
+  const normalized = [...new Set(notes)].sort();
+  return normalized.join(',') || '...';
+}
+
+function areMidiHeldNotesMatchingTargetChord(heldNoteNames: string[], targetChordNotes: string[]) {
+  const target = [...new Set(targetChordNotes)].sort();
+  const held = [...new Set(heldNoteNames)].sort();
+  if (target.length === 0) return false;
+  if (held.length !== target.length) return false;
+  return held.every((note, index) => note === target[index]);
+}
+
+function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
+  const prompt = state.currentPrompt;
+  if (!prompt) return;
+
+  const heldNoteNames = event.heldNoteNames;
+  const targetChordNotes = prompt.targetChordNotes ?? [];
+  const uniqueTargetNotes = [...new Set(targetChordNotes)];
+  if (uniqueTargetNotes.length === 0) return;
+
+  const detectedNotesText = formatDetectedChordNotesText(heldNoteNames);
+  state.lastDetectedChord = detectedNotesText;
+
+  if (event.kind === 'noteoff' && heldNoteNames.length === 0) {
+    return;
+  }
+
+  if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetChordNotes)) {
+    const elapsed = (Date.now() - state.startTime) / 1000;
+    displayResult(true, elapsed);
+    return;
+  }
+
+  const heldUniqueCount = new Set(heldNoteNames).size;
+  if (heldUniqueCount < uniqueTargetNotes.length) {
+    return;
+  }
+
+  recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
+  setResultMessage(`Heard: ${detectedNotesText} [wrong]`, 'error');
+  if (!state.showingAllNotes) {
+    drawFretboard(false, null, null, prompt.targetChordFingering, new Set());
+    scheduleSessionCooldown('midi polyphonic mismatch redraw', 1200, () => {
+      redrawFretboard();
+    });
+  }
 }
 
 function handleStableMonophonicDetectedNote(detectedNote: string) {
@@ -440,14 +490,25 @@ export async function startListening(forCalibration = false) {
 
   try {
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
-    if (!forCalibration && selectedInputSource === 'midi' && modes[dom.trainingMode.value]?.detectionType === 'polyphonic') {
-      throw new Error('MIDI input currently supports only single-note modes (including Free Play and Rhythm).');
-    }
-
     if (!forCalibration && selectedInputSource === 'midi') {
       await startMidiInput((event) => {
         try {
           if (!state.isListening || state.cooldown || state.isCalibrating) return;
+          const currentMode = modes[dom.trainingMode.value];
+          if (!currentMode) return;
+
+          if (currentMode.detectionType === 'polyphonic') {
+            handleMidiPolyphonicChordUpdate(event);
+            return;
+          }
+
+          if (event.kind === 'noteoff') {
+            if (dom.trainingMode.value === 'free' && event.heldNoteNames.length === 0) {
+              clearLiveDetectedNoteHighlight();
+            }
+            return;
+          }
+
           handleStableMonophonicDetectedNote(event.noteName);
         } catch (error) {
           handleSessionRuntimeError('midi input message', error);

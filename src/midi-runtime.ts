@@ -3,15 +3,18 @@ import { dom, state } from './state';
 export type InputSourceKind = 'microphone' | 'midi';
 
 export interface MidiNoteEvent {
+  kind: 'noteon' | 'noteoff';
   noteNumber: number;
   noteName: string;
   velocity: number;
   timestampMs: number;
+  heldNoteNames: string[];
 }
 
 type MidiNoteHandler = (event: MidiNoteEvent) => void;
 
 const MIDI_PITCH_CLASSES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
+const heldMidiNoteNumbers = new Set<number>();
 
 function getRequestMIDIAccess():
   | ((options?: MIDIOptions) => Promise<MIDIAccess>)
@@ -88,7 +91,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
     state.preferredMidiInputDeviceId = null;
   }
   dom.midiInputInfo.textContent =
-    'MIDI mode supports note-on input for single-note training, Free Play, and Rhythm modes.';
+    'MIDI input supports single-note and chord/progression practice (Web MIDI / note-on + held notes).';
 }
 
 export async function refreshMidiInputDevices(requestAccess = true) {
@@ -145,15 +148,25 @@ function parseMidiNoteEvent(event: MIDIMessageEvent): MidiNoteEvent | null {
   const status = data[0] & 0xf0;
   const noteNumber = data[1];
   const velocity = data[2];
+  let kind: 'noteon' | 'noteoff' | null = null;
+  if (status === 0x90 && velocity > 0) {
+    heldMidiNoteNumbers.add(noteNumber);
+    kind = 'noteon';
+  } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
+    heldMidiNoteNumbers.delete(noteNumber);
+    kind = 'noteoff';
+  }
+  if (!kind) return null;
 
-  // Note-on with velocity 0 should be treated as note-off.
-  if (status !== 0x90 || velocity === 0) return null;
+  const heldNoteNames = [...new Set([...heldMidiNoteNumbers].map((num) => midiNoteNumberToPitchClass(num)))].sort();
 
   return {
+    kind,
     noteNumber,
     noteName: midiNoteNumberToPitchClass(noteNumber),
     velocity,
     timestampMs: typeof event.timeStamp === 'number' ? event.timeStamp : performance.now(),
+    heldNoteNames,
   };
 }
 
@@ -182,5 +195,6 @@ export async function startMidiInput(noteHandler: MidiNoteHandler) {
 }
 
 export function stopMidiInput() {
+  heldMidiNoteNumbers.clear();
   detachMidiInputListener();
 }
