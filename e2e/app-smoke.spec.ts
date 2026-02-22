@@ -7,6 +7,7 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
   await expect(page.locator('#sessionToggleBtn')).toBeVisible();
   await expect(page.locator('#sessionToggleBtn')).toHaveText(/Start Session/i);
   await expect(page.locator('#statusBar')).toHaveText(/Ready/i);
+  await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
 
   await expect(page.locator('#trainingMode')).toBeVisible();
   await expect(page.locator('#practiceSetupToggleBtn')).toBeVisible();
@@ -15,6 +16,15 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
   await expect(page.locator('#settingsModal')).toBeVisible();
   await expect(page.getByRole('heading', { name: /Settings & Tools/i })).toBeVisible();
   await expect(page.locator('#audioInputDevice')).toBeVisible();
+  await expect(page.locator('#inputSource')).toBeVisible();
+
+  await page.locator('#inputSource').selectOption('midi');
+  await expect(page.locator('#midiInputRow')).toBeVisible();
+  await expect(page.locator('#inputStatusBar')).toContainText(/MIDI:/i);
+
+  await page.locator('#inputSource').selectOption('microphone');
+  await expect(page.locator('#midiInputRow')).toBeHidden();
+  await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
 
   await page.locator('#openStatsBtn').click();
   await expect(page.locator('#statsModal')).toBeVisible();
