@@ -433,7 +433,7 @@
       class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     >
       <div
-        class="modal-content relative bg-slate-700 p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-xl text-center"
+        class="modal-content relative bg-slate-700 p-5 sm:p-7 rounded-lg shadow-xl w-full max-w-6xl"
       >
         <button
           id="closeSettingsBtn"
@@ -442,8 +442,8 @@
         >
           &times;
         </button>
-        <h2 class="text-2xl font-bold mb-6 text-white">Settings & Tools</h2>
-        <div class="settings-menu flex flex-col gap-4">
+        <h2 class="text-2xl font-bold mb-5 text-white text-center">Settings & Tools</h2>
+        <div class="settings-menu grid grid-cols-1 xl:grid-cols-[1.35fr_0.85fr] gap-4 items-start">
           <div class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left">
             <h4 class="mb-3 text-center text-slate-300 text-sm font-semibold uppercase tracking-wider">
               Defaults & Preferences
@@ -545,63 +545,76 @@
               MIDI Connection: -
             </div>
           </div>
-          <button
-            id="openCalibrateBtn"
-            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-          >
-            Calibrate Tuning
-          </button>
-          <button
-            id="openStatsBtn"
-            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-          >
-            My Stats
-          </button>
-          <button
-            id="openGuideBtn"
-            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-          >
-            User Guide
-          </button>
-          <button
-            id="openLinksBtn"
-            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-          >
-            Useful Links
-          </button>
-          <hr class="border-t border-slate-600 my-2" />
-          <h4 class="text-center text-slate-400 text-sm font-semibold uppercase tracking-wider">
-            Profile Management
-          </h4>
-          <div class="profile-manager flex flex-wrap items-center justify-center gap-3 text-[10px]">
-            <label for="profileSelector">Profile:</label>
-            <select
-              id="profileSelector"
-              class="bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-            >
-              <option value="__default__">Default Settings</option>
-            </select>
-            <button
-              id="saveAsProfileBtn"
-              title="Save as New Profile"
-              class="w-10 h-10 flex items-center justify-center text-xl bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-            >
-              &#128190;
-            </button>
-            <button
-              id="updateProfileBtn"
-              title="Update Current Profile"
-              class="w-10 h-10 flex items-center justify-center text-xl bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-            >
-              &#128260;
-            </button>
-            <button
-              id="deleteProfileBtn"
-              title="Delete Selected Profile"
-              class="w-10 h-10 flex items-center justify-center text-xl bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-            >
-              &#128465;&#65039;
-            </button>
+          <div class="grid grid-cols-1 gap-4">
+            <div class="rounded-lg border border-slate-600 bg-slate-800/40 p-4">
+              <h4 class="mb-3 text-center text-slate-300 text-sm font-semibold uppercase tracking-wider">
+                Tools
+              </h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+                <button
+                  id="openCalibrateBtn"
+                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                >
+                  Calibrate Tuning
+                </button>
+                <button
+                  id="openStatsBtn"
+                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                >
+                  My Stats
+                </button>
+                <button
+                  id="openGuideBtn"
+                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                >
+                  User Guide
+                </button>
+                <button
+                  id="openLinksBtn"
+                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                >
+                  Useful Links
+                </button>
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-slate-600 bg-slate-800/40 p-4">
+              <h4 class="mb-3 text-center text-slate-300 text-sm font-semibold uppercase tracking-wider">
+                Profile Management
+              </h4>
+              <div class="profile-manager grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-3 items-center text-xs">
+                <label for="profileSelector" class="text-slate-300">Profile:</label>
+                <select
+                  id="profileSelector"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="__default__">Default Settings</option>
+                </select>
+                <div class="sm:col-span-2 grid grid-cols-3 gap-2">
+                  <button
+                    id="saveAsProfileBtn"
+                    title="Save as New Profile"
+                    class="h-10 flex items-center justify-center text-xl bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+                  >
+                    &#128190;
+                  </button>
+                  <button
+                    id="updateProfileBtn"
+                    title="Update Current Profile"
+                    class="h-10 flex items-center justify-center text-xl bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+                  >
+                    &#128260;
+                  </button>
+                  <button
+                    id="deleteProfileBtn"
+                    title="Delete Selected Profile"
+                    class="h-10 flex items-center justify-center text-xl bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+                  >
+                    &#128465;&#65039;
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

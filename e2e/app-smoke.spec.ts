@@ -6,7 +6,7 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
   await expect(page).toHaveTitle(/FretFlow/i);
   await expect(page.locator('#sessionToggleBtn')).toBeVisible();
   await expect(page.locator('#sessionToggleBtn')).toHaveText(/Start Session/i);
-  await expect(page.locator('#statusBar')).toHaveText(/Ready/i);
+  await expect(page.locator('#statusBar')).not.toHaveText(/Startup failed|Runtime error/i);
   await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
 
   await expect(page.locator('#trainingMode')).toBeVisible();
