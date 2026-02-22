@@ -5,6 +5,7 @@ export interface AudioRuntimeState {
   mediaStream: MediaStream | null;
   dataArray: Float32Array | null;
   frequencyDataArray: Float32Array | null;
+  activeAudioInputDeviceId?: string | null;
 }
 
 export interface WindowLikeAudio {
@@ -21,6 +22,7 @@ interface ConfiguredAnalyserRuntime {
 interface EnsureAudioRuntimeDeps {
   windowLike?: WindowLikeAudio;
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  audioInputDeviceId?: string | null;
 }
 
 export function resolveAudioContextCtor(windowLike: WindowLikeAudio) {
@@ -52,6 +54,7 @@ export async function ensureAudioRuntime(
     ((window as WindowLikeAudio & typeof globalThis) satisfies WindowLikeAudio & typeof globalThis);
   const getUserMedia =
     deps.getUserMedia ?? ((constraints: MediaStreamConstraints) => navigator.mediaDevices.getUserMedia(constraints));
+  const requestedAudioInputDeviceId = deps.audioInputDeviceId ?? null;
 
   if (!runtimeState.audioContext || runtimeState.audioContext.state === 'closed') {
     const audioContextCtor = resolveAudioContextCtor(windowLike);
@@ -72,7 +75,25 @@ export async function ensureAudioRuntime(
   }
 
   if (!runtimeState.mediaStream) {
-    runtimeState.mediaStream = await getUserMedia({ audio: true });
+    const audioConstraint: MediaTrackConstraints | boolean = requestedAudioInputDeviceId
+      ? { deviceId: { exact: requestedAudioInputDeviceId } }
+      : true;
+    runtimeState.mediaStream = await getUserMedia({ audio: audioConstraint });
+    const trackSettings = runtimeState.mediaStream.getAudioTracks?.()[0]?.getSettings?.();
+    runtimeState.activeAudioInputDeviceId = trackSettings?.deviceId ?? requestedAudioInputDeviceId;
+  } else if ((runtimeState.activeAudioInputDeviceId ?? null) !== requestedAudioInputDeviceId) {
+    runtimeState.microphone?.disconnect();
+    runtimeState.mediaStream.getTracks().forEach((track) => track.stop());
+    runtimeState.mediaStream = null;
+    runtimeState.microphone = null;
+    runtimeState.activeAudioInputDeviceId = null;
+
+    const audioConstraint: MediaTrackConstraints | boolean = requestedAudioInputDeviceId
+      ? { deviceId: { exact: requestedAudioInputDeviceId } }
+      : true;
+    runtimeState.mediaStream = await getUserMedia({ audio: audioConstraint });
+    const trackSettings = runtimeState.mediaStream.getAudioTracks?.()[0]?.getSettings?.();
+    runtimeState.activeAudioInputDeviceId = trackSettings?.deviceId ?? requestedAudioInputDeviceId;
   }
 
   if (!runtimeState.microphone && runtimeState.mediaStream) {
@@ -94,4 +115,5 @@ export function teardownAudioRuntime(runtimeState: AudioRuntimeState) {
   runtimeState.analyser = null;
   runtimeState.dataArray = null;
   runtimeState.frequencyDataArray = null;
+  runtimeState.activeAudioInputDeviceId = null;
 }

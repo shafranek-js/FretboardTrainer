@@ -17,6 +17,13 @@ import type { RhythmSessionStats, SessionStats } from './types';
 import { getEnabledStrings } from './fretboard-ui-state';
 import { normalizeNoteNamingPreference, setNoteNamingPreference } from './note-display';
 import { getDefaultTuningPresetKey } from './tuning-presets';
+import { normalizeAudioInputDeviceId, setPreferredAudioInputDeviceId } from './audio-input-devices';
+import {
+  normalizeInputSource,
+  normalizeMidiInputDeviceId,
+  setInputSourcePreference,
+  setPreferredMidiInputDeviceId,
+} from './midi-runtime';
 
 // --- PROFILE CONSTANTS ---
 const PROFILES_KEY = 'fretflow-profiles';
@@ -43,6 +50,9 @@ export interface ProfileSettings {
   showStringToggles?: boolean;
   difficulty?: string;
   noteNaming?: 'sharps' | 'flats';
+  inputSource?: 'microphone' | 'midi';
+  audioInputDeviceId?: string | null;
+  midiInputDeviceId?: string | null;
   startFret?: string;
   endFret?: string;
   enabledStrings?: Partial<Record<InstrumentName, string[]>>;
@@ -117,6 +127,9 @@ export function gatherCurrentSettings(): ProfileSettings {
     showStringToggles: dom.showStringToggles.checked,
     difficulty: dom.difficulty.value,
     noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
+    inputSource: state.inputSource,
+    audioInputDeviceId: state.preferredAudioInputDeviceId,
+    midiInputDeviceId: state.preferredMidiInputDeviceId,
     startFret: dom.startFret.value,
     endFret: dom.endFret.value,
     enabledStrings: enabledStrings,
@@ -167,6 +180,9 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.difficulty.value = safeSettings.difficulty ?? 'natural';
     dom.noteNaming.value = normalizeNoteNamingPreference(safeSettings.noteNaming);
     setNoteNamingPreference(dom.noteNaming.value);
+    setInputSourcePreference(normalizeInputSource(safeSettings.inputSource));
+    setPreferredAudioInputDeviceId(normalizeAudioInputDeviceId(safeSettings.audioInputDeviceId));
+    setPreferredMidiInputDeviceId(normalizeMidiInputDeviceId(safeSettings.midiInputDeviceId));
     dom.startFret.value = safeSettings.startFret ?? '0';
     dom.endFret.value = safeSettings.endFret ?? '12';
     dom.trainingMode.value = safeSettings.trainingMode ?? 'random';

@@ -35,17 +35,6 @@ export default defineConfig(({ mode }) => {
         workbox: {
           runtimeCaching: [
             {
-              // Soundfont player CDN script referenced in index.html
-              urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/soundfont-player@.*$/,
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'soundfont-player-cdn',
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
               // Instrument samples fetched by soundfont-player
               urlPattern:
                 /^https:\/\/gleitz\.github\.io\/midi-js-soundfonts\/.*\.(js|mp3|ogg|wav)$/,

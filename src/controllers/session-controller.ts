@@ -28,6 +28,18 @@ import {
   subscribeMetronomeBeat,
 } from '../metronome';
 import { setNoteNamingPreference } from '../note-display';
+import {
+  normalizeAudioInputDeviceId,
+  refreshAudioInputDeviceOptions,
+  setPreferredAudioInputDeviceId,
+} from '../audio-input-devices';
+import {
+  normalizeInputSource,
+  normalizeMidiInputDeviceId,
+  refreshMidiInputDevices,
+  setInputSourcePreference,
+  setPreferredMidiInputDeviceId,
+} from '../midi-runtime';
 
 function findPlayableStringForNote(note: string): string | null {
   const instrumentData = state.currentInstrument;
@@ -162,6 +174,8 @@ export function registerSessionControls() {
   resetMetronomeVisualIndicator();
   updatePracticeSetupSummary();
   setPracticeSetupCollapsed(window.innerWidth < 900);
+  void refreshAudioInputDeviceOptions();
+  void refreshMidiInputDevices(false);
 
   dom.practiceSetupToggleBtn.addEventListener('click', () => {
     togglePracticeSetupCollapsed();
@@ -245,6 +259,46 @@ export function registerSessionControls() {
     saveSettings();
     redrawFretboard();
     refreshDisplayFormatting();
+  });
+
+  dom.audioInputDevice.addEventListener('change', () => {
+    const selectedDeviceId = normalizeAudioInputDeviceId(dom.audioInputDevice.value);
+    setPreferredAudioInputDeviceId(selectedDeviceId);
+
+    if (state.isListening) {
+      stopListening();
+      setResultMessage('Microphone changed. Session stopped; press Start to use the selected input.');
+    }
+
+    saveSettings();
+  });
+
+  dom.inputSource.addEventListener('change', () => {
+    const nextInputSource = normalizeInputSource(dom.inputSource.value);
+    setInputSourcePreference(nextInputSource);
+
+    if (nextInputSource === 'midi') {
+      void refreshMidiInputDevices(true);
+    }
+
+    if (state.isListening) {
+      stopListening();
+      setResultMessage('Input source changed. Session stopped; press Start to continue.');
+    }
+
+    saveSettings();
+  });
+
+  dom.midiInputDevice.addEventListener('change', () => {
+    const selectedDeviceId = normalizeMidiInputDeviceId(dom.midiInputDevice.value);
+    setPreferredMidiInputDeviceId(selectedDeviceId);
+
+    if (state.isListening && state.inputSource === 'midi') {
+      stopListening();
+      setResultMessage('MIDI device changed. Session stopped; press Start to use the selected input.');
+    }
+
+    saveSettings();
   });
 
   dom.trainingMode.addEventListener('change', () => {

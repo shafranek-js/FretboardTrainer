@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FretFlow - Fretboard Trainer</title>
     <link rel="stylesheet" href="index.css" />
-    <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="text-slate-100 font-sans">
     <div class="w-screen h-screen bg-slate-800 p-4 sm:p-6 flex flex-col gap-y-4">
@@ -452,6 +451,16 @@
                   <option value="ukulele">Ukulele</option>
                 </select>
               </div>
+              <div class="input-source-selector flex flex-col items-stretch gap-1.5">
+                <label for="inputSource" class="text-slate-300">Input Source</label>
+                <select
+                  id="inputSource"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="microphone">Microphone</option>
+                  <option value="midi">MIDI (Web MIDI)</option>
+                </select>
+              </div>
               <div class="tuning-selector flex flex-col items-stretch gap-1.5">
                 <label for="tuningPreset" class="text-slate-300">Tuning</label>
                 <select
@@ -471,6 +480,24 @@
                   <option value="flats">Flats (b)</option>
                 </select>
               </div>
+              <div class="audio-input-selector flex flex-col items-stretch gap-1.5">
+                <label for="audioInputDevice" class="text-slate-300">Microphone</label>
+                <select
+                  id="audioInputDevice"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="">Default microphone</option>
+                </select>
+              </div>
+              <div id="midiInputRow" class="midi-input-selector flex flex-col items-stretch gap-1.5 hidden">
+                <label for="midiInputDevice" class="text-slate-300">MIDI Input</label>
+                <select
+                  id="midiInputDevice"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="">Default MIDI device</option>
+                </select>
+              </div>
               <div class="rhythm-window-selector flex flex-col items-stretch gap-1.5">
                 <label for="rhythmTimingWindow" class="text-slate-300">Rhythm Window</label>
                 <select
@@ -488,6 +515,20 @@
               class="mt-3 hidden text-[11px] leading-4 text-cyan-100 bg-cyan-900/20 border border-cyan-700/40 rounded-md px-3 py-2"
               role="note"
             ></div>
+            <div
+              id="audioInputInfo"
+              class="mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="note"
+            >
+              Microphone labels may appear after you allow microphone access once.
+            </div>
+            <div
+              id="midiInputInfo"
+              class="mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2 hidden"
+              role="note"
+            >
+              MIDI input requires a browser with Web MIDI support (Chrome/Edge desktop).
+            </div>
           </div>
           <button
             id="openCalibrateBtn"
@@ -920,9 +961,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Soundfont player library -->
-    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
     <!-- Use the compiled JS output -->
     <script type="module" src="/index.tsx"></script>
   </body>

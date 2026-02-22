@@ -51,6 +51,8 @@ import {
 import { createSessionStopResetState } from './session-reset-state';
 import { buildSessionStartPlan } from './session-start-preflight';
 import { ensureAudioRuntime, teardownAudioRuntime } from './audio-runtime';
+import { refreshAudioInputDeviceOptions } from './audio-input-devices';
+import { startMidiInput, stopMidiInput } from './midi-runtime';
 import { buildSessionSuccessPlan } from './session-success-plan';
 import { buildSessionNextPromptPlan } from './session-next-prompt-plan';
 import {
@@ -165,6 +167,37 @@ function handleRhythmModeStableNote(detectedNote: string) {
     timing.tone === 'success'
   );
   setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
+}
+
+function handleStableMonophonicDetectedNote(detectedNote: string) {
+  const trainingMode = dom.trainingMode.value;
+
+  if (trainingMode === 'free') {
+    updateLiveDetectedNoteHighlight(detectedNote);
+    return;
+  }
+
+  if (trainingMode === 'rhythm') {
+    handleRhythmModeStableNote(detectedNote);
+    return;
+  }
+
+  if (state.currentPrompt?.targetNote && detectedNote === state.currentPrompt.targetNote) {
+    const elapsed = (Date.now() - state.startTime) / 1000;
+    displayResult(true, elapsed);
+    return;
+  }
+
+  if (!state.currentPrompt) return;
+
+  recordSessionAttempt(state.activeSessionStats, state.currentPrompt, false, 0, state.currentInstrument);
+  setResultMessage(`Heard: ${detectedNote} [wrong]`, 'error');
+  if (state.currentPrompt.targetNote && !state.showingAllNotes) {
+    drawFretboard(false, state.currentPrompt.targetNote, state.currentPrompt.targetString);
+    scheduleSessionCooldown('monophonic mismatch redraw', 1500, () => {
+      redrawFretboard();
+    });
+  }
 }
 
 function updateLiveDetectedNoteHighlight(note: string) {
@@ -327,46 +360,11 @@ function processAudio() {
         state.lastNote = monophonicResult.nextLastNote;
         state.stableNoteCounter = monophonicResult.nextStableNoteCounter;
 
-        if (trainingMode === 'free') {
-          const isStableDetectedNote =
-            Boolean(monophonicResult.detectedNote) &&
-            monophonicResult.nextStableNoteCounter >= REQUIRED_STABLE_FRAMES;
-          if (isStableDetectedNote && monophonicResult.detectedNote) {
-            updateLiveDetectedNoteHighlight(monophonicResult.detectedNote);
-          }
-          state.animationId = requestAnimationFrame(processAudio);
-          return;
-        }
-
-        if (trainingMode === 'rhythm') {
-          const isStableDetectedNote =
-            Boolean(monophonicResult.detectedNote) &&
-            monophonicResult.nextStableNoteCounter >= REQUIRED_STABLE_FRAMES;
-          if (isStableDetectedNote && monophonicResult.detectedNote) {
-            handleRhythmModeStableNote(monophonicResult.detectedNote);
-          }
-          state.animationId = requestAnimationFrame(processAudio);
-          return;
-        }
-
-        if (monophonicResult.isStableMatch) {
-          const elapsed = (Date.now() - state.startTime) / 1000;
-          displayResult(true, elapsed);
-        } else if (monophonicResult.isStableMismatch && monophonicResult.detectedNote) {
-          recordSessionAttempt(
-            state.activeSessionStats,
-            state.currentPrompt,
-            false,
-            0,
-            state.currentInstrument
-          );
-          setResultMessage(`Heard: ${monophonicResult.detectedNote} [wrong]`, 'error');
-          if (state.currentPrompt.targetNote && !state.showingAllNotes) {
-            drawFretboard(false, state.currentPrompt.targetNote, state.currentPrompt.targetString);
-            scheduleSessionCooldown('monophonic mismatch redraw', 1500, () => {
-              redrawFretboard();
-            });
-          }
+        const isStableDetectedNote =
+          Boolean(monophonicResult.detectedNote) &&
+          monophonicResult.nextStableNoteCounter >= REQUIRED_STABLE_FRAMES;
+        if (isStableDetectedNote && monophonicResult.detectedNote) {
+          handleStableMonophonicDetectedNote(monophonicResult.detectedNote);
         }
       }
     }
@@ -441,7 +439,25 @@ export async function startListening(forCalibration = false) {
   }
 
   try {
-    await ensureAudioRuntime(state);
+    const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
+    if (!forCalibration && selectedInputSource === 'midi' && modes[dom.trainingMode.value]?.detectionType === 'polyphonic') {
+      throw new Error('MIDI input currently supports only single-note modes (including Free Play and Rhythm).');
+    }
+
+    if (!forCalibration && selectedInputSource === 'midi') {
+      await startMidiInput((event) => {
+        try {
+          if (!state.isListening || state.cooldown || state.isCalibrating) return;
+          handleStableMonophonicDetectedNote(event.noteName);
+        } catch (error) {
+          handleSessionRuntimeError('midi input message', error);
+        }
+      });
+    } else {
+      await ensureAudioRuntime(state, { audioInputDeviceId: state.preferredAudioInputDeviceId });
+      await refreshAudioInputDeviceOptions();
+    }
+
     state.isListening = true;
     if (!forCalibration) {
       const selectedMode = dom.trainingMode.selectedOptions[0];
@@ -459,12 +475,14 @@ export async function startListening(forCalibration = false) {
     }
     Object.assign(state, createPromptCycleTrackingResetState());
     if (!forCalibration) {
-      setStatusText('Listening...');
+      setStatusText(selectedInputSource === 'midi' ? 'Listening (MIDI)...' : 'Listening...');
       nextPrompt();
     }
-    processAudio();
+    if (selectedInputSource !== 'midi' || forCalibration) {
+      processAudio();
+    }
   } catch (err) {
-    alert('Failed to start audio: ' + (err as Error).message);
+    alert('Failed to start input: ' + (err as Error).message);
     if (!forCalibration) stopListening();
     return false;
   }
@@ -493,6 +511,7 @@ export function stopListening(keepStreamOpen = false) {
     state.timerId = null;
   }
   state.cooldown = false;
+  stopMidiInput();
   if (!keepStreamOpen) {
     teardownAudioRuntime(state);
     setStatusText('Ready');

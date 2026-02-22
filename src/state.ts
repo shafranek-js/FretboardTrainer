@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import type { SoundfontPlayer } from 'soundfont-player';
 import type { Stats, Prompt, SessionStats } from './types';
 import { DEFAULT_A4_FREQUENCY } from './constants';
 import { IInstrument } from './instruments/instrument';
@@ -12,9 +13,13 @@ export const dom = {
   showAllNotes: document.getElementById('showAllNotes') as HTMLInputElement,
   showStringToggles: document.getElementById('showStringToggles') as HTMLInputElement,
   instrumentSelector: document.getElementById('instrumentSelector') as HTMLSelectElement,
+  inputSource: document.getElementById('inputSource') as HTMLSelectElement,
   tuningPreset: document.getElementById('tuningPreset') as HTMLSelectElement,
   difficulty: document.getElementById('difficulty') as HTMLSelectElement,
   noteNaming: document.getElementById('noteNaming') as HTMLSelectElement,
+  audioInputDevice: document.getElementById('audioInputDevice') as HTMLSelectElement,
+  midiInputRow: document.getElementById('midiInputRow') as HTMLElement,
+  midiInputDevice: document.getElementById('midiInputDevice') as HTMLSelectElement,
   trainingMode: document.getElementById('trainingMode') as HTMLSelectElement,
   sessionGoal: document.getElementById('sessionGoal') as HTMLSelectElement,
   curriculumPreset: document.getElementById('curriculumPreset') as HTMLSelectElement,
@@ -56,6 +61,8 @@ export const dom = {
   metronomeQuickControls: document.getElementById('metronomeQuickControls') as HTMLElement,
   curriculumPresetInfo: document.getElementById('curriculumPresetInfo') as HTMLElement,
   tuningPresetInfo: document.getElementById('tuningPresetInfo') as HTMLElement,
+  audioInputInfo: document.getElementById('audioInputInfo') as HTMLElement,
+  midiInputInfo: document.getElementById('midiInputInfo') as HTMLElement,
   modeHelpText: document.getElementById('modeHelpText') as HTMLElement,
   fretboard: document.querySelector('.fretboard') as HTMLElement,
   fretboardSvg: document.getElementById('fretboardSvg') as SVGSVGElement,
@@ -132,6 +139,7 @@ export const state = {
   analyser: null as AnalyserNode | null,
   microphone: null as MediaStreamAudioSourceNode | null,
   mediaStream: null as MediaStream | null,
+  activeAudioInputDeviceId: null as string | null,
   dataArray: null as Float32Array | null, // For monophonic (time domain)
   frequencyDataArray: null as Float32Array | null, // For polyphonic (frequency domain)
   isListening: false,
@@ -176,6 +184,11 @@ export const state = {
   lastSessionStats: null as SessionStats | null,
   currentInstrument: instruments.guitar as IInstrument,
   currentTuningPresetKey: 'standard',
+  inputSource: 'microphone' as 'microphone' | 'midi',
+  preferredAudioInputDeviceId: null as string | null,
+  preferredMidiInputDeviceId: null as string | null,
+  midiAccess: null as MIDIAccess | null,
+  midiInput: null as MIDIInput | null,
   isLoadingSamples: false,
   audioCache: {} as Partial<Record<IInstrument['name'], SoundfontPlayer>>, // Loaded soundfont players by instrument
 };

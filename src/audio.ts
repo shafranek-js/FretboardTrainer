@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import * as Soundfont from 'soundfont-player';
 import { state } from './state';
 import { VOLUME_THRESHOLD } from './constants';
 import { freqToNoteNameFromA4 } from './music-theory';
