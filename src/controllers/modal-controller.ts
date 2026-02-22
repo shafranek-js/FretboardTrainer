@@ -5,11 +5,12 @@ import { resetStats, saveSettings } from '../storage';
 import { setModalVisible, setResultMessage, showCalibrationModal } from '../ui-signals';
 import { instruments } from '../instruments';
 import { refreshAudioInputDeviceOptions } from '../audio-input-devices';
-import { refreshMidiInputDevices } from '../midi-runtime';
+import { refreshInputSourceAvailabilityUi, refreshMidiInputDevices } from '../midi-runtime';
 
 export function registerModalControls() {
   // --- Settings Modal and its Children ---
   dom.settingsBtn.addEventListener('click', () => {
+    refreshInputSourceAvailabilityUi();
     void refreshAudioInputDeviceOptions();
     void refreshMidiInputDevices(true);
     setModalVisible('settings', true);

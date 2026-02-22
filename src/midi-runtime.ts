@@ -30,6 +30,19 @@ export function supportsWebMidi() {
   return Boolean(getRequestMIDIAccess());
 }
 
+export function refreshInputSourceAvailabilityUi() {
+  const midiOption = [...dom.inputSource.options].find((option) => option.value === 'midi');
+  if (!midiOption) return;
+
+  const supported = supportsWebMidi();
+  midiOption.disabled = !supported;
+  midiOption.textContent = supported ? 'MIDI (Web MIDI)' : 'MIDI (Web MIDI - Unsupported)';
+
+  if (!supported && state.inputSource === 'midi') {
+    setInputSourcePreference('microphone');
+  }
+}
+
 export function normalizeInputSource(value: unknown): InputSourceKind {
   return value === 'midi' ? 'midi' : 'microphone';
 }
@@ -39,9 +52,9 @@ export function normalizeMidiInputDeviceId(value: unknown): string | null {
 }
 
 export function setInputSourcePreference(inputSource: InputSourceKind) {
-  state.inputSource = inputSource;
-  dom.inputSource.value = inputSource;
-  const usingMidi = inputSource === 'midi';
+  state.inputSource = inputSource === 'midi' && !supportsWebMidi() ? 'microphone' : inputSource;
+  dom.inputSource.value = state.inputSource;
+  const usingMidi = state.inputSource === 'midi';
   dom.midiInputRow.classList.toggle('hidden', !usingMidi);
   dom.midiInputInfo.classList.toggle('hidden', !usingMidi);
   updateSessionInputStatusHud();

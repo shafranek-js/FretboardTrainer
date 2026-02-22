@@ -36,6 +36,7 @@ import {
 import {
   normalizeInputSource,
   normalizeMidiInputDeviceId,
+  refreshInputSourceAvailabilityUi,
   refreshMidiInputDevices,
   setInputSourcePreference,
   setPreferredMidiInputDeviceId,
@@ -173,6 +174,7 @@ export function registerSessionControls() {
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
   resetMetronomeVisualIndicator();
   updatePracticeSetupSummary();
+  refreshInputSourceAvailabilityUi();
   setPracticeSetupCollapsed(window.innerWidth < 900);
   void refreshAudioInputDeviceOptions();
   void refreshMidiInputDevices(false);
