@@ -10,6 +10,9 @@ import { ChordTrainingMode } from './chord-training';
 import { ArpeggioTrainingMode } from './arpeggio-training';
 import { ChordProgressionMode } from './chord-progression';
 import { TimedChallengeMode } from './timed-challenge';
+import { FreePlayMode } from './free-play';
+import { AdaptivePracticeMode } from './adaptive-practice';
+import { RhythmTrainingMode } from './rhythm-training';
 
 /**
  * A centralized map of all available training mode instances.
@@ -24,4 +27,7 @@ export const modes: { [key: string]: ITrainingMode } = {
   arpeggios: new ArpeggioTrainingMode(),
   progressions: new ChordProgressionMode(),
   timed: new TimedChallengeMode(),
+  free: new FreePlayMode(),
+  adaptive: new AdaptivePracticeMode(),
+  rhythm: new RhythmTrainingMode(),
 };

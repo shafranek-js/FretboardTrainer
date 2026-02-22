@@ -32,6 +32,8 @@ describe('training-mode-groups', () => {
     expect(isProgressionMode('progressions')).toBe(true);
     expect(isProgressionMode('timed')).toBe(false);
     expect(isHintDisabledMode('timed')).toBe(true);
+    expect(isHintDisabledMode('free')).toBe(true);
+    expect(isHintDisabledMode('rhythm')).toBe(true);
     expect(isHintDisabledMode('chords')).toBe(true);
     expect(isHintDisabledMode('random')).toBe(false);
   });

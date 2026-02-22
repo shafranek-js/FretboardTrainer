@@ -54,6 +54,9 @@ import { ScalePracticeMode } from './scale-practice';
 import { ChordTrainingMode } from './chord-training';
 import { ChordProgressionMode } from './chord-progression';
 import { ArpeggioTrainingMode } from './arpeggio-training';
+import { FreePlayMode } from './free-play';
+import { AdaptivePracticeMode } from './adaptive-practice';
+import { RhythmTrainingMode } from './rhythm-training';
 
 function setEnabledStrings(strings: string[]) {
   mockDom.stringSelector.querySelectorAll.mockReturnValue(
@@ -99,6 +102,9 @@ beforeEach(() => {
   mockState.currentArpeggioIndex = 0;
   mockState.currentPrompt = null;
   mockState.isListening = false;
+  (mockState as unknown as { stats?: { noteStats: Record<string, unknown> } }).stats = {
+    noteStats: {},
+  };
   setEnabledStrings(['E', 'A']);
 });
 
@@ -208,5 +214,73 @@ describe('ArpeggioTrainingMode', () => {
 
     expect(mockState.currentPrompt).not.toBeNull();
     expect(mockState.currentPrompt!.targetChordNotes).toEqual(['C', 'E', 'G', 'E', 'C']);
+  });
+});
+
+describe('FreePlayMode', () => {
+  it('returns a non-targeted free-play prompt', () => {
+    const mode = new FreePlayMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt.targetNote).toBeNull();
+    expect(prompt.targetString).toBeNull();
+    expect(prompt.targetChordNotes).toEqual([]);
+    expect(prompt.displayText).toContain('Free Play');
+  });
+});
+
+describe('AdaptivePracticeMode', () => {
+  it('generates a playable prompt with adaptive label', () => {
+    const mode = new AdaptivePracticeMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt!.targetNote).toBeTruthy();
+    expect(prompt!.targetString).toBeTruthy();
+    expect(prompt!.displayText).toContain('Adaptive:');
+  });
+
+  it('prioritizes weaker note-string targets when weighted selection is forced', () => {
+    const originalRandom = Math.random;
+    Math.random = () => 0.99; // pick tail of weighted distribution
+
+    try {
+      const statsHolder = mockState as unknown as {
+        stats: { noteStats: Record<string, { attempts: number; correct: number; totalTime: number }> };
+      };
+      statsHolder.stats.noteStats = {
+        'E-E': { attempts: 20, correct: 20, totalTime: 8 }, // strong target
+        'C-A': { attempts: 12, correct: 2, totalTime: 14 }, // weak target
+      };
+
+      // Restrict to deterministic pool of two notes.
+      mockDom.startFret.value = '0';
+      mockDom.endFret.value = '3';
+      mockDom.difficulty.value = 'natural';
+      setEnabledStrings(['E', 'A']);
+
+      const mode = new AdaptivePracticeMode();
+      const prompt = mode.generatePrompt();
+
+      expect(prompt).not.toBeNull();
+      expect(prompt!.targetNote).toBe('C');
+      expect(prompt!.targetString).toBe('A');
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+});
+
+describe('RhythmTrainingMode', () => {
+  it('returns a non-targeted rhythm prompt', () => {
+    const mode = new RhythmTrainingMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt.targetNote).toBeNull();
+    expect(prompt.targetString).toBeNull();
+    expect(prompt.targetChordNotes).toEqual([]);
+    expect(prompt.displayText).toContain('Rhythm');
   });
 });

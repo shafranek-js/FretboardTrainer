@@ -7,6 +7,8 @@ export interface FretboardRenderInputs {
   showingAllNotes: boolean;
   currentPrompt: Prompt | null;
   currentArpeggioIndex: number;
+  liveDetectedNote?: string | null;
+  liveDetectedString?: string | null;
 }
 
 export interface FretboardRenderPlan {
@@ -22,6 +24,7 @@ export interface FretboardRenderPlan {
 export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): FretboardRenderPlan {
   const { trainingMode, isListening, showingAllNotes, currentPrompt, currentArpeggioIndex } =
     inputs;
+  const liveDetectedNote = inputs.liveDetectedNote ?? null;
 
   const isChordBasedMode = isChordDataMode(trainingMode);
 
@@ -45,6 +48,17 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
       rootNote: null,
       rootString: null,
       chordFingering,
+      foundChordNotes: new Set(),
+      currentTargetNote: null,
+    };
+  }
+
+  if (trainingMode === 'free' && isListening && liveDetectedNote) {
+    return {
+      showAll: false,
+      rootNote: liveDetectedNote,
+      rootString: null,
+      chordFingering: [],
       foundChordNotes: new Set(),
       currentTargetNote: null,
     };

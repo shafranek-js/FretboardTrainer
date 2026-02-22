@@ -3,6 +3,9 @@ import { createPromptCycleTrackingResetState } from './prompt-tracking-state';
 
 export interface SessionStopResetState {
   currentPrompt: Prompt | null;
+  liveDetectedNote: string | null;
+  liveDetectedString: string | null;
+  rhythmLastJudgedBeatAtMs: number | null;
   scaleNotes: { note: string; string: string }[];
   currentScaleIndex: number;
   currentProgression: string[];
@@ -14,6 +17,9 @@ export function createSessionStopResetState() {
   return {
     ...createPromptCycleTrackingResetState(),
     currentPrompt: null,
+    liveDetectedNote: null,
+    liveDetectedString: null,
+    rhythmLastJudgedBeatAtMs: null,
     scaleNotes: [],
     currentScaleIndex: 0,
     currentProgression: [],

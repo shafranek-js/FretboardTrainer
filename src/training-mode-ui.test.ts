@@ -9,6 +9,7 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: false,
       showArpeggioPatternSelector: false,
       showHintButton: true,
+      helperText: '',
     });
   });
 
@@ -19,6 +20,7 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: false,
       showArpeggioPatternSelector: true,
       showHintButton: false,
+      helperText: '',
     });
   });
 
@@ -29,6 +31,7 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: true,
       showArpeggioPatternSelector: false,
       showHintButton: false,
+      helperText: '',
     });
   });
 
@@ -39,10 +42,25 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: false,
       showArpeggioPatternSelector: false,
       showHintButton: true,
+      helperText: '',
     });
   });
 
   it('hides hint button for timed mode', () => {
     expect(getTrainingModeUiVisibility('timed').showHintButton).toBe(false);
+  });
+
+  it('hides hint button for free mode', () => {
+    expect(getTrainingModeUiVisibility('free').showHintButton).toBe(false);
+  });
+
+  it('shows explanatory helper text for free mode', () => {
+    expect(getTrainingModeUiVisibility('free').helperText).toContain('detects pitch');
+  });
+
+  it('shows explanatory helper text and hides hint for rhythm mode', () => {
+    const visibility = getTrainingModeUiVisibility('rhythm');
+    expect(visibility.showHintButton).toBe(false);
+    expect(visibility.helperText).toContain('timing against the click');
   });
 });

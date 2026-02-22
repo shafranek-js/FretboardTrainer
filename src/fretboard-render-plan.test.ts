@@ -22,6 +22,8 @@ describe('computeFretboardRenderPlan', () => {
       showingAllNotes: false,
       currentPrompt: samplePrompt,
       currentArpeggioIndex: 0,
+      liveDetectedNote: null,
+      liveDetectedString: null,
     });
 
     expect(plan.showAll).toBe(false);
@@ -37,6 +39,8 @@ describe('computeFretboardRenderPlan', () => {
       showingAllNotes: false,
       currentPrompt: samplePrompt,
       currentArpeggioIndex: 1,
+      liveDetectedNote: null,
+      liveDetectedString: null,
     });
 
     expect(plan.showAll).toBe(false);
@@ -51,9 +55,27 @@ describe('computeFretboardRenderPlan', () => {
       showingAllNotes: true,
       currentPrompt: null,
       currentArpeggioIndex: 0,
+      liveDetectedNote: null,
+      liveDetectedString: null,
     });
 
     expect(plan.showAll).toBe(true);
     expect(plan.chordFingering).toEqual([]);
+  });
+
+  it('returns live note highlight plan for free mode', () => {
+    const plan = computeFretboardRenderPlan({
+      trainingMode: 'free',
+      isListening: true,
+      showingAllNotes: true,
+      currentPrompt: null,
+      currentArpeggioIndex: 0,
+      liveDetectedNote: 'A',
+      liveDetectedString: 'E',
+    });
+
+    expect(plan.showAll).toBe(false);
+    expect(plan.rootNote).toBe('A');
+    expect(plan.rootString).toBeNull();
   });
 });

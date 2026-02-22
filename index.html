@@ -10,28 +10,36 @@
   <body class="text-slate-100 font-sans">
     <div class="w-screen h-screen bg-slate-800 p-4 sm:p-6 flex flex-col gap-y-4">
       <div
-        class="session-area text-center relative shrink-0 flex flex-row flex-wrap justify-center items-center gap-x-8 gap-y-4 px-4 py-2 bg-slate-700 rounded-lg"
+        class="session-area text-center relative shrink-0 flex flex-row flex-wrap justify-center items-center gap-x-4 sm:gap-x-8 gap-y-2 px-3 sm:px-4 pr-24 sm:pr-40 pt-2 pb-1 bg-slate-700 rounded-lg"
       >
-        <div class="timed-info hidden absolute top-2 left-4 flex gap-4" id="timedInfo">
-          <div class="info-box bg-slate-800 px-4 py-1 rounded-lg">
+        <div class="timed-info hidden absolute top-1.5 left-2 sm:top-2 sm:left-4 flex gap-2 sm:gap-4" id="timedInfo">
+          <div class="info-box bg-slate-800 px-2.5 sm:px-4 py-1 rounded-lg">
             <span class="info-label block text-xs text-slate-400">Time Left</span>
-            <span id="timer" class="info-value text-2xl font-bold text-white">60</span>
+            <span id="timer" class="info-value text-xl sm:text-2xl font-bold text-white">60</span>
           </div>
-          <div class="info-box bg-slate-800 px-4 py-1 rounded-lg">
+          <div class="info-box bg-slate-800 px-2.5 sm:px-4 py-1 rounded-lg">
             <span class="info-label block text-xs text-slate-400">Score</span>
-            <span id="score" class="info-value text-2xl font-bold text-white">0</span>
+            <span id="score" class="info-value text-xl sm:text-2xl font-bold text-white">0</span>
           </div>
         </div>
 
-        <div class="prompt-container flex items-center justify-center gap-4">
+        <div
+          class="session-status absolute top-1.5 right-2 sm:top-2 sm:right-4 flex items-center gap-1.5 sm:gap-2 bg-slate-800/90 border border-slate-600 rounded-md px-2 sm:px-3 py-1 text-[11px] sm:text-xs"
+          role="status"
+        >
+          <span class="hidden sm:inline text-slate-400 uppercase tracking-wide">Status</span>
+          <span id="statusBar" class="text-slate-200 font-semibold">Ready</span>
+        </div>
+
+        <div class="prompt-container flex items-center justify-center gap-3 sm:gap-4">
           <div
-            class="prompt text-2xl md:text-3xl font-bold min-h-[40px] flex items-center justify-center"
+            class="prompt text-xl sm:text-2xl md:text-3xl font-bold min-h-[36px] sm:min-h-[40px] flex items-center justify-center"
             id="prompt"
             aria-live="polite"
           ></div>
           <button
             id="playSoundBtn"
-            class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-10 h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
+            class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
             disabled
             aria-label="Play note sound"
           >
@@ -39,7 +47,7 @@
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="currentColor"
-              class="w-6 h-6"
+              class="w-5 h-5 sm:w-6 sm:h-6"
             >
               <path
                 d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
@@ -48,43 +56,122 @@
           </button>
         </div>
 
-        <div class="controls-row flex justify-center gap-4">
+        <div class="controls-row flex justify-center gap-2 sm:gap-4 items-center">
           <button
-            id="startBtn"
-            class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+            id="sessionToggleBtn"
+            class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 sm:px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
           >
             Start Session
           </button>
-          <button
-            id="stopBtn"
-            class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-            disabled
-          >
-            Stop Session
-          </button>
+          <div class="hidden" aria-hidden="true">
+            <button
+              id="startBtn"
+              class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+            >
+              Start Session
+            </button>
+            <button
+              id="stopBtn"
+              class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+              disabled
+            >
+              Stop Session
+            </button>
+          </div>
         </div>
 
-        <div class="result text-lg min-h-[30px]" id="result" aria-live="polite"></div>
+        <div class="result w-full text-base leading-5 empty:hidden" id="result" aria-live="polite"></div>
+        <div
+          id="sessionGoalProgress"
+          class="w-full hidden text-[11px] leading-4 text-emerald-200 bg-emerald-900/20 border border-emerald-700/35 rounded-md px-3 py-1"
+          aria-live="polite"
+        ></div>
+        <div class="note-info-container w-full flex items-center justify-center gap-x-5 text-[11px] leading-4 text-slate-400 font-medium min-h-0">
+          <span id="infoSlot1"></span>
+          <span id="infoSlot2"></span>
+          <span id="infoSlot3"></span>
+        </div>
       </div>
 
-      <div
-        class="learning-controls flex items-center justify-between flex-wrap gap-4 px-4 py-2 bg-slate-700 rounded-lg shrink-0 text-[10px]"
-      >
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" id="showAllNotes" class="w-5 h-5 accent-cyan-500" />
-          Show All Notes
-        </label>
-        <div class="instrument-selector flex items-center gap-2">
-          <label for="instrumentSelector">Instrument:</label>
-          <select
-            id="instrumentSelector"
-            class="bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-          >
-            <option value="guitar">Guitar</option>
-            <option value="ukulele">Ukulele</option>
-          </select>
+      <div class="learning-controls px-4 py-2 bg-slate-700 rounded-lg shrink-0 text-[10px]">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-2 min-w-0">
+            <button
+              id="practiceSetupToggleBtn"
+              type="button"
+              class="inline-flex items-center gap-1.5 sm:gap-2 rounded-md border border-slate-500 bg-slate-800/80 px-2.5 sm:px-3 py-2 text-[11px] font-semibold text-white hover:bg-slate-700 transition-colors"
+              aria-expanded="true"
+              aria-controls="practiceSetupPanel"
+            >
+              <span class="sm:hidden">Setup</span>
+              <span class="hidden sm:inline">Practice Setup</span>
+              <span id="practiceSetupChevron" class="text-slate-300">v</span>
+            </button>
+            <div
+              id="practiceSetupSummary"
+              class="hidden sm:block text-[11px] leading-4 text-slate-300 truncate max-w-[36rem]"
+            ></div>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button
+              id="sessionToolsToggleBtn"
+              type="button"
+              class="inline-flex items-center gap-1.5 sm:gap-2 rounded-md border border-slate-500 bg-slate-800/80 px-2.5 sm:px-3 py-2 text-[11px] font-semibold text-white hover:bg-slate-700 transition-colors"
+              aria-expanded="false"
+              aria-controls="sessionToolsPanel"
+            >
+              <span class="sm:hidden">Tools</span>
+              <span class="hidden sm:inline">Session Tools</span>
+              <span id="sessionToolsChevron" class="text-slate-300">v</span>
+            </button>
+            <div id="metronomeQuickControls" class="metronome-controls flex items-center gap-1.5 sm:gap-2">
+              <label class="flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[11px] sm:text-[10px]">
+                <input type="checkbox" id="metronomeEnabled" class="w-4 h-4 accent-amber-500" />
+                Click
+              </label>
+              <label for="metronomeBpm" class="hidden sm:inline">BPM:</label>
+              <input
+                type="number"
+                id="metronomeBpm"
+                min="40"
+                max="240"
+                value="80"
+                class="w-12 sm:w-16 p-1.5 sm:p-2 bg-slate-600 border border-slate-500 rounded-md text-center focus:ring-2 focus:ring-amber-400 focus:outline-none"
+              />
+              <div
+                class="flex items-center gap-1 sm:gap-2 rounded-md border border-slate-500 bg-slate-800/70 px-1.5 sm:px-2 py-1"
+                aria-label="Metronome beat indicator"
+              >
+                <span
+                  id="metronomePulse"
+                  class="block h-2.5 w-2.5 rounded-full bg-slate-500 transition-all duration-100"
+                ></span>
+                <span id="metronomeBeatLabel" class="hidden sm:inline-block text-[10px] text-slate-300 min-w-[1.5em] text-center"
+                  >-</span
+                >
+              </div>
+            </div>
+            <button
+              id="hintBtn"
+              class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
+              disabled
+            >
+              Hint
+            </button>
+            <button
+              id="settingsBtn"
+              class="bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
+            >
+              &#9881;&#65039;
+            </button>
+          </div>
         </div>
-        <div class="difficulty-selector flex items-center gap-2">
+
+        <div
+          id="practiceSetupPanel"
+          class="mt-3 border-t border-slate-600/70 pt-3 flex items-center justify-between flex-wrap gap-4"
+        >
+          <div class="difficulty-selector flex items-center gap-2">
           <label for="difficulty">Difficulty:</label>
           <select
             id="difficulty"
@@ -94,14 +181,17 @@
             <option value="all">All Notes</option>
           </select>
         </div>
-        <div class="mode-selector flex items-center gap-2">
+          <div class="mode-selector flex items-center gap-2">
           <label for="trainingMode">Mode:</label>
           <select
             id="trainingMode"
             class="bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
           >
-            <option value="random">Random Note</option>
-            <option value="scales">Scale Practice</option>
+              <option value="random">Random Note</option>
+              <option value="adaptive">Adaptive Practice</option>
+              <option value="free">Free Play (Live Note)</option>
+              <option value="rhythm">Rhythm (On the Click)</option>
+              <option value="scales">Scale Practice</option>
             <option value="intervals">Interval Training</option>
             <option value="chords">Chord Training</option>
             <option value="arpeggios">Arpeggio Training</option>
@@ -109,10 +199,34 @@
             <option value="timed">Timed Challenge</option>
           </select>
         </div>
-        <div
-          id="scaleSelectorContainer"
-          class="scale-selector-container hidden flex items-center gap-2"
-        >
+          <div class="curriculum-selector flex items-center gap-2">
+          <label for="curriculumPreset">Curriculum:</label>
+          <select
+            id="curriculumPreset"
+            class="bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+          >
+            <option value="custom">Custom (manual setup)</option>
+            <option value="beginner_essentials">Step 1: Beginner Essentials</option>
+            <option value="position_1_5">Step 2: Position 1-5 Mapping</option>
+            <option value="interval_foundations">Step 3: Interval Foundations</option>
+          </select>
+        </div>
+          <div class="session-goal-selector flex items-center gap-2">
+          <label for="sessionGoal">Goal:</label>
+          <select
+            id="sessionGoal"
+            class="bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+          >
+            <option value="none">No Goal</option>
+            <option value="correct_10">10 Correct</option>
+            <option value="correct_20">20 Correct</option>
+            <option value="correct_50">50 Correct</option>
+          </select>
+        </div>
+          <div
+            id="scaleSelectorContainer"
+            class="scale-selector-container hidden flex items-center gap-2"
+          >
           <label for="scaleSelector">Scale:</label>
           <select
             id="scaleSelector"
@@ -122,11 +236,11 @@
             <option value="G Major">G Major</option>
             <option value="A Minor Pentatonic">A Minor Pentatonic</option>
           </select>
-        </div>
-        <div
-          id="chordSelectorContainer"
-          class="chord-selector-container hidden flex items-center gap-2"
-        >
+          </div>
+          <div
+            id="chordSelectorContainer"
+            class="chord-selector-container hidden flex items-center gap-2"
+          >
           <label for="chordSelector">Chord:</label>
           <select
             id="chordSelector"
@@ -137,11 +251,11 @@
           <label class="randomize-label flex items-center gap-2 text-sm">
             <input type="checkbox" id="randomizeChords" class="w-4 h-4 accent-cyan-500" /> Randomize
           </label>
-        </div>
-        <div
-          id="progressionSelectorContainer"
-          class="progression-selector-container hidden flex items-center gap-2"
-        >
+          </div>
+          <div
+            id="progressionSelectorContainer"
+            class="progression-selector-container hidden flex items-center gap-2"
+          >
           <label for="progressionSelector">Progression:</label>
           <select
             id="progressionSelector"
@@ -149,11 +263,11 @@
           >
             <!-- Options will be dynamically inserted here -->
           </select>
-        </div>
-        <div
-          id="arpeggioPatternContainer"
-          class="arpeggio-pattern-container hidden flex items-center gap-2"
-        >
+          </div>
+          <div
+            id="arpeggioPatternContainer"
+            class="arpeggio-pattern-container hidden flex items-center gap-2"
+          >
           <label for="arpeggioPatternSelector">Pattern:</label>
           <select
             id="arpeggioPatternSelector"
@@ -165,8 +279,8 @@
             <option value="first-inversion">First Inversion</option>
             <option value="second-inversion">Second Inversion</option>
           </select>
-        </div>
-        <div class="fret-selector flex items-center gap-2">
+          </div>
+          <div class="fret-selector flex items-center gap-2">
           <label for="startFret">Frets:</label>
           <input
             type="number"
@@ -185,20 +299,47 @@
             value="12"
             class="w-14 p-2 bg-slate-600 border border-slate-500 rounded-md text-center focus:ring-2 focus:ring-cyan-500 focus:outline-none"
           />
+          </div>
+          <div
+            id="curriculumPresetInfo"
+            class="w-full hidden text-[11px] leading-4 text-amber-100 bg-amber-900/25 border border-amber-700/40 rounded-md px-3 py-2"
+            role="note"
+          ></div>
+          <div
+            id="modeHelpText"
+            class="w-full hidden text-[11px] leading-4 text-slate-300 bg-slate-800/70 border border-slate-600 rounded-md px-3 py-2"
+            role="note"
+          ></div>
         </div>
-        <button
-          id="hintBtn"
-          class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-          disabled
+        <div
+          id="sessionToolsPanel"
+          class="mt-3 hidden border-t border-slate-600/70 pt-3 flex items-start justify-between flex-wrap gap-4"
         >
-          Hint
-        </button>
-        <button
-          id="settingsBtn"
-          class="bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
-        >
-          &#9881;&#65039;
-        </button>
+            <div id="sessionToolsPrimaryControls" class="flex flex-col gap-3">
+              <div class="flex items-center gap-4 flex-wrap">
+              <label id="sessionToolsShowAllNotesRow" class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="showAllNotes" class="w-5 h-5 accent-cyan-500" />
+                Show All Notes
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="showStringToggles" class="w-5 h-5 accent-cyan-500" />
+                Show String Toggles
+              </label>
+            </div>
+            <div id="sessionToolsActiveStringsSection">
+              <div class="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Active Strings</div>
+              <div
+                id="sessionToolsStringSelector"
+                class="flex items-center gap-3 flex-wrap text-[11px]"
+                role="group"
+                aria-label="Active strings"
+              ></div>
+            </div>
+          </div>
+          <div class="text-[11px] leading-4 text-slate-400 max-w-xl">
+            You can manage active strings here. The fretboard-edge string toggles are optional and can stay hidden.
+          </div>
+        </div>
       </div>
 
       <!-- This is now the main content panel -->
@@ -263,17 +404,6 @@
         </div>
       </div>
 
-      <div
-        class="status-bar flex justify-between items-center py-1 px-4 text-xs text-slate-400 border-t border-slate-600 shrink-0"
-        role="status"
-      >
-        <span id="statusBar">Ready</span>
-        <div class="note-info-container flex items-center gap-x-6 font-medium">
-          <span id="infoSlot1"></span>
-          <span id="infoSlot2"></span>
-          <span id="infoSlot3"></span>
-        </div>
-      </div>
     </div>
 
     <div
@@ -296,7 +426,7 @@
       class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     >
       <div
-        class="modal-content relative bg-slate-700 p-8 rounded-lg shadow-xl w-full max-w-md text-center"
+        class="modal-content relative bg-slate-700 p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-xl text-center"
       >
         <button
           id="closeSettingsBtn"
@@ -307,6 +437,58 @@
         </button>
         <h2 class="text-2xl font-bold mb-6 text-white">Settings & Tools</h2>
         <div class="settings-menu flex flex-col gap-4">
+          <div class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left">
+            <h4 class="mb-3 text-center text-slate-300 text-sm font-semibold uppercase tracking-wider">
+              Defaults & Preferences
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div class="instrument-selector flex flex-col items-stretch gap-1.5">
+                <label for="instrumentSelector" class="text-slate-300">Instrument</label>
+                <select
+                  id="instrumentSelector"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="guitar">Guitar</option>
+                  <option value="ukulele">Ukulele</option>
+                </select>
+              </div>
+              <div class="tuning-selector flex flex-col items-stretch gap-1.5">
+                <label for="tuningPreset" class="text-slate-300">Tuning</label>
+                <select
+                  id="tuningPreset"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="standard">Standard</option>
+                </select>
+              </div>
+              <div class="note-naming-selector flex flex-col items-stretch gap-1.5">
+                <label for="noteNaming" class="text-slate-300">Note Names</label>
+                <select
+                  id="noteNaming"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="sharps">Sharps (#)</option>
+                  <option value="flats">Flats (b)</option>
+                </select>
+              </div>
+              <div class="rhythm-window-selector flex flex-col items-stretch gap-1.5">
+                <label for="rhythmTimingWindow" class="text-slate-300">Rhythm Window</label>
+                <select
+                  id="rhythmTimingWindow"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                >
+                  <option value="strict">Strict</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="loose">Loose</option>
+                </select>
+              </div>
+            </div>
+            <div
+              id="tuningPresetInfo"
+              class="mt-3 hidden text-[11px] leading-4 text-cyan-100 bg-cyan-900/20 border border-cyan-700/40 rounded-md px-3 py-2"
+              role="note"
+            ></div>
+          </div>
           <button
             id="openCalibrateBtn"
             class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
@@ -427,6 +609,78 @@
             <li class="bg-slate-600 p-2 rounded">No data yet. Play a few rounds!</li>
           </ul>
         </div>
+        <div id="statsLastSessionSection" class="mb-5 hidden">
+          <h4 class="mb-2 text-center font-semibold text-slate-400">Last Session Summary</h4>
+          <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 mb-3 text-sm">
+            <div class="text-slate-400 text-right">Mode:</div>
+            <div id="statsLastSessionMode" class="text-white font-medium">-</div>
+            <div class="text-slate-400 text-right">Duration:</div>
+            <div id="statsLastSessionDuration" class="text-white font-medium">-</div>
+            <div class="text-slate-400 text-right">Attempts:</div>
+            <div id="statsLastSessionAttempts" class="text-white font-medium">-</div>
+            <div class="text-slate-400 text-right">Accuracy:</div>
+            <div id="statsLastSessionAccuracy" class="text-white font-medium">-</div>
+            <div class="text-slate-400 text-right">Avg. Time / Correct:</div>
+            <div id="statsLastSessionAvgTime" class="text-white font-medium">-</div>
+            <div class="text-slate-400 text-right">Best Correct Streak:</div>
+            <div id="statsLastSessionBestStreak" class="text-white font-medium">-</div>
+          </div>
+          <div
+            id="statsLastSessionCoachTip"
+            class="mb-3 text-xs leading-4 text-amber-100 bg-amber-900/20 border border-amber-700/35 rounded-md px-3 py-2"
+            role="note"
+          >
+            -
+          </div>
+          <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
+            Weak Spots This Session
+          </h5>
+          <ul id="statsLastSessionWeakSpots" class="list-none p-0 text-center space-y-1">
+            <li class="bg-slate-600 p-2 rounded">No graded note attempts in the last session.</li>
+          </ul>
+          <div id="statsLastSessionRhythmSummary" class="mt-3 hidden">
+            <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
+              Rhythm Timing Summary
+            </h5>
+            <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+              <div class="text-slate-400 text-right">On Beat:</div>
+              <div id="statsRhythmOnBeat" class="text-white">-</div>
+              <div class="text-slate-400 text-right">Early:</div>
+              <div id="statsRhythmEarly" class="text-white">-</div>
+              <div class="text-slate-400 text-right">Late:</div>
+              <div id="statsRhythmLate" class="text-white">-</div>
+              <div class="text-slate-400 text-right">Avg Abs Offset:</div>
+              <div id="statsRhythmAvgOffset" class="text-white">-</div>
+              <div class="text-slate-400 text-right">Best Offset:</div>
+              <div id="statsRhythmBestOffset" class="text-white">-</div>
+            </div>
+          </div>
+          <div class="mt-3">
+            <h5 class="mb-2 text-center text-xs uppercase tracking-wide text-slate-400">
+              Target Zone Heatmap (errors by prompt position)
+            </h5>
+            <div
+              id="statsLastSessionHeatmap"
+              class="bg-slate-800/60 border border-slate-600 rounded-md p-2 overflow-x-auto"
+            >
+              <div class="text-center text-xs text-slate-400">
+                Heatmap appears after string-specific note practice.
+              </div>
+            </div>
+          </div>
+        </div>
+        <button
+          id="repeatLastSessionBtn"
+          class="block mx-auto mt-2 mb-3 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+        >
+          Repeat Last Session Setup
+        </button>
+        <button
+          id="practiceWeakSpotsBtn"
+          class="block mx-auto mt-2 mb-3 py-2 px-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md transition-colors"
+        >
+          Practice Weak Spots
+        </button>
         <button
           id="resetStatsBtn"
           class="block mx-auto mt-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
@@ -471,16 +725,24 @@
           </div>
           <div class="space-y-2">
             <h4 class="text-lg font-bold text-white border-b border-slate-600 pb-1">
-              2. The Top Control Bar: Customizing Your Practice
+              2. Practice Setup, Session Tools, and Settings
             </h4>
             <ul class="list-disc list-inside space-y-2 pl-4">
               <li>
-                <strong>Show All Notes:</strong> Check this box to display every note on the
-                fretboard. This is great for studying, but for a real challenge, leave it unchecked.
+                <strong>Practice Setup:</strong> Use the <strong>Practice Setup</strong> button to
+                open the full exercise configuration (mode, curriculum, difficulty, goal, fret
+                range, and mode-specific options). It auto-collapses when a session starts.
               </li>
               <li>
-                <strong>Instrument:</strong> Choose between <strong>Guitar</strong> and
-                <strong>Ukulele</strong>. The app automatically adjusts for the selected instrument.
+                <strong>Session Tools:</strong> Use <strong>Session Tools</strong> for quick visual
+                aids during practice, such as <strong>Show All Notes</strong> and
+                <strong>Show String Toggles</strong>. In some modes (for example Rhythm), this
+                panel is hidden to reduce clutter.
+              </li>
+              <li>
+                <strong>Settings:</strong> Open the gear icon for global preferences like
+                <strong>Instrument</strong>, <strong>Tuning</strong>, note naming
+                (<strong>Sharps/Flats</strong>), and rhythm timing window.
               </li>
               <li>
                 <strong>Difficulty:</strong>
@@ -495,24 +757,7 @@
                   </li>
                 </ul>
               </li>
-              <li>
-                <strong>Mode:</strong> This is the heart of your training.
-                <ul class="list-circle list-inside pl-6">
-                  <li>
-                    <strong>Random Note:</strong> The classic mode. Find a random note on a random
-                    string.
-                  </li>
-                  <li>
-                    <strong>Scale Practice:</strong> Select a scale and the app will guide you
-                    through its notes sequentially.
-                  </li>
-                  <li>
-                    <strong>Interval Training:</strong> A powerful music theory tool. Find notes by
-                    their relationship (e.g., "Find the Perfect 5th of C").
-                  </li>
-                </ul>
-              </li>
-              <li><strong>Frets:</strong> Set the fret range for your practice session.</li>
+              <li><strong>Mode / Curriculum / Frets:</strong> These are all in Practice Setup.</li>
             </ul>
           </div>
           <div class="space-y-2">
@@ -523,6 +768,10 @@
               <li>
                 <strong>Prompt & Play Sound Button:</strong> The big text is your challenge. The
                 speaker icon plays a high-quality sound of the target note.
+              </li>
+              <li>
+                <strong>Start/Stop & Status:</strong> Start a session with the main button. The
+                status badge in the top-right shows the current state (Ready / Listening / etc.).
               </li>
               <li>
                 <strong>Live Tuner:</strong> Perfect your intonation. The needle shows if you're

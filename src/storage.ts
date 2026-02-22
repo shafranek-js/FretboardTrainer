@@ -13,21 +13,44 @@ import { DEFAULT_A4_FREQUENCY } from './constants';
 import { loadInstrumentSoundfont } from './audio';
 import { instruments } from './instruments';
 import type { IInstrument } from './instruments/instrument';
+import type { RhythmSessionStats, SessionStats } from './types';
 import { getEnabledStrings } from './fretboard-ui-state';
+import { normalizeNoteNamingPreference, setNoteNamingPreference } from './note-display';
+import { getDefaultTuningPresetKey } from './tuning-presets';
 
 // --- PROFILE CONSTANTS ---
 const PROFILES_KEY = 'fretflow-profiles';
 const ACTIVE_PROFILE_KEY = 'fretflow-active-profile';
+const STATS_KEY = 'fretflow-stats';
+const LAST_SESSION_STATS_KEY = 'fretflow-last-session-stats';
 type InstrumentName = IInstrument['name'];
+
+function createDefaultRhythmSessionStats(): RhythmSessionStats {
+  return {
+    totalJudged: 0,
+    onBeat: 0,
+    early: 0,
+    late: 0,
+    totalAbsOffsetMs: 0,
+    bestAbsOffsetMs: null,
+  };
+}
 
 export interface ProfileSettings {
   instrument?: InstrumentName;
+  tuningPreset?: string;
   showAllNotes?: boolean;
+  showStringToggles?: boolean;
   difficulty?: string;
+  noteNaming?: 'sharps' | 'flats';
   startFret?: string;
   endFret?: string;
   enabledStrings?: Partial<Record<InstrumentName, string[]>>;
   trainingMode?: string;
+  sessionGoal?: string;
+  metronomeEnabled?: boolean;
+  metronomeBpm?: string;
+  rhythmTimingWindow?: string;
   selectedScale?: string;
   selectedChord?: string;
   randomizeChords?: boolean;
@@ -89,12 +112,19 @@ export function gatherCurrentSettings(): ProfileSettings {
 
   return {
     instrument: state.currentInstrument.name,
+    tuningPreset: state.currentTuningPresetKey,
     showAllNotes: dom.showAllNotes.checked,
+    showStringToggles: dom.showStringToggles.checked,
     difficulty: dom.difficulty.value,
+    noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
     startFret: dom.startFret.value,
     endFret: dom.endFret.value,
     enabledStrings: enabledStrings,
     trainingMode: dom.trainingMode.value,
+    sessionGoal: dom.sessionGoal.value,
+    metronomeEnabled: dom.metronomeEnabled.checked,
+    metronomeBpm: dom.metronomeBpm.value,
+    rhythmTimingWindow: dom.rhythmTimingWindow.value,
     selectedScale: dom.scaleSelector.value,
     selectedChord: dom.chordSelector.value,
     randomizeChords: dom.randomizeChords.checked,
@@ -122,17 +152,32 @@ export async function applySettings(settings: ProfileSettings | null | undefined
       typeof safeSettings.instrument === 'string' ? safeSettings.instrument : 'guitar';
     const instrumentName = instruments[requestedInstrument] ? requestedInstrument : 'guitar';
     state.currentInstrument = instruments[instrumentName];
+    state.currentTuningPresetKey =
+      typeof safeSettings.tuningPreset === 'string'
+        ? safeSettings.tuningPreset
+        : getDefaultTuningPresetKey(instrumentName);
     dom.instrumentSelector.value = instrumentName;
 
     const enabledStringsForCurrentInstrument = safeSettings.enabledStrings?.[instrumentName];
     // This will populate the UI, including chord/progression dropdowns
-    updateInstrumentUI(enabledStringsForCurrentInstrument);
+    updateInstrumentUI(enabledStringsForCurrentInstrument, state.currentTuningPresetKey);
 
     dom.showAllNotes.checked = safeSettings.showAllNotes ?? false;
+    dom.showStringToggles.checked = safeSettings.showStringToggles ?? false;
     dom.difficulty.value = safeSettings.difficulty ?? 'natural';
+    dom.noteNaming.value = normalizeNoteNamingPreference(safeSettings.noteNaming);
+    setNoteNamingPreference(dom.noteNaming.value);
     dom.startFret.value = safeSettings.startFret ?? '0';
     dom.endFret.value = safeSettings.endFret ?? '12';
     dom.trainingMode.value = safeSettings.trainingMode ?? 'random';
+    dom.sessionGoal.value = safeSettings.sessionGoal ?? 'none';
+    dom.metronomeEnabled.checked = safeSettings.metronomeEnabled ?? false;
+    dom.metronomeBpm.value = safeSettings.metronomeBpm ?? '80';
+    dom.rhythmTimingWindow.value = safeSettings.rhythmTimingWindow ?? 'normal';
+    const selectedTrainingModeOption = dom.trainingMode.selectedOptions[0];
+    if (selectedTrainingModeOption?.disabled) {
+      dom.trainingMode.value = 'random';
+    }
     dom.scaleSelector.value = safeSettings.selectedScale ?? 'C Major';
     dom.randomizeChords.checked = safeSettings.randomizeChords ?? false;
 
@@ -161,6 +206,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.arpeggioPatternSelector.value = safeSettings.arpeggioPattern ?? 'ascending';
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;
+    dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
 
     // If instrument changed, load new sounds. Otherwise, this is very fast.
     if (
@@ -190,12 +236,21 @@ export async function loadSettings() {
 
 /** Saves user statistics to localStorage. */
 export function saveStats() {
-  localStorage.setItem('fretflow-stats', JSON.stringify(state.stats));
+  localStorage.setItem(STATS_KEY, JSON.stringify(state.stats));
+}
+
+export function saveLastSessionStats() {
+  if (!state.lastSessionStats) {
+    localStorage.removeItem(LAST_SESSION_STATS_KEY);
+    return;
+  }
+  localStorage.setItem(LAST_SESSION_STATS_KEY, JSON.stringify(state.lastSessionStats));
 }
 
 /** Loads user statistics from localStorage. */
 export function loadStats() {
-  const statsString = localStorage.getItem('fretflow-stats');
+  state.lastSessionStats = null;
+  const statsString = localStorage.getItem(STATS_KEY);
   if (statsString) {
     try {
       const loadedStats = JSON.parse(statsString);
@@ -209,6 +264,52 @@ export function loadStats() {
       resetStats();
     }
   }
+
+  const lastSessionStatsString = localStorage.getItem(LAST_SESSION_STATS_KEY);
+  if (lastSessionStatsString) {
+    try {
+      const loadedLastSession = JSON.parse(lastSessionStatsString) as Partial<SessionStats>;
+      if (
+        typeof loadedLastSession === 'object' &&
+        loadedLastSession &&
+        typeof loadedLastSession.modeKey === 'string' &&
+        typeof loadedLastSession.modeLabel === 'string' &&
+        typeof loadedLastSession.startedAtMs === 'number' &&
+        typeof loadedLastSession.totalAttempts === 'number' &&
+        typeof loadedLastSession.correctAttempts === 'number' &&
+        typeof loadedLastSession.totalTime === 'number' &&
+        typeof loadedLastSession.noteStats === 'object' &&
+        typeof loadedLastSession.targetZoneStats === 'object'
+      ) {
+        state.lastSessionStats = {
+          ...(loadedLastSession as SessionStats),
+          tuningPresetKey:
+            typeof loadedLastSession.tuningPresetKey === 'string' ? loadedLastSession.tuningPresetKey : '',
+          currentCorrectStreak:
+            typeof loadedLastSession.currentCorrectStreak === 'number'
+              ? loadedLastSession.currentCorrectStreak
+              : 0,
+          bestCorrectStreak:
+            typeof loadedLastSession.bestCorrectStreak === 'number'
+              ? loadedLastSession.bestCorrectStreak
+              : 0,
+          rhythmStats:
+            loadedLastSession.rhythmStats &&
+            typeof loadedLastSession.rhythmStats === 'object' &&
+            typeof (loadedLastSession.rhythmStats as Partial<RhythmSessionStats>).totalJudged ===
+              'number'
+              ? ({
+                  ...createDefaultRhythmSessionStats(),
+                  ...(loadedLastSession.rhythmStats as Partial<RhythmSessionStats>),
+                } satisfies RhythmSessionStats)
+              : createDefaultRhythmSessionStats(),
+        };
+      }
+    } catch (error) {
+      console.error('Failed to load last session stats:', error);
+      localStorage.removeItem(LAST_SESSION_STATS_KEY);
+    }
+  }
 }
 
 /** Resets all user statistics to their default values. */
@@ -220,7 +321,10 @@ export function resetStats() {
     totalTime: 0,
     noteStats: {},
   };
+  state.lastSessionStats = null;
+  state.activeSessionStats = null;
   saveStats();
+  localStorage.removeItem(LAST_SESSION_STATS_KEY);
   // Assuming displayStats is imported and available to call
   // displayStats();
 }

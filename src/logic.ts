@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { dom, state } from './state';
-import { updateStats, saveSettings, saveStats } from './storage';
-import { updateTuner, redrawFretboard, drawFretboard } from './ui';
+import { updateStats, saveLastSessionStats, saveSettings, saveStats } from './storage';
+import { updateTuner, redrawFretboard, drawFretboard, displayStats } from './ui';
 import { freqToNoteName, detectPitch, playSound } from './audio';
 import { modes } from './modes';
 import {
@@ -18,6 +18,7 @@ import {
 } from './audio-detection-handlers';
 import {
   clearResultMessage,
+  clearSessionGoalProgress,
   hideCalibrationModal,
   setInfoSlots,
   setCalibrationProgress,
@@ -26,6 +27,7 @@ import {
   resetSessionButtonsState,
   setResultMessage,
   setScoreValue,
+  setSessionGoalProgress,
   setSessionButtonsState,
   setStatusText,
   setTimedInfoVisible,
@@ -39,7 +41,7 @@ import {
   TIMED_CHALLENGE_DURATION,
   VOLUME_THRESHOLD,
 } from './constants';
-import { getEnabledStrings } from './fretboard-ui-state';
+import { getEnabledStrings, getSelectedFretRange } from './fretboard-ui-state';
 import { buildPromptAudioPlan } from './prompt-audio-plan';
 import { buildSuccessInfoSlots } from './session-result';
 import {
@@ -56,8 +58,130 @@ import {
   getOpenATuningInfoFromTuning,
 } from './calibration-utils';
 import { buildSessionTimeUpPlan } from './session-timeup-plan';
+import { resolvePromptTargetPosition } from './prompt-audio';
+import {
+  createSessionStats,
+  finalizeSessionStats,
+  recordRhythmTimingAttempt,
+  recordSessionAttempt,
+} from './session-stats';
+import { getMetronomeTimingSnapshot } from './metronome';
 
 let isHandlingRuntimeError = false;
+
+interface RhythmTimingEvaluation {
+  beatAtMs: number;
+  signedOffsetMs: number;
+  absOffsetMs: number;
+  tone: 'success' | 'error';
+  label: string;
+}
+
+function getRhythmTimingThresholds(windowKey: string) {
+  if (windowKey === 'strict') return { onBeatMs: 55, feedbackMs: 120 };
+  if (windowKey === 'loose') return { onBeatMs: 130, feedbackMs: 240 };
+  return { onBeatMs: 90, feedbackMs: 180 };
+}
+
+function evaluateRhythmTiming(nowMs: number): RhythmTimingEvaluation | null {
+  const timing = getMetronomeTimingSnapshot();
+  if (!timing.isRunning || timing.lastBeatAtMs === null || timing.intervalMs <= 0) return null;
+
+  const previousBeatAtMs = timing.lastBeatAtMs;
+  const nextBeatAtMs = previousBeatAtMs + timing.intervalMs;
+  const previousOffset = nowMs - previousBeatAtMs;
+  const nextOffset = nowMs - nextBeatAtMs;
+
+  const useNextBeat = Math.abs(nextOffset) < Math.abs(previousOffset);
+  const beatAtMs = useNextBeat ? nextBeatAtMs : previousBeatAtMs;
+  const signedOffsetMs = Math.round(useNextBeat ? nextOffset : previousOffset);
+  const absOffsetMs = Math.abs(signedOffsetMs);
+  const thresholds = getRhythmTimingThresholds(dom.rhythmTimingWindow.value);
+
+  if (absOffsetMs <= thresholds.onBeatMs) {
+    return {
+      beatAtMs,
+      signedOffsetMs,
+      absOffsetMs,
+      tone: 'success',
+      label: 'On beat',
+    };
+  }
+
+  if (absOffsetMs <= thresholds.feedbackMs) {
+    return {
+      beatAtMs,
+      signedOffsetMs,
+      absOffsetMs,
+      tone: 'error',
+      label: signedOffsetMs < 0 ? 'Early' : 'Late',
+    };
+  }
+
+  return {
+    beatAtMs,
+    signedOffsetMs,
+    absOffsetMs,
+    tone: 'error',
+    label: signedOffsetMs < 0 ? 'Too early' : 'Too late',
+  };
+}
+
+function formatRhythmFeedback(result: RhythmTimingEvaluation, detectedNote: string) {
+  const sign = result.signedOffsetMs > 0 ? '+' : '';
+  return `${result.label}: ${detectedNote} (${sign}${result.signedOffsetMs}ms)`;
+}
+
+function getSessionGoalTargetCorrect(goalValue: string) {
+  if (goalValue === 'correct_10') return 10;
+  if (goalValue === 'correct_20') return 20;
+  if (goalValue === 'correct_50') return 50;
+  return null;
+}
+
+function clearLiveDetectedNoteHighlight() {
+  if (state.liveDetectedNote === null && state.liveDetectedString === null) return;
+  state.liveDetectedNote = null;
+  state.liveDetectedString = null;
+  redrawFretboard();
+}
+
+function handleRhythmModeStableNote(detectedNote: string) {
+  const timing = evaluateRhythmTiming(Date.now());
+  if (!timing) {
+    setResultMessage('Enable Click to practice rhythm timing.', 'error');
+    return;
+  }
+
+  if (state.rhythmLastJudgedBeatAtMs === timing.beatAtMs) {
+    return;
+  }
+
+  state.rhythmLastJudgedBeatAtMs = timing.beatAtMs;
+  recordRhythmTimingAttempt(
+    state.activeSessionStats,
+    timing.signedOffsetMs,
+    timing.absOffsetMs,
+    timing.tone === 'success'
+  );
+  setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
+}
+
+function updateLiveDetectedNoteHighlight(note: string) {
+  const resolved = resolvePromptTargetPosition({
+    targetNote: note,
+    preferredString: null,
+    enabledStrings: getEnabledStrings(dom.stringSelector),
+    instrument: state.currentInstrument,
+  });
+
+  const nextString = resolved?.stringName ?? null;
+  if (state.liveDetectedNote === note && state.liveDetectedString === nextString) return;
+
+  state.liveDetectedNote = note;
+  state.liveDetectedString = nextString;
+  redrawFretboard();
+}
 
 function handleSessionRuntimeError(context: string, error: unknown) {
   console.error(`[Session Runtime Error] ${context}:`, error);
@@ -128,6 +252,7 @@ function processAudio() {
       if (silenceGate.shouldResetTracking) {
         Object.assign(state, createStabilityTrackingResetState());
         if (!state.isCalibrating) updateTuner(null);
+        if (dom.trainingMode.value === 'free') clearLiveDetectedNoteHighlight();
       }
       state.animationId = requestAnimationFrame(processAudio);
       return;
@@ -160,6 +285,7 @@ function processAudio() {
         const elapsed = (Date.now() - state.startTime) / 1000;
         displayResult(true, elapsed);
       } else if (polyphonicResult.isStableMismatch) {
+        recordSessionAttempt(state.activeSessionStats, state.currentPrompt, false, 0, state.currentInstrument);
         setResultMessage(`Heard: ${polyphonicResult.detectedNotesText || '...'} [wrong]`, 'error');
         if (!state.showingAllNotes) {
           drawFretboard(false, null, null, state.currentPrompt.targetChordFingering, new Set());
@@ -201,10 +327,39 @@ function processAudio() {
         state.lastNote = monophonicResult.nextLastNote;
         state.stableNoteCounter = monophonicResult.nextStableNoteCounter;
 
+        if (trainingMode === 'free') {
+          const isStableDetectedNote =
+            Boolean(monophonicResult.detectedNote) &&
+            monophonicResult.nextStableNoteCounter >= REQUIRED_STABLE_FRAMES;
+          if (isStableDetectedNote && monophonicResult.detectedNote) {
+            updateLiveDetectedNoteHighlight(monophonicResult.detectedNote);
+          }
+          state.animationId = requestAnimationFrame(processAudio);
+          return;
+        }
+
+        if (trainingMode === 'rhythm') {
+          const isStableDetectedNote =
+            Boolean(monophonicResult.detectedNote) &&
+            monophonicResult.nextStableNoteCounter >= REQUIRED_STABLE_FRAMES;
+          if (isStableDetectedNote && monophonicResult.detectedNote) {
+            handleRhythmModeStableNote(monophonicResult.detectedNote);
+          }
+          state.animationId = requestAnimationFrame(processAudio);
+          return;
+        }
+
         if (monophonicResult.isStableMatch) {
           const elapsed = (Date.now() - state.startTime) / 1000;
           displayResult(true, elapsed);
         } else if (monophonicResult.isStableMismatch && monophonicResult.detectedNote) {
+          recordSessionAttempt(
+            state.activeSessionStats,
+            state.currentPrompt,
+            false,
+            0,
+            state.currentInstrument
+          );
           setResultMessage(`Heard: ${monophonicResult.detectedNote} [wrong]`, 'error');
           if (state.currentPrompt.targetNote && !state.showingAllNotes) {
             drawFretboard(false, state.currentPrompt.targetNote, state.currentPrompt.targetString);
@@ -246,6 +401,7 @@ export async function startListening(forCalibration = false) {
       setTimerValue(startPlan.timed.durationSeconds);
       setScoreValue(startPlan.timed.initialScore);
       setTimedInfoVisible(true);
+      clearSessionGoalProgress();
       state.timerId = window.setInterval(() => {
         try {
           state.timeLeft--;
@@ -275,11 +431,32 @@ export async function startListening(forCalibration = false) {
     if (startPlan.resetArpeggioIndex) {
       state.currentArpeggioIndex = 0;
     }
+
+    const goalTargetCorrect = getSessionGoalTargetCorrect(dom.sessionGoal.value);
+    if (!startPlan.timed.enabled && goalTargetCorrect !== null) {
+      setSessionGoalProgress(`Goal progress: 0 / ${goalTargetCorrect} correct`);
+    } else {
+      clearSessionGoalProgress();
+    }
   }
 
   try {
     await ensureAudioRuntime(state);
     state.isListening = true;
+    if (!forCalibration) {
+      const selectedMode = dom.trainingMode.selectedOptions[0];
+      const { minFret, maxFret } = getSelectedFretRange(dom.startFret.value, dom.endFret.value);
+      state.activeSessionStats = createSessionStats({
+        modeKey: dom.trainingMode.value,
+        modeLabel: selectedMode?.textContent?.trim() || dom.trainingMode.value,
+        instrumentName: state.currentInstrument.name,
+        tuningPresetKey: state.currentTuningPresetKey,
+        stringOrder: state.currentInstrument.STRING_ORDER,
+        enabledStrings: Array.from(getEnabledStrings(dom.stringSelector)),
+        minFret,
+        maxFret,
+      });
+    }
     Object.assign(state, createPromptCycleTrackingResetState());
     if (!forCalibration) {
       setStatusText('Listening...');
@@ -297,6 +474,12 @@ export async function startListening(forCalibration = false) {
 /** Stops listening to the microphone and cleans up audio resources. */
 export function stopListening(keepStreamOpen = false) {
   if (state.isLoadingSamples) return;
+  if (state.activeSessionStats && !state.isCalibrating) {
+    state.lastSessionStats = finalizeSessionStats(state.activeSessionStats);
+    saveLastSessionStats();
+    displayStats();
+  }
+  state.activeSessionStats = null;
   state.isListening = false;
   if (state.animationId) cancelAnimationFrame(state.animationId);
   if (state.pendingTimeoutIds.size > 0) {
@@ -320,6 +503,7 @@ export function stopListening(keepStreamOpen = false) {
   resetSessionButtonsState();
   setPromptText('');
   clearResultMessage();
+  clearSessionGoalProgress();
   setInfoSlots();
   Object.assign(state, createSessionStopResetState());
   setTimedInfoVisible(false);
@@ -329,15 +513,41 @@ export function stopListening(keepStreamOpen = false) {
 /** Displays the result of a user's attempt and triggers the next prompt on success. */
 function displayResult(correct: boolean, elapsed: number) {
   try {
+    if (state.currentPrompt) {
+      recordSessionAttempt(
+        state.activeSessionStats,
+        state.currentPrompt,
+        correct,
+        elapsed,
+        state.currentInstrument
+      );
+    }
     updateStats(correct, elapsed);
 
     if (correct && state.currentPrompt) {
       const trainingMode = dom.trainingMode.value;
       const { targetNote, targetString, targetChordNotes } = state.currentPrompt;
       const mode = modes[trainingMode];
+      const goalTargetCorrect = getSessionGoalTargetCorrect(dom.sessionGoal.value);
       const infoSlots = buildSuccessInfoSlots(state.currentPrompt);
       if (infoSlots.slot1 || infoSlots.slot2 || infoSlots.slot3) {
         setInfoSlots(infoSlots.slot1, infoSlots.slot2, infoSlots.slot3);
+      }
+      if (goalTargetCorrect !== null && state.activeSessionStats) {
+        setSessionGoalProgress(
+          `Goal progress: ${Math.min(state.activeSessionStats.correctAttempts, goalTargetCorrect)} / ${goalTargetCorrect} correct`
+        );
+      }
+
+      if (
+        trainingMode !== 'timed' &&
+        goalTargetCorrect !== null &&
+        state.activeSessionStats &&
+        state.activeSessionStats.correctAttempts >= goalTargetCorrect
+      ) {
+        stopListening();
+        setResultMessage(`Goal reached: ${goalTargetCorrect} correct answers.`, 'success');
+        return;
       }
 
       const successPlan = buildSessionSuccessPlan({
@@ -415,6 +625,9 @@ function nextPrompt() {
   try {
     if (!state.isListening) return;
     clearResultMessage();
+    state.liveDetectedNote = null;
+    state.liveDetectedString = null;
+    state.rhythmLastJudgedBeatAtMs = null;
     Object.assign(state, createPromptCycleTrackingResetState());
     redrawFretboard();
 

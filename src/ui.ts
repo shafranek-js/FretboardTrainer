@@ -17,6 +17,12 @@ import { drawFretboardSvg } from './svg-fretboard';
 import { buildStatsViewModel } from './stats-view';
 import { isChordDataMode } from './training-mode-groups';
 import type { ChordNote } from './types';
+import {
+  applyTuningPresetToInstrument,
+  getDefaultTuningPresetKey,
+  getTuningPresetsForInstrument,
+  isChordCompatibleTuning,
+} from './tuning-presets';
 
 /** Populates the profile selector dropdown from localStorage. */
 export function populateProfileSelector() {
@@ -84,9 +90,68 @@ function populateProgressionSelector(
   });
 }
 
+function renderSessionToolsStringSelector() {
+  dom.sessionToolsStringSelector.innerHTML = '';
+
+  const fretboardStringInputs = Array.from(
+    dom.stringSelector.querySelectorAll('input[type="checkbox"]')
+  ) as HTMLInputElement[];
+
+  fretboardStringInputs.forEach((fretboardCheckbox) => {
+    const label = document.createElement('label');
+    label.className =
+      'inline-flex items-center gap-1.5 cursor-pointer rounded-md border border-slate-600 bg-slate-800/70 px-2 py-1 text-slate-200';
+
+    const mirrorCheckbox = document.createElement('input');
+    mirrorCheckbox.type = 'checkbox';
+    mirrorCheckbox.checked = fretboardCheckbox.checked;
+    mirrorCheckbox.className = 'w-4 h-4 accent-cyan-500';
+    mirrorCheckbox.setAttribute('aria-label', `Enable ${fretboardCheckbox.value} string`);
+
+    const text = document.createElement('span');
+    text.className = 'font-mono';
+    text.textContent = fretboardCheckbox.value;
+
+    mirrorCheckbox.addEventListener('change', () => {
+      if (fretboardCheckbox.checked === mirrorCheckbox.checked) return;
+      fretboardCheckbox.checked = mirrorCheckbox.checked;
+      fretboardCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    fretboardCheckbox.addEventListener('change', () => {
+      mirrorCheckbox.checked = fretboardCheckbox.checked;
+    });
+
+    label.appendChild(mirrorCheckbox);
+    label.appendChild(text);
+    dom.sessionToolsStringSelector.appendChild(label);
+  });
+}
+
 /** Updates the entire UI to match the selected instrument. */
-export function updateInstrumentUI(loadedStrings?: string[]) {
+export function updateInstrumentUI(loadedStrings?: string[], requestedTuningPresetKey?: string) {
   const instrument = state.currentInstrument;
+  const tuningPresets = getTuningPresetsForInstrument(instrument.name);
+  const fallbackTuningPresetKey = getDefaultTuningPresetKey(instrument.name);
+  const nextTuningPresetKey = requestedTuningPresetKey ?? state.currentTuningPresetKey ?? fallbackTuningPresetKey;
+
+  dom.tuningPreset.innerHTML = '';
+  tuningPresets.forEach((preset) => {
+    const option = document.createElement('option');
+    option.value = preset.key;
+    option.textContent = preset.label;
+    dom.tuningPreset.appendChild(option);
+  });
+  dom.tuningPreset.value = tuningPresets.some((preset) => preset.key === nextTuningPresetKey)
+    ? nextTuningPresetKey
+    : fallbackTuningPresetKey;
+  state.currentTuningPresetKey = dom.tuningPreset.value;
+  const appliedPreset = applyTuningPresetToInstrument(instrument, state.currentTuningPresetKey);
+  const tuningHelpText = appliedPreset
+    ? `${appliedPreset.description}${appliedPreset.chordCompatible ? '' : ' Chord training modes are temporarily disabled in this tuning.'}`
+    : '';
+  dom.tuningPresetInfo.textContent = tuningHelpText;
+  dom.tuningPresetInfo.classList.toggle('hidden', tuningHelpText.length === 0);
 
   // 1. Update string selector checkboxes
   dom.stringSelector.innerHTML = ''; // Clear old strings
@@ -113,6 +178,7 @@ export function updateInstrumentUI(loadedStrings?: string[]) {
       redrawFretboard(); // Redraw to potentially hide notes on disabled strings
     });
   });
+  renderSessionToolsStringSelector();
 
   // 2. Dynamically populate chord and progression selectors
   const availableChords = new Set(Object.keys(instrument.CHORD_FINGERINGS));
@@ -120,7 +186,8 @@ export function updateInstrumentUI(loadedStrings?: string[]) {
   populateProgressionSelector(instrument.CHORD_PROGRESSIONS, availableChords);
 
   // 3. Disable chord-based modes if the instrument has no defined chord fingerings
-  const hasChords = availableChords.size > 0;
+  const hasChords =
+    availableChords.size > 0 && isChordCompatibleTuning(instrument.name, state.currentTuningPresetKey);
   dom.trainingMode.querySelectorAll('option').forEach((option) => {
     if (isChordDataMode(option.value)) {
       (option as HTMLOptionElement).disabled = !hasChords;
@@ -168,6 +235,8 @@ export function redrawFretboard() {
     showingAllNotes: state.showingAllNotes,
     currentPrompt: state.currentPrompt,
     currentArpeggioIndex: state.currentArpeggioIndex,
+    liveDetectedNote: state.liveDetectedNote,
+    liveDetectedString: state.liveDetectedString,
   });
 
   drawFretboard(
@@ -189,7 +258,7 @@ export function handleModeChange() {
 
 /** Updates and displays the statistics in the modal. */
 export function displayStats() {
-  const statsView = buildStatsViewModel(state.stats);
+  const statsView = buildStatsViewModel(state.stats, 3, state.lastSessionStats);
   setStatsView(statsView);
 }
 

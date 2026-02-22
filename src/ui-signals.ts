@@ -3,7 +3,8 @@ import { createSignal } from './reactive/signal';
 import { CENTS_TOLERANCE, CENTS_VISUAL_RANGE } from './constants';
 import { computeTunerView } from './tuner-view';
 import { getTrainingModeUiVisibility } from './training-mode-ui';
-import type { StatsViewModel } from './stats-view';
+import type { LastSessionHeatmapView, StatsViewModel } from './stats-view';
+import { formatMusicText } from './note-display';
 
 const statusTextSignal = createSignal('Ready');
 const promptTextSignal = createSignal('');
@@ -19,10 +20,15 @@ const statsViewSignal = createSignal<StatsViewModel>({
   accuracyText: '0.0%',
   avgTimeText: '0.00s',
   problemNotes: [],
+  lastSession: null,
 });
 const timerValueSignal = createSignal('60');
 const scoreValueSignal = createSignal('0');
 const timedInfoVisibleSignal = createSignal(false);
+const sessionGoalProgressSignal = createSignal('');
+const practiceSetupCollapsedSignal = createSignal(false);
+const sessionToolsCollapsedSignal = createSignal(true);
+const practiceSetupSummarySignal = createSignal('');
 interface SessionButtonsState {
   startDisabled: boolean;
   stopDisabled: boolean;
@@ -88,6 +94,220 @@ interface InfoSlotsState {
 }
 const infoSlotsSignal = createSignal<InfoSlotsState>({ slot1: '', slot2: '', slot3: '' });
 let isBound = false;
+let previousSessionActive = false;
+let wasAutoCollapsedForSession = false;
+let wasAutoCollapsedSessionToolsForSession = false;
+
+function renderPromptText(promptText: string) {
+  dom.prompt.textContent = formatMusicText(promptText);
+}
+
+function renderResultView(resultView: ResultViewState) {
+  dom.result.textContent = formatMusicText(resultView.text);
+  dom.result.classList.remove('text-green-400', 'text-red-400');
+  if (resultView.tone === 'success') {
+    dom.result.classList.add('text-green-400');
+  } else if (resultView.tone === 'error') {
+    dom.result.classList.add('text-red-400');
+  }
+}
+
+function renderInfoSlots({ slot1, slot2, slot3 }: InfoSlotsState) {
+  dom.infoSlot1.textContent = formatMusicText(slot1);
+  dom.infoSlot2.textContent = formatMusicText(slot2);
+  dom.infoSlot3.textContent = formatMusicText(slot3);
+}
+
+function renderPracticeSetupCollapsed(collapsed: boolean) {
+  dom.practiceSetupPanel.classList.toggle('hidden', collapsed);
+  dom.practiceSetupToggleBtn.setAttribute('aria-expanded', String(!collapsed));
+  dom.practiceSetupChevron.textContent = collapsed ? '>' : 'v';
+}
+
+function renderSessionToolsCollapsed(collapsed: boolean) {
+  if (dom.sessionToolsToggleBtn.classList.contains('hidden')) {
+    dom.sessionToolsPanel.classList.add('hidden');
+    dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.sessionToolsChevron.textContent = '>';
+    return;
+  }
+  dom.sessionToolsPanel.classList.toggle('hidden', collapsed);
+  dom.sessionToolsToggleBtn.setAttribute('aria-expanded', String(!collapsed));
+  dom.sessionToolsChevron.textContent = collapsed ? '>' : 'v';
+}
+
+function renderSessionToolsModeVisibility(mode: string) {
+  const hideSessionTools = mode === 'rhythm';
+  const hideShowAllNotes = mode === 'free' || mode === 'rhythm';
+  dom.sessionToolsToggleBtn.classList.toggle('hidden', hideSessionTools);
+  if (hideSessionTools) {
+    dom.sessionToolsPanel.classList.add('hidden');
+    dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.sessionToolsChevron.textContent = '>';
+  }
+
+  dom.sessionToolsShowAllNotesRow.classList.toggle('hidden', hideShowAllNotes);
+  dom.sessionToolsActiveStringsSection.classList.toggle('hidden', false);
+  dom.sessionToolsPrimaryControls.classList.toggle('opacity-80', mode === 'free');
+}
+
+function renderPracticeSetupSummary(summaryText: string) {
+  dom.practiceSetupSummary.textContent = summaryText;
+  dom.practiceSetupSummary.title = summaryText;
+}
+
+function createHeatmapCellColor(intensity: number, hasErrors: boolean) {
+  if (!hasErrors) return 'rgba(30, 41, 59, 0.55)'; // slate-800-ish
+  const alpha = 0.2 + Math.max(0, Math.min(1, intensity)) * 0.75;
+  return `rgba(239, 68, 68, ${alpha})`; // red-500 ramp
+}
+
+function renderLastSessionHeatmap(heatmap: LastSessionHeatmapView | null) {
+  if (!heatmap) {
+    dom.statsLastSessionHeatmap.innerHTML =
+      '<div class="text-center text-xs text-slate-400">Heatmap appears after string-specific note practice.</div>';
+    return;
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'inline-grid gap-1 min-w-max';
+  wrapper.style.gridTemplateColumns = `auto repeat(${heatmap.frets.length}, minmax(22px, 1fr))`;
+
+  const corner = document.createElement('div');
+  corner.className = 'w-8 h-6';
+  wrapper.appendChild(corner);
+
+  for (const fret of heatmap.frets) {
+    const headerCell = document.createElement('div');
+    headerCell.className =
+      'h-6 min-w-[22px] text-[10px] leading-6 text-center text-slate-400 font-semibold';
+    headerCell.textContent = String(fret);
+    wrapper.appendChild(headerCell);
+  }
+
+  for (const stringName of heatmap.strings) {
+    const rowLabel = document.createElement('div');
+    rowLabel.className =
+      'w-8 h-6 text-[10px] leading-6 text-right pr-1 text-slate-300 font-semibold';
+    rowLabel.textContent = stringName;
+    wrapper.appendChild(rowLabel);
+
+    for (const fret of heatmap.frets) {
+      const key = `${stringName}:${fret}`;
+      const cell = heatmap.cells[key];
+      const incorrect = cell?.incorrect ?? 0;
+      const attempts = cell?.attempts ?? 0;
+      const hasErrors = incorrect > 0;
+
+      const heatCell = document.createElement('div');
+      heatCell.className =
+        'w-[22px] h-[22px] rounded-[4px] border border-slate-600/80 flex items-center justify-center text-[9px] font-semibold';
+      heatCell.style.backgroundColor = createHeatmapCellColor(cell?.intensity ?? 0, hasErrors);
+      heatCell.style.color = hasErrors ? '#fee2e2' : attempts > 0 ? '#cbd5e1' : '#64748b';
+      heatCell.textContent = attempts > 0 ? String(incorrect) : '';
+
+      if (cell) {
+        const accuracyPercent = (cell.accuracy * 100).toFixed(0);
+        heatCell.title = `${stringName} string, fret ${fret}: ${cell.correct}/${cell.attempts} correct (${accuracyPercent}% accuracy)`;
+      } else {
+        heatCell.title = `${stringName} string, fret ${fret}: not targeted in last session`;
+      }
+
+      wrapper.appendChild(heatCell);
+    }
+  }
+
+  dom.statsLastSessionHeatmap.innerHTML = '';
+  dom.statsLastSessionHeatmap.appendChild(wrapper);
+
+  const legend = document.createElement('div');
+  legend.className = 'mt-2 text-[10px] text-slate-400 text-center';
+  legend.textContent =
+    heatmap.maxIncorrect > 0
+      ? `Cell number = wrong attempts for that target position (max ${heatmap.maxIncorrect}).`
+      : 'No mistakes in targeted string-specific positions for the last session.';
+  dom.statsLastSessionHeatmap.appendChild(legend);
+}
+
+function renderStatsView(statsView: StatsViewModel) {
+  dom.statsHighScore.textContent = statsView.highScoreText;
+  dom.statsAccuracy.textContent = statsView.accuracyText;
+  dom.statsAvgTime.textContent = statsView.avgTimeText;
+  dom.repeatLastSessionBtn.disabled = !statsView.lastSession;
+
+  dom.statsProblemNotes.innerHTML = '';
+  if (statsView.problemNotes.length > 0) {
+    statsView.problemNotes.forEach((note) => {
+      const li = document.createElement('li');
+      li.className = 'bg-slate-600 p-2 rounded';
+      li.textContent = formatMusicText(
+        `${note.label} (Acc: ${(note.accuracy * 100).toFixed(0)}%, Time: ${note.avgTime.toFixed(2)}s)`
+      );
+      dom.statsProblemNotes.appendChild(li);
+    });
+  } else {
+    dom.statsProblemNotes.innerHTML =
+      '<li class="bg-slate-600 p-2 rounded">No data yet. Play a few rounds!</li>';
+  }
+
+  if (statsView.lastSession) {
+    dom.statsLastSessionSection.classList.remove('hidden');
+    dom.statsLastSessionMode.textContent = formatMusicText(statsView.lastSession.modeLabel);
+    dom.statsLastSessionDuration.textContent = statsView.lastSession.durationText;
+    dom.statsLastSessionAttempts.textContent = statsView.lastSession.attemptsText;
+    dom.statsLastSessionAccuracy.textContent = statsView.lastSession.accuracyText;
+    dom.statsLastSessionAvgTime.textContent = statsView.lastSession.avgTimeText;
+    dom.statsLastSessionBestStreak.textContent = statsView.lastSession.bestStreakText;
+    dom.statsLastSessionCoachTip.textContent = formatMusicText(statsView.lastSession.coachTipText ?? '');
+
+    dom.statsLastSessionWeakSpots.innerHTML = '';
+    if (statsView.lastSession.weakSpots.length > 0) {
+      statsView.lastSession.weakSpots.forEach((note) => {
+        const li = document.createElement('li');
+        li.className = 'bg-slate-600 p-2 rounded';
+        li.textContent = formatMusicText(
+          `${note.label} (Acc: ${(note.accuracy * 100).toFixed(0)}%, Time: ${note.avgTime.toFixed(2)}s)`
+        );
+        dom.statsLastSessionWeakSpots.appendChild(li);
+      });
+    } else {
+      dom.statsLastSessionWeakSpots.innerHTML =
+        '<li class="bg-slate-600 p-2 rounded">No graded note attempts in the last session.</li>';
+    }
+
+    if (statsView.lastSession.rhythmSummary) {
+      dom.statsLastSessionRhythmSummary.classList.remove('hidden');
+      dom.statsRhythmOnBeat.textContent = statsView.lastSession.rhythmSummary.onBeatText;
+      dom.statsRhythmEarly.textContent = statsView.lastSession.rhythmSummary.earlyText;
+      dom.statsRhythmLate.textContent = statsView.lastSession.rhythmSummary.lateText;
+      dom.statsRhythmAvgOffset.textContent = statsView.lastSession.rhythmSummary.avgOffsetText;
+      dom.statsRhythmBestOffset.textContent = statsView.lastSession.rhythmSummary.bestOffsetText;
+    } else {
+      dom.statsLastSessionRhythmSummary.classList.add('hidden');
+    }
+    renderLastSessionHeatmap(statsView.lastSession.heatmap);
+  } else {
+    dom.statsLastSessionSection.classList.add('hidden');
+    dom.statsLastSessionRhythmSummary.classList.add('hidden');
+  }
+}
+
+function syncSessionToggleButton() {
+  const { startDisabled, stopDisabled } = sessionButtonsSignal.get();
+  const { isLoading } = loadingViewSignal.get();
+  const isStopMode = !stopDisabled;
+
+  dom.sessionToggleBtn.textContent = isStopMode ? 'Stop Session' : 'Start Session';
+  dom.sessionToggleBtn.setAttribute(
+    'aria-label',
+    isStopMode ? 'Stop current session' : 'Start a new session'
+  );
+  dom.sessionToggleBtn.disabled = isStopMode ? stopDisabled : startDisabled || isLoading;
+  dom.sessionToggleBtn.classList.toggle('bg-red-600', isStopMode);
+  dom.sessionToggleBtn.classList.toggle('hover:bg-red-700', isStopMode);
+  dom.sessionToggleBtn.classList.toggle('bg-blue-600', !isStopMode);
+  dom.sessionToggleBtn.classList.toggle('hover:bg-blue-700', !isStopMode);
+}
 
 export function bindUiSignals() {
   if (isBound) return;
@@ -98,17 +318,11 @@ export function bindUiSignals() {
   });
 
   promptTextSignal.subscribe((promptText) => {
-    dom.prompt.textContent = promptText;
+    renderPromptText(promptText);
   });
 
   resultViewSignal.subscribe((resultView) => {
-    dom.result.textContent = resultView.text;
-    dom.result.classList.remove('text-green-400', 'text-red-400');
-    if (resultView.tone === 'success') {
-      dom.result.classList.add('text-green-400');
-    } else if (resultView.tone === 'error') {
-      dom.result.classList.add('text-red-400');
-    }
+    renderResultView(resultView);
   });
 
   volumeLevelSignal.subscribe((volumeLevel) => {
@@ -117,23 +331,7 @@ export function bindUiSignals() {
   });
 
   statsViewSignal.subscribe((statsView) => {
-    dom.statsHighScore.textContent = statsView.highScoreText;
-    dom.statsAccuracy.textContent = statsView.accuracyText;
-    dom.statsAvgTime.textContent = statsView.avgTimeText;
-
-    dom.statsProblemNotes.innerHTML = '';
-    if (statsView.problemNotes.length > 0) {
-      statsView.problemNotes.forEach((note) => {
-        const li = document.createElement('li');
-        li.className = 'bg-slate-600 p-2 rounded';
-        li.textContent = `${note.label} (Acc: ${(note.accuracy * 100).toFixed(0)}%, Time: ${note.avgTime.toFixed(2)}s)`;
-        dom.statsProblemNotes.appendChild(li);
-      });
-      return;
-    }
-
-    dom.statsProblemNotes.innerHTML =
-      '<li class="bg-slate-600 p-2 rounded">No data yet. Play a few rounds!</li>';
+    renderStatsView(statsView);
   });
 
   timerValueSignal.subscribe((timerValue) => {
@@ -150,6 +348,36 @@ export function bindUiSignals() {
       dom.stopBtn.disabled = stopDisabled;
       dom.hintBtn.disabled = hintDisabled;
       dom.playSoundBtn.disabled = playSoundDisabled;
+
+      const sessionActive = !stopDisabled;
+      const isCurrentlyCollapsed = practiceSetupCollapsedSignal.get();
+      const isSessionToolsCollapsed = sessionToolsCollapsedSignal.get();
+      if (sessionActive && !previousSessionActive) {
+        if (!isCurrentlyCollapsed) {
+          wasAutoCollapsedForSession = true;
+          practiceSetupCollapsedSignal.set(true);
+        } else {
+          wasAutoCollapsedForSession = false;
+        }
+        if (!isSessionToolsCollapsed) {
+          wasAutoCollapsedSessionToolsForSession = true;
+          sessionToolsCollapsedSignal.set(true);
+        } else {
+          wasAutoCollapsedSessionToolsForSession = false;
+        }
+      } else if (!sessionActive && previousSessionActive) {
+        if (wasAutoCollapsedForSession) {
+          practiceSetupCollapsedSignal.set(false);
+        }
+        if (wasAutoCollapsedSessionToolsForSession) {
+          sessionToolsCollapsedSignal.set(false);
+        }
+        wasAutoCollapsedForSession = false;
+        wasAutoCollapsedSessionToolsForSession = false;
+      }
+      previousSessionActive = sessionActive;
+
+      syncSessionToggleButton();
     }
   );
 
@@ -191,12 +419,17 @@ export function bindUiSignals() {
       !visibility.showArpeggioPatternSelector
     );
     dom.hintBtn.style.display = visibility.showHintButton ? 'inline-block' : 'none';
+    dom.metronomeQuickControls.classList.toggle('hidden', mode !== 'rhythm');
+    renderSessionToolsModeVisibility(mode);
+    dom.modeHelpText.textContent = visibility.helperText;
+    dom.modeHelpText.classList.toggle('hidden', visibility.helperText.length === 0);
   });
 
   loadingViewSignal.subscribe(({ isLoading, message }) => {
     dom.startBtn.disabled = sessionButtonsSignal.get().startDisabled || isLoading;
     dom.instrumentSelector.disabled = isLoading;
     dom.settingsBtn.disabled = isLoading;
+    syncSessionToggleButton();
 
     if (isLoading) {
       dom.loadingMessage.textContent = message;
@@ -267,11 +500,28 @@ export function bindUiSignals() {
     }
   });
 
-  infoSlotsSignal.subscribe(({ slot1, slot2, slot3 }) => {
-    dom.infoSlot1.textContent = slot1;
-    dom.infoSlot2.textContent = slot2;
-    dom.infoSlot3.textContent = slot3;
+  sessionGoalProgressSignal.subscribe((text) => {
+    dom.sessionGoalProgress.textContent = text;
+    dom.sessionGoalProgress.classList.toggle('hidden', text.length === 0);
   });
+
+  infoSlotsSignal.subscribe((infoSlots) => {
+    renderInfoSlots(infoSlots);
+  });
+
+  practiceSetupCollapsedSignal.subscribe((collapsed) => {
+    renderPracticeSetupCollapsed(collapsed);
+  });
+
+  sessionToolsCollapsedSignal.subscribe((collapsed) => {
+    renderSessionToolsCollapsed(collapsed);
+  });
+
+  practiceSetupSummarySignal.subscribe((summaryText) => {
+    renderPracticeSetupSummary(summaryText);
+  });
+
+  syncSessionToggleButton();
 }
 
 export function setStatusText(statusText: string) {
@@ -316,6 +566,34 @@ export function setScoreValue(scoreValue: number | string) {
 
 export function setTimedInfoVisible(isVisible: boolean) {
   timedInfoVisibleSignal.set(isVisible);
+}
+
+export function setSessionGoalProgress(text: string) {
+  sessionGoalProgressSignal.set(text);
+}
+
+export function clearSessionGoalProgress() {
+  sessionGoalProgressSignal.set('');
+}
+
+export function setPracticeSetupCollapsed(collapsed: boolean) {
+  practiceSetupCollapsedSignal.set(collapsed);
+}
+
+export function togglePracticeSetupCollapsed() {
+  practiceSetupCollapsedSignal.set(!practiceSetupCollapsedSignal.get());
+}
+
+export function setSessionToolsCollapsed(collapsed: boolean) {
+  sessionToolsCollapsedSignal.set(collapsed);
+}
+
+export function toggleSessionToolsCollapsed() {
+  sessionToolsCollapsedSignal.set(!sessionToolsCollapsedSignal.get());
+}
+
+export function setPracticeSetupSummary(summaryText: string) {
+  practiceSetupSummarySignal.set(summaryText);
 }
 
 export function setInfoSlots(slot1 = '', slot2 = '', slot3 = '') {
@@ -407,4 +685,15 @@ export function setCalibrationProgress(progressPercent: number) {
 
 export function setCalibrationStatus(statusText: string) {
   setCalibrationView({ statusText });
+}
+
+export function refreshDisplayFormatting() {
+  renderPromptText(promptTextSignal.get());
+  renderResultView(resultViewSignal.get());
+  renderInfoSlots(infoSlotsSignal.get());
+  renderStatsView(statsViewSignal.get());
+  renderPracticeSetupSummary(practiceSetupSummarySignal.get());
+  const goalProgressText = formatMusicText(sessionGoalProgressSignal.get());
+  dom.sessionGoalProgress.textContent = goalProgressText;
+  dom.sessionGoalProgress.classList.toggle('hidden', goalProgressText.length === 0);
 }

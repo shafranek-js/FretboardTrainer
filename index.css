@@ -28,3 +28,95 @@ input[type='number'] {
   opacity: 1;
   transition-delay: 0s;
 }
+
+@media (max-width: 639px) {
+  .learning-controls {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+
+  .learning-controls #practiceSetupPanel:not(.hidden) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem 0.65rem;
+    align-items: start;
+  }
+
+  .learning-controls #practiceSetupPanel > div {
+    min-width: 0;
+  }
+
+  .learning-controls #practiceSetupPanel .difficulty-selector,
+  .learning-controls #practiceSetupPanel .session-goal-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+  }
+
+  .learning-controls #practiceSetupPanel .mode-selector,
+  .learning-controls #practiceSetupPanel .curriculum-selector,
+  .learning-controls #practiceSetupPanel #scaleSelectorContainer,
+  .learning-controls #practiceSetupPanel #chordSelectorContainer,
+  .learning-controls #practiceSetupPanel #progressionSelectorContainer,
+  .learning-controls #practiceSetupPanel #arpeggioPatternContainer,
+  .learning-controls #practiceSetupPanel .fret-selector,
+  .learning-controls #practiceSetupPanel #curriculumPresetInfo,
+  .learning-controls #practiceSetupPanel #modeHelpText {
+    grid-column: 1 / -1;
+  }
+
+  .learning-controls #practiceSetupPanel .mode-selector,
+  .learning-controls #practiceSetupPanel .curriculum-selector,
+  .learning-controls #practiceSetupPanel #scaleSelectorContainer,
+  .learning-controls #practiceSetupPanel #chordSelectorContainer,
+  .learning-controls #practiceSetupPanel #progressionSelectorContainer,
+  .learning-controls #practiceSetupPanel #arpeggioPatternContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+  }
+
+  .learning-controls #practiceSetupPanel label {
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .learning-controls #practiceSetupPanel select,
+  .learning-controls #practiceSetupPanel input[type='number'] {
+    width: 100%;
+    min-width: 0;
+    padding: 0.35rem 0.45rem;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  .learning-controls #practiceSetupPanel .fret-selector {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 0.35rem 0.4rem;
+    align-items: center;
+  }
+
+  .learning-controls #practiceSetupPanel .fret-selector label {
+    white-space: nowrap;
+  }
+
+  .learning-controls #practiceSetupPanel .fret-selector span {
+    text-align: center;
+  }
+
+  .learning-controls #practiceSetupPanel .randomize-label {
+    margin-top: 0.15rem;
+    font-size: 11px;
+  }
+
+  .learning-controls #practiceSetupPanel #curriculumPresetInfo,
+  .learning-controls #practiceSetupPanel #modeHelpText {
+    margin-top: 0;
+    padding: 0.45rem 0.55rem;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+}

@@ -17,6 +17,36 @@ export interface Stats {
   noteStats: { [key: string]: NoteStat };
 }
 
+export interface SessionStats {
+  modeKey: string;
+  modeLabel: string;
+  startedAtMs: number;
+  endedAtMs: number | null;
+  instrumentName: string;
+  tuningPresetKey: string;
+  stringOrder: string[];
+  enabledStrings: string[];
+  minFret: number;
+  maxFret: number;
+  totalAttempts: number;
+  correctAttempts: number;
+  totalTime: number;
+  currentCorrectStreak: number;
+  bestCorrectStreak: number;
+  noteStats: { [key: string]: NoteStat };
+  targetZoneStats: { [key: string]: NoteStat };
+  rhythmStats: RhythmSessionStats;
+}
+
+export interface RhythmSessionStats {
+  totalJudged: number;
+  onBeat: number;
+  early: number;
+  late: number;
+  totalAbsOffsetMs: number;
+  bestAbsOffsetMs: number | null;
+}
+
 export type ChordNote = { note: string; string: string; fret: number };
 
 /** Represents all the necessary data for a single user challenge. */
