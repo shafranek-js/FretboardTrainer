@@ -43,6 +43,23 @@ export interface MidiImportedMelody {
   };
 }
 
+export interface MidiImportTrackOption {
+  trackIndex: number;
+  name: string;
+  label: string;
+  noteCount: number;
+  isPercussion: boolean;
+}
+
+export interface LoadedMidiFile {
+  midi: MidiFileLike;
+  sourceFileName: string;
+  midiName: string | null;
+  tempoBpm: number | null;
+  trackOptions: MidiImportTrackOption[];
+  defaultTrackIndex: number | null;
+}
+
 interface PositionCandidate {
   stringName: string;
   fret: number;
@@ -82,9 +99,15 @@ function getTrackDisplayName(track: MidiTrackLike, trackIndex: number) {
   return `Track ${trackIndex + 1}`;
 }
 
-function pickMidiTrack(midi: MidiFileLike) {
-  const warnings: string[] = [];
-  const tracks = (midi.tracks ?? [])
+interface MidiTrackSelection {
+  track: MidiTrackLike;
+  index: number;
+  notes: MidiNoteLike[];
+  isPercussion: boolean;
+}
+
+function listMidiTrackSelections(midi: MidiFileLike): MidiTrackSelection[] {
+  return (midi.tracks ?? [])
     .map((track, index) => ({
       track,
       index,
@@ -92,7 +115,11 @@ function pickMidiTrack(midi: MidiFileLike) {
       isPercussion: Boolean(track.instrument?.percussion) || track.channel === 9,
     }))
     .filter((entry) => entry.notes.length > 0);
+}
 
+function pickMidiTrack(midi: MidiFileLike) {
+  const warnings: string[] = [];
+  const tracks = listMidiTrackSelections(midi);
   const melodic = tracks.filter((entry) => !entry.isPercussion);
   const pool = melodic.length > 0 ? melodic : tracks;
   if (pool.length === 0) {
@@ -170,21 +197,22 @@ function chooseEventPositions(
   return chosen;
 }
 
-export function convertParsedMidiToImportedMelody(
+function convertMidiTrackSelectionToImportedMelody(
   midi: MidiFileLike,
+  selection: MidiTrackSelection,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
-  sourceFileName: string
+  sourceFileName: string,
+  warnings: string[]
 ): MidiImportedMelody {
-  const { selected, warnings } = pickMidiTrack(midi);
   const ppq = Number.isFinite(midi.header?.ppq) && Number(midi.header?.ppq) > 0 ? Number(midi.header?.ppq) : 480;
   const tempoBpm =
     typeof midi.header?.tempos?.[0]?.bpm === 'number' && Number.isFinite(midi.header.tempos[0].bpm)
       ? Math.round(midi.header.tempos[0].bpm)
       : null;
   const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
-  const trackName = getTrackDisplayName(selected.track, selected.index);
+  const trackName = getTrackDisplayName(selection.track, selection.index);
 
-  const notes = [...selected.notes]
+  const notes = [...selection.notes]
     .filter((note) => Number.isFinite(note.midi) && Number.isFinite(note.ticks))
     .sort((a, b) => Number(a.ticks) - Number(b.ticks) || Number(a.midi) - Number(b.midi));
 
@@ -252,6 +280,77 @@ export function convertParsedMidiToImportedMelody(
   };
 }
 
+export function convertParsedMidiToImportedMelody(
+  midi: MidiFileLike,
+  instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
+  sourceFileName: string
+): MidiImportedMelody {
+  const { selected, warnings } = pickMidiTrack(midi);
+  return convertMidiTrackSelectionToImportedMelody(midi, selected, instrument, sourceFileName, warnings);
+}
+
+export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: string): LoadedMidiFile {
+  const trackSelections = listMidiTrackSelections(midi);
+  const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
+  const tempoBpm =
+    typeof midi.header?.tempos?.[0]?.bpm === 'number' && Number.isFinite(midi.header.tempos[0].bpm)
+      ? Math.round(midi.header.tempos[0].bpm)
+      : null;
+
+  const trackOptions = trackSelections.map((selection) => ({
+    trackIndex: selection.index,
+    name: getTrackDisplayName(selection.track, selection.index),
+    label: `${selection.index + 1}. ${getTrackDisplayName(selection.track, selection.index)} (${selection.notes.length} notes${selection.isPercussion ? ', percussion' : ''})`,
+    noteCount: selection.notes.length,
+    isPercussion: selection.isPercussion,
+  }));
+
+  const melodic = trackSelections.filter((selection) => !selection.isPercussion);
+  const defaultTrackIndex =
+    melodic.sort((a, b) => b.notes.length - a.notes.length)[0]?.index ??
+    trackSelections.sort((a, b) => b.notes.length - a.notes.length)[0]?.index ??
+    null;
+
+  return {
+    midi,
+    sourceFileName,
+    midiName,
+    tempoBpm,
+    trackOptions,
+    defaultTrackIndex,
+  };
+}
+
+export function convertLoadedMidiTrackToImportedMelody(
+  loaded: LoadedMidiFile,
+  instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
+  trackIndex: number
+): MidiImportedMelody {
+  const trackSelections = listMidiTrackSelections(loaded.midi);
+  const selected = trackSelections.find((selection) => selection.index === trackIndex);
+  if (!selected) {
+    throw new Error('Selected MIDI track is not available.');
+  }
+
+  const warnings: string[] = [];
+  if (trackSelections.length > 1) {
+    warnings.push(
+      `Imported ${getTrackDisplayName(selected.track, selected.index)} (${selected.notes.length} notes) from ${trackSelections.length} MIDI tracks.`
+    );
+  }
+  if (selected.isPercussion) {
+    warnings.push('Selected track appears to be percussion; fretboard positions may be limited.');
+  }
+
+  return convertMidiTrackSelectionToImportedMelody(
+    loaded.midi,
+    selected,
+    instrument,
+    loaded.sourceFileName,
+    warnings
+  );
+}
+
 export async function importMidiMelodyFromBytes(
   bytes: Uint8Array,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
@@ -265,3 +364,11 @@ export async function importMidiMelodyFromBytes(
   return convertParsedMidiToImportedMelody(midi as unknown as MidiFileLike, instrument, sourceFileName);
 }
 
+export async function loadMidiFileFromBytes(bytes: Uint8Array, sourceFileName: string): Promise<LoadedMidiFile> {
+  if (!bytes.length) {
+    throw new Error('Selected file is empty.');
+  }
+  const midiModule = await import('@tonejs/midi');
+  const midi = new midiModule.Midi(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  return inspectMidiFileForImport(midi as unknown as MidiFileLike, sourceFileName);
+}

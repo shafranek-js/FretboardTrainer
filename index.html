@@ -1213,6 +1213,23 @@
             </div>
             <p id="melodyGpTrackInfo" class="text-xs text-slate-300"></p>
           </div>
+          <div id="melodyMidiTrackImportPanel" class="hidden rounded-md border border-indigo-500/40 bg-indigo-950/20 p-3">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <label for="melodyMidiTrackSelector" class="text-sm font-semibold text-indigo-100">MIDI Track:</label>
+              <select
+                id="melodyMidiTrackSelector"
+                class="min-w-[16rem] bg-slate-800 border border-indigo-500/50 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+              ></select>
+              <button
+                id="saveMelodyMidiTrackBtn"
+                type="button"
+                class="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+              >
+                Save MIDI Track
+              </button>
+            </div>
+            <p id="melodyMidiTrackInfo" class="text-xs text-slate-300"></p>
+          </div>
           <div class="rounded-md border border-slate-600 bg-slate-800/70 p-3">
             <div class="flex items-center justify-between gap-2 mb-2">
               <h3 class="text-sm font-semibold text-slate-100">Parsed Preview</h3>

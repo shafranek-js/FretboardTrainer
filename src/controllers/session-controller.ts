@@ -74,7 +74,12 @@ import {
   type GpImportedMelody,
   type LoadedGpScore,
 } from '../gp-import';
-import { importMidiMelodyFromBytes } from '../midi-file-import';
+import {
+  convertLoadedMidiTrackToImportedMelody,
+  loadMidiFileFromBytes,
+  type LoadedMidiFile,
+  type MidiImportedMelody,
+} from '../midi-file-import';
 
 const MELODY_DEMO_FALLBACK_STEP_MS = 700;
 const MELODY_DEMO_MIN_STEP_MS = 160;
@@ -91,6 +96,11 @@ let pendingGpImport: {
   loaded: LoadedGpScore;
   selectedTrackIndex: number;
   importedPreview: GpImportedMelody | null;
+} | null = null;
+let pendingMidiImport: {
+  loaded: LoadedMidiFile;
+  selectedTrackIndex: number;
+  importedPreview: MidiImportedMelody | null;
 } | null = null;
 
 function renderMelodyDemoButtonState() {
@@ -173,6 +183,14 @@ function clearPendingGpImportDraft() {
   dom.saveMelodyGpTrackBtn.disabled = true;
 }
 
+function clearPendingMidiImportDraft() {
+  pendingMidiImport = null;
+  dom.melodyMidiTrackSelector.innerHTML = '';
+  dom.melodyMidiTrackInfo.textContent = '';
+  dom.melodyMidiTrackImportPanel.classList.add('hidden');
+  dom.saveMelodyMidiTrackBtn.disabled = true;
+}
+
 function renderGpTrackInfo() {
   if (!pendingGpImport) {
     dom.melodyGpTrackInfo.textContent = '';
@@ -230,6 +248,63 @@ function renderGpTrackSelectorForPendingImport() {
   refreshGpTrackPreviewFromSelection();
 }
 
+function renderMidiTrackInfo() {
+  if (!pendingMidiImport) {
+    dom.melodyMidiTrackInfo.textContent = '';
+    return;
+  }
+  const preview = pendingMidiImport.importedPreview;
+  const loaded = pendingMidiImport.loaded;
+  const pieces: string[] = [];
+  if (loaded.midiName) pieces.push(`MIDI: ${loaded.midiName}`);
+  if (preview?.metadata.trackName) pieces.push(`Track: ${preview.metadata.trackName}`);
+  if (loaded.tempoBpm) pieces.push(`Tempo: ${loaded.tempoBpm} BPM`);
+  if (preview?.warnings.length) pieces.push(preview.warnings.join(' '));
+  dom.melodyMidiTrackInfo.textContent = pieces.join(' | ');
+}
+
+function refreshMidiTrackPreviewFromSelection() {
+  if (!pendingMidiImport) return;
+  const selectedTrackIndex = Number.parseInt(dom.melodyMidiTrackSelector.value, 10);
+  if (!Number.isFinite(selectedTrackIndex)) return;
+
+  pendingMidiImport.selectedTrackIndex = selectedTrackIndex;
+  const imported = convertLoadedMidiTrackToImportedMelody(
+    pendingMidiImport.loaded,
+    state.currentInstrument,
+    selectedTrackIndex
+  );
+  pendingMidiImport.importedPreview = imported;
+
+  if (!dom.melodyNameInput.value.trim()) {
+    dom.melodyNameInput.value = imported.suggestedName;
+  }
+
+  renderMelodyEditorPreviewFromEvents(imported.events, {
+    statusText: 'MIDI parsed successfully',
+    summaryPrefix: 'MIDI',
+  });
+  renderMidiTrackInfo();
+  dom.saveMelodyMidiTrackBtn.disabled = false;
+}
+
+function renderMidiTrackSelectorForPendingImport() {
+  if (!pendingMidiImport) return;
+  const { loaded } = pendingMidiImport;
+  dom.melodyMidiTrackSelector.innerHTML = '';
+  loaded.trackOptions.forEach((option) => {
+    const element = document.createElement('option');
+    element.value = String(option.trackIndex);
+    element.textContent = option.label;
+    dom.melodyMidiTrackSelector.append(element);
+  });
+  if (loaded.defaultTrackIndex !== null) {
+    dom.melodyMidiTrackSelector.value = String(loaded.defaultTrackIndex);
+  }
+  dom.melodyMidiTrackImportPanel.classList.remove('hidden');
+  refreshMidiTrackPreviewFromSelection();
+}
+
 function updateMelodyEditorPreview() {
   const tabText = dom.melodyAsciiTabInput.value.trim();
   if (!tabText) {
@@ -241,6 +316,14 @@ function updateMelodyEditorPreview() {
       renderGpTrackInfo();
       return;
     }
+    if (pendingMidiImport?.importedPreview) {
+      renderMelodyEditorPreviewFromEvents(pendingMidiImport.importedPreview.events, {
+        statusText: 'MIDI parsed successfully',
+        summaryPrefix: 'MIDI',
+      });
+      renderMidiTrackInfo();
+      return;
+    }
     clearMelodyEditorPreview();
     return;
   }
@@ -248,6 +331,7 @@ function updateMelodyEditorPreview() {
   try {
     // Switching back to ASCII editing hides any pending GP import draft.
     clearPendingGpImportDraft();
+    clearPendingMidiImportDraft();
     const parsedEvents = parseAsciiTabToMelodyEvents(tabText, state.currentInstrument).map((event) => ({
       column: event.column,
       durationColumns: event.durationColumns,
@@ -311,6 +395,55 @@ function savePendingGpImportedTrack() {
     sourceFileName: imported.metadata.sourceFileName,
     sourceTrackName: imported.metadata.trackName ?? undefined,
     sourceScoreTitle: imported.metadata.scoreTitle ?? undefined,
+    sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
+  });
+
+  const warningSuffix =
+    imported.warnings.length > 0
+      ? ` ${imported.warnings.slice(0, 2).join(' ')}${imported.warnings.length > 2 ? ' ...' : ''}`
+      : '';
+  const trackLabel = imported.metadata.trackName ? ` (${imported.metadata.trackName})` : '';
+  finalizeMelodyImportSelection(
+    melodyId,
+    `Custom melody imported from ${imported.metadata.sourceFileName}${trackLabel}.${warningSuffix}`.trim()
+  );
+}
+
+async function loadMidiImportDraftFromFile(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const loaded = await loadMidiFileFromBytes(bytes, file.name);
+  if (loaded.trackOptions.length === 0 || loaded.defaultTrackIndex === null) {
+    throw new Error('MIDI file does not contain importable note tracks.');
+  }
+
+  pendingMidiImport = {
+    loaded,
+    selectedTrackIndex: loaded.defaultTrackIndex,
+    importedPreview: null,
+  };
+  renderMidiTrackSelectorForPendingImport();
+}
+
+function savePendingMidiImportedTrack() {
+  if (!pendingMidiImport) {
+    throw new Error('No loaded MIDI file to import.');
+  }
+
+  const imported =
+    pendingMidiImport.importedPreview ??
+    convertLoadedMidiTrackToImportedMelody(
+      pendingMidiImport.loaded,
+      state.currentInstrument,
+      pendingMidiImport.selectedTrackIndex
+    );
+  pendingMidiImport.importedPreview = imported;
+
+  const melodyName = dom.melodyNameInput.value.trim() || imported.suggestedName;
+  const melodyId = saveCustomEventMelody(melodyName, imported.events, state.currentInstrument, {
+    sourceFormat: imported.metadata.sourceFormat,
+    sourceFileName: imported.metadata.sourceFileName,
+    sourceTrackName: imported.metadata.trackName ?? undefined,
+    sourceScoreTitle: imported.metadata.midiName ?? undefined,
     sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
   });
 
@@ -663,6 +796,7 @@ function resetMelodyEditorDraft() {
   state.melodyEditorMode = 'create';
   state.editingMelodyId = null;
   clearPendingGpImportDraft();
+  clearPendingMidiImportDraft();
   clearMelodyEditorPreview();
 }
 
@@ -1237,32 +1371,30 @@ export function registerSessionControls() {
 
     try {
       stopMelodyDemoPlayback({ clearUi: true });
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const imported = await importMidiMelodyFromBytes(bytes, state.currentInstrument, file.name);
-      const melodyName = dom.melodyNameInput.value.trim() || imported.suggestedName;
-      const melodyId = saveCustomEventMelody(melodyName, imported.events, state.currentInstrument, {
-        sourceFormat: imported.metadata.sourceFormat,
-        sourceFileName: imported.metadata.sourceFileName,
-        sourceTrackName: imported.metadata.trackName ?? undefined,
-        sourceScoreTitle: imported.metadata.midiName ?? undefined,
-        sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
-      });
-
-      const warningSuffix =
-        imported.warnings.length > 0
-          ? ` ${imported.warnings.slice(0, 2).join(' ')}${imported.warnings.length > 2 ? ' ...' : ''}`
-          : '';
-      const trackLabel = imported.metadata.trackName ? ` (${imported.metadata.trackName})` : '';
-      finalizeMelodyImportSelection(
-        melodyId,
-        `Custom melody imported from ${imported.metadata.sourceFileName}${trackLabel}.${warningSuffix}`.trim()
-      );
+      await loadMidiImportDraftFromFile(file);
+      setResultMessage('MIDI file parsed. Review the preview, choose a track, then save.', 'success');
     } catch (error) {
       showNonBlockingError(formatUserFacingError('Failed to import MIDI file', error));
     } finally {
       dom.importMelodyMidiBtn.disabled = false;
       dom.importMelodyMidiBtn.textContent = originalLabel;
       resetMelodyMidiFileInput();
+    }
+  });
+  dom.melodyMidiTrackSelector.addEventListener('change', () => {
+    try {
+      refreshMidiTrackPreviewFromSelection();
+    } catch (error) {
+      renderMelodyEditorPreviewError('MIDI track preview failed', error);
+      showNonBlockingError(formatUserFacingError('Failed to preview selected MIDI track', error));
+    }
+  });
+  dom.saveMelodyMidiTrackBtn.addEventListener('click', () => {
+    try {
+      stopMelodyDemoPlayback({ clearUi: true });
+      savePendingMidiImportedTrack();
+    } catch (error) {
+      showNonBlockingError(formatUserFacingError('Failed to save imported MIDI track', error));
     }
   });
   dom.melodyGpTrackSelector.addEventListener('change', () => {
