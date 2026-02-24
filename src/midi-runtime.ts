@@ -87,7 +87,10 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   dom.inputSource.value = state.inputSource;
   const usingMidi = state.inputSource === 'midi';
   dom.audioInputRow.classList.toggle('hidden', usingMidi);
+  dom.micSensitivityRow.classList.toggle('hidden', usingMidi);
+  dom.micNoiseCalibrationRow.classList.toggle('hidden', usingMidi);
   dom.audioInputInfo.classList.toggle('hidden', usingMidi);
+  dom.micNoiseGateInfo.classList.toggle('hidden', usingMidi);
   dom.midiInputRow.classList.toggle('hidden', !usingMidi);
   dom.midiInputInfo.classList.toggle('hidden', !usingMidi);
   updateSessionInputStatusHud();

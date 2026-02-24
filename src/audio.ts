@@ -17,9 +17,9 @@ export function freqToNoteName(freq: number): string | null {
 }
 
 /** Detects pitch in monophonic input (YIN algorithm). */
-export function detectPitch(buffer: Float32Array, sampleRate: number): number {
+export function detectPitch(buffer: Float32Array, sampleRate: number, volumeThreshold = VOLUME_THRESHOLD): number {
   const rms = Math.sqrt(buffer.reduce((acc, val) => acc + val * val, 0) / buffer.length);
-  if (rms < VOLUME_THRESHOLD) return 0;
+  if (rms < volumeThreshold) return 0;
   return detectPitchYin(buffer, sampleRate);
 }
 

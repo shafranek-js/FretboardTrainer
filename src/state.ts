@@ -8,6 +8,7 @@ import { DEFAULT_A4_FREQUENCY } from './constants';
 import { IInstrument } from './instruments/instrument';
 import { instruments } from './instruments';
 import type { SessionPace } from './session-pace';
+import type { MicSensitivityPreset } from './mic-input-sensitivity';
 
 function requireElementById<T extends Element>(id: string): T {
   const element = document.getElementById(id);
@@ -37,6 +38,10 @@ export const dom = {
   noteNaming: requireElementById<HTMLSelectElement>('noteNaming'),
   audioInputRow: requireElementById<HTMLElement>('audioInputRow'),
   audioInputDevice: requireElementById<HTMLSelectElement>('audioInputDevice'),
+  micSensitivityRow: requireElementById<HTMLElement>('micSensitivityRow'),
+  micSensitivityPreset: requireElementById<HTMLSelectElement>('micSensitivityPreset'),
+  micNoiseCalibrationRow: requireElementById<HTMLElement>('micNoiseCalibrationRow'),
+  calibrateNoiseFloorBtn: requireElementById<HTMLButtonElement>('calibrateNoiseFloorBtn'),
   midiInputRow: requireElementById<HTMLElement>('midiInputRow'),
   midiInputDevice: requireElementById<HTMLSelectElement>('midiInputDevice'),
   trainingMode: requireElementById<HTMLSelectElement>('trainingMode'),
@@ -88,6 +93,7 @@ export const dom = {
   curriculumPresetInfo: requireElementById<HTMLElement>('curriculumPresetInfo'),
   tuningPresetInfo: requireElementById<HTMLElement>('tuningPresetInfo'),
   audioInputInfo: requireElementById<HTMLElement>('audioInputInfo'),
+  micNoiseGateInfo: requireElementById<HTMLElement>('micNoiseGateInfo'),
   midiInputInfo: requireElementById<HTMLElement>('midiInputInfo'),
   midiConnectionStatus: requireElementById<HTMLElement>('midiConnectionStatus'),
   modeHelpText: requireElementById<HTMLElement>('modeHelpText'),
@@ -236,6 +242,8 @@ export const state = {
   currentTuningPresetKey: 'standard',
   inputSource: 'microphone' as 'microphone' | 'midi',
   preferredAudioInputDeviceId: null as string | null,
+  micSensitivityPreset: 'normal' as MicSensitivityPreset,
+  micAutoNoiseFloorRms: null as number | null,
   preferredMidiInputDeviceId: null as string | null,
   midiAccess: null as MIDIAccess | null,
   midiInput: null as MIDIInput | null,

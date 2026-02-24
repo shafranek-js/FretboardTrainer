@@ -38,7 +38,6 @@ import {
   REQUIRED_STABLE_FRAMES,
   CALIBRATION_SAMPLES,
   TIMED_CHALLENGE_DURATION,
-  VOLUME_THRESHOLD,
 } from './constants';
 import { getEnabledStrings, getSelectedFretRange } from './fretboard-ui-state';
 import { buildPromptAudioPlan } from './prompt-audio-plan';
@@ -105,6 +104,7 @@ import { executeSessionRuntimeActivation } from './session-runtime-activation-ex
 import { createMidiSessionMessageHandler } from './midi-session-message-handler';
 import { createTimedSessionIntervalHandler } from './timed-session-interval-handler';
 import type { Prompt } from './types';
+import { resolveMicVolumeThreshold } from './mic-input-sensitivity';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -362,9 +362,13 @@ function processAudio() {
 
     const trainingMode = dom.trainingMode.value;
     const mode = modes[trainingMode];
+    const micVolumeThreshold = resolveMicVolumeThreshold(
+      state.micSensitivityPreset,
+      state.micAutoNoiseFloorRms
+    );
     const preflightPlan = buildProcessAudioFramePreflightPlan({
       volume,
-      volumeThreshold: VOLUME_THRESHOLD,
+      volumeThreshold: micVolumeThreshold,
       consecutiveSilence: state.consecutiveSilence,
       isCalibrating: state.isCalibrating,
       trainingMode,
@@ -436,7 +440,7 @@ function processAudio() {
       });
     } else {
       // --- Monophonic (Single Note) Detection ---
-      const frequency = detectPitch(state.dataArray!, state.audioContext.sampleRate);
+      const frequency = detectPitch(state.dataArray!, state.audioContext.sampleRate, micVolumeThreshold);
       if (state.isCalibrating) {
         const { expectedFrequency } = getOpenATuningInfoFromTuning(state.currentInstrument.TUNING);
         const calibrationResult = detectCalibrationFrame({

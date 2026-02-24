@@ -4,6 +4,8 @@ import { handleModeChange, redrawFretboard, updateInstrumentUI, drawFretboard } 
 import { playSound, loadInstrumentSoundfont } from '../audio';
 import { scheduleSessionTimeout, startListening, stopListening } from '../logic';
 import { instruments } from '../instruments';
+import { ensureAudioRuntime } from '../audio-runtime';
+import { calculateRmsLevel } from '../audio-frame-processing';
 import {
   clearResultMessage,
   refreshDisplayFormatting,
@@ -52,6 +54,11 @@ import {
 } from '../melody-library';
 import { confirmUserAction } from '../user-feedback-port';
 import { normalizeSessionPace } from '../session-pace';
+import {
+  estimateNoiseFloorRms,
+  normalizeMicSensitivityPreset,
+  resolveMicVolumeThreshold,
+} from '../mic-input-sensitivity';
 
 function findPlayableStringForNote(note: string): string | null {
   const instrumentData = state.currentInstrument;
@@ -74,6 +81,60 @@ function findPlayableStringForNote(note: string): string | null {
 function setCurriculumPresetInfo(text: string) {
   dom.curriculumPresetInfo.textContent = text;
   dom.curriculumPresetInfo.classList.toggle('hidden', text.length === 0);
+}
+
+function updateMicNoiseGateInfo() {
+  const threshold = resolveMicVolumeThreshold(state.micSensitivityPreset, state.micAutoNoiseFloorRms);
+  if (state.micSensitivityPreset === 'auto') {
+    const noiseFloorText =
+      typeof state.micAutoNoiseFloorRms === 'number' ? state.micAutoNoiseFloorRms.toFixed(4) : 'n/a';
+    dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (Auto; room noise floor ${noiseFloorText} RMS)`;
+    return;
+  }
+
+  const presetLabel = dom.micSensitivityPreset.selectedOptions[0]?.textContent?.trim() ?? 'Normal';
+  dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (${presetLabel} preset). Use Auto calibration for noisy rooms.`;
+}
+
+async function measureRoomNoiseFloorRms(durationMs = 2000) {
+  await ensureAudioRuntime(state, { audioInputDeviceId: state.preferredAudioInputDeviceId });
+  await refreshAudioInputDeviceOptions();
+  if (state.audioContext?.state === 'suspended') {
+    await state.audioContext.resume();
+  }
+  if (!state.analyser || !state.dataArray) {
+    throw new Error('Microphone analyser is not available.');
+  }
+
+  const samples: number[] = [];
+  const startedAt = performance.now();
+  await new Promise<void>((resolve, reject) => {
+    const step = () => {
+      try {
+        if (!state.analyser || !state.dataArray) {
+          reject(new Error('Microphone analyser was released during noise calibration.'));
+          return;
+        }
+        state.analyser.getFloatTimeDomainData(state.dataArray);
+        samples.push(calculateRmsLevel(state.dataArray));
+
+        if (performance.now() - startedAt >= durationMs) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(step);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    requestAnimationFrame(step);
+  });
+
+  const estimated = estimateNoiseFloorRms(samples);
+  if (estimated === null) {
+    throw new Error('Could not estimate room noise floor.');
+  }
+  return estimated;
 }
 
 function setCurriculumPresetSelection(key: CurriculumPresetKey) {
@@ -247,6 +308,7 @@ export function registerSessionControls() {
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
   populateMelodyOptions();
   resetMetronomeVisualIndicator();
+  updateMicNoiseGateInfo();
   updatePracticeSetupSummary();
   refreshInputSourceAvailabilityUi();
   setPracticeSetupCollapsed(window.innerWidth < 900);
@@ -357,6 +419,46 @@ export function registerSessionControls() {
     }
 
     saveSettings();
+    updateMicNoiseGateInfo();
+  });
+
+  dom.micSensitivityPreset.addEventListener('change', () => {
+    state.micSensitivityPreset = normalizeMicSensitivityPreset(dom.micSensitivityPreset.value);
+    dom.micSensitivityPreset.value = state.micSensitivityPreset;
+    updateMicNoiseGateInfo();
+    saveSettings();
+  });
+
+  dom.calibrateNoiseFloorBtn.addEventListener('click', async () => {
+    if (state.isListening) {
+      setResultMessage('Stop the current session before calibrating room noise.', 'error');
+      return;
+    }
+
+    const originalLabel = dom.calibrateNoiseFloorBtn.textContent ?? 'Calibrate Noise Floor (2s Silence)';
+    dom.calibrateNoiseFloorBtn.disabled = true;
+    dom.calibrateNoiseFloorBtn.textContent = 'Measuring... stay silent';
+    dom.micNoiseGateInfo.textContent =
+      'Measuring room noise floor... keep the room quiet for 2 seconds.';
+
+    try {
+      const noiseFloorRms = await measureRoomNoiseFloorRms(2000);
+      state.micAutoNoiseFloorRms = noiseFloorRms;
+      state.micSensitivityPreset = 'auto';
+      dom.micSensitivityPreset.value = 'auto';
+      updateMicNoiseGateInfo();
+      saveSettings();
+      setResultMessage(
+        `Room noise calibrated. Auto threshold is now based on ${noiseFloorRms.toFixed(4)} RMS.`,
+        'success'
+      );
+    } catch (error) {
+      updateMicNoiseGateInfo();
+      showNonBlockingError(formatUserFacingError('Failed to calibrate room noise floor', error));
+    } finally {
+      dom.calibrateNoiseFloorBtn.disabled = false;
+      dom.calibrateNoiseFloorBtn.textContent = originalLabel;
+    }
   });
 
   dom.inputSource.addEventListener('change', () => {

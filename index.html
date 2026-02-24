@@ -569,6 +569,18 @@
                   <option value="">Default microphone</option>
                 </select>
               </div>
+              <div id="micSensitivityRow" class="mic-sensitivity-selector flex flex-col items-stretch gap-1.5">
+                <label for="micSensitivityPreset" class="text-slate-300">Mic Sensitivity</label>
+                <select
+                  id="micSensitivityPreset"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="quiet_room">Quiet Room</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="noisy_room">Noisy Room</option>
+                  <option value="auto">Auto (Calibrated)</option>
+                </select>
+              </div>
               <div id="midiInputRow" class="midi-input-selector flex flex-col items-stretch gap-1.5 hidden">
                 <label for="midiInputDevice" class="text-slate-300">MIDI Input</label>
                 <select
@@ -589,6 +601,21 @@
                   <option value="loose">Loose</option>
                 </select>
               </div>
+              <div
+                id="micNoiseCalibrationRow"
+                class="md:col-span-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
+              >
+                <button
+                  id="calibrateNoiseFloorBtn"
+                  type="button"
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Calibrate Noise Floor (2s Silence)
+                </button>
+                <span class="text-[11px] leading-4 text-slate-300">
+                  Measure room noise and switch to <strong>Auto</strong> threshold.
+                </span>
+              </div>
             </div>
             <div
               id="tuningPresetInfo"
@@ -601,6 +628,13 @@
               role="note"
             >
               Microphone labels may appear after you allow microphone access once.
+            </div>
+            <div
+              id="micNoiseGateInfo"
+              class="mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="note"
+            >
+              Mic noise gate threshold: -
             </div>
             <div
               id="midiInputInfo"

@@ -19,6 +19,7 @@ import { normalizeNoteNamingPreference, setNoteNamingPreference } from './note-d
 import { getDefaultTuningPresetKey } from './tuning-presets';
 import { normalizeSessionPace } from './session-pace';
 import { normalizeAudioInputDeviceId, setPreferredAudioInputDeviceId } from './audio-input-devices';
+import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import {
   normalizeInputSource,
   normalizeMidiInputDeviceId,
@@ -54,6 +55,8 @@ export interface ProfileSettings {
   noteNaming?: 'sharps' | 'flats';
   inputSource?: 'microphone' | 'midi';
   audioInputDeviceId?: string | null;
+  micSensitivityPreset?: 'quiet_room' | 'normal' | 'noisy_room' | 'auto';
+  micAutoNoiseFloorRms?: number | null;
   midiInputDeviceId?: string | null;
   startFret?: string;
   endFret?: string;
@@ -135,6 +138,8 @@ export function gatherCurrentSettings(): ProfileSettings {
     noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
     inputSource: state.inputSource,
     audioInputDeviceId: state.preferredAudioInputDeviceId,
+    micSensitivityPreset: state.micSensitivityPreset,
+    micAutoNoiseFloorRms: state.micAutoNoiseFloorRms,
     midiInputDeviceId: state.preferredMidiInputDeviceId,
     startFret: dom.startFret.value,
     endFret: dom.endFret.value,
@@ -192,6 +197,14 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     setNoteNamingPreference(dom.noteNaming.value);
     setInputSourcePreference(normalizeInputSource(safeSettings.inputSource));
     setPreferredAudioInputDeviceId(normalizeAudioInputDeviceId(safeSettings.audioInputDeviceId));
+    state.micSensitivityPreset = normalizeMicSensitivityPreset(safeSettings.micSensitivityPreset);
+    dom.micSensitivityPreset.value = state.micSensitivityPreset;
+    state.micAutoNoiseFloorRms =
+      typeof safeSettings.micAutoNoiseFloorRms === 'number' &&
+      Number.isFinite(safeSettings.micAutoNoiseFloorRms) &&
+      safeSettings.micAutoNoiseFloorRms >= 0
+        ? safeSettings.micAutoNoiseFloorRms
+        : null;
     setPreferredMidiInputDeviceId(normalizeMidiInputDeviceId(safeSettings.midiInputDeviceId));
     dom.startFret.value = safeSettings.startFret ?? '0';
     dom.endFret.value = safeSettings.endFret ?? '12';
