@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { instruments } from './instruments';
-import { convertAlphaTabScoreToImportedMelody } from './gp-import';
+import {
+  convertAlphaTabScoreToImportedMelody,
+  convertLoadedGpScoreTrackToImportedMelody,
+  inspectAlphaTabScoreForMelodyImport,
+} from './gp-import';
 
 describe('gp-import converter', () => {
   it('converts alphaTab-like score beats into melody events with polyphony and timing gaps', () => {
@@ -73,5 +77,44 @@ describe('gp-import converter', () => {
         { note: 'E', stringName: 'D', fret: 2 },
       ])
     );
+  });
+
+  it('inspects multiple tracks and picks matching string-count track by default', () => {
+    const score = {
+      title: 'Multi Track',
+      tempo: 120,
+      tracks: [
+        {
+          name: 'Bass',
+          staves: [
+            {
+              isStringed: true,
+              isPercussion: false,
+              stringTuning: { tunings: [43, 38, 33, 28] },
+              bars: [{ voices: [{ beats: [{ absolutePlaybackStart: 0, playbackDuration: 960, notes: [{ string: 1, fret: 0, tone: 7 }] }] }] }],
+            },
+          ],
+        },
+        {
+          name: 'Guitar Lead',
+          staves: [
+            {
+              isStringed: true,
+              isPercussion: false,
+              stringTuning: { tunings: [64, 59, 55, 50, 45, 40] },
+              bars: [{ voices: [{ beats: [{ absolutePlaybackStart: 0, playbackDuration: 960, notes: [{ string: 1, fret: 3, tone: 7 }] }] }] }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const inspected = inspectAlphaTabScoreForMelodyImport(score, instruments.guitar, 'multi.gp5');
+    expect(inspected.trackOptions).toHaveLength(2);
+    expect(inspected.defaultTrackIndex).toBe(1);
+
+    const imported = convertLoadedGpScoreTrackToImportedMelody(inspected, instruments.guitar, 1);
+    expect(imported.metadata.trackName).toBe('Guitar Lead');
+    expect(imported.events.length).toBeGreaterThan(0);
   });
 });

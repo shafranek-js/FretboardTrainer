@@ -1190,6 +1190,23 @@
             placeholder="Paste ASCII tab lines here"
             class="w-full bg-slate-900 border border-slate-600 rounded-md p-2 font-mono text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
           ></textarea>
+          <div id="melodyGpTrackImportPanel" class="hidden rounded-md border border-violet-500/40 bg-violet-950/20 p-3">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <label for="melodyGpTrackSelector" class="text-sm font-semibold text-violet-100">GP Track:</label>
+              <select
+                id="melodyGpTrackSelector"
+                class="min-w-[16rem] bg-slate-800 border border-violet-500/50 rounded-md p-2 text-sm focus:ring-2 focus:ring-violet-400 focus:outline-none"
+              ></select>
+              <button
+                id="saveMelodyGpTrackBtn"
+                type="button"
+                class="bg-violet-700 hover:bg-violet-600 border border-violet-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+              >
+                Save GP Track
+              </button>
+            </div>
+            <p id="melodyGpTrackInfo" class="text-xs text-slate-300"></p>
+          </div>
           <div class="rounded-md border border-slate-600 bg-slate-800/70 p-3">
             <div class="flex items-center justify-between gap-2 mb-2">
               <h3 class="text-sm font-semibold text-slate-100">Parsed Preview</h3>

@@ -60,8 +60,10 @@ interface TrackSelection {
   stringCount: number;
 }
 
+export type GpSourceFormat = 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7';
+
 interface GpImportMetadata {
-  sourceFormat: 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7';
+  sourceFormat: GpSourceFormat;
   sourceFileName: string;
   scoreTitle: string | null;
   trackName: string | null;
@@ -73,6 +75,24 @@ export interface GpImportedMelody {
   events: MelodyEvent[];
   warnings: string[];
   metadata: GpImportMetadata;
+}
+
+export interface GpImportTrackOption {
+  trackIndex: number;
+  name: string;
+  label: string;
+  stringCount: number;
+  matchesCurrentInstrumentStringCount: boolean;
+}
+
+export interface LoadedGpScore {
+  score: AlphaTabScoreLike;
+  sourceFileName: string;
+  sourceFormat: GpSourceFormat;
+  scoreTitle: string | null;
+  tempoBpm: number | null;
+  trackOptions: GpImportTrackOption[];
+  defaultTrackIndex: number | null;
 }
 
 function toPitchClassName(tone: number | undefined) {
@@ -118,7 +138,7 @@ function getInstrumentTuningMidiTopToBottom(
     : null;
 }
 
-function detectGpSourceFormat(fileName: string): GpImportMetadata['sourceFormat'] {
+function detectGpSourceFormat(fileName: string): GpSourceFormat {
   const extension = fileName.trim().split('.').pop()?.toLowerCase();
   if (extension === 'gp3' || extension === 'gp4' || extension === 'gp5' || extension === 'gpx') {
     return extension;
@@ -148,14 +168,8 @@ function isStringedStaff(staff: AlphaTabStaffLike | undefined | null): staff is 
   return Boolean(staff.isStringed || tuningCount > 0);
 }
 
-function pickTrackForInstrument(
-  score: AlphaTabScoreLike,
-  instrument: Pick<IInstrument, 'STRING_ORDER'>
-): { selection: TrackSelection | null; warnings: string[] } {
-  const warnings: string[] = [];
-  const targetStringCount = instrument.STRING_ORDER.length;
+function listTrackSelections(score: AlphaTabScoreLike): TrackSelection[] {
   const candidates: TrackSelection[] = [];
-
   (score.tracks ?? []).forEach((track, trackIndex) => {
     if (!track || track.isPercussion) return;
     const staff = (track.staves ?? []).find((item) => isStringedStaff(item));
@@ -164,7 +178,16 @@ function pickTrackForInstrument(
     if (stringCount <= 0) return;
     candidates.push({ track, staff, trackIndex, stringCount });
   });
+  return candidates;
+}
 
+function pickTrackForInstrument(
+  score: AlphaTabScoreLike,
+  instrument: Pick<IInstrument, 'STRING_ORDER'>
+): { selection: TrackSelection | null; warnings: string[] } {
+  const warnings: string[] = [];
+  const targetStringCount = instrument.STRING_ORDER.length;
+  const candidates = listTrackSelections(score);
   if (candidates.length === 0) {
     return { selection: null, warnings: ['No stringed non-percussion track was found in this Guitar Pro file.'] };
   }
@@ -188,6 +211,10 @@ function pickTrackForInstrument(
   }
 
   return { selection, warnings };
+}
+
+function getTrackSelectionByIndex(score: AlphaTabScoreLike, trackIndex: number): TrackSelection | null {
+  return listTrackSelections(score).find((candidate) => candidate.trackIndex === trackIndex) ?? null;
 }
 
 function detectTuningMismatchWarning(
@@ -340,6 +367,100 @@ export function convertAlphaTabScoreToImportedMelody(
   };
 }
 
+export function inspectAlphaTabScoreForMelodyImport(
+  score: AlphaTabScoreLike,
+  instrument: Pick<IInstrument, 'STRING_ORDER'>,
+  sourceFileName: string
+): LoadedGpScore {
+  const selections = listTrackSelections(score);
+  const targetStringCount = instrument.STRING_ORDER.length;
+  const scoreTitle = typeof score.title === 'string' && score.title.trim() ? score.title.trim() : null;
+  const tempoBpm =
+    typeof score.tempo === 'number' && Number.isFinite(score.tempo) && score.tempo > 0
+      ? Math.round(score.tempo)
+      : null;
+
+  const trackOptions = selections.map((selection) => {
+    const trackName =
+      typeof selection.track.name === 'string' && selection.track.name.trim()
+        ? selection.track.name.trim()
+        : `Track ${selection.trackIndex + 1}`;
+    const matches = selection.stringCount === targetStringCount;
+    const label = `${selection.trackIndex + 1}. ${trackName} (${selection.stringCount} strings${matches ? ', match' : ''})`;
+    return {
+      trackIndex: selection.trackIndex,
+      name: trackName,
+      label,
+      stringCount: selection.stringCount,
+      matchesCurrentInstrumentStringCount: matches,
+    };
+  });
+
+  const defaultTrackIndex =
+    trackOptions.find((option) => option.matchesCurrentInstrumentStringCount)?.trackIndex ??
+    trackOptions[0]?.trackIndex ??
+    null;
+
+  return {
+    score,
+    sourceFileName,
+    sourceFormat: detectGpSourceFormat(sourceFileName),
+    scoreTitle,
+    tempoBpm,
+    trackOptions,
+    defaultTrackIndex,
+  };
+}
+
+export function convertLoadedGpScoreTrackToImportedMelody(
+  loaded: LoadedGpScore,
+  instrument: Pick<IInstrument, 'name' | 'STRING_ORDER' | 'TUNING' | 'getNoteWithOctave'>,
+  trackIndex: number
+): GpImportedMelody {
+  const selection = getTrackSelectionByIndex(loaded.score, trackIndex);
+  if (!selection) {
+    throw new Error('Selected Guitar Pro track is not available.');
+  }
+
+  const warnings: string[] = [];
+  if (selection.stringCount !== instrument.STRING_ORDER.length) {
+    warnings.push(
+      `Imported track has ${selection.stringCount} strings, but current instrument expects ${instrument.STRING_ORDER.length}. Some notes may be skipped.`
+    );
+  }
+  if ((loaded.score.tracks?.length ?? 0) > 1) {
+    warnings.push(
+      `Imported track ${selection.trackIndex + 1} of ${loaded.score.tracks?.length ?? 1}: ${selection.track.name?.trim() || `Track ${selection.trackIndex + 1}`}.`
+    );
+  }
+
+  const tuningWarning = detectTuningMismatchWarning(selection, instrument);
+  if (tuningWarning) warnings.push(tuningWarning);
+
+  const events = convertTrackSelectionToMelodyEvents(selection, instrument);
+  if (events.length === 0) {
+    throw new Error('Selected track does not contain playable note events.');
+  }
+
+  const trackName =
+    typeof selection.track.name === 'string' && selection.track.name.trim()
+      ? selection.track.name.trim()
+      : `Track ${selection.trackIndex + 1}`;
+
+  return {
+    suggestedName: buildSuggestedMelodyName(loaded.sourceFileName, loaded.scoreTitle ?? undefined, trackName),
+    events,
+    warnings,
+    metadata: {
+      sourceFormat: loaded.sourceFormat,
+      sourceFileName: loaded.sourceFileName,
+      scoreTitle: loaded.scoreTitle,
+      trackName,
+      tempoBpm: loaded.tempoBpm,
+    },
+  };
+}
+
 export async function importGpMelodyFromBytes(
   bytes: Uint8Array,
   instrument: Pick<IInstrument, 'name' | 'STRING_ORDER' | 'TUNING' | 'getNoteWithOctave'>,
@@ -351,6 +472,23 @@ export async function importGpMelodyFromBytes(
 
   const alphaTabModule = await import('@coderline/alphatab');
   const score = alphaTabModule.importer.ScoreLoader.loadScoreFromBytes(bytes) as unknown as AlphaTabScoreLike;
-  return convertAlphaTabScoreToImportedMelody(score, instrument, sourceFileName);
+  const loaded = inspectAlphaTabScoreForMelodyImport(score, instrument, sourceFileName);
+  if (loaded.defaultTrackIndex === null) {
+    throw new Error('No importable stringed track was found in the Guitar Pro file.');
+  }
+  return convertLoadedGpScoreTrackToImportedMelody(loaded, instrument, loaded.defaultTrackIndex);
 }
 
+export async function loadGpScoreFromBytes(
+  bytes: Uint8Array,
+  instrument: Pick<IInstrument, 'STRING_ORDER'>,
+  sourceFileName: string
+): Promise<LoadedGpScore> {
+  if (!bytes.length) {
+    throw new Error('Selected file is empty.');
+  }
+
+  const alphaTabModule = await import('@coderline/alphatab');
+  const score = alphaTabModule.importer.ScoreLoader.loadScoreFromBytes(bytes) as unknown as AlphaTabScoreLike;
+  return inspectAlphaTabScoreForMelodyImport(score, instrument, sourceFileName);
+}

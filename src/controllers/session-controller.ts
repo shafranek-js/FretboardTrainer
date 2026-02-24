@@ -68,7 +68,12 @@ import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
 import type { ChordNote, Prompt } from '../types';
 import { parseAsciiTabToMelodyEvents } from '../ascii-tab-melody-parser';
-import { importGpMelodyFromBytes } from '../gp-import';
+import {
+  convertLoadedGpScoreTrackToImportedMelody,
+  loadGpScoreFromBytes,
+  type GpImportedMelody,
+  type LoadedGpScore,
+} from '../gp-import';
 
 const MELODY_DEMO_FALLBACK_STEP_MS = 700;
 const MELODY_DEMO_MIN_STEP_MS = 160;
@@ -81,6 +86,11 @@ let melodyDemoTimeoutId: number | null = null;
 let melodyDemoRunToken = 0;
 let isMelodyDemoPlaying = false;
 let melodyPreviewUpdateTimeoutId: number | null = null;
+let pendingGpImport: {
+  loaded: LoadedGpScore;
+  selectedTrackIndex: number;
+  importedPreview: GpImportedMelody | null;
+} | null = null;
 
 function renderMelodyDemoButtonState() {
   dom.melodyDemoBtn.textContent = isMelodyDemoPlaying ? 'Stop Demo' : 'Play Demo';
@@ -116,55 +126,141 @@ function formatMelodyPreviewEventLine(eventIndex: number, totalEvents: number, e
   return `[${eventIndex + 1}/${totalEvents}] ${notesText}  ->  ${timingText}`;
 }
 
+function renderMelodyEditorPreviewError(prefix: string, error: unknown) {
+  dom.melodyPreviewStatus.textContent = 'Parse error';
+  dom.melodyPreviewStatus.className = 'text-xs text-red-300';
+  dom.melodyPreviewSummary.textContent = formatUserFacingError(prefix, error);
+  dom.melodyPreviewList.innerHTML = '';
+}
+
+function renderMelodyEditorPreviewFromEvents(
+  parsedEvents: MelodyEvent[],
+  options?: { statusText?: string; summaryPrefix?: string }
+) {
+  const totalNotes = parsedEvents.reduce((sum, event) => sum + event.notes.length, 0);
+  const polyphonicEvents = parsedEvents.filter((event) => event.notes.length > 1).length;
+  const beatAwareEvents = parsedEvents.filter((event) => typeof event.durationBeats === 'number').length;
+
+  dom.melodyPreviewStatus.textContent = options?.statusText ?? 'Parsed successfully';
+  dom.melodyPreviewStatus.className = 'text-xs text-emerald-300';
+  dom.melodyPreviewSummary.textContent =
+    `${options?.summaryPrefix ? `${options.summaryPrefix} | ` : ''}${parsedEvents.length} events, ${totalNotes} notes` +
+    (polyphonicEvents > 0 ? `, ${polyphonicEvents} polyphonic` : '') +
+    (beatAwareEvents > 0 ? `, beat timing detected` : ', column timing fallback');
+
+  dom.melodyPreviewList.innerHTML = '';
+  const maxPreviewItems = 10;
+  parsedEvents.slice(0, maxPreviewItems).forEach((event, index) => {
+    const li = document.createElement('li');
+    li.textContent = formatMelodyPreviewEventLine(index, parsedEvents.length, event);
+    dom.melodyPreviewList.appendChild(li);
+  });
+
+  if (parsedEvents.length > maxPreviewItems) {
+    const li = document.createElement('li');
+    li.className = 'text-slate-400';
+    li.textContent = `... and ${parsedEvents.length - maxPreviewItems} more events`;
+    dom.melodyPreviewList.appendChild(li);
+  }
+}
+
+function clearPendingGpImportDraft() {
+  pendingGpImport = null;
+  dom.melodyGpTrackSelector.innerHTML = '';
+  dom.melodyGpTrackInfo.textContent = '';
+  dom.melodyGpTrackImportPanel.classList.add('hidden');
+  dom.saveMelodyGpTrackBtn.disabled = true;
+}
+
+function renderGpTrackInfo() {
+  if (!pendingGpImport) {
+    dom.melodyGpTrackInfo.textContent = '';
+    return;
+  }
+  const preview = pendingGpImport.importedPreview;
+  const loaded = pendingGpImport.loaded;
+  const pieces: string[] = [];
+  if (loaded.scoreTitle) pieces.push(`Score: ${loaded.scoreTitle}`);
+  if (preview?.metadata.trackName) pieces.push(`Track: ${preview.metadata.trackName}`);
+  if (loaded.tempoBpm) pieces.push(`Tempo: ${loaded.tempoBpm} BPM`);
+  if (preview?.warnings.length) pieces.push(preview.warnings.join(' '));
+  dom.melodyGpTrackInfo.textContent = pieces.join(' | ');
+}
+
+function refreshGpTrackPreviewFromSelection() {
+  if (!pendingGpImport) return;
+  const selectedTrackIndex = Number.parseInt(dom.melodyGpTrackSelector.value, 10);
+  if (!Number.isFinite(selectedTrackIndex)) return;
+
+  pendingGpImport.selectedTrackIndex = selectedTrackIndex;
+  const imported = convertLoadedGpScoreTrackToImportedMelody(
+    pendingGpImport.loaded,
+    state.currentInstrument,
+    selectedTrackIndex
+  );
+  pendingGpImport.importedPreview = imported;
+
+  if (!dom.melodyNameInput.value.trim()) {
+    dom.melodyNameInput.value = imported.suggestedName;
+  }
+
+  renderMelodyEditorPreviewFromEvents(imported.events, {
+    statusText: 'GP parsed successfully',
+    summaryPrefix: imported.metadata.sourceFormat.toUpperCase(),
+  });
+  renderGpTrackInfo();
+  dom.saveMelodyGpTrackBtn.disabled = false;
+}
+
+function renderGpTrackSelectorForPendingImport() {
+  if (!pendingGpImport) return;
+  const { loaded } = pendingGpImport;
+  dom.melodyGpTrackSelector.innerHTML = '';
+  loaded.trackOptions.forEach((option) => {
+    const element = document.createElement('option');
+    element.value = String(option.trackIndex);
+    element.textContent = option.label;
+    dom.melodyGpTrackSelector.append(element);
+  });
+  if (loaded.defaultTrackIndex !== null) {
+    dom.melodyGpTrackSelector.value = String(loaded.defaultTrackIndex);
+  }
+  dom.melodyGpTrackImportPanel.classList.remove('hidden');
+  refreshGpTrackPreviewFromSelection();
+}
+
 function updateMelodyEditorPreview() {
   const tabText = dom.melodyAsciiTabInput.value.trim();
   if (!tabText) {
+    if (pendingGpImport?.importedPreview) {
+      renderMelodyEditorPreviewFromEvents(pendingGpImport.importedPreview.events, {
+        statusText: 'GP parsed successfully',
+        summaryPrefix: pendingGpImport.importedPreview.metadata.sourceFormat.toUpperCase(),
+      });
+      renderGpTrackInfo();
+      return;
+    }
     clearMelodyEditorPreview();
     return;
   }
 
   try {
-    const parsedEvents = parseAsciiTabToMelodyEvents(tabText, state.currentInstrument);
-    const totalNotes = parsedEvents.reduce((sum, event) => sum + event.notes.length, 0);
-    const polyphonicEvents = parsedEvents.filter((event) => event.notes.length > 1).length;
-    const beatAwareEvents = parsedEvents.filter((event) => typeof event.durationBeats === 'number').length;
-
-    dom.melodyPreviewStatus.textContent = 'Parsed successfully';
-    dom.melodyPreviewStatus.className = 'text-xs text-emerald-300';
-    dom.melodyPreviewSummary.textContent =
-      `${parsedEvents.length} events, ${totalNotes} notes` +
-      (polyphonicEvents > 0 ? `, ${polyphonicEvents} polyphonic` : '') +
-      (beatAwareEvents > 0 ? `, beat timing detected` : ', column timing fallback');
-
-    dom.melodyPreviewList.innerHTML = '';
-    const maxPreviewItems = 10;
-    parsedEvents.slice(0, maxPreviewItems).forEach((event, index) => {
-      const li = document.createElement('li');
-      li.textContent = formatMelodyPreviewEventLine(index, parsedEvents.length, {
-        column: event.column,
-        durationColumns: event.durationColumns,
-        durationCountSteps: event.durationCountSteps,
-        durationBeats: event.durationBeats,
-        notes: event.notes.map((note) => ({
-          note: note.note,
-          stringName: note.stringName,
-          fret: note.fret,
-        })),
-      });
-      dom.melodyPreviewList.appendChild(li);
-    });
-
-    if (parsedEvents.length > maxPreviewItems) {
-      const li = document.createElement('li');
-      li.className = 'text-slate-400';
-      li.textContent = `... and ${parsedEvents.length - maxPreviewItems} more events`;
-      dom.melodyPreviewList.appendChild(li);
-    }
+    // Switching back to ASCII editing hides any pending GP import draft.
+    clearPendingGpImportDraft();
+    const parsedEvents = parseAsciiTabToMelodyEvents(tabText, state.currentInstrument).map((event) => ({
+      column: event.column,
+      durationColumns: event.durationColumns,
+      durationCountSteps: event.durationCountSteps,
+      durationBeats: event.durationBeats,
+      notes: event.notes.map((note) => ({
+        note: note.note,
+        stringName: note.stringName,
+        fret: note.fret,
+      })),
+    }));
+    renderMelodyEditorPreviewFromEvents(parsedEvents);
   } catch (error) {
-    dom.melodyPreviewStatus.textContent = 'Parse error';
-    dom.melodyPreviewStatus.className = 'text-xs text-red-300';
-    dom.melodyPreviewSummary.textContent = formatUserFacingError('ASCII tab preview failed', error);
-    dom.melodyPreviewList.innerHTML = '';
+    renderMelodyEditorPreviewError('ASCII tab preview failed', error);
   }
 }
 
@@ -178,10 +274,38 @@ function scheduleMelodyEditorPreviewUpdate() {
   }, 120);
 }
 
-async function importMelodyFromGpFile(file: File) {
+async function loadGpImportDraftFromFile(file: File) {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const imported = await importGpMelodyFromBytes(bytes, state.currentInstrument, file.name);
-  const melodyId = saveCustomEventMelody(imported.suggestedName, imported.events, state.currentInstrument, {
+  const loaded = await loadGpScoreFromBytes(bytes, state.currentInstrument, file.name);
+  if (loaded.trackOptions.length === 0 || loaded.defaultTrackIndex === null) {
+    throw new Error('No importable stringed track was found in the Guitar Pro file.');
+  }
+
+  pendingGpImport = {
+    loaded,
+    selectedTrackIndex: loaded.defaultTrackIndex,
+    importedPreview: null,
+  };
+
+  renderGpTrackSelectorForPendingImport();
+}
+
+function savePendingGpImportedTrack() {
+  if (!pendingGpImport) {
+    throw new Error('No loaded Guitar Pro file to import.');
+  }
+
+  const imported =
+    pendingGpImport.importedPreview ??
+    convertLoadedGpScoreTrackToImportedMelody(
+      pendingGpImport.loaded,
+      state.currentInstrument,
+      pendingGpImport.selectedTrackIndex
+    );
+  pendingGpImport.importedPreview = imported;
+
+  const melodyName = dom.melodyNameInput.value.trim() || imported.suggestedName;
+  const melodyId = saveCustomEventMelody(melodyName, imported.events, state.currentInstrument, {
     sourceFormat: imported.metadata.sourceFormat,
     sourceFileName: imported.metadata.sourceFileName,
     sourceTrackName: imported.metadata.trackName ?? undefined,
@@ -194,7 +318,10 @@ async function importMelodyFromGpFile(file: File) {
       ? ` ${imported.warnings.slice(0, 2).join(' ')}${imported.warnings.length > 2 ? ' ...' : ''}`
       : '';
   const trackLabel = imported.metadata.trackName ? ` (${imported.metadata.trackName})` : '';
-  finalizeMelodyImportSelection(melodyId, `Custom melody imported from ${file.name}${trackLabel}.${warningSuffix}`.trim());
+  finalizeMelodyImportSelection(
+    melodyId,
+    `Custom melody imported from ${imported.metadata.sourceFileName}${trackLabel}.${warningSuffix}`.trim()
+  );
 }
 
 function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
@@ -530,6 +657,7 @@ function updateMelodyActionButtonsForSelection() {
 function resetMelodyEditorDraft() {
   state.melodyEditorMode = 'create';
   state.editingMelodyId = null;
+  clearPendingGpImportDraft();
   clearMelodyEditorPreview();
 }
 
@@ -1078,13 +1206,30 @@ export function registerSessionControls() {
 
     try {
       stopMelodyDemoPlayback({ clearUi: true });
-      await importMelodyFromGpFile(file);
+      await loadGpImportDraftFromFile(file);
+      setResultMessage('GP file parsed. Review the preview, choose a track, then save.', 'success');
     } catch (error) {
       showNonBlockingError(formatUserFacingError('Failed to import Guitar Pro file', error));
     } finally {
       dom.importMelodyGpBtn.disabled = false;
       dom.importMelodyGpBtn.textContent = originalLabel;
       resetMelodyGpFileInput();
+    }
+  });
+  dom.melodyGpTrackSelector.addEventListener('change', () => {
+    try {
+      refreshGpTrackPreviewFromSelection();
+    } catch (error) {
+      renderMelodyEditorPreviewError('GP track preview failed', error);
+      showNonBlockingError(formatUserFacingError('Failed to preview selected GP track', error));
+    }
+  });
+  dom.saveMelodyGpTrackBtn.addEventListener('click', () => {
+    try {
+      stopMelodyDemoPlayback({ clearUi: true });
+      savePendingGpImportedTrack();
+    } catch (error) {
+      showNonBlockingError(formatUserFacingError('Failed to save imported GP track', error));
     }
   });
   dom.editMelodyBtn.addEventListener('click', () => {
