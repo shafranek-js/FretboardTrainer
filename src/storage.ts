@@ -59,7 +59,7 @@ export interface ProfileSettings {
   enabledStrings?: Partial<Record<InstrumentName, string[]>>;
   trainingMode?: string;
   sessionGoal?: string;
-  sessionPace?: 'slow' | 'normal' | 'fast';
+  sessionPace?: 'slow' | 'normal' | 'fast' | 'ultra';
   metronomeEnabled?: boolean;
   metronomeBpm?: string;
   rhythmTimingWindow?: string;
