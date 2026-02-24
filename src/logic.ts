@@ -106,6 +106,7 @@ import { createTimedSessionIntervalHandler } from './timed-session-interval-hand
 import type { Prompt } from './types';
 import { resolveMicVolumeThreshold } from './mic-input-sensitivity';
 import { shouldAcceptMicNoteByAttackStrength } from './mic-note-attack-filter';
+import { shouldAcceptMicNoteByHoldDuration } from './mic-note-hold-filter';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -118,6 +119,7 @@ const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
 function resetMicMonophonicAttackTracking() {
   state.micMonophonicAttackTrackedNote = null;
   state.micMonophonicAttackPeakVolume = 0;
+  state.micMonophonicFirstDetectedAtMs = null;
 }
 
 function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: number) {
@@ -129,6 +131,7 @@ function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: 
   if (state.micMonophonicAttackTrackedNote !== detectedNote) {
     state.micMonophonicAttackTrackedNote = detectedNote;
     state.micMonophonicAttackPeakVolume = volume;
+    state.micMonophonicFirstDetectedAtMs = Date.now();
     return;
   }
 
@@ -519,6 +522,16 @@ function processAudio() {
                 preset: state.micNoteAttackFilterPreset,
                 peakVolume: state.micMonophonicAttackPeakVolume,
                 volumeThreshold: micVolumeThreshold,
+              })
+            ) {
+              return;
+            }
+            if (
+              state.inputSource !== 'midi' &&
+              !shouldAcceptMicNoteByHoldDuration({
+                preset: state.micNoteHoldFilterPreset,
+                noteFirstDetectedAtMs: state.micMonophonicFirstDetectedAtMs,
+                nowMs: Date.now(),
               })
             ) {
               return;

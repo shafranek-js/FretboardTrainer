@@ -21,6 +21,7 @@ import { normalizeSessionPace } from './session-pace';
 import { normalizeAudioInputDeviceId, setPreferredAudioInputDeviceId } from './audio-input-devices';
 import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
+import { normalizeMicNoteHoldFilterPreset } from './mic-note-hold-filter';
 import {
   normalizeInputSource,
   normalizeMidiInputDeviceId,
@@ -58,6 +59,7 @@ export interface ProfileSettings {
   audioInputDeviceId?: string | null;
   micSensitivityPreset?: 'quiet_room' | 'normal' | 'noisy_room' | 'auto';
   micNoteAttackFilter?: 'off' | 'balanced' | 'strong';
+  micNoteHoldFilter?: 'off' | '40ms' | '80ms' | '120ms';
   micAutoNoiseFloorRms?: number | null;
   midiInputDeviceId?: string | null;
   startFret?: string;
@@ -142,6 +144,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     audioInputDeviceId: state.preferredAudioInputDeviceId,
     micSensitivityPreset: state.micSensitivityPreset,
     micNoteAttackFilter: state.micNoteAttackFilterPreset,
+    micNoteHoldFilter: state.micNoteHoldFilterPreset,
     micAutoNoiseFloorRms: state.micAutoNoiseFloorRms,
     midiInputDeviceId: state.preferredMidiInputDeviceId,
     startFret: dom.startFret.value,
@@ -204,6 +207,8 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.micSensitivityPreset.value = state.micSensitivityPreset;
     state.micNoteAttackFilterPreset = normalizeMicNoteAttackFilterPreset(safeSettings.micNoteAttackFilter);
     dom.micNoteAttackFilter.value = state.micNoteAttackFilterPreset;
+    state.micNoteHoldFilterPreset = normalizeMicNoteHoldFilterPreset(safeSettings.micNoteHoldFilter);
+    dom.micNoteHoldFilter.value = state.micNoteHoldFilterPreset;
     state.micAutoNoiseFloorRms =
       typeof safeSettings.micAutoNoiseFloorRms === 'number' &&
       Number.isFinite(safeSettings.micAutoNoiseFloorRms) &&

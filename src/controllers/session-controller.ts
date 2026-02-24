@@ -60,6 +60,7 @@ import {
   resolveMicVolumeThreshold,
 } from '../mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
+import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
 
 function findPlayableStringForNote(note: string): string | null {
   const instrumentData = state.currentInstrument;
@@ -90,13 +91,15 @@ function updateMicNoiseGateInfo() {
     const noiseFloorText =
       typeof state.micAutoNoiseFloorRms === 'number' ? state.micAutoNoiseFloorRms.toFixed(4) : 'n/a';
     const attackLabel = dom.micNoteAttackFilter.selectedOptions[0]?.textContent?.trim() ?? 'Balanced';
-    dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (Auto; room noise floor ${noiseFloorText} RMS). Attack filter: ${attackLabel}.`;
+    const holdLabel = dom.micNoteHoldFilter.selectedOptions[0]?.textContent?.trim() ?? '80 ms';
+    dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (Auto; room noise floor ${noiseFloorText} RMS). Attack: ${attackLabel}; Hold: ${holdLabel}.`;
     return;
   }
 
   const presetLabel = dom.micSensitivityPreset.selectedOptions[0]?.textContent?.trim() ?? 'Normal';
   const attackLabel = dom.micNoteAttackFilter.selectedOptions[0]?.textContent?.trim() ?? 'Balanced';
-  dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (${presetLabel} preset). Attack filter: ${attackLabel}. Use Auto calibration for noisy rooms.`;
+  const holdLabel = dom.micNoteHoldFilter.selectedOptions[0]?.textContent?.trim() ?? '80 ms';
+  dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (${presetLabel} preset). Attack: ${attackLabel}; Hold: ${holdLabel}. Use Auto calibration for noisy rooms.`;
 }
 
 async function measureRoomNoiseFloorRms(durationMs = 2000) {
@@ -434,6 +437,12 @@ export function registerSessionControls() {
   dom.micNoteAttackFilter.addEventListener('change', () => {
     state.micNoteAttackFilterPreset = normalizeMicNoteAttackFilterPreset(dom.micNoteAttackFilter.value);
     dom.micNoteAttackFilter.value = state.micNoteAttackFilterPreset;
+    updateMicNoiseGateInfo();
+    saveSettings();
+  });
+  dom.micNoteHoldFilter.addEventListener('change', () => {
+    state.micNoteHoldFilterPreset = normalizeMicNoteHoldFilterPreset(dom.micNoteHoldFilter.value);
+    dom.micNoteHoldFilter.value = state.micNoteHoldFilterPreset;
     updateMicNoiseGateInfo();
     saveSettings();
   });
