@@ -105,6 +105,7 @@ import { createMidiSessionMessageHandler } from './midi-session-message-handler'
 import { createTimedSessionIntervalHandler } from './timed-session-interval-handler';
 import type { Prompt } from './types';
 import { resolveMicVolumeThreshold } from './mic-input-sensitivity';
+import { shouldAcceptMicNoteByAttackStrength } from './mic-note-attack-filter';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -113,6 +114,28 @@ const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   setStatusText,
   setResultMessage,
 });
+
+function resetMicMonophonicAttackTracking() {
+  state.micMonophonicAttackTrackedNote = null;
+  state.micMonophonicAttackPeakVolume = 0;
+}
+
+function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: number) {
+  if (!detectedNote) {
+    resetMicMonophonicAttackTracking();
+    return;
+  }
+
+  if (state.micMonophonicAttackTrackedNote !== detectedNote) {
+    state.micMonophonicAttackTrackedNote = detectedNote;
+    state.micMonophonicAttackPeakVolume = volume;
+    return;
+  }
+
+  if (volume > state.micMonophonicAttackPeakVolume) {
+    state.micMonophonicAttackPeakVolume = volume;
+  }
+}
 
 function handleRhythmModeStableNote(detectedNote: string) {
   const timing = evaluateRhythmTiming(
@@ -346,6 +369,7 @@ function processAudio() {
       Date.now() < state.ignorePromptAudioUntilMs
     ) {
       Object.assign(state, createStabilityTrackingResetState());
+      resetMicMonophonicAttackTracking();
       setVolumeLevel(0);
       updateTuner(null);
       if (dom.trainingMode.value === 'free') {
@@ -380,6 +404,7 @@ function processAudio() {
     if (preflightPlan.kind === 'silence_wait') {
       if (preflightPlan.shouldResetTracking) {
         Object.assign(state, createStabilityTrackingResetState());
+        resetMicMonophonicAttackTracking();
         if (preflightPlan.shouldResetTuner) updateTuner(null);
         if (preflightPlan.shouldClearFreeHighlight) clearLiveDetectedHighlight(state, redrawFretboard);
       }
@@ -486,8 +511,24 @@ function processAudio() {
         });
         executeAudioMonophonicReaction({
           reactionPlan: monophonicReactionPlan,
-          onStableDetectedNote: handleStableMonophonicDetectedNote,
+          onStableDetectedNote: (detectedNote) => {
+            updateMicMonophonicAttackTracking(detectedNote, volume);
+            if (
+              state.inputSource !== 'midi' &&
+              !shouldAcceptMicNoteByAttackStrength({
+                preset: state.micNoteAttackFilterPreset,
+                peakVolume: state.micMonophonicAttackPeakVolume,
+                volumeThreshold: micVolumeThreshold,
+              })
+            ) {
+              return;
+            }
+            handleStableMonophonicDetectedNote(detectedNote);
+          },
         });
+        if (monophonicReactionPlan.kind === 'none') {
+          updateMicMonophonicAttackTracking(monophonicResult.detectedNote, volume);
+        }
       }
     }
 
@@ -651,6 +692,7 @@ export function stopListening(keepStreamOpen = false) {
   }
   state.cooldown = false;
   state.ignorePromptAudioUntilMs = 0;
+  resetMicMonophonicAttackTracking();
   stopMidiInput();
   if (!keepStreamOpen) {
     teardownAudioRuntime(state);
@@ -737,6 +779,7 @@ function nextPrompt() {
     state.liveDetectedString = null;
     state.rhythmLastJudgedBeatAtMs = null;
     state.currentMelodyEventFoundNotes.clear();
+    resetMicMonophonicAttackTracking();
     Object.assign(state, createPromptCycleTrackingResetState());
     redrawFretboard();
 

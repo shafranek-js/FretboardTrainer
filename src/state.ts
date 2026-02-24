@@ -9,6 +9,7 @@ import { IInstrument } from './instruments/instrument';
 import { instruments } from './instruments';
 import type { SessionPace } from './session-pace';
 import type { MicSensitivityPreset } from './mic-input-sensitivity';
+import type { MicNoteAttackFilterPreset } from './mic-note-attack-filter';
 
 function requireElementById<T extends Element>(id: string): T {
   const element = document.getElementById(id);
@@ -40,6 +41,8 @@ export const dom = {
   audioInputDevice: requireElementById<HTMLSelectElement>('audioInputDevice'),
   micSensitivityRow: requireElementById<HTMLElement>('micSensitivityRow'),
   micSensitivityPreset: requireElementById<HTMLSelectElement>('micSensitivityPreset'),
+  micAttackFilterRow: requireElementById<HTMLElement>('micAttackFilterRow'),
+  micNoteAttackFilter: requireElementById<HTMLSelectElement>('micNoteAttackFilter'),
   micNoiseCalibrationRow: requireElementById<HTMLElement>('micNoiseCalibrationRow'),
   calibrateNoiseFloorBtn: requireElementById<HTMLButtonElement>('calibrateNoiseFloorBtn'),
   midiInputRow: requireElementById<HTMLElement>('midiInputRow'),
@@ -243,7 +246,10 @@ export const state = {
   inputSource: 'microphone' as 'microphone' | 'midi',
   preferredAudioInputDeviceId: null as string | null,
   micSensitivityPreset: 'normal' as MicSensitivityPreset,
+  micNoteAttackFilterPreset: 'balanced' as MicNoteAttackFilterPreset,
   micAutoNoiseFloorRms: null as number | null,
+  micMonophonicAttackTrackedNote: null as string | null,
+  micMonophonicAttackPeakVolume: 0,
   preferredMidiInputDeviceId: null as string | null,
   midiAccess: null as MIDIAccess | null,
   midiInput: null as MIDIInput | null,

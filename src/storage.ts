@@ -20,6 +20,7 @@ import { getDefaultTuningPresetKey } from './tuning-presets';
 import { normalizeSessionPace } from './session-pace';
 import { normalizeAudioInputDeviceId, setPreferredAudioInputDeviceId } from './audio-input-devices';
 import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
+import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import {
   normalizeInputSource,
   normalizeMidiInputDeviceId,
@@ -56,6 +57,7 @@ export interface ProfileSettings {
   inputSource?: 'microphone' | 'midi';
   audioInputDeviceId?: string | null;
   micSensitivityPreset?: 'quiet_room' | 'normal' | 'noisy_room' | 'auto';
+  micNoteAttackFilter?: 'off' | 'balanced' | 'strong';
   micAutoNoiseFloorRms?: number | null;
   midiInputDeviceId?: string | null;
   startFret?: string;
@@ -139,6 +141,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     inputSource: state.inputSource,
     audioInputDeviceId: state.preferredAudioInputDeviceId,
     micSensitivityPreset: state.micSensitivityPreset,
+    micNoteAttackFilter: state.micNoteAttackFilterPreset,
     micAutoNoiseFloorRms: state.micAutoNoiseFloorRms,
     midiInputDeviceId: state.preferredMidiInputDeviceId,
     startFret: dom.startFret.value,
@@ -199,6 +202,8 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     setPreferredAudioInputDeviceId(normalizeAudioInputDeviceId(safeSettings.audioInputDeviceId));
     state.micSensitivityPreset = normalizeMicSensitivityPreset(safeSettings.micSensitivityPreset);
     dom.micSensitivityPreset.value = state.micSensitivityPreset;
+    state.micNoteAttackFilterPreset = normalizeMicNoteAttackFilterPreset(safeSettings.micNoteAttackFilter);
+    dom.micNoteAttackFilter.value = state.micNoteAttackFilterPreset;
     state.micAutoNoiseFloorRms =
       typeof safeSettings.micAutoNoiseFloorRms === 'number' &&
       Number.isFinite(safeSettings.micAutoNoiseFloorRms) &&
