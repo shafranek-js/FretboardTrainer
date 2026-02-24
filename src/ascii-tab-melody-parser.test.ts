@@ -166,4 +166,19 @@ describe('ascii-tab-melody-parser', () => {
       ['E', 1],
     ]);
   });
+
+  it('supports lettered tab lines with colon prefix like e:|...', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        'e:|--0---3---|',
+        'B:|----------|',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents.map((event) => event.notes.map((n) => [n.stringName, n.fret]))).toEqual([
+      [['e', 0]],
+      [['e', 3]],
+    ]);
+  });
 });

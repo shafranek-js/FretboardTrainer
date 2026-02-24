@@ -57,8 +57,8 @@ function parseTabLine(line: string): ParsedTabLine | null {
     };
   }
 
-  // Letter format: "E|---", "B|---" (common guitar tab sites)
-  const namedMatch = line.match(/^\s*([A-Ga-g])\s*\|(.*)$/);
+  // Letter format: "E|---", "e:|---", "B|---" (common guitar tab sites)
+  const namedMatch = line.match(/^\s*([A-Ga-g])\s*:?\s*\|(.*)$/);
   if (namedMatch) {
     return {
       explicitStringNumber: null,
