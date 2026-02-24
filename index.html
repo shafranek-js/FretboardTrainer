@@ -1184,6 +1184,17 @@
             placeholder="Paste ASCII tab lines here"
             class="w-full bg-slate-900 border border-slate-600 rounded-md p-2 font-mono text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
           ></textarea>
+          <div class="rounded-md border border-slate-600 bg-slate-800/70 p-3">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <h3 class="text-sm font-semibold text-slate-100">Parsed Preview</h3>
+              <span id="melodyPreviewStatus" class="text-xs text-slate-400">Paste tab to preview</span>
+            </div>
+            <div id="melodyPreviewSummary" class="text-xs text-slate-300 mb-2"></div>
+            <ul
+              id="melodyPreviewList"
+              class="max-h-40 overflow-y-auto text-xs font-mono text-slate-200 space-y-1"
+            ></ul>
+          </div>
           <div class="flex justify-end gap-3">
             <button
               id="cancelMelodyImportBtn"

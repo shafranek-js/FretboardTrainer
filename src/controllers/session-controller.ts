@@ -66,6 +66,7 @@ import {
 import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
 import type { ChordNote, Prompt } from '../types';
+import { parseAsciiTabToMelodyEvents } from '../ascii-tab-melody-parser';
 
 const MELODY_DEMO_FALLBACK_STEP_MS = 700;
 const MELODY_DEMO_MIN_STEP_MS = 160;
@@ -77,6 +78,7 @@ const MELODY_DEMO_DEFAULT_BPM = 90;
 let melodyDemoTimeoutId: number | null = null;
 let melodyDemoRunToken = 0;
 let isMelodyDemoPlaying = false;
+let melodyPreviewUpdateTimeoutId: number | null = null;
 
 function renderMelodyDemoButtonState() {
   dom.melodyDemoBtn.textContent = isMelodyDemoPlaying ? 'Stop Demo' : 'Play Demo';
@@ -86,6 +88,92 @@ function renderMelodyDemoButtonState() {
   dom.melodyDemoBtn.classList.toggle('bg-red-700', isMelodyDemoPlaying);
   dom.melodyDemoBtn.classList.toggle('hover:bg-red-600', isMelodyDemoPlaying);
   dom.melodyDemoBtn.classList.toggle('border-red-500', isMelodyDemoPlaying);
+}
+
+function clearMelodyEditorPreview() {
+  dom.melodyPreviewStatus.textContent = 'Paste tab to preview';
+  dom.melodyPreviewStatus.className = 'text-xs text-slate-400';
+  dom.melodyPreviewSummary.textContent = '';
+  dom.melodyPreviewList.innerHTML = '';
+}
+
+function formatMelodyPreviewEventLine(eventIndex: number, totalEvents: number, event: MelodyEvent) {
+  const notesText = event.notes
+    .map((note) =>
+      note.stringName !== null && typeof note.fret === 'number'
+        ? `${note.note}(${note.stringName}:${note.fret})`
+        : note.note
+    )
+    .join(' + ');
+
+  const timingText =
+    typeof event.durationBeats === 'number'
+      ? `${event.durationBeats.toFixed(2)} beat`
+      : `${Math.max(1, event.durationColumns ?? 1)} col`;
+
+  return `[${eventIndex + 1}/${totalEvents}] ${notesText}  ->  ${timingText}`;
+}
+
+function updateMelodyEditorPreview() {
+  const tabText = dom.melodyAsciiTabInput.value.trim();
+  if (!tabText) {
+    clearMelodyEditorPreview();
+    return;
+  }
+
+  try {
+    const parsedEvents = parseAsciiTabToMelodyEvents(tabText, state.currentInstrument);
+    const totalNotes = parsedEvents.reduce((sum, event) => sum + event.notes.length, 0);
+    const polyphonicEvents = parsedEvents.filter((event) => event.notes.length > 1).length;
+    const beatAwareEvents = parsedEvents.filter((event) => typeof event.durationBeats === 'number').length;
+
+    dom.melodyPreviewStatus.textContent = 'Parsed successfully';
+    dom.melodyPreviewStatus.className = 'text-xs text-emerald-300';
+    dom.melodyPreviewSummary.textContent =
+      `${parsedEvents.length} events, ${totalNotes} notes` +
+      (polyphonicEvents > 0 ? `, ${polyphonicEvents} polyphonic` : '') +
+      (beatAwareEvents > 0 ? `, beat timing detected` : ', column timing fallback');
+
+    dom.melodyPreviewList.innerHTML = '';
+    const maxPreviewItems = 10;
+    parsedEvents.slice(0, maxPreviewItems).forEach((event, index) => {
+      const li = document.createElement('li');
+      li.textContent = formatMelodyPreviewEventLine(index, parsedEvents.length, {
+        column: event.column,
+        durationColumns: event.durationColumns,
+        durationCountSteps: event.durationCountSteps,
+        durationBeats: event.durationBeats,
+        notes: event.notes.map((note) => ({
+          note: note.note,
+          stringName: note.stringName,
+          fret: note.fret,
+        })),
+      });
+      dom.melodyPreviewList.appendChild(li);
+    });
+
+    if (parsedEvents.length > maxPreviewItems) {
+      const li = document.createElement('li');
+      li.className = 'text-slate-400';
+      li.textContent = `... and ${parsedEvents.length - maxPreviewItems} more events`;
+      dom.melodyPreviewList.appendChild(li);
+    }
+  } catch (error) {
+    dom.melodyPreviewStatus.textContent = 'Parse error';
+    dom.melodyPreviewStatus.className = 'text-xs text-red-300';
+    dom.melodyPreviewSummary.textContent = formatUserFacingError('ASCII tab preview failed', error);
+    dom.melodyPreviewList.innerHTML = '';
+  }
+}
+
+function scheduleMelodyEditorPreviewUpdate() {
+  if (melodyPreviewUpdateTimeoutId !== null) {
+    window.clearTimeout(melodyPreviewUpdateTimeoutId);
+  }
+  melodyPreviewUpdateTimeoutId = window.setTimeout(() => {
+    melodyPreviewUpdateTimeoutId = null;
+    updateMelodyEditorPreview();
+  }, 120);
 }
 
 function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
@@ -395,6 +483,7 @@ function populateMelodyOptions() {
 function resetMelodyEditorDraft() {
   state.melodyEditorMode = 'create';
   state.editingMelodyId = null;
+  clearMelodyEditorPreview();
 }
 
 function updateMelodyEditorUiForCurrentMode() {
@@ -431,6 +520,7 @@ function openMelodyEditorModal(options?: { mode?: 'create' | 'edit-custom' | 'du
     dom.melodyNameInput.value = '';
     dom.melodyAsciiTabInput.value = '';
     updateMelodyEditorUiForCurrentMode();
+    updateMelodyEditorPreview();
     setModalVisible('melodyImport', true);
     dom.melodyNameInput.focus();
     return;
@@ -457,6 +547,7 @@ function openMelodyEditorModal(options?: { mode?: 'create' | 'edit-custom' | 'du
     melody.source === 'custom' ? melody.name : `${melody.name} (Custom)`;
   dom.melodyAsciiTabInput.value = melody.tabText;
   updateMelodyEditorUiForCurrentMode();
+  updateMelodyEditorPreview();
   setModalVisible('melodyImport', true);
   dom.melodyNameInput.focus();
   dom.melodyNameInput.select();
@@ -909,6 +1000,14 @@ export function registerSessionControls() {
     markCurriculumPresetAsCustom();
     updatePracticeSetupSummary();
     saveSettings();
+  });
+  dom.melodyAsciiTabInput.addEventListener('input', () => {
+    scheduleMelodyEditorPreviewUpdate();
+  });
+  dom.melodyNameInput.addEventListener('input', () => {
+    if (!dom.melodyAsciiTabInput.value.trim()) {
+      clearMelodyEditorPreview();
+    }
   });
   dom.melodyDemoBpm.addEventListener('input', () => {
     getClampedMelodyDemoBpmFromInput();
