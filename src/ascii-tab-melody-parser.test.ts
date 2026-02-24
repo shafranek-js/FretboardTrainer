@@ -86,6 +86,7 @@ describe('ascii-tab-melody-parser', () => {
     expect(groupedEvents).toEqual([
       {
         column: 0,
+        durationColumns: 4,
         notes: [
           { note: 'E', stringName: 'e', fret: 0, stringNumber: 1 },
           { note: 'B', stringName: 'B', fret: 0, stringNumber: 2 },
@@ -93,8 +94,25 @@ describe('ascii-tab-melody-parser', () => {
       },
       {
         column: 4,
+        durationColumns: 4,
         notes: [{ note: 'G', stringName: 'e', fret: 3, stringNumber: 1 }],
       },
+    ]);
+  });
+
+  it('preserves timing gaps as durationColumns for demo playback', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        '1 string 0---------------5-------8-------',
+        '2 string --------------------------------',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents.map((event) => ({ fret: event.notes[0]?.fret, duration: event.durationColumns }))).toEqual([
+      { fret: 0, duration: 16 },
+      { fret: 5, duration: 8 },
+      { fret: 8, duration: 8 },
     ]);
   });
 

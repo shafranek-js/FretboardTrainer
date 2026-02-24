@@ -9,6 +9,7 @@ export interface ParsedAsciiTabMelodyStep {
 
 export interface ParsedAsciiTabMelodyEvent {
   column: number;
+  durationColumns: number;
   notes: ParsedAsciiTabMelodyStep[];
 }
 
@@ -140,14 +141,17 @@ export function parseAsciiTabToMelodyEvents(
   for (const block of blocks) {
     const events = parseEventsFromBlock(block);
     if (events.length === 0) continue;
+    const blockMaxLength = block.reduce((max, row) => Math.max(max, row.content.length), 0);
+    const blockGroupedEvents: ParsedAsciiTabMelodyEvent[] = [];
 
     let currentColumn: number | null = null;
     let currentNotes: ParsedAsciiTabMelodyStep[] = [];
 
     const pushCurrent = () => {
       if (currentColumn === null || currentNotes.length === 0) return;
-      groupedEvents.push({
+      blockGroupedEvents.push({
         column: currentColumn,
+        durationColumns: 1,
         notes: currentNotes,
       });
     };
@@ -162,6 +166,18 @@ export function parseAsciiTabToMelodyEvents(
     }
 
     pushCurrent();
+
+    for (let i = 0; i < blockGroupedEvents.length; i++) {
+      const current = blockGroupedEvents[i];
+      const next = blockGroupedEvents[i + 1];
+      const rawDuration =
+        next && next.column > current.column
+          ? next.column - current.column
+          : blockMaxLength - current.column;
+      current.durationColumns = Math.max(1, rawDuration);
+    }
+
+    groupedEvents.push(...blockGroupedEvents);
   }
 
   if (groupedEvents.length === 0) {

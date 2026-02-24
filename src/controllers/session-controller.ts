@@ -67,8 +67,10 @@ import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
 import type { ChordNote, Prompt } from '../types';
 
-const MELODY_DEMO_DEFAULT_STEP_MS = 700;
-const MELODY_DEMO_POLYPHONIC_STEP_MS = 850;
+const MELODY_DEMO_FALLBACK_STEP_MS = 700;
+const MELODY_DEMO_MIN_STEP_MS = 160;
+const MELODY_DEMO_MAX_STEP_MS = 1800;
+const MELODY_DEMO_COLUMN_MS = 95;
 let melodyDemoTimeoutId: number | null = null;
 let melodyDemoRunToken = 0;
 let isMelodyDemoPlaying = false;
@@ -147,6 +149,15 @@ function buildMelodyDemoPrompt(
     targetMelodyEventNotes: fingering,
     baseChordName: null,
   };
+}
+
+function getMelodyDemoStepDelayMs(event: MelodyEvent) {
+  const durationColumns = Math.max(1, event.durationColumns ?? 0);
+  const computed = Math.round(durationColumns * MELODY_DEMO_COLUMN_MS);
+  return Math.max(
+    MELODY_DEMO_MIN_STEP_MS,
+    Math.min(MELODY_DEMO_MAX_STEP_MS, computed || MELODY_DEMO_FALLBACK_STEP_MS)
+  );
 }
 
 function playPromptAudioFromPrompt(prompt: Prompt) {
@@ -228,8 +239,7 @@ async function startMelodyDemoPlayback() {
 
     playPromptAudioFromPrompt(prompt);
 
-    const stepDelayMs =
-      (prompt.targetMelodyEventNotes?.length ?? 0) > 1 ? MELODY_DEMO_POLYPHONIC_STEP_MS : MELODY_DEMO_DEFAULT_STEP_MS;
+    const stepDelayMs = getMelodyDemoStepDelayMs(event);
     melodyDemoTimeoutId = window.setTimeout(() => {
       playStep(index + 1);
     }, stepDelayMs);
