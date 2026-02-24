@@ -1,5 +1,6 @@
 import type { DetectionType } from './modes/training-mode';
 import { calculateTimedPoints } from './session-result';
+import { getArpeggioCompleteDelayMs, getStandardSuccessDelayMs, type SessionPace } from './session-pace';
 import { isArpeggioMode } from './training-mode-groups';
 
 export type SessionSuccessPlanKind =
@@ -15,6 +16,7 @@ export interface SessionSuccessPlanInput {
   currentArpeggioIndex: number;
   arpeggioLength: number;
   showingAllNotes: boolean;
+  sessionPace: SessionPace;
 }
 
 export interface SessionSuccessPlan {
@@ -36,6 +38,7 @@ export function buildSessionSuccessPlan({
   currentArpeggioIndex,
   arpeggioLength,
   showingAllNotes,
+  sessionPace,
 }: SessionSuccessPlanInput): SessionSuccessPlan {
   if (isArpeggioMode(trainingMode)) {
     const nextArpeggioIndex = currentArpeggioIndex + 1;
@@ -45,7 +48,7 @@ export function buildSessionSuccessPlan({
         nextArpeggioIndex: 0,
         scoreDelta: 0,
         message: 'Arpeggio Complete!',
-        delayMs: 1500,
+        delayMs: getArpeggioCompleteDelayMs(sessionPace),
         hideTuner: false,
         drawSolvedFretboard: false,
         drawSolvedAsPolyphonic: false,
@@ -86,7 +89,7 @@ export function buildSessionSuccessPlan({
     nextArpeggioIndex: currentArpeggioIndex,
     scoreDelta: 0,
     message: `Correct! Time: ${elapsedSeconds.toFixed(2)}s`,
-    delayMs: 1500,
+    delayMs: getStandardSuccessDelayMs(sessionPace),
     hideTuner: true,
     drawSolvedFretboard: !showingAllNotes,
     drawSolvedAsPolyphonic: detectionType === 'polyphonic',

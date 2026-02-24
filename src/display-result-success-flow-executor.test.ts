@@ -50,6 +50,7 @@ describe('executeDisplayResultSuccessFlow', () => {
         elapsedSeconds: 1.23,
         currentArpeggioIndex: 0,
         showingAllNotes: false,
+        sessionPace: 'normal',
         goalTargetCorrect: 10,
         correctAttempts: 3,
       },
@@ -63,7 +64,7 @@ describe('executeDisplayResultSuccessFlow', () => {
     expect(ctx.deps.setResultMessage).toHaveBeenCalledWith('Correct! Time: 1.23s', 'success');
     expect(ctx.deps.scheduleSessionCooldown).toHaveBeenCalledWith(
       'standard cooldown nextPrompt',
-      1500,
+      650,
       expect.any(Function)
     );
   });
@@ -78,6 +79,7 @@ describe('executeDisplayResultSuccessFlow', () => {
         elapsedSeconds: 0.4,
         currentArpeggioIndex: 0,
         showingAllNotes: false,
+        sessionPace: 'normal',
         goalTargetCorrect: 3,
         correctAttempts: 3,
       },
@@ -102,6 +104,7 @@ describe('executeDisplayResultSuccessFlow', () => {
         elapsedSeconds: 1.5,
         currentArpeggioIndex: 0,
         showingAllNotes: false,
+        sessionPace: 'normal',
         goalTargetCorrect: 3,
         correctAttempts: 3,
       },
@@ -136,6 +139,7 @@ describe('executeDisplayResultSuccessFlow', () => {
         elapsedSeconds: 0.8,
         currentArpeggioIndex: 0,
         showingAllNotes: false,
+        sessionPace: 'normal',
         goalTargetCorrect: null,
         correctAttempts: null,
       },

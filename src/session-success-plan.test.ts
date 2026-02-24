@@ -10,6 +10,7 @@ describe('buildSessionSuccessPlan', () => {
       currentArpeggioIndex: 0,
       arpeggioLength: 3,
       showingAllNotes: false,
+      sessionPace: 'normal',
     });
 
     expect(plan).toEqual({
@@ -33,6 +34,7 @@ describe('buildSessionSuccessPlan', () => {
       currentArpeggioIndex: 2,
       arpeggioLength: 3,
       showingAllNotes: false,
+      sessionPace: 'slow',
     });
 
     expect(plan.kind).toBe('arpeggio_complete');
@@ -50,6 +52,7 @@ describe('buildSessionSuccessPlan', () => {
       currentArpeggioIndex: 0,
       arpeggioLength: 0,
       showingAllNotes: false,
+      sessionPace: 'fast',
     });
 
     expect(plan.kind).toBe('timed');
@@ -66,6 +69,7 @@ describe('buildSessionSuccessPlan', () => {
       currentArpeggioIndex: 0,
       arpeggioLength: 0,
       showingAllNotes: false,
+      sessionPace: 'slow',
     });
 
     expect(plan.kind).toBe('standard');
@@ -84,10 +88,34 @@ describe('buildSessionSuccessPlan', () => {
       currentArpeggioIndex: 0,
       arpeggioLength: 0,
       showingAllNotes: true,
+      sessionPace: 'normal',
     });
 
     expect(plan.kind).toBe('standard');
     expect(plan.drawSolvedFretboard).toBe(false);
     expect(plan.drawSolvedAsPolyphonic).toBe(false);
+  });
+
+  it('reduces standard delay in fast pace', () => {
+    const normal = buildSessionSuccessPlan({
+      trainingMode: 'random',
+      detectionType: 'monophonic',
+      elapsedSeconds: 0.5,
+      currentArpeggioIndex: 0,
+      arpeggioLength: 0,
+      showingAllNotes: false,
+      sessionPace: 'normal',
+    });
+    const fast = buildSessionSuccessPlan({
+      trainingMode: 'random',
+      detectionType: 'monophonic',
+      elapsedSeconds: 0.5,
+      currentArpeggioIndex: 0,
+      arpeggioLength: 0,
+      showingAllNotes: false,
+      sessionPace: 'fast',
+    });
+
+    expect(fast.delayMs).toBeLessThan(normal.delayMs);
   });
 });

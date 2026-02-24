@@ -5,6 +5,7 @@ import {
   executeSessionSuccessPlan,
   type SessionSuccessExecutorDeps,
 } from './session-success-executor';
+import type { SessionPace } from './session-pace';
 import { buildSessionSuccessPlan } from './session-success-plan';
 import type { Prompt } from './types';
 
@@ -17,6 +18,7 @@ export interface DisplayResultSuccessFlowInput {
   elapsedSeconds: number;
   currentArpeggioIndex: number;
   showingAllNotes: boolean;
+  sessionPace: SessionPace;
   goalTargetCorrect: number | null;
   correctAttempts: number | null;
 }
@@ -64,6 +66,7 @@ export function executeDisplayResultSuccessFlow(
     currentArpeggioIndex: input.currentArpeggioIndex,
     arpeggioLength: input.prompt.targetChordNotes.length,
     showingAllNotes: input.showingAllNotes,
+    sessionPace: input.sessionPace,
   });
   deps.setCurrentArpeggioIndex(successPlan.nextArpeggioIndex);
   executeSessionSuccessPlan({

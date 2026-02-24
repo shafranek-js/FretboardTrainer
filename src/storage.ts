@@ -17,6 +17,7 @@ import type { RhythmSessionStats, SessionStats } from './types';
 import { getEnabledStrings } from './fretboard-ui-state';
 import { normalizeNoteNamingPreference, setNoteNamingPreference } from './note-display';
 import { getDefaultTuningPresetKey } from './tuning-presets';
+import { normalizeSessionPace } from './session-pace';
 import { normalizeAudioInputDeviceId, setPreferredAudioInputDeviceId } from './audio-input-devices';
 import {
   normalizeInputSource,
@@ -58,6 +59,7 @@ export interface ProfileSettings {
   enabledStrings?: Partial<Record<InstrumentName, string[]>>;
   trainingMode?: string;
   sessionGoal?: string;
+  sessionPace?: 'slow' | 'normal' | 'fast';
   metronomeEnabled?: boolean;
   metronomeBpm?: string;
   rhythmTimingWindow?: string;
@@ -137,6 +139,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     enabledStrings: enabledStrings,
     trainingMode: dom.trainingMode.value,
     sessionGoal: dom.sessionGoal.value,
+    sessionPace: state.sessionPace,
     metronomeEnabled: dom.metronomeEnabled.checked,
     metronomeBpm: dom.metronomeBpm.value,
     rhythmTimingWindow: dom.rhythmTimingWindow.value,
@@ -191,6 +194,8 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.endFret.value = safeSettings.endFret ?? '12';
     dom.trainingMode.value = safeSettings.trainingMode ?? 'random';
     dom.sessionGoal.value = safeSettings.sessionGoal ?? 'none';
+    state.sessionPace = normalizeSessionPace(safeSettings.sessionPace);
+    dom.sessionPace.value = state.sessionPace;
     dom.metronomeEnabled.checked = safeSettings.metronomeEnabled ?? false;
     dom.metronomeBpm.value = safeSettings.metronomeBpm ?? '80';
     dom.rhythmTimingWindow.value = safeSettings.rhythmTimingWindow ?? 'normal';

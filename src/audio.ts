@@ -4,11 +4,12 @@
  */
 import * as Soundfont from 'soundfont-player';
 import { state } from './state';
-import { PROMPT_AUDIO_INPUT_IGNORE_MS, VOLUME_THRESHOLD } from './constants';
+import { VOLUME_THRESHOLD } from './constants';
 import { freqToNoteNameFromA4 } from './music-theory';
 import { setLoadingState } from './ui';
 import { detectPitchYin } from './dsp/pitch';
 import { showNonBlockingInfo } from './app-feedback';
+import { getPromptAudioInputIgnoreMs } from './session-pace';
 
 /** Converts a frequency in Hz to the closest musical note name. */
 export function freqToNoteName(freq: number): string | null {
@@ -73,7 +74,7 @@ export function playSound(notesToPlay: string | string[]) {
 
   try {
     if (state.isListening && !state.isCalibrating && state.inputSource !== 'midi') {
-      state.ignorePromptAudioUntilMs = Date.now() + PROMPT_AUDIO_INPUT_IGNORE_MS;
+      state.ignorePromptAudioUntilMs = Date.now() + getPromptAudioInputIgnoreMs(state.sessionPace);
     }
 
     const time = state.audioContext.currentTime;

@@ -690,9 +690,10 @@ function displayResult(correct: boolean, elapsed: number) {
           modeDetectionType: mode?.detectionType ?? null,
           elapsedSeconds: elapsed,
           currentArpeggioIndex: state.currentArpeggioIndex,
-          showingAllNotes: state.showingAllNotes,
-          goalTargetCorrect,
-          correctAttempts: state.activeSessionStats?.correctAttempts ?? null,
+        showingAllNotes: state.showingAllNotes,
+        sessionPace: state.sessionPace,
+        goalTargetCorrect,
+        correctAttempts: state.activeSessionStats?.correctAttempts ?? null,
         },
         {
           setInfoSlots,

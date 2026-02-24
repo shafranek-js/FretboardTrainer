@@ -51,6 +51,7 @@ import {
   saveCustomAsciiTabMelody,
 } from '../melody-library';
 import { confirmUserAction } from '../user-feedback-port';
+import { normalizeSessionPace } from '../session-pace';
 
 function findPlayableStringForNote(note: string): string | null {
   const instrumentData = state.currentInstrument;
@@ -196,6 +197,7 @@ function updatePracticeSetupSummary() {
   const difficultyLabel = dom.difficulty.selectedOptions[0]?.textContent?.trim() ?? dom.difficulty.value;
   const curriculumLabel = dom.curriculumPreset.selectedOptions[0]?.textContent?.trim() ?? 'Custom';
   const goalLabel = dom.sessionGoal.selectedOptions[0]?.textContent?.trim() ?? 'No Goal';
+  const paceLabel = dom.sessionPace.selectedOptions[0]?.textContent?.trim() ?? 'Normal Pace';
   const fretRange = `${dom.startFret.value}-${dom.endFret.value}`;
   const enabledStringsCount = getEnabledStrings(dom.stringSelector).size;
   const totalStringsCount = state.currentInstrument.STRING_ORDER.length;
@@ -215,7 +217,7 @@ function updatePracticeSetupSummary() {
     modeDetail = ` | ${dom.arpeggioPatternSelector.selectedOptions[0]?.textContent?.trim() ?? dom.arpeggioPatternSelector.value}`;
   }
 
-  const summary = `${modeLabel}${modeDetail} | ${difficultyLabel} | Frets ${fretRange} | Strings ${enabledStringsCount}/${totalStringsCount} | ${goalLabel} | ${curriculumLabel}`;
+  const summary = `${modeLabel}${modeDetail} | ${difficultyLabel} | Frets ${fretRange} | Strings ${enabledStringsCount}/${totalStringsCount} | ${goalLabel} | Pace: ${paceLabel} | ${curriculumLabel}`;
   setPracticeSetupSummary(summary);
 }
 
@@ -389,6 +391,13 @@ export function registerSessionControls() {
   });
 
   dom.sessionGoal.addEventListener('change', () => {
+    updatePracticeSetupSummary();
+    saveSettings();
+  });
+  dom.sessionPace.addEventListener('change', () => {
+    markCurriculumPresetAsCustom();
+    state.sessionPace = normalizeSessionPace(dom.sessionPace.value);
+    dom.sessionPace.value = state.sessionPace;
     updatePracticeSetupSummary();
     saveSettings();
   });

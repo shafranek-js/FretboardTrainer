@@ -7,6 +7,7 @@ import type { Stats, Prompt, SessionStats } from './types';
 import { DEFAULT_A4_FREQUENCY } from './constants';
 import { IInstrument } from './instruments/instrument';
 import { instruments } from './instruments';
+import type { SessionPace } from './session-pace';
 
 function requireElementById<T extends Element>(id: string): T {
   const element = document.getElementById(id);
@@ -39,6 +40,7 @@ export const dom = {
   midiInputDevice: requireElementById<HTMLSelectElement>('midiInputDevice'),
   trainingMode: requireElementById<HTMLSelectElement>('trainingMode'),
   sessionGoal: requireElementById<HTMLSelectElement>('sessionGoal'),
+  sessionPace: requireElementById<HTMLSelectElement>('sessionPace'),
   curriculumPreset: requireElementById<HTMLSelectElement>('curriculumPreset'),
   scaleSelectorContainer: requireElementById<HTMLElement>('scaleSelectorContainer'),
   melodySelectorContainer: requireElementById<HTMLElement>('melodySelectorContainer'),
@@ -218,6 +220,7 @@ export const state = {
   timerId: null as number | null,
   timeLeft: 0,
   currentScore: 0,
+  sessionPace: 'normal' as SessionPace,
   stats: {
     highScore: 0,
     totalAttempts: 0,
