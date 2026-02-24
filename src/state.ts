@@ -72,6 +72,7 @@ export const dom = {
   saveMelodyGpTrackBtn: requireElementById<HTMLButtonElement>('saveMelodyGpTrackBtn'),
   melodyMidiTrackImportPanel: requireElementById<HTMLElement>('melodyMidiTrackImportPanel'),
   melodyMidiTrackSelector: requireElementById<HTMLSelectElement>('melodyMidiTrackSelector'),
+  melodyMidiQuantize: requireElementById<HTMLSelectElement>('melodyMidiQuantize'),
   melodyMidiTrackInfo: requireElementById<HTMLElement>('melodyMidiTrackInfo'),
   saveMelodyMidiTrackBtn: requireElementById<HTMLButtonElement>('saveMelodyMidiTrackBtn'),
   melodyImportTitle: requireElementById<HTMLElement>('melodyImportTitle'),

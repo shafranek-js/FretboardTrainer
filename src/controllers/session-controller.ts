@@ -78,7 +78,9 @@ import {
   convertLoadedMidiTrackToImportedMelody,
   loadMidiFileFromBytes,
   type LoadedMidiFile,
+  normalizeMidiImportQuantize,
   type MidiImportedMelody,
+  type MidiImportQuantize,
 } from '../midi-file-import';
 
 const MELODY_DEMO_FALLBACK_STEP_MS = 700;
@@ -100,6 +102,7 @@ let pendingGpImport: {
 let pendingMidiImport: {
   loaded: LoadedMidiFile;
   selectedTrackIndex: number;
+  quantize: MidiImportQuantize;
   importedPreview: MidiImportedMelody | null;
 } | null = null;
 
@@ -186,9 +189,14 @@ function clearPendingGpImportDraft() {
 function clearPendingMidiImportDraft() {
   pendingMidiImport = null;
   dom.melodyMidiTrackSelector.innerHTML = '';
+  dom.melodyMidiQuantize.value = 'off';
   dom.melodyMidiTrackInfo.textContent = '';
   dom.melodyMidiTrackImportPanel.classList.add('hidden');
   dom.saveMelodyMidiTrackBtn.disabled = true;
+}
+
+function getSelectedMidiImportQuantize(): MidiImportQuantize {
+  return normalizeMidiImportQuantize(dom.melodyMidiQuantize.value);
 }
 
 function renderGpTrackInfo() {
@@ -264,6 +272,7 @@ function renderMidiTrackInfo() {
   if (loaded.tempoChangesCount > 1) pieces.push(`Tempo changes: ${loaded.tempoChangesCount}`);
   if (loaded.timeSignatureText) pieces.push(`Time Sig: ${loaded.timeSignatureText}`);
   if (loaded.keySignatureText) pieces.push(`Key: ${loaded.keySignatureText}`);
+  if (pendingMidiImport.quantize !== 'off') pieces.push(`Quantize: ${pendingMidiImport.quantize}`);
   if (selectedOption?.estimatedBars) pieces.push(`Bars: ~${selectedOption.estimatedBars}`);
   if (selectedOption?.noteRangeText) pieces.push(`Range: ${selectedOption.noteRangeText}`);
   if (preview?.warnings.length) pieces.push(preview.warnings.join(' '));
@@ -276,10 +285,12 @@ function refreshMidiTrackPreviewFromSelection() {
   if (!Number.isFinite(selectedTrackIndex)) return;
 
   pendingMidiImport.selectedTrackIndex = selectedTrackIndex;
+  pendingMidiImport.quantize = getSelectedMidiImportQuantize();
   const imported = convertLoadedMidiTrackToImportedMelody(
     pendingMidiImport.loaded,
     state.currentInstrument,
-    selectedTrackIndex
+    selectedTrackIndex,
+    { quantize: pendingMidiImport.quantize }
   );
   pendingMidiImport.importedPreview = imported;
 
@@ -308,6 +319,7 @@ function renderMidiTrackSelectorForPendingImport() {
   if (loaded.defaultTrackIndex !== null) {
     dom.melodyMidiTrackSelector.value = String(loaded.defaultTrackIndex);
   }
+  dom.melodyMidiQuantize.value = pendingMidiImport.quantize;
   dom.melodyMidiTrackImportPanel.classList.remove('hidden');
   refreshMidiTrackPreviewFromSelection();
 }
@@ -426,6 +438,7 @@ async function loadMidiImportDraftFromFile(file: File) {
   pendingMidiImport = {
     loaded,
     selectedTrackIndex: loaded.defaultTrackIndex,
+    quantize: getSelectedMidiImportQuantize(),
     importedPreview: null,
   };
   renderMidiTrackSelectorForPendingImport();
@@ -441,7 +454,8 @@ function savePendingMidiImportedTrack() {
     convertLoadedMidiTrackToImportedMelody(
       pendingMidiImport.loaded,
       state.currentInstrument,
-      pendingMidiImport.selectedTrackIndex
+      pendingMidiImport.selectedTrackIndex,
+      { quantize: pendingMidiImport.quantize }
     );
   pendingMidiImport.importedPreview = imported;
 
@@ -1394,6 +1408,15 @@ export function registerSessionControls() {
     } catch (error) {
       renderMelodyEditorPreviewError('MIDI track preview failed', error);
       showNonBlockingError(formatUserFacingError('Failed to preview selected MIDI track', error));
+    }
+  });
+  dom.melodyMidiQuantize.addEventListener('change', () => {
+    if (!pendingMidiImport) return;
+    try {
+      refreshMidiTrackPreviewFromSelection();
+    } catch (error) {
+      renderMelodyEditorPreviewError('MIDI quantized preview failed', error);
+      showNonBlockingError(formatUserFacingError('Failed to apply MIDI quantize preview', error));
     }
   });
   dom.saveMelodyMidiTrackBtn.addEventListener('click', () => {

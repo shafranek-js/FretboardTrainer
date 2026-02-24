@@ -45,6 +45,12 @@ export interface MidiImportedMelody {
   };
 }
 
+export type MidiImportQuantize = 'off' | '1/16' | '1/8';
+
+export interface MidiImportConversionOptions {
+  quantize?: MidiImportQuantize;
+}
+
 export interface MidiImportTrackOption {
   trackIndex: number;
   name: string;
@@ -74,6 +80,12 @@ interface PositionCandidate {
   stringIndex: number;
 }
 
+interface NormalizedMidiNote {
+  midi: number;
+  startTick: number;
+  durationTicks: number;
+}
+
 function parseScientificNoteToMidi(noteWithOctave: string): number | null {
   const match = /^([A-G])(#?)(-?\d+)$/.exec(noteWithOctave.trim());
   if (!match) return null;
@@ -96,6 +108,57 @@ function toScientificNameFromMidi(midi: number) {
   const pitch = PITCH_CLASS_NAMES[((rounded % 12) + 12) % 12] ?? 'C';
   const octave = Math.floor(rounded / 12) - 1;
   return `${pitch}${octave}`;
+}
+
+export function normalizeMidiImportQuantize(value: string | null | undefined): MidiImportQuantize {
+  return value === '1/16' || value === '1/8' ? value : 'off';
+}
+
+function getMidiQuantizeStepTicks(ppq: number, quantize: MidiImportQuantize) {
+  if (quantize === 'off') return null;
+  const denominator = quantize === '1/8' ? 8 : 16;
+  const ticks = (ppq * 4) / denominator;
+  if (!Number.isFinite(ticks) || ticks <= 0) return null;
+  return ticks;
+}
+
+function quantizeTick(tick: number, stepTicks: number) {
+  return Math.max(0, Math.round(tick / stepTicks) * stepTicks);
+}
+
+function normalizeMidiNotesForConversion(
+  notes: MidiNoteLike[],
+  ppq: number,
+  quantize: MidiImportQuantize
+): NormalizedMidiNote[] {
+  const quantizeStepTicks = getMidiQuantizeStepTicks(ppq, quantize);
+  const minimumDurationTicks = quantizeStepTicks !== null ? Math.max(1, Math.round(quantizeStepTicks)) : 1;
+
+  return notes
+    .filter((note) => Number.isFinite(note.midi) && Number.isFinite(note.ticks))
+    .map((note) => {
+      const midi = Math.round(Number(note.midi));
+      const rawStartTick = Math.max(0, Math.round(Number(note.ticks)));
+      const rawDurationTicks = Math.max(1, Math.round(Number(note.durationTicks ?? 0) || 1));
+
+      if (quantizeStepTicks === null) {
+        return { midi, startTick: rawStartTick, durationTicks: rawDurationTicks };
+      }
+
+      const rawEndTick = rawStartTick + rawDurationTicks;
+      const quantizedStartTick = quantizeTick(rawStartTick, quantizeStepTicks);
+      let quantizedEndTick = quantizeTick(rawEndTick, quantizeStepTicks);
+      if (quantizedEndTick <= quantizedStartTick) {
+        quantizedEndTick = quantizedStartTick + minimumDurationTicks;
+      }
+
+      return {
+        midi,
+        startTick: quantizedStartTick,
+        durationTicks: Math.max(minimumDurationTicks, quantizedEndTick - quantizedStartTick),
+      };
+    })
+    .sort((a, b) => a.startTick - b.startTick || a.midi - b.midi);
 }
 
 function buildSuggestedName(fileName: string, midiName: string | null, trackName: string | null) {
@@ -269,9 +332,11 @@ function convertMidiTrackSelectionToImportedMelody(
   selection: MidiTrackSelection,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
   sourceFileName: string,
-  warnings: string[]
+  warnings: string[],
+  options?: MidiImportConversionOptions
 ): MidiImportedMelody {
   const ppq = Number.isFinite(midi.header?.ppq) && Number(midi.header?.ppq) > 0 ? Number(midi.header?.ppq) : 480;
+  const quantize = normalizeMidiImportQuantize(options?.quantize);
   const tempoBpm =
     typeof midi.header?.tempos?.[0]?.bpm === 'number' && Number.isFinite(midi.header.tempos[0].bpm)
       ? Math.round(midi.header.tempos[0].bpm)
@@ -279,20 +344,17 @@ function convertMidiTrackSelectionToImportedMelody(
   const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
   const trackName = getTrackDisplayName(selection.track, selection.index);
 
-  const notes = [...selection.notes]
-    .filter((note) => Number.isFinite(note.midi) && Number.isFinite(note.ticks))
-    .sort((a, b) => Number(a.ticks) - Number(b.ticks) || Number(a.midi) - Number(b.midi));
+  const notes = normalizeMidiNotesForConversion(selection.notes, ppq, quantize);
 
   if (notes.length === 0) {
     throw new Error('Selected MIDI track has no note events.');
   }
 
-  const grouped = new Map<number, MidiNoteLike[]>();
+  const grouped = new Map<number, NormalizedMidiNote[]>();
   for (const note of notes) {
-    const tick = Math.max(0, Math.round(Number(note.ticks)));
-    const list = grouped.get(tick) ?? [];
+    const list = grouped.get(note.startTick) ?? [];
     list.push(note);
-    grouped.set(tick, list);
+    grouped.set(note.startTick, list);
   }
 
   const startTicks = [...grouped.keys()].sort((a, b) => a - b);
@@ -305,18 +367,18 @@ function convertMidiTrackSelectionToImportedMelody(
     const eventNotes = grouped.get(startTick) ?? [];
     const nextStartTick = startTicks[i + 1] ?? null;
     const maxEndTick = eventNotes.reduce((max, note) => {
-      const endTick = startTick + Math.max(1, Math.round(Number(note.durationTicks ?? 0) || 1));
+      const endTick = startTick + Math.max(1, Math.round(Number(note.durationTicks) || 1));
       return Math.max(max, endTick);
     }, startTick + 1);
     const durationTicks = Math.max(1, (nextStartTick ?? maxEndTick) - startTick);
 
     const midiValues = eventNotes
-      .map((note) => Math.round(Number(note.midi)))
+      .map((note) => Math.round(note.midi))
       .filter((value) => Number.isFinite(value));
     const assignedMap = chooseEventPositions(midiValues, candidateMap, previousAssigned);
 
     const melodyNotes: MelodyEventNote[] = eventNotes.map((note) => {
-      const midiValue = Math.round(Number(note.midi));
+      const midiValue = Math.round(note.midi);
       const assigned = assignedMap.get(midiValue);
       return {
         note: toPitchClassFromMidi(midiValue),
@@ -350,10 +412,11 @@ function convertMidiTrackSelectionToImportedMelody(
 export function convertParsedMidiToImportedMelody(
   midi: MidiFileLike,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
-  sourceFileName: string
+  sourceFileName: string,
+  options?: MidiImportConversionOptions
 ): MidiImportedMelody {
   const { selected, warnings } = pickMidiTrack(midi);
-  return convertMidiTrackSelectionToImportedMelody(midi, selected, instrument, sourceFileName, warnings);
+  return convertMidiTrackSelectionToImportedMelody(midi, selected, instrument, sourceFileName, warnings, options);
 }
 
 export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: string): LoadedMidiFile {
@@ -409,7 +472,8 @@ export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: str
 export function convertLoadedMidiTrackToImportedMelody(
   loaded: LoadedMidiFile,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
-  trackIndex: number
+  trackIndex: number,
+  options?: MidiImportConversionOptions
 ): MidiImportedMelody {
   const trackSelections = listMidiTrackSelections(loaded.midi);
   const selected = trackSelections.find((selection) => selection.index === trackIndex);
@@ -432,21 +496,23 @@ export function convertLoadedMidiTrackToImportedMelody(
     selected,
     instrument,
     loaded.sourceFileName,
-    warnings
+    warnings,
+    options
   );
 }
 
 export async function importMidiMelodyFromBytes(
   bytes: Uint8Array,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
-  sourceFileName: string
+  sourceFileName: string,
+  options?: MidiImportConversionOptions
 ): Promise<MidiImportedMelody> {
   if (!bytes.length) {
     throw new Error('Selected file is empty.');
   }
   const midiModule = await import('@tonejs/midi');
   const midi = new midiModule.Midi(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-  return convertParsedMidiToImportedMelody(midi as unknown as MidiFileLike, instrument, sourceFileName);
+  return convertParsedMidiToImportedMelody(midi as unknown as MidiFileLike, instrument, sourceFileName, options);
 }
 
 export async function loadMidiFileFromBytes(bytes: Uint8Array, sourceFileName: string): Promise<LoadedMidiFile> {

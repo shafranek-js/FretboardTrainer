@@ -97,4 +97,35 @@ describe('midi-file-import', () => {
     expect(inspected.trackOptions[0]?.noteRangeText).toBe('C4 - C5');
     expect(inspected.trackOptions[0]?.estimatedBars).toBe(2);
   });
+
+  it('quantizes imported MIDI timings when requested', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: {
+          ppq: 480,
+          tempos: [{ bpm: 120 }],
+        },
+        tracks: [
+          {
+            name: 'Loose Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 60, ticks: 18, durationTicks: 130 },
+              { midi: 62, ticks: 248, durationTicks: 110 },
+              { midi: 64, ticks: 494, durationTicks: 120 },
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'loose.mid',
+      { quantize: '1/8' }
+    );
+
+    expect(imported.events).toHaveLength(3);
+    expect(imported.events[0]?.durationBeats).toBe(0.5);
+    expect(imported.events[1]?.durationBeats).toBe(0.5);
+    expect(imported.events[2]?.durationBeats).toBe(0.5);
+  });
 });
