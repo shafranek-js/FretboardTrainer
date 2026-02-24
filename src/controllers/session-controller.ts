@@ -48,9 +48,11 @@ import {
 import { formatUserFacingError, showNonBlockingError } from '../app-feedback';
 import {
   deleteCustomMelody,
+  getMelodyById,
   isCustomMelodyId,
   listMelodiesForInstrument,
   saveCustomAsciiTabMelody,
+  updateCustomAsciiTabMelody,
 } from '../melody-library';
 import { confirmUserAction } from '../user-feedback-port';
 import { normalizeSessionPace } from '../session-pace';
@@ -182,7 +184,78 @@ function populateMelodyOptions() {
   }
 
   state.preferredMelodyId = dom.melodySelector.value || null;
+  dom.editMelodyBtn.disabled = melodies.length === 0;
   dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
+}
+
+function resetMelodyEditorDraft() {
+  state.melodyEditorMode = 'create';
+  state.editingMelodyId = null;
+}
+
+function updateMelodyEditorUiForCurrentMode() {
+  const mode = state.melodyEditorMode;
+  if (mode === 'edit-custom') {
+    dom.melodyImportTitle.textContent = 'Edit Custom Melody';
+    dom.melodyImportHelpText.textContent =
+      'Edit the ASCII tab for your custom melody. Keep numbered string labels and spacing/dashes to control note timing.';
+    dom.importMelodyBtn.textContent = 'Save Changes';
+    return;
+  }
+
+  if (mode === 'duplicate-builtin') {
+    dom.melodyImportTitle.textContent = 'Duplicate Melody as Custom';
+    dom.melodyImportHelpText.textContent =
+      'This will create a new custom copy. You can rearrange notes freely by editing the ASCII tab.';
+    dom.importMelodyBtn.textContent = 'Save Custom Copy';
+    return;
+  }
+
+  dom.melodyImportTitle.textContent = 'Import Melody from ASCII Tab';
+  dom.melodyImportHelpText.innerHTML =
+    'Paste monophonic ASCII tabs with numbered string labels, for example: ' +
+    '<code class="text-cyan-200">1 string 0---5---8---</code>.';
+  dom.importMelodyBtn.textContent = 'Import Melody';
+}
+
+function openMelodyEditorModal(options?: { mode?: 'create' | 'edit-custom' | 'duplicate-builtin' }) {
+  const mode = options?.mode ?? 'create';
+  const selectedMelodyId = dom.melodySelector.value;
+
+  if (mode === 'create') {
+    resetMelodyEditorDraft();
+    dom.melodyNameInput.value = '';
+    dom.melodyAsciiTabInput.value = '';
+    updateMelodyEditorUiForCurrentMode();
+    setModalVisible('melodyImport', true);
+    dom.melodyNameInput.focus();
+    return;
+  }
+
+  if (!selectedMelodyId) {
+    setResultMessage('Select a melody first.');
+    return;
+  }
+
+  const melody = getMelodyById(selectedMelodyId, state.currentInstrument);
+  if (!melody) {
+    setResultMessage('Selected melody is unavailable for the current instrument.', 'error');
+    return;
+  }
+  if (!melody.tabText) {
+    setResultMessage('This melody cannot be edited because its ASCII tab source is unavailable.', 'error');
+    return;
+  }
+
+  state.melodyEditorMode = melody.source === 'custom' ? 'edit-custom' : 'duplicate-builtin';
+  state.editingMelodyId = melody.source === 'custom' ? melody.id : null;
+  dom.melodyNameInput.value =
+    melody.source === 'custom' ? melody.name : `${melody.name} (Custom)`;
+  dom.melodyAsciiTabInput.value = melody.tabText;
+  updateMelodyEditorUiForCurrentMode();
+  setModalVisible('melodyImport', true);
+  dom.melodyNameInput.focus();
+  dom.melodyNameInput.select();
 }
 
 function setSelectValueIfAvailable(select: HTMLSelectElement, value: string | undefined) {
@@ -313,6 +386,8 @@ export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
   populateMelodyOptions();
+  resetMelodyEditorDraft();
+  updateMelodyEditorUiForCurrentMode();
   resetMetronomeVisualIndicator();
   updateMicNoiseGateInfo();
   updatePracticeSetupSummary();
@@ -320,10 +395,22 @@ export function registerSessionControls() {
   setPracticeSetupCollapsed(window.innerWidth < 900);
   void refreshAudioInputDeviceOptions();
   void refreshMidiInputDevices(false);
-  dom.closeMelodyImportBtn.addEventListener('click', () => setModalVisible('melodyImport', false));
-  dom.cancelMelodyImportBtn.addEventListener('click', () => setModalVisible('melodyImport', false));
+  dom.closeMelodyImportBtn.addEventListener('click', () => {
+    setModalVisible('melodyImport', false);
+    resetMelodyEditorDraft();
+    updateMelodyEditorUiForCurrentMode();
+  });
+  dom.cancelMelodyImportBtn.addEventListener('click', () => {
+    setModalVisible('melodyImport', false);
+    resetMelodyEditorDraft();
+    updateMelodyEditorUiForCurrentMode();
+  });
   dom.melodyImportModal.addEventListener('click', (e) => {
-    if (e.target === dom.melodyImportModal) setModalVisible('melodyImport', false);
+    if (e.target === dom.melodyImportModal) {
+      setModalVisible('melodyImport', false);
+      resetMelodyEditorDraft();
+      updateMelodyEditorUiForCurrentMode();
+    }
   });
 
   dom.practiceSetupToggleBtn.addEventListener('click', () => {
@@ -593,6 +680,7 @@ export function registerSessionControls() {
   dom.melodySelector.addEventListener('change', () => {
     markCurriculumPresetAsCustom();
     state.preferredMelodyId = dom.melodySelector.value || null;
+    dom.editMelodyBtn.disabled = dom.melodySelector.options.length === 0;
     dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
     if (state.isListening && dom.trainingMode.value === 'melody') {
       stopListening();
@@ -607,29 +695,51 @@ export function registerSessionControls() {
     saveSettings();
   });
   dom.openMelodyImportBtn.addEventListener('click', () => {
-    dom.melodyNameInput.focus();
-    setModalVisible('melodyImport', true);
+    openMelodyEditorModal({ mode: 'create' });
+  });
+  dom.editMelodyBtn.addEventListener('click', () => {
+    openMelodyEditorModal({ mode: 'edit-custom' });
   });
   dom.importMelodyBtn.addEventListener('click', () => {
     try {
-      const melodyId = saveCustomAsciiTabMelody(
-        dom.melodyNameInput.value,
-        dom.melodyAsciiTabInput.value,
-        state.currentInstrument
-      );
+      let melodyId: string;
+      let successMessage = 'Custom melody imported from ASCII tab.';
+
+      if (state.melodyEditorMode === 'edit-custom' && state.editingMelodyId) {
+        melodyId = updateCustomAsciiTabMelody(
+          state.editingMelodyId,
+          dom.melodyNameInput.value,
+          dom.melodyAsciiTabInput.value,
+          state.currentInstrument
+        );
+        successMessage = 'Custom melody updated.';
+      } else {
+        melodyId = saveCustomAsciiTabMelody(
+          dom.melodyNameInput.value,
+          dom.melodyAsciiTabInput.value,
+          state.currentInstrument
+        );
+        successMessage =
+          state.melodyEditorMode === 'duplicate-builtin'
+            ? 'Built-in melody duplicated and saved as custom.'
+            : 'Custom melody imported from ASCII tab.';
+      }
       populateMelodyOptions();
       dom.melodySelector.value = melodyId;
       state.preferredMelodyId = melodyId;
+      dom.editMelodyBtn.disabled = false;
       dom.deleteMelodyBtn.disabled = false;
       dom.melodyNameInput.value = '';
       dom.melodyAsciiTabInput.value = '';
       setModalVisible('melodyImport', false);
+      resetMelodyEditorDraft();
+      updateMelodyEditorUiForCurrentMode();
       markCurriculumPresetAsCustom();
       updatePracticeSetupSummary();
       saveSettings();
-      setResultMessage('Custom melody imported from ASCII tab.');
+      setResultMessage(successMessage, 'success');
     } catch (error) {
-      showNonBlockingError(formatUserFacingError('Failed to import ASCII tab melody', error));
+      showNonBlockingError(formatUserFacingError('Failed to save melody from ASCII tab', error));
     }
   });
   dom.deleteMelodyBtn.addEventListener('click', async () => {

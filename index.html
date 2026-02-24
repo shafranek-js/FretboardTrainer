@@ -278,7 +278,14 @@
                 type="button"
                 class="px-3 py-2 text-sm bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 rounded-md"
               >
-                Import ASCII Tab...
+                New / Import...
+              </button>
+              <button
+                id="editMelodyBtn"
+                type="button"
+                class="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-md"
+              >
+                Edit Melody...
               </button>
               <button
                 id="deleteMelodyBtn"
@@ -1141,8 +1148,8 @@
         >
           &times;
         </button>
-        <h2 id="melodyImportTitle" class="text-2xl font-bold mb-3 text-white">Import Melody from ASCII Tab</h2>
-        <p class="mb-4 text-sm text-slate-300">
+        <h2 id="melodyImportTitle" class="text-2xl font-bold mb-3 text-white">Melody Editor</h2>
+        <p id="melodyImportHelpText" class="mb-4 text-sm text-slate-300">
           Paste monophonic ASCII tabs with numbered string labels, for example:
           <code class="text-cyan-200">1 струна 0---5---8---</code> or
           <code class="text-cyan-200">1 string 0---5---8---</code>.
@@ -1173,7 +1180,7 @@
               type="button"
               class="bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
             >
-              Import Melody
+              Save Melody
             </button>
           </div>
         </div>

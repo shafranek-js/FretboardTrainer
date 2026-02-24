@@ -59,8 +59,11 @@ export const dom = {
   melodySelector: requireElementById<HTMLSelectElement>('melodySelector'),
   melodyShowNote: requireElementById<HTMLInputElement>('melodyShowNote'),
   openMelodyImportBtn: requireElementById<HTMLButtonElement>('openMelodyImportBtn'),
+  editMelodyBtn: requireElementById<HTMLButtonElement>('editMelodyBtn'),
   melodyNameInput: requireElementById<HTMLInputElement>('melodyNameInput'),
   melodyAsciiTabInput: requireElementById<HTMLTextAreaElement>('melodyAsciiTabInput'),
+  melodyImportTitle: requireElementById<HTMLElement>('melodyImportTitle'),
+  melodyImportHelpText: requireElementById<HTMLElement>('melodyImportHelpText'),
   importMelodyBtn: requireElementById<HTMLButtonElement>('importMelodyBtn'),
   deleteMelodyBtn: requireElementById<HTMLButtonElement>('deleteMelodyBtn'),
   scaleSelector: requireElementById<HTMLSelectElement>('scaleSelector'),
@@ -222,6 +225,8 @@ export const state = {
   currentMelodyEventIndex: 0,
   currentMelodyEventFoundNotes: new Set<string>(),
   preferredMelodyId: null as string | null,
+  melodyEditorMode: 'create' as 'create' | 'edit-custom' | 'duplicate-builtin',
+  editingMelodyId: null as string | null,
   pendingSessionStopResultMessage: null as
     | { text: string; tone: 'neutral' | 'success' | 'error' }
     | null,

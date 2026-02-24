@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { instruments } from './instruments';
-import { listMelodiesForInstrument } from './melody-library';
+import {
+  listMelodiesForInstrument,
+  saveCustomAsciiTabMelody,
+  updateCustomAsciiTabMelody,
+} from './melody-library';
 
 function expectBuiltinMelodiesToBeComfortable(
   melodies: ReturnType<typeof listMelodiesForInstrument>,
@@ -58,5 +62,57 @@ describe('melody-library builtins', () => {
       maxConsecutiveFretJump: 3,
       maxFretSpan: 3,
     });
+  });
+});
+
+describe('melody-library custom editing', () => {
+  it('preserves ascii tab source on listed melodies for editing', () => {
+    const guitarMelodies = listMelodiesForInstrument(instruments.guitar);
+    expect(guitarMelodies.length).toBeGreaterThan(0);
+    guitarMelodies.forEach((melody) => {
+      expect(typeof melody.tabText).toBe('string');
+      expect(melody.tabText?.trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  it('updates an existing custom melody in place', () => {
+    const storageMap = new Map<string, string>();
+    const localStorageStub = {
+      getItem: (key: string) => storageMap.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storageMap.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        storageMap.delete(key);
+      },
+      clear: () => {
+        storageMap.clear();
+      },
+    };
+    vi.stubGlobal('localStorage', localStorageStub);
+    try {
+      localStorage.clear();
+
+      const originalId = saveCustomAsciiTabMelody(
+        'Test Melody',
+        '1 string 0---2---',
+        instruments.guitar
+      );
+
+      updateCustomAsciiTabMelody(originalId, 'Edited Melody', '1 string 3---5---', instruments.guitar);
+
+      const customMelodies = listMelodiesForInstrument(instruments.guitar).filter(
+        (melody) => melody.source === 'custom'
+      );
+      expect(customMelodies).toHaveLength(1);
+      expect(customMelodies[0]?.id).toBe(originalId);
+      expect(customMelodies[0]?.name).toBe('Edited Melody');
+      expect(customMelodies[0]?.tabText).toContain('3---5---');
+      const frets = customMelodies[0]?.events.flatMap((event) => event.notes.map((note) => note.fret)) ?? [];
+      expect(frets).toContain(3);
+      expect(frets).toContain(5);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -17,6 +17,7 @@ export interface MelodyDefinition {
   source: 'builtin' | 'custom';
   instrumentName: IInstrument['name'] | 'any';
   events: MelodyEvent[];
+  tabText?: string;
   createdAtMs?: number;
 }
 
@@ -181,6 +182,7 @@ function mapStoredCustomMelodyToDefinition(
       source: 'custom',
       instrumentName: entry.instrumentName,
       events,
+      tabText: entry.tabText,
       createdAtMs: entry.createdAtMs,
     };
   } catch (error) {
@@ -208,6 +210,7 @@ function mapBuiltinAsciiTabMelodyToDefinition(
       source: 'builtin',
       instrumentName: spec.instrumentName,
       events,
+      tabText: spec.tabText,
     };
   } catch (error) {
     console.warn(`Failed to parse built-in melody "${spec.name}" for ${spec.instrumentName}:`, error);
@@ -280,4 +283,47 @@ export function deleteCustomMelody(melodyId: string) {
 
 export function isCustomMelodyId(melodyId: string) {
   return melodyId.startsWith('custom:');
+}
+
+export function updateCustomAsciiTabMelody(
+  melodyId: string,
+  name: string,
+  tabText: string,
+  instrument: Pick<IInstrument, 'name' | 'STRING_ORDER' | 'getNoteWithOctave'>
+) {
+  if (!isCustomMelodyId(melodyId)) {
+    throw new Error('Only custom melodies can be edited.');
+  }
+
+  const trimmedName = name.trim();
+  const trimmedTabText = tabText.trim();
+  if (!trimmedName) {
+    throw new Error('Melody name is required.');
+  }
+  if (!trimmedTabText) {
+    throw new Error('ASCII tab text is required.');
+  }
+
+  // Validate edited content for the current instrument before persisting.
+  parseAsciiTabToMelodyEvents(trimmedTabText, instrument);
+
+  const current = readCustomMelodiesFromStorage();
+  const targetIndex = current.findIndex((entry) => entry.id === melodyId);
+  if (targetIndex < 0) {
+    throw new Error('Custom melody not found.');
+  }
+
+  const target = current[targetIndex];
+  if (target.instrumentName !== instrument.name) {
+    throw new Error('Selected melody does not belong to the current instrument.');
+  }
+
+  current[targetIndex] = {
+    ...target,
+    name: trimmedName,
+    tabText: trimmedTabText,
+  };
+
+  writeCustomMelodiesToStorage(current);
+  return melodyId;
 }
