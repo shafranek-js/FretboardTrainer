@@ -53,6 +53,7 @@ import {
   isCustomMelodyId,
   listMelodiesForInstrument,
   saveCustomAsciiTabMelody,
+  saveCustomEventMelody,
   type MelodyEvent,
   updateCustomAsciiTabMelody,
 } from '../melody-library';
@@ -67,6 +68,7 @@ import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
 import type { ChordNote, Prompt } from '../types';
 import { parseAsciiTabToMelodyEvents } from '../ascii-tab-melody-parser';
+import { importGpMelodyFromBytes } from '../gp-import';
 
 const MELODY_DEMO_FALLBACK_STEP_MS = 700;
 const MELODY_DEMO_MIN_STEP_MS = 160;
@@ -174,6 +176,25 @@ function scheduleMelodyEditorPreviewUpdate() {
     melodyPreviewUpdateTimeoutId = null;
     updateMelodyEditorPreview();
   }, 120);
+}
+
+async function importMelodyFromGpFile(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const imported = await importGpMelodyFromBytes(bytes, state.currentInstrument, file.name);
+  const melodyId = saveCustomEventMelody(imported.suggestedName, imported.events, state.currentInstrument, {
+    sourceFormat: imported.metadata.sourceFormat,
+    sourceFileName: imported.metadata.sourceFileName,
+    sourceTrackName: imported.metadata.trackName ?? undefined,
+    sourceScoreTitle: imported.metadata.scoreTitle ?? undefined,
+    sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
+  });
+
+  const warningSuffix =
+    imported.warnings.length > 0
+      ? ` ${imported.warnings.slice(0, 2).join(' ')}${imported.warnings.length > 2 ? ' ...' : ''}`
+      : '';
+  const trackLabel = imported.metadata.trackName ? ` (${imported.metadata.trackName})` : '';
+  finalizeMelodyImportSelection(melodyId, `Custom melody imported from ${file.name}${trackLabel}.${warningSuffix}`.trim());
 }
 
 function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
@@ -475,9 +496,35 @@ function populateMelodyOptions() {
   }
 
   state.preferredMelodyId = dom.melodySelector.value || null;
-  dom.editMelodyBtn.disabled = melodies.length === 0;
-  dom.melodyDemoBtn.disabled = melodies.length === 0;
-  dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
+  updateMelodyActionButtonsForSelection();
+}
+
+function finalizeMelodyImportSelection(melodyId: string, successMessage: string) {
+  populateMelodyOptions();
+  dom.melodySelector.value = melodyId;
+  state.preferredMelodyId = melodyId;
+  updateMelodyActionButtonsForSelection();
+  dom.melodyNameInput.value = '';
+  dom.melodyAsciiTabInput.value = '';
+  setModalVisible('melodyImport', false);
+  resetMelodyEditorDraft();
+  updateMelodyEditorUiForCurrentMode();
+  markCurriculumPresetAsCustom();
+  updatePracticeSetupSummary();
+  saveSettings();
+  setResultMessage(successMessage, 'success');
+}
+
+function resetMelodyGpFileInput() {
+  dom.melodyGpFileInput.value = '';
+}
+
+function updateMelodyActionButtonsForSelection() {
+  const selectedMelodyId = dom.melodySelector.value;
+  const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+  dom.editMelodyBtn.disabled = !melody || typeof melody.tabText !== 'string';
+  dom.melodyDemoBtn.disabled = !melody;
+  dom.deleteMelodyBtn.disabled = !isCustomMelodyId(selectedMelodyId);
 }
 
 function resetMelodyEditorDraft() {
@@ -507,7 +554,7 @@ function updateMelodyEditorUiForCurrentMode() {
   dom.melodyImportTitle.textContent = 'Import Melody from ASCII Tab';
   dom.melodyImportHelpText.innerHTML =
     'Paste monophonic ASCII tabs with numbered string labels, for example: ' +
-    '<code class="text-cyan-200">1 string 0---5---8---</code>.';
+    '<code class="text-cyan-200">1 string 0---5---8---</code>, or use <strong class="text-violet-200">Import GP...</strong>.';
   dom.importMelodyBtn.textContent = 'Import Melody';
 }
 
@@ -694,17 +741,20 @@ export function registerSessionControls() {
   void refreshMidiInputDevices(false);
   dom.closeMelodyImportBtn.addEventListener('click', () => {
     setModalVisible('melodyImport', false);
+    resetMelodyGpFileInput();
     resetMelodyEditorDraft();
     updateMelodyEditorUiForCurrentMode();
   });
   dom.cancelMelodyImportBtn.addEventListener('click', () => {
     setModalVisible('melodyImport', false);
+    resetMelodyGpFileInput();
     resetMelodyEditorDraft();
     updateMelodyEditorUiForCurrentMode();
   });
   dom.melodyImportModal.addEventListener('click', (e) => {
     if (e.target === dom.melodyImportModal) {
       setModalVisible('melodyImport', false);
+      resetMelodyGpFileInput();
       resetMelodyEditorDraft();
       updateMelodyEditorUiForCurrentMode();
     }
@@ -987,8 +1037,7 @@ export function registerSessionControls() {
     stopMelodyDemoPlayback({ clearUi: true });
     markCurriculumPresetAsCustom();
     state.preferredMelodyId = dom.melodySelector.value || null;
-    dom.editMelodyBtn.disabled = dom.melodySelector.options.length === 0;
-    dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
+    updateMelodyActionButtonsForSelection();
     if (state.isListening && dom.trainingMode.value === 'melody') {
       stopListening();
       setResultMessage('Melody changed. Session stopped; press Start to begin from the first note.');
@@ -1015,6 +1064,28 @@ export function registerSessionControls() {
   dom.openMelodyImportBtn.addEventListener('click', () => {
     stopMelodyDemoPlayback({ clearUi: true });
     openMelodyEditorModal({ mode: 'create' });
+  });
+  dom.importMelodyGpBtn.addEventListener('click', () => {
+    dom.melodyGpFileInput.click();
+  });
+  dom.melodyGpFileInput.addEventListener('change', async () => {
+    const file = dom.melodyGpFileInput.files?.[0];
+    if (!file) return;
+
+    const originalLabel = dom.importMelodyGpBtn.textContent ?? 'Import GP...';
+    dom.importMelodyGpBtn.disabled = true;
+    dom.importMelodyGpBtn.textContent = 'Importing...';
+
+    try {
+      stopMelodyDemoPlayback({ clearUi: true });
+      await importMelodyFromGpFile(file);
+    } catch (error) {
+      showNonBlockingError(formatUserFacingError('Failed to import Guitar Pro file', error));
+    } finally {
+      dom.importMelodyGpBtn.disabled = false;
+      dom.importMelodyGpBtn.textContent = originalLabel;
+      resetMelodyGpFileInput();
+    }
   });
   dom.editMelodyBtn.addEventListener('click', () => {
     stopMelodyDemoPlayback({ clearUi: true });
@@ -1052,20 +1123,7 @@ export function registerSessionControls() {
             ? 'Built-in melody duplicated and saved as custom.'
             : 'Custom melody imported from ASCII tab.';
       }
-      populateMelodyOptions();
-      dom.melodySelector.value = melodyId;
-      state.preferredMelodyId = melodyId;
-      dom.editMelodyBtn.disabled = false;
-      dom.deleteMelodyBtn.disabled = false;
-      dom.melodyNameInput.value = '';
-      dom.melodyAsciiTabInput.value = '';
-      setModalVisible('melodyImport', false);
-      resetMelodyEditorDraft();
-      updateMelodyEditorUiForCurrentMode();
-      markCurriculumPresetAsCustom();
-      updatePracticeSetupSummary();
-      saveSettings();
-      setResultMessage(successMessage, 'success');
+      finalizeMelodyImportSelection(melodyId, successMessage);
     } catch (error) {
       showNonBlockingError(formatUserFacingError('Failed to save melody from ASCII tab', error));
     }

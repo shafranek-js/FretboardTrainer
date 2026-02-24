@@ -17,6 +17,7 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@coderline/alphatab": "^1.8.1",
     "soundfont-player": "^0.12.0"
   },
   "devDependencies": {

@@ -3,6 +3,7 @@ import { instruments } from './instruments';
 import {
   listMelodiesForInstrument,
   saveCustomAsciiTabMelody,
+  saveCustomEventMelody,
   updateCustomAsciiTabMelody,
 } from './melody-library';
 
@@ -111,6 +112,59 @@ describe('melody-library custom editing', () => {
       const frets = customMelodies[0]?.events.flatMap((event) => event.notes.map((note) => note.fret)) ?? [];
       expect(frets).toContain(3);
       expect(frets).toContain(5);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('lists imported event-based custom melodies without ascii source', () => {
+    const storageMap = new Map<string, string>();
+    const localStorageStub = {
+      getItem: (key: string) => storageMap.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storageMap.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        storageMap.delete(key);
+      },
+      clear: () => {
+        storageMap.clear();
+      },
+    };
+    vi.stubGlobal('localStorage', localStorageStub);
+    try {
+      localStorage.clear();
+
+      const melodyId = saveCustomEventMelody(
+        'Imported GP Melody',
+        [
+          {
+            durationBeats: 1,
+            notes: [{ note: 'C', stringName: 'A', fret: 3 }],
+          },
+          {
+            durationBeats: 0.5,
+            notes: [{ note: 'D', stringName: 'A', fret: 5 }],
+          },
+        ],
+        instruments.guitar,
+        {
+          sourceFormat: 'gp5',
+          sourceFileName: 'test.gp5',
+          sourceTrackName: 'Lead',
+        }
+      );
+
+      const customMelodies = listMelodiesForInstrument(instruments.guitar).filter(
+        (melody) => melody.source === 'custom'
+      );
+
+      expect(customMelodies).toHaveLength(1);
+      expect(customMelodies[0]?.id).toBe(melodyId);
+      expect(customMelodies[0]?.tabText).toBeUndefined();
+      expect(customMelodies[0]?.events).toHaveLength(2);
+      expect(customMelodies[0]?.sourceFormat).toBe('gp5');
+      expect(customMelodies[0]?.sourceTrackName).toBe('Lead');
     } finally {
       vi.unstubAllGlobals();
     }

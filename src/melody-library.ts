@@ -23,15 +23,36 @@ export interface MelodyDefinition {
   events: MelodyEvent[];
   tabText?: string;
   createdAtMs?: number;
+  sourceFormat?: 'ascii' | 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7';
+  sourceFileName?: string;
+  sourceTrackName?: string;
+  sourceScoreTitle?: string;
+  sourceTempoBpm?: number;
 }
 
-interface StoredCustomMelody {
+interface StoredCustomMelodyBase {
   id: string;
   name: string;
   instrumentName: IInstrument['name'];
-  tabText: string;
   createdAtMs: number;
 }
+
+interface StoredCustomAsciiMelody extends StoredCustomMelodyBase {
+  format?: 'ascii';
+  tabText: string;
+}
+
+interface StoredCustomEventMelody extends StoredCustomMelodyBase {
+  format: 'events';
+  sourceFormat: 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7';
+  sourceFileName?: string;
+  sourceTrackName?: string;
+  sourceScoreTitle?: string;
+  sourceTempoBpm?: number;
+  events: MelodyEvent[];
+}
+
+type StoredCustomMelody = StoredCustomAsciiMelody | StoredCustomEventMelody;
 
 const CUSTOM_MELODY_STORAGE_KEY = 'fretboardTrainer.customMelodies.v1';
 
@@ -145,18 +166,7 @@ function readCustomMelodiesFromStorage(): StoredCustomMelody[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is StoredCustomMelody => {
-      return (
-        !!item &&
-        typeof item === 'object' &&
-        typeof (item as { id?: unknown }).id === 'string' &&
-        typeof (item as { name?: unknown }).name === 'string' &&
-        ((item as { instrumentName?: unknown }).instrumentName === 'guitar' ||
-          (item as { instrumentName?: unknown }).instrumentName === 'ukulele') &&
-        typeof (item as { tabText?: unknown }).tabText === 'string' &&
-        typeof (item as { createdAtMs?: unknown }).createdAtMs === 'number'
-      );
-    });
+    return parsed.filter((item): item is StoredCustomMelody => isStoredCustomMelody(item));
   } catch (error) {
     console.warn('Failed to read custom melody library:', error);
     return [];
@@ -167,12 +177,104 @@ function writeCustomMelodiesToStorage(entries: StoredCustomMelody[]) {
   localStorage.setItem(CUSTOM_MELODY_STORAGE_KEY, JSON.stringify(entries));
 }
 
+function isMelodyEventNote(value: unknown): value is MelodyEventNote {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as { note?: unknown }).note === 'string' &&
+    (((value as { stringName?: unknown }).stringName === null) ||
+      typeof (value as { stringName?: unknown }).stringName === 'string') &&
+    (((value as { fret?: unknown }).fret === null) || typeof (value as { fret?: unknown }).fret === 'number')
+  );
+}
+
+function isMelodyEvent(value: unknown): value is MelodyEvent {
+  if (!value || typeof value !== 'object') return false;
+  const notes = (value as { notes?: unknown }).notes;
+  if (!Array.isArray(notes) || !notes.every((note) => isMelodyEventNote(note))) return false;
+
+  const numericOptionalKeys: (keyof Pick<
+    MelodyEvent,
+    'column' | 'durationColumns' | 'durationCountSteps' | 'durationBeats'
+  >)[] = ['column', 'durationColumns', 'durationCountSteps', 'durationBeats'];
+
+  return numericOptionalKeys.every((key) => {
+    const fieldValue = (value as Record<string, unknown>)[key];
+    return typeof fieldValue === 'undefined' || typeof fieldValue === 'number';
+  });
+}
+
+function isStoredCustomMelodyBase(value: unknown): value is StoredCustomMelodyBase {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    typeof (value as { name?: unknown }).name === 'string' &&
+    ((value as { instrumentName?: unknown }).instrumentName === 'guitar' ||
+      (value as { instrumentName?: unknown }).instrumentName === 'ukulele') &&
+    typeof (value as { createdAtMs?: unknown }).createdAtMs === 'number'
+  );
+}
+
+function isStoredCustomMelody(value: unknown): value is StoredCustomMelody {
+  if (!isStoredCustomMelodyBase(value)) return false;
+
+  const format = (value as { format?: unknown }).format;
+  if (format === 'events') {
+    const sourceFormat = (value as { sourceFormat?: unknown }).sourceFormat;
+    const events = (value as { events?: unknown }).events;
+    return (
+      (sourceFormat === 'gp' ||
+        sourceFormat === 'gp3' ||
+        sourceFormat === 'gp4' ||
+        sourceFormat === 'gp5' ||
+        sourceFormat === 'gpx' ||
+        sourceFormat === 'gp7') &&
+      Array.isArray(events) &&
+      events.every((event) => isMelodyEvent(event))
+    );
+  }
+
+  // Backward-compatible ASCII entries may omit "format".
+  return typeof (value as { tabText?: unknown }).tabText === 'string';
+}
+
+function cloneMelodyEvents(events: MelodyEvent[]): MelodyEvent[] {
+  return events.map((event) => ({
+    column: event.column,
+    durationColumns: event.durationColumns,
+    durationCountSteps: event.durationCountSteps,
+    durationBeats: event.durationBeats,
+    notes: event.notes.map((note) => ({
+      note: note.note,
+      stringName: note.stringName,
+      fret: note.fret,
+    })),
+  }));
+}
+
 function mapStoredCustomMelodyToDefinition(
   entry: StoredCustomMelody,
   instrument: Pick<IInstrument, 'name' | 'STRING_ORDER' | 'getNoteWithOctave'>
 ): MelodyDefinition | null {
   if (entry.instrumentName !== instrument.name) return null;
   try {
+    if (entry.format === 'events') {
+      return {
+        id: entry.id,
+        name: entry.name,
+        source: 'custom',
+        instrumentName: entry.instrumentName,
+        events: cloneMelodyEvents(entry.events),
+        createdAtMs: entry.createdAtMs,
+        sourceFormat: entry.sourceFormat,
+        sourceFileName: entry.sourceFileName,
+        sourceTrackName: entry.sourceTrackName,
+        sourceScoreTitle: entry.sourceScoreTitle,
+        sourceTempoBpm: entry.sourceTempoBpm,
+      };
+    }
+
     const events = parseAsciiTabToMelodyEvents(entry.tabText, instrument).map((event) => ({
       column: event.column,
       durationColumns: event.durationColumns,
@@ -192,6 +294,7 @@ function mapStoredCustomMelodyToDefinition(
       events,
       tabText: entry.tabText,
       createdAtMs: entry.createdAtMs,
+      sourceFormat: 'ascii',
     };
   } catch (error) {
     console.warn(`Failed to parse stored custom melody "${entry.name}":`, error);
@@ -223,6 +326,7 @@ function mapBuiltinAsciiTabMelodyToDefinition(
       instrumentName: spec.instrumentName,
       events,
       tabText: spec.tabText,
+      sourceFormat: 'ascii',
     };
   } catch (error) {
     console.warn(`Failed to parse built-in melody "${spec.name}" for ${spec.instrumentName}:`, error);
@@ -273,6 +377,7 @@ export function saveCustomAsciiTabMelody(
     id: `custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
     name: trimmedName,
     instrumentName: instrument.name,
+    format: 'ascii',
     tabText: trimmedTabText,
     createdAtMs: Date.now(),
   };
@@ -295,6 +400,52 @@ export function deleteCustomMelody(melodyId: string) {
 
 export function isCustomMelodyId(melodyId: string) {
   return melodyId.startsWith('custom:');
+}
+
+export function saveCustomEventMelody(
+  name: string,
+  events: MelodyEvent[],
+  instrument: Pick<IInstrument, 'name'>,
+  options?: {
+    sourceFormat?: StoredCustomEventMelody['sourceFormat'];
+    sourceFileName?: string;
+    sourceTrackName?: string;
+    sourceScoreTitle?: string;
+    sourceTempoBpm?: number;
+  }
+) {
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Melody name is required.');
+  }
+  if (!Array.isArray(events) || events.length === 0) {
+    throw new Error('Imported melody must contain at least one note event.');
+  }
+  if (!events.every((event) => isMelodyEvent(event))) {
+    throw new Error('Imported melody event data is invalid.');
+  }
+
+  const entry: StoredCustomEventMelody = {
+    id: `custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+    name: trimmedName,
+    instrumentName: instrument.name,
+    format: 'events',
+    sourceFormat: options?.sourceFormat ?? 'gp5',
+    sourceFileName: options?.sourceFileName,
+    sourceTrackName: options?.sourceTrackName,
+    sourceScoreTitle: options?.sourceScoreTitle,
+    sourceTempoBpm:
+      typeof options?.sourceTempoBpm === 'number' && Number.isFinite(options.sourceTempoBpm)
+        ? Math.round(options.sourceTempoBpm)
+        : undefined,
+    events: cloneMelodyEvents(events),
+    createdAtMs: Date.now(),
+  };
+
+  const current = readCustomMelodiesFromStorage();
+  current.push(entry);
+  writeCustomMelodiesToStorage(current);
+  return entry.id;
 }
 
 export function updateCustomAsciiTabMelody(
@@ -326,6 +477,9 @@ export function updateCustomAsciiTabMelody(
   }
 
   const target = current[targetIndex];
+  if (target.format === 'events') {
+    throw new Error('This imported melody cannot be edited as ASCII tab.');
+  }
   if (target.instrumentName !== instrument.name) {
     throw new Error('Selected melody does not belong to the current instrument.');
   }
