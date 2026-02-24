@@ -255,10 +255,15 @@ function renderMidiTrackInfo() {
   }
   const preview = pendingMidiImport.importedPreview;
   const loaded = pendingMidiImport.loaded;
+  const selectedOption =
+    loaded.trackOptions.find((option) => option.trackIndex === pendingMidiImport.selectedTrackIndex) ?? null;
   const pieces: string[] = [];
   if (loaded.midiName) pieces.push(`MIDI: ${loaded.midiName}`);
   if (preview?.metadata.trackName) pieces.push(`Track: ${preview.metadata.trackName}`);
   if (loaded.tempoBpm) pieces.push(`Tempo: ${loaded.tempoBpm} BPM`);
+  if (loaded.timeSignatureText) pieces.push(`Time Sig: ${loaded.timeSignatureText}`);
+  if (selectedOption?.estimatedBars) pieces.push(`Bars: ~${selectedOption.estimatedBars}`);
+  if (selectedOption?.noteRangeText) pieces.push(`Range: ${selectedOption.noteRangeText}`);
   if (preview?.warnings.length) pieces.push(preview.warnings.join(' '));
   dom.melodyMidiTrackInfo.textContent = pieces.join(' | ');
 }

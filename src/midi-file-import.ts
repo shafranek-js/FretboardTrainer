@@ -7,6 +7,7 @@ const PITCH_CLASS_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A',
 interface MidiHeaderLike {
   ppq?: number;
   tempos?: { bpm?: number }[];
+  timeSignatures?: { ticks?: number; timeSignature?: number[] }[];
   name?: string;
 }
 
@@ -49,6 +50,9 @@ export interface MidiImportTrackOption {
   label: string;
   noteCount: number;
   isPercussion: boolean;
+  noteRangeText: string | null;
+  estimatedBars: number | null;
+  endTick: number | null;
 }
 
 export interface LoadedMidiFile {
@@ -56,6 +60,7 @@ export interface LoadedMidiFile {
   sourceFileName: string;
   midiName: string | null;
   tempoBpm: number | null;
+  timeSignatureText: string | null;
   trackOptions: MidiImportTrackOption[];
   defaultTrackIndex: number | null;
 }
@@ -83,6 +88,13 @@ function toPitchClassFromMidi(midi: number) {
   return PITCH_CLASS_NAMES[normalized] ?? 'C';
 }
 
+function toScientificNameFromMidi(midi: number) {
+  const rounded = Math.round(midi);
+  const pitch = PITCH_CLASS_NAMES[((rounded % 12) + 12) % 12] ?? 'C';
+  const octave = Math.floor(rounded / 12) - 1;
+  return `${pitch}${octave}`;
+}
+
 function buildSuggestedName(fileName: string, midiName: string | null, trackName: string | null) {
   const fileStem = fileName.replace(/\.[^.]+$/, '').trim();
   const primary = (midiName ?? '').trim() || fileStem || 'Imported MIDI Melody';
@@ -97,6 +109,46 @@ function getTrackDisplayName(track: MidiTrackLike, trackIndex: number) {
   const instrumentName = track.instrument?.name?.trim();
   if (instrumentName) return instrumentName;
   return `Track ${trackIndex + 1}`;
+}
+
+function getPrimaryTimeSignature(header: MidiHeaderLike | undefined) {
+  const first = header?.timeSignatures?.find(
+    (item) =>
+      Array.isArray(item?.timeSignature) &&
+      typeof item.timeSignature?.[0] === 'number' &&
+      typeof item.timeSignature?.[1] === 'number'
+  );
+  if (!first?.timeSignature) return null;
+  const [numerator, denominator] = first.timeSignature;
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return null;
+  return { numerator: Math.round(numerator), denominator: Math.round(denominator) };
+}
+
+function estimateTrackBars(track: MidiTrackSelection, midi: MidiFileLike): number | null {
+  if (track.notes.length === 0) return null;
+  const ppq = Number.isFinite(midi.header?.ppq) && Number(midi.header?.ppq) > 0 ? Number(midi.header?.ppq) : 480;
+  const ts = getPrimaryTimeSignature(midi.header);
+  const numerator = ts?.numerator ?? 4;
+  const denominator = ts?.denominator ?? 4;
+  const ticksPerBar = ppq * numerator * (4 / denominator);
+  if (!Number.isFinite(ticksPerBar) || ticksPerBar <= 0) return null;
+
+  const endTick = track.notes.reduce((max, note) => {
+    const start = Number.isFinite(note.ticks) ? Number(note.ticks) : 0;
+    const duration = Number.isFinite(note.durationTicks) ? Number(note.durationTicks) : 0;
+    return Math.max(max, start + Math.max(1, duration));
+  }, 0);
+  if (endTick <= 0) return null;
+  return Math.max(1, Math.ceil(endTick / ticksPerBar));
+}
+
+function getTrackNoteRangeText(track: MidiTrackSelection) {
+  const midiValues = track.notes
+    .map((note) => (Number.isFinite(note.midi) ? Math.round(Number(note.midi)) : null))
+    .filter((value): value is number => value !== null)
+    .sort((a, b) => a - b);
+  if (midiValues.length === 0) return null;
+  return `${toScientificNameFromMidi(midiValues[0])} - ${toScientificNameFromMidi(midiValues[midiValues.length - 1])}`;
 }
 
 interface MidiTrackSelection {
@@ -297,12 +349,24 @@ export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: str
       ? Math.round(midi.header.tempos[0].bpm)
       : null;
 
+  const primaryTimeSignature = getPrimaryTimeSignature(midi.header);
+  const timeSignatureText = primaryTimeSignature
+    ? `${primaryTimeSignature.numerator}/${primaryTimeSignature.denominator}`
+    : null;
+
   const trackOptions = trackSelections.map((selection) => ({
     trackIndex: selection.index,
     name: getTrackDisplayName(selection.track, selection.index),
     label: `${selection.index + 1}. ${getTrackDisplayName(selection.track, selection.index)} (${selection.notes.length} notes${selection.isPercussion ? ', percussion' : ''})`,
     noteCount: selection.notes.length,
     isPercussion: selection.isPercussion,
+    noteRangeText: getTrackNoteRangeText(selection),
+    estimatedBars: estimateTrackBars(selection, midi),
+    endTick: selection.notes.reduce((max, note) => {
+      const start = Number.isFinite(note.ticks) ? Number(note.ticks) : 0;
+      const duration = Number.isFinite(note.durationTicks) ? Number(note.durationTicks) : 0;
+      return Math.max(max, start + Math.max(1, duration));
+    }, 0),
   }));
 
   const melodic = trackSelections.filter((selection) => !selection.isPercussion);
@@ -316,6 +380,7 @@ export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: str
     sourceFileName,
     midiName,
     tempoBpm,
+    timeSignatureText,
     trackOptions,
     defaultTrackIndex,
   };

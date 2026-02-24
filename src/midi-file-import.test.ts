@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { instruments } from './instruments';
-import { convertParsedMidiToImportedMelody } from './midi-file-import';
+import { convertParsedMidiToImportedMelody, inspectMidiFileForImport } from './midi-file-import';
 
 describe('midi-file-import', () => {
   it('converts a parsed MIDI-like track into melody events with beat timing', () => {
@@ -65,5 +65,33 @@ describe('midi-file-import', () => {
     expect(imported.metadata.trackName).toBe('Lead');
     expect(imported.warnings.length).toBeGreaterThan(0);
   });
-});
 
+  it('exposes preview metadata for track range and estimated bars', () => {
+    const inspected = inspectMidiFileForImport(
+      {
+        header: {
+          ppq: 480,
+          tempos: [{ bpm: 120 }],
+          timeSignatures: [{ ticks: 0, timeSignature: [3, 4] }],
+          name: 'Song',
+        },
+        tracks: [
+          {
+            name: 'Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 60, ticks: 0, durationTicks: 480 },
+              { midi: 72, ticks: 2400, durationTicks: 480 },
+            ],
+          },
+        ],
+      },
+      'song.mid'
+    );
+
+    expect(inspected.timeSignatureText).toBe('3/4');
+    expect(inspected.trackOptions[0]?.noteRangeText).toBe('C4 - C5');
+    expect(inspected.trackOptions[0]?.estimatedBars).toBe(2);
+  });
+});
