@@ -261,7 +261,9 @@ function renderMidiTrackInfo() {
   if (loaded.midiName) pieces.push(`MIDI: ${loaded.midiName}`);
   if (preview?.metadata.trackName) pieces.push(`Track: ${preview.metadata.trackName}`);
   if (loaded.tempoBpm) pieces.push(`Tempo: ${loaded.tempoBpm} BPM`);
+  if (loaded.tempoChangesCount > 1) pieces.push(`Tempo changes: ${loaded.tempoChangesCount}`);
   if (loaded.timeSignatureText) pieces.push(`Time Sig: ${loaded.timeSignatureText}`);
+  if (loaded.keySignatureText) pieces.push(`Key: ${loaded.keySignatureText}`);
   if (selectedOption?.estimatedBars) pieces.push(`Bars: ~${selectedOption.estimatedBars}`);
   if (selectedOption?.noteRangeText) pieces.push(`Range: ${selectedOption.noteRangeText}`);
   if (preview?.warnings.length) pieces.push(preview.warnings.join(' '));

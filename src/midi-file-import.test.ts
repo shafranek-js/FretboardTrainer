@@ -71,8 +71,9 @@ describe('midi-file-import', () => {
       {
         header: {
           ppq: 480,
-          tempos: [{ bpm: 120 }],
+          tempos: [{ bpm: 120 }, { bpm: 140 }],
           timeSignatures: [{ ticks: 0, timeSignature: [3, 4] }],
+          keySignatures: [{ key: 'D', scale: 'major' }],
           name: 'Song',
         },
         tracks: [
@@ -91,6 +92,8 @@ describe('midi-file-import', () => {
     );
 
     expect(inspected.timeSignatureText).toBe('3/4');
+    expect(inspected.tempoChangesCount).toBe(2);
+    expect(inspected.keySignatureText).toBe('D major');
     expect(inspected.trackOptions[0]?.noteRangeText).toBe('C4 - C5');
     expect(inspected.trackOptions[0]?.estimatedBars).toBe(2);
   });

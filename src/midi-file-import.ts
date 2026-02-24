@@ -8,6 +8,7 @@ interface MidiHeaderLike {
   ppq?: number;
   tempos?: { bpm?: number }[];
   timeSignatures?: { ticks?: number; timeSignature?: number[] }[];
+  keySignatures?: { key?: string; scale?: string }[];
   name?: string;
 }
 
@@ -60,7 +61,9 @@ export interface LoadedMidiFile {
   sourceFileName: string;
   midiName: string | null;
   tempoBpm: number | null;
+  tempoChangesCount: number;
   timeSignatureText: string | null;
+  keySignatureText: string | null;
   trackOptions: MidiImportTrackOption[];
   defaultTrackIndex: number | null;
 }
@@ -122,6 +125,18 @@ function getPrimaryTimeSignature(header: MidiHeaderLike | undefined) {
   const [numerator, denominator] = first.timeSignature;
   if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return null;
   return { numerator: Math.round(numerator), denominator: Math.round(denominator) };
+}
+
+function getPrimaryKeySignatureText(header: MidiHeaderLike | undefined) {
+  const first = header?.keySignatures?.find(
+    (item) => typeof item?.key === 'string' && item.key.trim().length > 0
+  );
+  if (!first?.key) return null;
+  const key = first.key.trim();
+  const scale = typeof first.scale === 'string' ? first.scale.trim().toLowerCase() : '';
+  if (scale === 'minor') return `${key} minor`;
+  if (scale === 'major') return `${key} major`;
+  return key;
 }
 
 function estimateTrackBars(track: MidiTrackSelection, midi: MidiFileLike): number | null {
@@ -344,15 +359,18 @@ export function convertParsedMidiToImportedMelody(
 export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: string): LoadedMidiFile {
   const trackSelections = listMidiTrackSelections(midi);
   const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
+  const tempoEvents = Array.isArray(midi.header?.tempos) ? midi.header.tempos : [];
   const tempoBpm =
-    typeof midi.header?.tempos?.[0]?.bpm === 'number' && Number.isFinite(midi.header.tempos[0].bpm)
-      ? Math.round(midi.header.tempos[0].bpm)
+    typeof tempoEvents[0]?.bpm === 'number' && Number.isFinite(tempoEvents[0].bpm)
+      ? Math.round(tempoEvents[0].bpm)
       : null;
+  const tempoChangesCount = tempoEvents.length;
 
   const primaryTimeSignature = getPrimaryTimeSignature(midi.header);
   const timeSignatureText = primaryTimeSignature
     ? `${primaryTimeSignature.numerator}/${primaryTimeSignature.denominator}`
     : null;
+  const keySignatureText = getPrimaryKeySignatureText(midi.header);
 
   const trackOptions = trackSelections.map((selection) => ({
     trackIndex: selection.index,
@@ -380,7 +398,9 @@ export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: str
     sourceFileName,
     midiName,
     tempoBpm,
+    tempoChangesCount,
     timeSignatureText,
+    keySignatureText,
     trackOptions,
     defaultTrackIndex,
   };
