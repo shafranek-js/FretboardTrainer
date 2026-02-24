@@ -29,6 +29,7 @@ function requireQuerySelector<T extends Element>(selector: string): T {
 export const dom = {
   showAllNotes: requireElementById<HTMLInputElement>('showAllNotes'),
   showStringToggles: requireElementById<HTMLInputElement>('showStringToggles'),
+  autoPlayPromptSound: requireElementById<HTMLInputElement>('autoPlayPromptSound'),
   instrumentSelector: requireElementById<HTMLSelectElement>('instrumentSelector'),
   inputSource: requireElementById<HTMLSelectElement>('inputSource'),
   tuningPreset: requireElementById<HTMLSelectElement>('tuningPreset'),
@@ -196,6 +197,7 @@ export const state = {
   lastPitches: [] as number[],
   rhythmLastJudgedBeatAtMs: null as number | null,
   showingAllNotes: false,
+  autoPlayPromptSound: true,
   cooldown: false,
   ignorePromptAudioUntilMs: 0,
   // --- Mode-specific state (managed by mode classes) ---

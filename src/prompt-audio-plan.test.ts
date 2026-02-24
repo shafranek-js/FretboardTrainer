@@ -97,6 +97,22 @@ describe('buildPromptAudioPlan', () => {
     expect(result.targetFrequency).not.toBeNull();
   });
 
+  it('disables auto-play when user preference turns prompt auto-play off', () => {
+    const result = buildPromptAudioPlan({
+      prompt: basePrompt,
+      trainingMode: 'random',
+      autoPlayPromptSoundEnabled: false,
+      instrument,
+      calibratedA4: 440,
+      enabledStrings: new Set(['A', 'D']),
+    });
+
+    expect(result.notesToPlay).toEqual(['C5']);
+    expect(result.playSoundEnabled).toBe(true);
+    expect(result.autoPlaySound).toBe(false);
+    expect(result.targetFrequency).not.toBeNull();
+  });
+
   it('returns disabled plan when target cannot be resolved on enabled strings', () => {
     expect(
       buildPromptAudioPlan({

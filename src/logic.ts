@@ -773,6 +773,7 @@ function configurePromptAudio() {
   const audioPlan = buildPromptAudioPlan({
     prompt: state.currentPrompt,
     trainingMode: dom.trainingMode.value,
+    autoPlayPromptSoundEnabled: state.autoPlayPromptSound,
     instrument: state.currentInstrument,
     calibratedA4: state.calibratedA4,
     enabledStrings: getEnabledStrings(dom.stringSelector),

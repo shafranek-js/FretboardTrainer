@@ -49,6 +49,7 @@ export interface ProfileSettings {
   tuningPreset?: string;
   showAllNotes?: boolean;
   showStringToggles?: boolean;
+  autoPlayPromptSound?: boolean;
   difficulty?: string;
   noteNaming?: 'sharps' | 'flats';
   inputSource?: 'microphone' | 'midi';
@@ -129,6 +130,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     tuningPreset: state.currentTuningPresetKey,
     showAllNotes: dom.showAllNotes.checked,
     showStringToggles: dom.showStringToggles.checked,
+    autoPlayPromptSound: dom.autoPlayPromptSound.checked,
     difficulty: dom.difficulty.value,
     noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
     inputSource: state.inputSource,
@@ -184,6 +186,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
 
     dom.showAllNotes.checked = safeSettings.showAllNotes ?? false;
     dom.showStringToggles.checked = safeSettings.showStringToggles ?? false;
+    dom.autoPlayPromptSound.checked = safeSettings.autoPlayPromptSound ?? true;
     dom.difficulty.value = safeSettings.difficulty ?? 'natural';
     dom.noteNaming.value = normalizeNoteNamingPreference(safeSettings.noteNaming);
     setNoteNamingPreference(dom.noteNaming.value);
@@ -236,6 +239,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;
+    state.autoPlayPromptSound = dom.autoPlayPromptSound.checked;
     dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
 
     // If instrument changed, load new sounds. Otherwise, this is very fast.

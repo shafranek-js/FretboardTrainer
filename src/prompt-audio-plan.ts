@@ -9,6 +9,7 @@ import {
 export interface PromptAudioPlanInput {
   prompt: Prompt | null;
   trainingMode: string;
+  autoPlayPromptSoundEnabled?: boolean;
   instrument: Pick<IInstrument, 'TUNING' | 'FRETBOARD' | 'STRING_ORDER' | 'getNoteWithOctave'>;
   calibratedA4: number;
   enabledStrings: Set<string>;
@@ -31,6 +32,7 @@ const EMPTY_AUDIO_PLAN: PromptAudioPlan = {
 export function buildPromptAudioPlan({
   prompt,
   trainingMode,
+  autoPlayPromptSoundEnabled = true,
   instrument,
   calibratedA4,
   enabledStrings,
@@ -48,7 +50,7 @@ export function buildPromptAudioPlan({
       notesToPlay,
       targetFrequency: null,
       playSoundEnabled: true,
-      autoPlaySound: true,
+      autoPlaySound: autoPlayPromptSoundEnabled,
     };
   }
 
@@ -89,6 +91,6 @@ export function buildPromptAudioPlan({
     notesToPlay: noteWithOctave ? [noteWithOctave] : [],
     targetFrequency,
     playSoundEnabled: Boolean(noteWithOctave && targetFrequency !== null),
-    autoPlaySound: trainingMode !== 'melody',
+    autoPlaySound: autoPlayPromptSoundEnabled && trainingMode !== 'melody',
   };
 }

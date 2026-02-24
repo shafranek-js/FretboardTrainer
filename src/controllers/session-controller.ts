@@ -332,6 +332,10 @@ export function registerSessionControls() {
     dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
     saveSettings();
   });
+  dom.autoPlayPromptSound.addEventListener('change', () => {
+    state.autoPlayPromptSound = dom.autoPlayPromptSound.checked;
+    saveSettings();
+  });
   dom.stringSelector.addEventListener('change', () => {
     updatePracticeSetupSummary();
   });
