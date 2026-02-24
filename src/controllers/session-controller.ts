@@ -74,6 +74,7 @@ import {
   type GpImportedMelody,
   type LoadedGpScore,
 } from '../gp-import';
+import { importMidiMelodyFromBytes } from '../midi-file-import';
 
 const MELODY_DEMO_FALLBACK_STEP_MS = 700;
 const MELODY_DEMO_MIN_STEP_MS = 160;
@@ -646,6 +647,10 @@ function resetMelodyGpFileInput() {
   dom.melodyGpFileInput.value = '';
 }
 
+function resetMelodyMidiFileInput() {
+  dom.melodyMidiFileInput.value = '';
+}
+
 function updateMelodyActionButtonsForSelection() {
   const selectedMelodyId = dom.melodySelector.value;
   const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
@@ -870,12 +875,14 @@ export function registerSessionControls() {
   dom.closeMelodyImportBtn.addEventListener('click', () => {
     setModalVisible('melodyImport', false);
     resetMelodyGpFileInput();
+    resetMelodyMidiFileInput();
     resetMelodyEditorDraft();
     updateMelodyEditorUiForCurrentMode();
   });
   dom.cancelMelodyImportBtn.addEventListener('click', () => {
     setModalVisible('melodyImport', false);
     resetMelodyGpFileInput();
+    resetMelodyMidiFileInput();
     resetMelodyEditorDraft();
     updateMelodyEditorUiForCurrentMode();
   });
@@ -883,6 +890,7 @@ export function registerSessionControls() {
     if (e.target === dom.melodyImportModal) {
       setModalVisible('melodyImport', false);
       resetMelodyGpFileInput();
+      resetMelodyMidiFileInput();
       resetMelodyEditorDraft();
       updateMelodyEditorUiForCurrentMode();
     }
@@ -1183,7 +1191,7 @@ export function registerSessionControls() {
   });
   dom.melodyNameInput.addEventListener('input', () => {
     if (!dom.melodyAsciiTabInput.value.trim()) {
-      clearMelodyEditorPreview();
+      updateMelodyEditorPreview();
     }
   });
   dom.melodyDemoBpm.addEventListener('input', () => {
@@ -1195,6 +1203,9 @@ export function registerSessionControls() {
   });
   dom.importMelodyGpBtn.addEventListener('click', () => {
     dom.melodyGpFileInput.click();
+  });
+  dom.importMelodyMidiBtn.addEventListener('click', () => {
+    dom.melodyMidiFileInput.click();
   });
   dom.melodyGpFileInput.addEventListener('change', async () => {
     const file = dom.melodyGpFileInput.files?.[0];
@@ -1214,6 +1225,44 @@ export function registerSessionControls() {
       dom.importMelodyGpBtn.disabled = false;
       dom.importMelodyGpBtn.textContent = originalLabel;
       resetMelodyGpFileInput();
+    }
+  });
+  dom.melodyMidiFileInput.addEventListener('change', async () => {
+    const file = dom.melodyMidiFileInput.files?.[0];
+    if (!file) return;
+
+    const originalLabel = dom.importMelodyMidiBtn.textContent ?? 'Import MIDI...';
+    dom.importMelodyMidiBtn.disabled = true;
+    dom.importMelodyMidiBtn.textContent = 'Importing...';
+
+    try {
+      stopMelodyDemoPlayback({ clearUi: true });
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const imported = await importMidiMelodyFromBytes(bytes, state.currentInstrument, file.name);
+      const melodyName = dom.melodyNameInput.value.trim() || imported.suggestedName;
+      const melodyId = saveCustomEventMelody(melodyName, imported.events, state.currentInstrument, {
+        sourceFormat: imported.metadata.sourceFormat,
+        sourceFileName: imported.metadata.sourceFileName,
+        sourceTrackName: imported.metadata.trackName ?? undefined,
+        sourceScoreTitle: imported.metadata.midiName ?? undefined,
+        sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
+      });
+
+      const warningSuffix =
+        imported.warnings.length > 0
+          ? ` ${imported.warnings.slice(0, 2).join(' ')}${imported.warnings.length > 2 ? ' ...' : ''}`
+          : '';
+      const trackLabel = imported.metadata.trackName ? ` (${imported.metadata.trackName})` : '';
+      finalizeMelodyImportSelection(
+        melodyId,
+        `Custom melody imported from ${imported.metadata.sourceFileName}${trackLabel}.${warningSuffix}`.trim()
+      );
+    } catch (error) {
+      showNonBlockingError(formatUserFacingError('Failed to import MIDI file', error));
+    } finally {
+      dom.importMelodyMidiBtn.disabled = false;
+      dom.importMelodyMidiBtn.textContent = originalLabel;
+      resetMelodyMidiFileInput();
     }
   });
   dom.melodyGpTrackSelector.addEventListener('change', () => {

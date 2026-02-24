@@ -1,0 +1,267 @@
+import type { IInstrument } from './instruments/instrument';
+import type { MelodyEvent, MelodyEventNote } from './melody-library';
+
+const DEFAULT_MIDI_IMPORT_MAX_FRET = 24;
+const PITCH_CLASS_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
+
+interface MidiHeaderLike {
+  ppq?: number;
+  tempos?: { bpm?: number }[];
+  name?: string;
+}
+
+interface MidiNoteLike {
+  midi?: number;
+  ticks?: number;
+  durationTicks?: number;
+  name?: string;
+}
+
+interface MidiTrackLike {
+  name?: string;
+  channel?: number;
+  instrument?: { percussion?: boolean; name?: string };
+  notes?: MidiNoteLike[];
+}
+
+interface MidiFileLike {
+  header?: MidiHeaderLike;
+  name?: string;
+  tracks?: MidiTrackLike[];
+}
+
+export interface MidiImportedMelody {
+  suggestedName: string;
+  events: MelodyEvent[];
+  warnings: string[];
+  metadata: {
+    sourceFormat: 'midi';
+    sourceFileName: string;
+    midiName: string | null;
+    trackName: string | null;
+    tempoBpm: number | null;
+  };
+}
+
+interface PositionCandidate {
+  stringName: string;
+  fret: number;
+  stringIndex: number;
+}
+
+function parseScientificNoteToMidi(noteWithOctave: string): number | null {
+  const match = /^([A-G])(#?)(-?\d+)$/.exec(noteWithOctave.trim());
+  if (!match) return null;
+  const [, letter, sharp, octaveText] = match;
+  const octave = Number.parseInt(octaveText, 10);
+  if (!Number.isFinite(octave)) return null;
+  const baseByLetter: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const base = baseByLetter[letter];
+  if (!Number.isFinite(base)) return null;
+  return (octave + 1) * 12 + base + (sharp ? 1 : 0);
+}
+
+function toPitchClassFromMidi(midi: number) {
+  const normalized = ((Math.round(midi) % 12) + 12) % 12;
+  return PITCH_CLASS_NAMES[normalized] ?? 'C';
+}
+
+function buildSuggestedName(fileName: string, midiName: string | null, trackName: string | null) {
+  const fileStem = fileName.replace(/\.[^.]+$/, '').trim();
+  const primary = (midiName ?? '').trim() || fileStem || 'Imported MIDI Melody';
+  const track = (trackName ?? '').trim();
+  if (!track || track.toLowerCase() === primary.toLowerCase()) return primary;
+  return `${primary} - ${track}`;
+}
+
+function getTrackDisplayName(track: MidiTrackLike, trackIndex: number) {
+  const byName = track.name?.trim();
+  if (byName) return byName;
+  const instrumentName = track.instrument?.name?.trim();
+  if (instrumentName) return instrumentName;
+  return `Track ${trackIndex + 1}`;
+}
+
+function pickMidiTrack(midi: MidiFileLike) {
+  const warnings: string[] = [];
+  const tracks = (midi.tracks ?? [])
+    .map((track, index) => ({
+      track,
+      index,
+      notes: Array.isArray(track.notes) ? track.notes : [],
+      isPercussion: Boolean(track.instrument?.percussion) || track.channel === 9,
+    }))
+    .filter((entry) => entry.notes.length > 0);
+
+  const melodic = tracks.filter((entry) => !entry.isPercussion);
+  const pool = melodic.length > 0 ? melodic : tracks;
+  if (pool.length === 0) {
+    throw new Error('MIDI file does not contain note events.');
+  }
+
+  pool.sort((a, b) => b.notes.length - a.notes.length);
+  const selected = pool[0];
+  if (tracks.length > 1) {
+    warnings.push(
+      `Imported ${getTrackDisplayName(selected.track, selected.index)} (${selected.notes.length} notes) from ${tracks.length} MIDI tracks.`
+    );
+  }
+  if (selected.isPercussion) {
+    warnings.push('Selected track appears to be percussion; fretboard positions may be limited.');
+  }
+  return { selected, warnings };
+}
+
+function buildPositionCandidatesByMidi(
+  instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
+  maxFret = DEFAULT_MIDI_IMPORT_MAX_FRET
+) {
+  const byMidi = new Map<number, PositionCandidate[]>();
+  instrument.STRING_ORDER.forEach((stringName, stringIndex) => {
+    for (let fret = 0; fret <= maxFret; fret++) {
+      const noteWithOctave = instrument.getNoteWithOctave(stringName, fret);
+      if (!noteWithOctave) continue;
+      const midi = parseScientificNoteToMidi(noteWithOctave);
+      if (midi === null) continue;
+      const list = byMidi.get(midi) ?? [];
+      list.push({ stringName, fret, stringIndex });
+      byMidi.set(midi, list);
+    }
+  });
+  byMidi.forEach((list) => list.sort((a, b) => a.fret - b.fret || a.stringIndex - b.stringIndex));
+  return byMidi;
+}
+
+function chooseEventPositions(
+  midiValues: number[],
+  candidateMap: Map<number, PositionCandidate[]>,
+  previousAssigned: PositionCandidate[]
+) {
+  const previousAvgFret =
+    previousAssigned.length > 0
+      ? previousAssigned.reduce((sum, item) => sum + item.fret, 0) / previousAssigned.length
+      : 5;
+  const previousAvgString =
+    previousAssigned.length > 0
+      ? previousAssigned.reduce((sum, item) => sum + item.stringIndex, 0) / previousAssigned.length
+      : 0;
+
+  const usedStrings = new Set<string>();
+  const chosen = new Map<number, PositionCandidate>();
+  const sortedUniqueMidi = [...new Set(midiValues)].sort((a, b) => b - a);
+
+  for (const midi of sortedUniqueMidi) {
+    const candidates = candidateMap.get(midi) ?? [];
+    const ranked = candidates
+      .filter((candidate) => !usedStrings.has(candidate.stringName))
+      .sort((a, b) => {
+        const scoreA =
+          Math.abs(a.fret - previousAvgFret) + Math.abs(a.stringIndex - previousAvgString) * 1.5 + a.fret * 0.03;
+        const scoreB =
+          Math.abs(b.fret - previousAvgFret) + Math.abs(b.stringIndex - previousAvgString) * 1.5 + b.fret * 0.03;
+        return scoreA - scoreB;
+      });
+    const selected = ranked[0] ?? candidates[0];
+    if (!selected) continue;
+    chosen.set(midi, selected);
+    usedStrings.add(selected.stringName);
+  }
+
+  return chosen;
+}
+
+export function convertParsedMidiToImportedMelody(
+  midi: MidiFileLike,
+  instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
+  sourceFileName: string
+): MidiImportedMelody {
+  const { selected, warnings } = pickMidiTrack(midi);
+  const ppq = Number.isFinite(midi.header?.ppq) && Number(midi.header?.ppq) > 0 ? Number(midi.header?.ppq) : 480;
+  const tempoBpm =
+    typeof midi.header?.tempos?.[0]?.bpm === 'number' && Number.isFinite(midi.header.tempos[0].bpm)
+      ? Math.round(midi.header.tempos[0].bpm)
+      : null;
+  const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
+  const trackName = getTrackDisplayName(selected.track, selected.index);
+
+  const notes = [...selected.notes]
+    .filter((note) => Number.isFinite(note.midi) && Number.isFinite(note.ticks))
+    .sort((a, b) => Number(a.ticks) - Number(b.ticks) || Number(a.midi) - Number(b.midi));
+
+  if (notes.length === 0) {
+    throw new Error('Selected MIDI track has no note events.');
+  }
+
+  const grouped = new Map<number, MidiNoteLike[]>();
+  for (const note of notes) {
+    const tick = Math.max(0, Math.round(Number(note.ticks)));
+    const list = grouped.get(tick) ?? [];
+    list.push(note);
+    grouped.set(tick, list);
+  }
+
+  const startTicks = [...grouped.keys()].sort((a, b) => a - b);
+  const candidateMap = buildPositionCandidatesByMidi(instrument);
+  let previousAssigned: PositionCandidate[] = [];
+  const events: MelodyEvent[] = [];
+
+  for (let i = 0; i < startTicks.length; i++) {
+    const startTick = startTicks[i];
+    const eventNotes = grouped.get(startTick) ?? [];
+    const nextStartTick = startTicks[i + 1] ?? null;
+    const maxEndTick = eventNotes.reduce((max, note) => {
+      const endTick = startTick + Math.max(1, Math.round(Number(note.durationTicks ?? 0) || 1));
+      return Math.max(max, endTick);
+    }, startTick + 1);
+    const durationTicks = Math.max(1, (nextStartTick ?? maxEndTick) - startTick);
+
+    const midiValues = eventNotes
+      .map((note) => Math.round(Number(note.midi)))
+      .filter((value) => Number.isFinite(value));
+    const assignedMap = chooseEventPositions(midiValues, candidateMap, previousAssigned);
+
+    const melodyNotes: MelodyEventNote[] = eventNotes.map((note) => {
+      const midiValue = Math.round(Number(note.midi));
+      const assigned = assignedMap.get(midiValue);
+      return {
+        note: toPitchClassFromMidi(midiValue),
+        stringName: assigned?.stringName ?? null,
+        fret: typeof assigned?.fret === 'number' ? assigned.fret : null,
+      };
+    });
+
+    events.push({
+      durationBeats: durationTicks / ppq,
+      notes: melodyNotes,
+    });
+
+    previousAssigned = [...assignedMap.values()];
+  }
+
+  return {
+    suggestedName: buildSuggestedName(sourceFileName, midiName, trackName),
+    events,
+    warnings,
+    metadata: {
+      sourceFormat: 'midi',
+      sourceFileName,
+      midiName,
+      trackName,
+      tempoBpm,
+    },
+  };
+}
+
+export async function importMidiMelodyFromBytes(
+  bytes: Uint8Array,
+  instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
+  sourceFileName: string
+): Promise<MidiImportedMelody> {
+  if (!bytes.length) {
+    throw new Error('Selected file is empty.');
+  }
+  const midiModule = await import('@tonejs/midi');
+  const midi = new midiModule.Midi(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  return convertParsedMidiToImportedMelody(midi as unknown as MidiFileLike, instrument, sourceFileName);
+}
+

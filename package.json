@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@coderline/alphatab": "^1.8.1",
+    "@tonejs/midi": "^2.0.28",
     "soundfont-player": "^0.12.0"
   },
   "devDependencies": {

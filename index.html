@@ -1177,6 +1177,12 @@
           accept=".gp,.gp3,.gp4,.gp5,.gpx,.gp7"
           class="hidden"
         />
+        <input
+          id="melodyMidiFileInput"
+          type="file"
+          accept=".mid,.midi"
+          class="hidden"
+        />
         <div class="grid gap-3">
           <input
             id="melodyNameInput"
@@ -1219,13 +1225,22 @@
             ></ul>
           </div>
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <button
-              id="importMelodyGpBtn"
-              type="button"
-              class="bg-violet-700 hover:bg-violet-600 border border-violet-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
-            >
-              Import GP...
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                id="importMelodyGpBtn"
+                type="button"
+                class="bg-violet-700 hover:bg-violet-600 border border-violet-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+              >
+                Import GP...
+              </button>
+              <button
+                id="importMelodyMidiBtn"
+                type="button"
+                class="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+              >
+                Import MIDI...
+              </button>
+            </div>
             <div class="flex justify-end gap-3">
               <button
                 id="cancelMelodyImportBtn"
