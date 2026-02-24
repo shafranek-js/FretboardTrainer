@@ -10,6 +10,8 @@ export interface MelodyEventNote {
 export interface MelodyEvent {
   column?: number;
   durationColumns?: number;
+  durationCountSteps?: number;
+  durationBeats?: number;
   notes: MelodyEventNote[];
 }
 
@@ -174,6 +176,8 @@ function mapStoredCustomMelodyToDefinition(
     const events = parseAsciiTabToMelodyEvents(entry.tabText, instrument).map((event) => ({
       column: event.column,
       durationColumns: event.durationColumns,
+      durationCountSteps: event.durationCountSteps,
+      durationBeats: event.durationBeats,
       notes: event.notes.map((step) => ({
         note: step.note,
         stringName: step.stringName,
@@ -204,6 +208,8 @@ function mapBuiltinAsciiTabMelodyToDefinition(
     const events = parseAsciiTabToMelodyEvents(spec.tabText, instrument).map((event) => ({
       column: event.column,
       durationColumns: event.durationColumns,
+      durationCountSteps: event.durationCountSteps,
+      durationBeats: event.durationBeats,
       notes: event.notes.map((step) => ({
         note: step.note,
         stringName: step.stringName,

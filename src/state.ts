@@ -61,6 +61,7 @@ export const dom = {
   openMelodyImportBtn: requireElementById<HTMLButtonElement>('openMelodyImportBtn'),
   editMelodyBtn: requireElementById<HTMLButtonElement>('editMelodyBtn'),
   melodyDemoBtn: requireElementById<HTMLButtonElement>('melodyDemoBtn'),
+  melodyDemoBpm: requireElementById<HTMLInputElement>('melodyDemoBpm'),
   melodyNameInput: requireElementById<HTMLInputElement>('melodyNameInput'),
   melodyAsciiTabInput: requireElementById<HTMLTextAreaElement>('melodyAsciiTabInput'),
   melodyImportTitle: requireElementById<HTMLElement>('melodyImportTitle'),

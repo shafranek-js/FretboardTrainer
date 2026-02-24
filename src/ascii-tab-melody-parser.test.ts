@@ -116,6 +116,20 @@ describe('ascii-tab-melody-parser', () => {
     ]);
   });
 
+  it('derives beat durations from an aligned count line when present', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        '1 string 0---5---8---',
+        '2 string ------------',
+        'count    1   and 2   and',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents.map((event) => event.durationBeats)).toEqual([0.5, 0.5, 0.5]);
+    expect(groupedEvents.map((event) => event.durationCountSteps)).toEqual([1, 1, 1]);
+  });
+
   it('throws a user-friendly error when no tab lines are found', () => {
     expect(() => parseAsciiTabMelodyEvents('count 1 and 2 and')).toThrow(/No tab lines found/i);
   });

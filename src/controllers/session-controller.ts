@@ -71,6 +71,9 @@ const MELODY_DEMO_FALLBACK_STEP_MS = 700;
 const MELODY_DEMO_MIN_STEP_MS = 160;
 const MELODY_DEMO_MAX_STEP_MS = 1800;
 const MELODY_DEMO_COLUMN_MS = 95;
+const MELODY_DEMO_MIN_BPM = 40;
+const MELODY_DEMO_MAX_BPM = 220;
+const MELODY_DEMO_DEFAULT_BPM = 90;
 let melodyDemoTimeoutId: number | null = null;
 let melodyDemoRunToken = 0;
 let isMelodyDemoPlaying = false;
@@ -151,7 +154,23 @@ function buildMelodyDemoPrompt(
   };
 }
 
+function getClampedMelodyDemoBpmFromInput() {
+  const parsed = Number.parseInt(dom.melodyDemoBpm.value, 10);
+  const clamped = Number.isFinite(parsed)
+    ? Math.max(MELODY_DEMO_MIN_BPM, Math.min(MELODY_DEMO_MAX_BPM, parsed))
+    : MELODY_DEMO_DEFAULT_BPM;
+  dom.melodyDemoBpm.value = String(clamped);
+  return clamped;
+}
+
 function getMelodyDemoStepDelayMs(event: MelodyEvent) {
+  if (typeof event.durationBeats === 'number' && Number.isFinite(event.durationBeats) && event.durationBeats > 0) {
+    const bpm = getClampedMelodyDemoBpmFromInput();
+    const beatMs = 60000 / bpm;
+    const computedFromBeats = Math.round(event.durationBeats * beatMs);
+    return Math.max(MELODY_DEMO_MIN_STEP_MS, Math.min(MELODY_DEMO_MAX_STEP_MS, computedFromBeats));
+  }
+
   const durationColumns = Math.max(1, event.durationColumns ?? 0);
   const computed = Math.round(durationColumns * MELODY_DEMO_COLUMN_MS);
   return Math.max(
@@ -570,6 +589,7 @@ async function ensureRhythmModeMetronome() {
 export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
+  dom.melodyDemoBpm.value = String(getClampedMelodyDemoBpmFromInput());
   populateMelodyOptions();
   resetMelodyEditorDraft();
   updateMelodyEditorUiForCurrentMode();
@@ -889,6 +909,9 @@ export function registerSessionControls() {
     markCurriculumPresetAsCustom();
     updatePracticeSetupSummary();
     saveSettings();
+  });
+  dom.melodyDemoBpm.addEventListener('input', () => {
+    getClampedMelodyDemoBpmFromInput();
   });
   dom.openMelodyImportBtn.addEventListener('click', () => {
     stopMelodyDemoPlayback({ clearUi: true });

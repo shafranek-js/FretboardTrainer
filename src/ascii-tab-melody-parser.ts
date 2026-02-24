@@ -10,6 +10,8 @@ export interface ParsedAsciiTabMelodyStep {
 export interface ParsedAsciiTabMelodyEvent {
   column: number;
   durationColumns: number;
+  durationCountSteps?: number;
+  durationBeats?: number;
   notes: ParsedAsciiTabMelodyStep[];
 }
 
@@ -24,21 +26,43 @@ interface ParsedTabLine {
   content: string;
 }
 
+interface ParsedTabBlock {
+  rows: ParsedTabLine[];
+  countContent: string | null;
+}
+
+interface CountToken {
+  text: string;
+  startColumn: number;
+}
+
 function toNoteName(noteWithOctave: string) {
   return noteWithOctave.replace(/\d+$/, '');
 }
 
-function parseTabBlocks(tabText: string): ParsedTabLine[][] {
+function parseTabBlocks(tabText: string): ParsedTabBlock[] {
   const lines = tabText.replace(/\r/g, '').split('\n');
-  const blocks: ParsedTabLine[][] = [];
+  const blocks: ParsedTabBlock[] = [];
   let currentBlock: ParsedTabLine[] = [];
 
+  const pushCurrentBlock = (countContent: string | null = null) => {
+    if (currentBlock.length === 0) return;
+    blocks.push({ rows: currentBlock, countContent });
+    currentBlock = [];
+  };
+
+  const extractCountContent = (line: string): string | null => {
+    const firstDigitIndex = line.search(/\d/);
+    if (firstDigitIndex < 0) return null;
+    return line.slice(firstDigitIndex);
+  };
+
   for (const line of lines) {
-    const match = line.match(/^\s*(\d+)\s*(?:струна|string)\s+(.*)$/i);
+    // Accept both "string" and localized labels such as "??????" by allowing any word after the number.
+    const match = line.match(/^\s*(\d+)\s*\S+\s+(.*)$/i);
     if (!match) {
       if (currentBlock.length > 0) {
-        blocks.push(currentBlock);
-        currentBlock = [];
+        pushCurrentBlock(extractCountContent(line));
       }
       continue;
     }
@@ -49,10 +73,7 @@ function parseTabBlocks(tabText: string): ParsedTabLine[][] {
     });
   }
 
-  if (currentBlock.length > 0) {
-    blocks.push(currentBlock);
-  }
-
+  pushCurrentBlock(null);
   return blocks;
 }
 
@@ -85,16 +106,93 @@ function parseEventsFromBlock(block: ParsedTabLine[]): ParsedTabEvent[] {
     }
   }
 
-  return events.sort((a, b) => (a.column - b.column) || (a.stringNumber - b.stringNumber));
+  return events.sort((a, b) => a.column - b.column || a.stringNumber - b.stringNumber);
+}
+
+function parseCountTokens(countContent: string): CountToken[] {
+  return Array.from(countContent.matchAll(/\S+/g)).map((match) => ({
+    text: match[0] ?? '',
+    startColumn: match.index ?? 0,
+  }));
+}
+
+function inferCountStepsPerBeat(tokens: CountToken[]): number | null {
+  const numericTokenIndexes = tokens
+    .map((token, index) => ({ token, index }))
+    .filter(({ token }) => /^\d+$/.test(token.text))
+    .map(({ index }) => index);
+
+  if (numericTokenIndexes.length < 2) return null;
+
+  const diffFrequency = new Map<number, number>();
+  for (let i = 1; i < numericTokenIndexes.length; i++) {
+    const diff = numericTokenIndexes[i] - numericTokenIndexes[i - 1];
+    if (diff <= 0) continue;
+    diffFrequency.set(diff, (diffFrequency.get(diff) ?? 0) + 1);
+  }
+
+  if (diffFrequency.size === 0) return null;
+
+  return [...diffFrequency.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null;
+}
+
+function findNearestCountTokenIndex(tokens: CountToken[], column: number): number | null {
+  if (tokens.length === 0) return null;
+
+  let bestIndex = 0;
+  let bestDistance = Math.abs(tokens[0].startColumn - column);
+  for (let i = 1; i < tokens.length; i++) {
+    const distance = Math.abs(tokens[i].startColumn - column);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
+
+function applyDurationColumns(events: ParsedAsciiTabMelodyEvent[], blockMaxLength: number) {
+  for (let i = 0; i < events.length; i++) {
+    const current = events[i];
+    const next = events[i + 1];
+    const rawDuration = next && next.column > current.column ? next.column - current.column : blockMaxLength - current.column;
+    current.durationColumns = Math.max(1, rawDuration);
+  }
+}
+
+function applyCountTiming(events: ParsedAsciiTabMelodyEvent[], blockMaxLength: number, countContent: string | null) {
+  if (!countContent || events.length === 0) return;
+
+  const countTokens = parseCountTokens(countContent);
+  if (countTokens.length === 0) return;
+
+  const countStepsPerBeat = inferCountStepsPerBeat(countTokens);
+
+  for (let i = 0; i < events.length; i++) {
+    const current = events[i];
+    const next = events[i + 1];
+    const currentTokenIndex = findNearestCountTokenIndex(countTokens, current.column);
+    const nextColumn = next?.column ?? blockMaxLength;
+    const nextTokenIndex = findNearestCountTokenIndex(countTokens, nextColumn);
+
+    if (currentTokenIndex === null || nextTokenIndex === null) continue;
+
+    const durationCountSteps = Math.max(1, nextTokenIndex - currentTokenIndex);
+    current.durationCountSteps = durationCountSteps;
+    if (countStepsPerBeat && countStepsPerBeat > 0) {
+      current.durationBeats = durationCountSteps / countStepsPerBeat;
+    }
+  }
 }
 
 export function parseAsciiTabMelodyEvents(tabText: string): ParsedTabEvent[] {
   const blocks = parseTabBlocks(tabText);
   if (blocks.length === 0) {
-    throw new Error('No tab lines found. Use lines like "1 струна ..." / "2 string ...".');
+    throw new Error('No tab lines found. Use lines like "1 string ..." or localized string labels.');
   }
 
-  return blocks.flatMap((block) => parseEventsFromBlock(block));
+  return blocks.flatMap((block) => parseEventsFromBlock(block.rows));
 }
 
 export function parseAsciiTabToMelodySteps(
@@ -134,14 +232,15 @@ export function parseAsciiTabToMelodyEvents(
 ): ParsedAsciiTabMelodyEvent[] {
   const blocks = parseTabBlocks(tabText);
   if (blocks.length === 0) {
-    throw new Error('No tab lines found. Use lines like "1 струна ..." / "2 string ...".');
+    throw new Error('No tab lines found. Use lines like "1 string ..." or localized string labels.');
   }
 
   const groupedEvents: ParsedAsciiTabMelodyEvent[] = [];
   for (const block of blocks) {
-    const events = parseEventsFromBlock(block);
+    const events = parseEventsFromBlock(block.rows);
     if (events.length === 0) continue;
-    const blockMaxLength = block.reduce((max, row) => Math.max(max, row.content.length), 0);
+
+    const blockMaxLength = block.rows.reduce((max, row) => Math.max(max, row.content.length), 0);
     const blockGroupedEvents: ParsedAsciiTabMelodyEvent[] = [];
 
     let currentColumn: number | null = null;
@@ -166,16 +265,8 @@ export function parseAsciiTabToMelodyEvents(
     }
 
     pushCurrent();
-
-    for (let i = 0; i < blockGroupedEvents.length; i++) {
-      const current = blockGroupedEvents[i];
-      const next = blockGroupedEvents[i + 1];
-      const rawDuration =
-        next && next.column > current.column
-          ? next.column - current.column
-          : blockMaxLength - current.column;
-      current.durationColumns = Math.max(1, rawDuration);
-    }
+    applyDurationColumns(blockGroupedEvents, blockMaxLength);
+    applyCountTiming(blockGroupedEvents, blockMaxLength, block.countContent);
 
     groupedEvents.push(...blockGroupedEvents);
   }
