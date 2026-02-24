@@ -8,6 +8,7 @@ import { dom, state } from '../state';
 import { SCALES } from '../constants';
 import { setPromptText } from '../ui-signals';
 import { getEnabledStrings, getSelectedFretRange } from '../fretboard-ui-state';
+import { notifyUserError } from '../user-feedback-port';
 
 export class ScalePracticeMode implements ITrainingMode {
   detectionType: DetectionType = 'monophonic';
@@ -74,7 +75,7 @@ export class ScalePracticeMode implements ITrainingMode {
 
     if (state.scaleNotes.length === 0) {
       if (state.isListening)
-        alert(
+        notifyUserError(
           'No notes in the selected scale are available within the specified fret range and on the selected strings. Please adjust your settings.'
         );
       return null;

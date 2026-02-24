@@ -554,9 +554,15 @@ export function drawFretboardSvg(
     }
   } else if (
     chordFingering.length > 0 &&
-    isChordTrainingModeActive(dom.trainingMode.value, state.isListening)
+    (isChordTrainingModeActive(dom.trainingMode.value, state.isListening) ||
+      (dom.trainingMode.value === 'melody' && state.isListening))
   ) {
-    svg.setAttribute('aria-label', 'Fretboard showing the notes for a chord.');
+    svg.setAttribute(
+      'aria-label',
+      dom.trainingMode.value === 'melody'
+        ? 'Fretboard showing the notes for the current melody event.'
+        : 'Fretboard showing the notes for a chord.'
+    );
     chordFingering.forEach((noteInfo) => {
       const { note, string, fret } = noteInfo;
       if (!enabledStrings.has(string)) return;

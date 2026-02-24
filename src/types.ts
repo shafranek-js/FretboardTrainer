@@ -63,6 +63,8 @@ export interface Prompt {
   targetChordNotes: string[];
   // The specific fingering for a chord, used for drawing on the fretboard
   targetChordFingering: ChordNote[];
+  // Exact notes/positions for a melody event (may be >1 for ASCII-tab polyphony)
+  targetMelodyEventNotes?: ChordNote[];
   // For modes that build on a chord structure (like arpeggios or progressions)
   baseChordName: string | null;
 }

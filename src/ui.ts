@@ -17,6 +17,7 @@ import { drawFretboardSvg } from './svg-fretboard';
 import { buildStatsViewModel } from './stats-view';
 import { isChordDataMode } from './training-mode-groups';
 import type { ChordNote } from './types';
+import { nearestChromaticTargetFrequencyFromA4 } from './music-theory';
 import {
   applyTuningPresetToInstrument,
   getDefaultTuningPresetKey,
@@ -224,7 +225,10 @@ export function drawFretboard(
 
 /** Updates the visual tuner based on the detected frequency. */
 export function updateTuner(frequency: number | null) {
-  setTunerReading(frequency, state.targetFrequency);
+  const effectiveTargetFrequency =
+    state.targetFrequency ??
+    nearestChromaticTargetFrequencyFromA4(frequency ?? 0, state.calibratedA4);
+  setTunerReading(frequency, effectiveTargetFrequency);
 }
 
 /** Redraws the fretboard based on the current application state. */
@@ -237,6 +241,7 @@ export function redrawFretboard() {
     currentArpeggioIndex: state.currentArpeggioIndex,
     liveDetectedNote: state.liveDetectedNote,
     liveDetectedString: state.liveDetectedString,
+    melodyFoundNotes: state.currentMelodyEventFoundNotes,
   });
 
   drawFretboard(

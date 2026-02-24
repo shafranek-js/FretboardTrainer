@@ -13,6 +13,7 @@ import {
   SEMITONE_TO_NOTE,
 } from '../constants';
 import { getEnabledStrings, getSelectedFretRange } from '../fretboard-ui-state';
+import { notifyUserError } from '../user-feedback-port';
 
 export class IntervalTrainingMode implements ITrainingMode {
   detectionType: DetectionType = 'monophonic';
@@ -30,7 +31,7 @@ export class IntervalTrainingMode implements ITrainingMode {
     );
 
     if (allPossibleRootNotes.length === 0) {
-      alert(
+      notifyUserError(
         'No notes available for the selected strings, difficulty, and fret range. Please adjust your settings.'
       );
       return null;
@@ -69,7 +70,7 @@ export class IntervalTrainingMode implements ITrainingMode {
     }
 
     console.warn('Could not find a valid interval in 20 attempts for current settings.');
-    alert(
+    notifyUserError(
       'Could not find a playable interval with current settings. Please adjust strings, fret range, or difficulty.'
     );
     return null;

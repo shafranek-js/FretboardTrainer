@@ -13,6 +13,7 @@ import { TimedChallengeMode } from './timed-challenge';
 import { FreePlayMode } from './free-play';
 import { AdaptivePracticeMode } from './adaptive-practice';
 import { RhythmTrainingMode } from './rhythm-training';
+import { MelodyPracticeMode } from './melody-practice';
 
 /**
  * A centralized map of all available training mode instances.
@@ -30,4 +31,5 @@ export const modes: { [key: string]: ITrainingMode } = {
   free: new FreePlayMode(),
   adaptive: new AdaptivePracticeMode(),
   rhythm: new RhythmTrainingMode(),
+  melody: new MelodyPracticeMode(),
 };

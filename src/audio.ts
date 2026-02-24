@@ -4,10 +4,11 @@
  */
 import * as Soundfont from 'soundfont-player';
 import { state } from './state';
-import { VOLUME_THRESHOLD } from './constants';
+import { PROMPT_AUDIO_INPUT_IGNORE_MS, VOLUME_THRESHOLD } from './constants';
 import { freqToNoteNameFromA4 } from './music-theory';
 import { setLoadingState } from './ui';
 import { detectPitchYin } from './dsp/pitch';
+import { showNonBlockingInfo } from './app-feedback';
 
 /** Converts a frequency in Hz to the closest musical note name. */
 export function freqToNoteName(freq: number): string | null {
@@ -52,8 +53,8 @@ export async function loadInstrumentSoundfont(instrumentName: 'guitar' | 'ukulel
     state.audioCache[instrumentName] = player;
   } catch (error) {
     console.error(`Failed to load soundfont for ${instrumentName}:`, error);
-    alert(
-      `Sorry, the sound for the ${instrumentName} could not be loaded. You can continue without sound playback.`
+    showNonBlockingInfo(
+      `Sound for ${instrumentName} could not be loaded. You can continue without sound playback.`
     );
   } finally {
     setLoadingState(false);
@@ -71,6 +72,10 @@ export function playSound(notesToPlay: string | string[]) {
   }
 
   try {
+    if (state.isListening && !state.isCalibrating && state.inputSource !== 'midi') {
+      state.ignorePromptAudioUntilMs = Date.now() + PROMPT_AUDIO_INPUT_IGNORE_MS;
+    }
+
     const time = state.audioContext.currentTime;
     // The soundfont player should handle an array of notes for a chord, but it's
     // producing a "Buffer not found" warning. As a workaround, we can schedule

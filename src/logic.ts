@@ -14,7 +14,6 @@ import {
   detectCalibrationFrame,
   detectMonophonicFrame,
   detectPolyphonicFrame,
-  evaluateSilenceGate,
 } from './audio-detection-handlers';
 import {
   clearResultMessage,
@@ -43,7 +42,6 @@ import {
 } from './constants';
 import { getEnabledStrings, getSelectedFretRange } from './fretboard-ui-state';
 import { buildPromptAudioPlan } from './prompt-audio-plan';
-import { buildSuccessInfoSlots } from './session-result';
 import {
   createPromptCycleTrackingResetState,
   createStabilityTrackingResetState,
@@ -57,7 +55,6 @@ import {
   areMidiHeldNotesMatchingTargetChord,
   formatDetectedMidiChordNotes,
 } from './midi-chord-evaluation';
-import { buildSessionSuccessPlan } from './session-success-plan';
 import { buildSessionNextPromptPlan } from './session-next-prompt-plan';
 import {
   computeCalibratedA4FromSamples,
@@ -66,94 +63,64 @@ import {
 import { buildSessionTimeUpPlan } from './session-timeup-plan';
 import { resolvePromptTargetPosition } from './prompt-audio';
 import {
-  createSessionStats,
   finalizeSessionStats,
   recordRhythmTimingAttempt,
   recordSessionAttempt,
 } from './session-stats';
 import { getMetronomeTimingSnapshot } from './metronome';
+import { formatUserFacingError, showNonBlockingError } from './app-feedback';
+import { evaluateRhythmTiming, formatRhythmFeedback } from './rhythm-timing';
+import {
+  formatSessionGoalProgress,
+  getSessionGoalTargetCorrect,
+} from './session-goal';
+import {
+  clearTrackedTimeouts,
+  scheduleTrackedCooldown,
+  scheduleTrackedTimeout,
+} from './session-timeouts';
+import { clearLiveDetectedHighlight, updateLiveDetectedHighlight } from './live-detected-highlight';
+import { createSessionRuntimeErrorHandler } from './session-runtime-error-handler';
+import {
+  buildAudioPolyphonicReactionPlan,
+  buildAudioMonophonicReactionPlan,
+  buildCalibrationFrameReactionPlan,
+  buildMidiPolyphonicReactionPlan,
+  buildStableMonophonicReactionPlan,
+} from './session-detection-reactions';
+import { executeSessionNextPromptPlan } from './session-next-prompt-executor';
+import {
+  buildFinishCalibrationOutcome,
+  closeCalibrationSession,
+} from './calibration-session-flow';
+import { executePromptAudioPlan } from './prompt-audio-executor';
+import { executeSessionTimeUpPlan } from './session-timeup-executor';
+import {
+  executeAudioMonophonicReaction,
+  executeAudioPolyphonicReaction,
+  executeCalibrationFrameReaction,
+} from './process-audio-reaction-executors';
+import { executeDisplayResultSuccessFlow } from './display-result-success-flow-executor';
+import { buildProcessAudioFramePreflightPlan } from './process-audio-frame-preflight';
+import { executeSessionRuntimeActivation } from './session-runtime-activation-executor';
+import { createMidiSessionMessageHandler } from './midi-session-message-handler';
+import { createTimedSessionIntervalHandler } from './timed-session-interval-handler';
+import type { Prompt } from './types';
 
-let isHandlingRuntimeError = false;
-
-interface RhythmTimingEvaluation {
-  beatAtMs: number;
-  signedOffsetMs: number;
-  absOffsetMs: number;
-  tone: 'success' | 'error';
-  label: string;
-}
-
-function getRhythmTimingThresholds(windowKey: string) {
-  if (windowKey === 'strict') return { onBeatMs: 55, feedbackMs: 120 };
-  if (windowKey === 'loose') return { onBeatMs: 130, feedbackMs: 240 };
-  return { onBeatMs: 90, feedbackMs: 180 };
-}
-
-function evaluateRhythmTiming(nowMs: number): RhythmTimingEvaluation | null {
-  const timing = getMetronomeTimingSnapshot();
-  if (!timing.isRunning || timing.lastBeatAtMs === null || timing.intervalMs <= 0) return null;
-
-  const previousBeatAtMs = timing.lastBeatAtMs;
-  const nextBeatAtMs = previousBeatAtMs + timing.intervalMs;
-  const previousOffset = nowMs - previousBeatAtMs;
-  const nextOffset = nowMs - nextBeatAtMs;
-
-  const useNextBeat = Math.abs(nextOffset) < Math.abs(previousOffset);
-  const beatAtMs = useNextBeat ? nextBeatAtMs : previousBeatAtMs;
-  const signedOffsetMs = Math.round(useNextBeat ? nextOffset : previousOffset);
-  const absOffsetMs = Math.abs(signedOffsetMs);
-  const thresholds = getRhythmTimingThresholds(dom.rhythmTimingWindow.value);
-
-  if (absOffsetMs <= thresholds.onBeatMs) {
-    return {
-      beatAtMs,
-      signedOffsetMs,
-      absOffsetMs,
-      tone: 'success',
-      label: 'On beat',
-    };
-  }
-
-  if (absOffsetMs <= thresholds.feedbackMs) {
-    return {
-      beatAtMs,
-      signedOffsetMs,
-      absOffsetMs,
-      tone: 'error',
-      label: signedOffsetMs < 0 ? 'Early' : 'Late',
-    };
-  }
-
-  return {
-    beatAtMs,
-    signedOffsetMs,
-    absOffsetMs,
-    tone: 'error',
-    label: signedOffsetMs < 0 ? 'Too early' : 'Too late',
-  };
-}
-
-function formatRhythmFeedback(result: RhythmTimingEvaluation, detectedNote: string) {
-  const sign = result.signedOffsetMs > 0 ? '+' : '';
-  return `${result.label}: ${detectedNote} (${sign}${result.signedOffsetMs}ms)`;
-}
-
-function getSessionGoalTargetCorrect(goalValue: string) {
-  if (goalValue === 'correct_10') return 10;
-  if (goalValue === 'correct_20') return 20;
-  if (goalValue === 'correct_50') return 50;
-  return null;
-}
-
-function clearLiveDetectedNoteHighlight() {
-  if (state.liveDetectedNote === null && state.liveDetectedString === null) return;
-  state.liveDetectedNote = null;
-  state.liveDetectedString = null;
-  redrawFretboard();
-}
+const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
+  stopSession: () => {
+    stopListening();
+  },
+  setStatusText,
+  setResultMessage,
+});
 
 function handleRhythmModeStableNote(detectedNote: string) {
-  const timing = evaluateRhythmTiming(Date.now());
+  const timing = evaluateRhythmTiming(
+    Date.now(),
+    getMetronomeTimingSnapshot(),
+    dom.rhythmTimingWindow.value
+  );
   if (!timing) {
     setResultMessage('Enable Click to practice rhythm timing.', 'error');
     return;
@@ -173,38 +140,99 @@ function handleRhythmModeStableNote(detectedNote: string) {
   setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
 }
 
-function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
+function isPolyphonicMelodyPrompt(prompt: Prompt | null): prompt is Prompt & {
+  targetMelodyEventNotes: NonNullable<Prompt['targetMelodyEventNotes']>;
+} {
+  return Boolean(prompt && (prompt.targetMelodyEventNotes?.length ?? 0) > 1);
+}
+
+function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
+  if (prompt.targetChordNotes.length > 0) return [...new Set(prompt.targetChordNotes)];
+  return [...new Set((prompt.targetMelodyEventNotes ?? []).map((note) => note.note))];
+}
+
+function handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, context: string) {
+  state.currentMelodyEventFoundNotes.clear();
+  redrawFretboard();
+  recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
+  setResultMessage(`Heard: ${detectedText} [wrong]`, 'error');
+  if (state.showingAllNotes) return;
+
+  const fingering = prompt.targetMelodyEventNotes ?? prompt.targetChordFingering;
+  drawFretboard(false, null, null, fingering, new Set());
+  scheduleSessionCooldown(context, 1200, () => {
+    redrawFretboard();
+  });
+}
+
+function handleMidiMelodyUpdate(event: MidiNoteEvent) {
   const prompt = state.currentPrompt;
   if (!prompt) return;
 
-  const heldNoteNames = event.heldNoteNames;
-  const targetChordNotes = prompt.targetChordNotes ?? [];
-  const uniqueTargetNotes = [...new Set(targetChordNotes)];
-  if (uniqueTargetNotes.length === 0) return;
+  if (!isPolyphonicMelodyPrompt(prompt)) {
+    if (event.kind === 'noteoff') return;
+    handleStableMonophonicDetectedNote(event.noteName);
+    return;
+  }
 
+  const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
+  const heldNoteNames = event.heldNoteNames;
   const detectedNotesText = formatDetectedMidiChordNotes(heldNoteNames);
-  state.lastDetectedChord = detectedNotesText;
+  const matchedHeldTargetNotes = heldNoteNames.filter((note) => targetPitchClasses.includes(note));
+  state.currentMelodyEventFoundNotes = new Set(matchedHeldTargetNotes);
+  redrawFretboard();
 
   if (event.kind === 'noteoff' && heldNoteNames.length === 0) {
     return;
   }
 
-  if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetChordNotes)) {
+  if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetPitchClasses)) {
     const elapsed = (Date.now() - state.startTime) / 1000;
     displayResult(true, elapsed);
     return;
   }
 
   const heldUniqueCount = new Set(heldNoteNames).size;
-  if (heldUniqueCount < uniqueTargetNotes.length) {
+  if (heldUniqueCount < targetPitchClasses.length) {
+    setResultMessage(`Heard: ${detectedNotesText} [${state.currentMelodyEventFoundNotes.size}/${targetPitchClasses.length}]`);
     return;
   }
+
+  handleMelodyPolyphonicMismatch(prompt, detectedNotesText, 'midi melody polyphonic mismatch redraw');
+}
+
+function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
+  const prompt = state.currentPrompt;
+  const heldNoteNames = event.heldNoteNames;
+  const targetChordNotes = prompt?.targetChordNotes ?? [];
+
+  const detectedNotesText = formatDetectedMidiChordNotes(heldNoteNames);
+  state.lastDetectedChord = detectedNotesText;
+
+  const reactionPlan = buildMidiPolyphonicReactionPlan({
+    hasPrompt: Boolean(prompt),
+    targetChordNotes,
+    eventKind: event.kind,
+    heldNoteNames,
+    matchesTargetChord: areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetChordNotes),
+  });
+
+  if (reactionPlan.kind === 'ignore' || reactionPlan.kind === 'wait_for_more_notes') {
+    return;
+  }
+
+  if (reactionPlan.kind === 'success') {
+    const elapsed = (Date.now() - state.startTime) / 1000;
+    displayResult(true, elapsed);
+    return;
+  }
+  if (!prompt) return;
 
   recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
   setResultMessage(`Heard: ${detectedNotesText} [wrong]`, 'error');
   if (!state.showingAllNotes) {
     drawFretboard(false, null, null, prompt.targetChordFingering, new Set());
-    scheduleSessionCooldown('midi polyphonic mismatch redraw', 1200, () => {
+    scheduleSessionCooldown('midi polyphonic mismatch redraw', reactionPlan.cooldownDelayMs, () => {
       redrawFretboard();
     });
   }
@@ -212,93 +240,97 @@ function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
 
 function handleStableMonophonicDetectedNote(detectedNote: string) {
   const trainingMode = dom.trainingMode.value;
+  const prompt = state.currentPrompt;
+  if (trainingMode === 'melody' && prompt && isPolyphonicMelodyPrompt(prompt)) {
+    const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
+    if (!targetPitchClasses.includes(detectedNote)) {
+      handleMelodyPolyphonicMismatch(prompt, detectedNote, 'melody polyphonic mismatch redraw');
+      return;
+    }
 
-  if (trainingMode === 'free') {
-    updateLiveDetectedNoteHighlight(detectedNote);
-    return;
-  }
+    const wasAlreadyFound = state.currentMelodyEventFoundNotes.has(detectedNote);
+    state.currentMelodyEventFoundNotes.add(detectedNote);
+    redrawFretboard();
 
-  if (trainingMode === 'rhythm') {
-    handleRhythmModeStableNote(detectedNote);
-    return;
-  }
+    const foundCount = state.currentMelodyEventFoundNotes.size;
+    if (foundCount < targetPitchClasses.length) {
+      if (!wasAlreadyFound) {
+        setResultMessage(
+          `Heard: ${detectedNote} [${foundCount}/${targetPitchClasses.length}] (mic poly mode: play remaining notes one by one)`
+        );
+      }
+      return;
+    }
 
-  if (state.currentPrompt?.targetNote && detectedNote === state.currentPrompt.targetNote) {
     const elapsed = (Date.now() - state.startTime) / 1000;
     displayResult(true, elapsed);
     return;
   }
 
-  if (!state.currentPrompt) return;
+  const reactionPlan = buildStableMonophonicReactionPlan({
+    trainingMode,
+    detectedNote,
+    hasCurrentPrompt: Boolean(prompt),
+    promptTargetNote: prompt?.targetNote ?? null,
+    promptTargetString: prompt?.targetString ?? null,
+    showingAllNotes: state.showingAllNotes,
+  });
 
-  recordSessionAttempt(state.activeSessionStats, state.currentPrompt, false, 0, state.currentInstrument);
+  if (reactionPlan.kind === 'free_highlight') {
+    updateLiveDetectedHighlight({
+      note: detectedNote,
+      stateRef: state,
+      enabledStrings: getEnabledStrings(dom.stringSelector),
+      instrument: state.currentInstrument,
+      redraw: redrawFretboard,
+    });
+    return;
+  }
+
+  if (reactionPlan.kind === 'rhythm_feedback') {
+    handleRhythmModeStableNote(detectedNote);
+    return;
+  }
+
+  if (reactionPlan.kind === 'success') {
+    const elapsed = (Date.now() - state.startTime) / 1000;
+    displayResult(true, elapsed);
+    return;
+  }
+
+  if (reactionPlan.kind === 'ignore_no_prompt' || !prompt) return;
+
+  recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
   setResultMessage(`Heard: ${detectedNote} [wrong]`, 'error');
-  if (state.currentPrompt.targetNote && !state.showingAllNotes) {
-    drawFretboard(false, state.currentPrompt.targetNote, state.currentPrompt.targetString);
-    scheduleSessionCooldown('monophonic mismatch redraw', 1500, () => {
+  if (reactionPlan.shouldDrawTargetFretboard) {
+    drawFretboard(false, reactionPlan.targetNote, reactionPlan.targetString);
+    scheduleSessionCooldown('monophonic mismatch redraw', reactionPlan.cooldownDelayMs, () => {
       redrawFretboard();
     });
   }
 }
 
-function updateLiveDetectedNoteHighlight(note: string) {
-  const resolved = resolvePromptTargetPosition({
-    targetNote: note,
-    preferredString: null,
-    enabledStrings: getEnabledStrings(dom.stringSelector),
-    instrument: state.currentInstrument,
-  });
-
-  const nextString = resolved?.stringName ?? null;
-  if (state.liveDetectedNote === note && state.liveDetectedString === nextString) return;
-
-  state.liveDetectedNote = note;
-  state.liveDetectedString = nextString;
-  redrawFretboard();
-}
-
-function handleSessionRuntimeError(context: string, error: unknown) {
-  console.error(`[Session Runtime Error] ${context}:`, error);
-  if (isHandlingRuntimeError) return;
-
-  isHandlingRuntimeError = true;
-  try {
-    stopListening();
-    setStatusText('Session stopped due to an internal error.');
-    setResultMessage('Runtime error. Session stopped.', 'error');
-  } catch (stopError) {
-    console.error('[Session Runtime Error] Failed to stop session cleanly:', stopError);
-  } finally {
-    isHandlingRuntimeError = false;
-  }
-}
-
 export function scheduleSessionTimeout(delayMs: number, callback: () => void, context: string) {
-  const timeoutId = window.setTimeout(() => {
-    state.pendingTimeoutIds.delete(timeoutId);
-    try {
-      callback();
-    } catch (error) {
-      handleSessionRuntimeError(context, error);
-    }
-  }, delayMs);
-  state.pendingTimeoutIds.add(timeoutId);
-  return timeoutId;
+  return scheduleTrackedTimeout({
+    pendingTimeoutIds: state.pendingTimeoutIds,
+    delayMs,
+    callback,
+    context,
+    onError: handleSessionRuntimeError,
+  });
 }
 
 function scheduleSessionCooldown(context: string, delayMs: number, callback: () => void) {
-  state.cooldown = true;
-  scheduleSessionTimeout(
+  scheduleTrackedCooldown({
+    pendingTimeoutIds: state.pendingTimeoutIds,
     delayMs,
-    () => {
-      try {
-        callback();
-      } finally {
-        state.cooldown = false;
-      }
+    callback,
+    context,
+    onError: handleSessionRuntimeError,
+    setCooldown: (value) => {
+      state.cooldown = value;
     },
-    context
-  );
+  });
 }
 
 /** The main audio processing loop, called via requestAnimationFrame. */
@@ -309,32 +341,50 @@ function processAudio() {
       state.animationId = requestAnimationFrame(processAudio);
       return;
     }
+    if (
+      !state.isCalibrating &&
+      state.inputSource !== 'midi' &&
+      Date.now() < state.ignorePromptAudioUntilMs
+    ) {
+      Object.assign(state, createStabilityTrackingResetState());
+      setVolumeLevel(0);
+      updateTuner(null);
+      if (dom.trainingMode.value === 'free') {
+        clearLiveDetectedHighlight(state, redrawFretboard);
+      }
+      state.animationId = requestAnimationFrame(processAudio);
+      return;
+    }
 
     // Shared volume calculation
     state.analyser.getFloatTimeDomainData(state.dataArray!);
     const volume = calculateRmsLevel(state.dataArray!);
     setVolumeLevel(volume);
 
-    const silenceGate = evaluateSilenceGate({
+    const trainingMode = dom.trainingMode.value;
+    const mode = modes[trainingMode];
+    const preflightPlan = buildProcessAudioFramePreflightPlan({
       volume,
       volumeThreshold: VOLUME_THRESHOLD,
       consecutiveSilence: state.consecutiveSilence,
+      isCalibrating: state.isCalibrating,
+      trainingMode,
+      hasMode: Boolean(mode),
+      hasCurrentPrompt: Boolean(state.currentPrompt),
     });
-    state.consecutiveSilence = silenceGate.nextConsecutiveSilence;
+    state.consecutiveSilence = preflightPlan.nextConsecutiveSilence;
 
-    if (silenceGate.isBelowThreshold) {
-      if (silenceGate.shouldResetTracking) {
+    if (preflightPlan.kind === 'silence_wait') {
+      if (preflightPlan.shouldResetTracking) {
         Object.assign(state, createStabilityTrackingResetState());
-        if (!state.isCalibrating) updateTuner(null);
-        if (dom.trainingMode.value === 'free') clearLiveDetectedNoteHighlight();
+        if (preflightPlan.shouldResetTuner) updateTuner(null);
+        if (preflightPlan.shouldClearFreeHighlight) clearLiveDetectedHighlight(state, redrawFretboard);
       }
       state.animationId = requestAnimationFrame(processAudio);
       return;
     }
 
-    const trainingMode = dom.trainingMode.value;
-    const mode = modes[trainingMode];
-    if (!mode || !state.currentPrompt) {
+    if (preflightPlan.kind === 'missing_mode_or_prompt') {
       state.animationId = requestAnimationFrame(processAudio);
       return;
     }
@@ -354,20 +404,37 @@ function processAudio() {
       });
       state.lastDetectedChord = polyphonicResult.detectedNotesText;
       state.stableChordCounter = polyphonicResult.nextStableChordCounter;
-
-      if (polyphonicResult.isStableMatch) {
-        const elapsed = (Date.now() - state.startTime) / 1000;
-        displayResult(true, elapsed);
-      } else if (polyphonicResult.isStableMismatch) {
-        recordSessionAttempt(state.activeSessionStats, state.currentPrompt, false, 0, state.currentInstrument);
-        setResultMessage(`Heard: ${polyphonicResult.detectedNotesText || '...'} [wrong]`, 'error');
-        if (!state.showingAllNotes) {
+      const polyphonicReactionPlan = buildAudioPolyphonicReactionPlan({
+        isStableMatch: polyphonicResult.isStableMatch,
+        isStableMismatch: polyphonicResult.isStableMismatch,
+        showingAllNotes: state.showingAllNotes,
+      });
+      executeAudioPolyphonicReaction({
+        reactionPlan: polyphonicReactionPlan,
+        detectedNotesText: polyphonicResult.detectedNotesText,
+        onSuccess: () => {
+          const elapsed = (Date.now() - state.startTime) / 1000;
+          displayResult(true, elapsed);
+        },
+        onMismatchRecordAttempt: () => {
+          recordSessionAttempt(
+            state.activeSessionStats,
+            state.currentPrompt,
+            false,
+            0,
+            state.currentInstrument
+          );
+        },
+        setResultMessage,
+        drawHintFretboard: () => {
           drawFretboard(false, null, null, state.currentPrompt.targetChordFingering, new Set());
-          scheduleSessionCooldown('polyphonic mismatch redraw', 1500, () => {
+        },
+        scheduleCooldownRedraw: (delayMs) => {
+          scheduleSessionCooldown('polyphonic mismatch redraw', delayMs, () => {
             redrawFretboard();
           });
-        }
-      }
+        },
+      });
     } else {
       // --- Monophonic (Single Note) Detection ---
       const frequency = detectPitch(state.dataArray!, state.audioContext.sampleRate);
@@ -379,12 +446,21 @@ function processAudio() {
           currentSampleCount: state.calibrationFrequencies.length,
           requiredSamples: CALIBRATION_SAMPLES,
         });
-        if (calibrationResult.accepted) {
-          state.calibrationFrequencies.push(frequency);
-          setCalibrationProgress(calibrationResult.progressPercent);
-          if (calibrationResult.isComplete) {
-            finishCalibration();
-          }
+        const calibrationReactionPlan = buildCalibrationFrameReactionPlan({
+          accepted: calibrationResult.accepted,
+          progressPercent: calibrationResult.progressPercent,
+          isComplete: calibrationResult.isComplete,
+        });
+        if (calibrationReactionPlan.kind === 'accept_sample') {
+          executeCalibrationFrameReaction({
+            reactionPlan: calibrationReactionPlan,
+            acceptedFrequency: frequency,
+            pushCalibrationFrequency: (value) => {
+              state.calibrationFrequencies.push(value);
+            },
+            setCalibrationProgress,
+            finishCalibration,
+          });
         }
       } else {
         updateTuner(frequency);
@@ -400,13 +476,15 @@ function processAudio() {
         state.lastPitches = monophonicResult.nextLastPitches;
         state.lastNote = monophonicResult.nextLastNote;
         state.stableNoteCounter = monophonicResult.nextStableNoteCounter;
-
-        const isStableDetectedNote =
-          Boolean(monophonicResult.detectedNote) &&
-          monophonicResult.nextStableNoteCounter >= REQUIRED_STABLE_FRAMES;
-        if (isStableDetectedNote && monophonicResult.detectedNote) {
-          handleStableMonophonicDetectedNote(monophonicResult.detectedNote);
-        }
+        const monophonicReactionPlan = buildAudioMonophonicReactionPlan({
+          detectedNote: monophonicResult.detectedNote,
+          nextStableNoteCounter: monophonicResult.nextStableNoteCounter,
+          requiredStableFrames: REQUIRED_STABLE_FRAMES,
+        });
+        executeAudioMonophonicReaction({
+          reactionPlan: monophonicReactionPlan,
+          onStableDetectedNote: handleStableMonophonicDetectedNote,
+        });
       }
     }
 
@@ -441,24 +519,26 @@ export async function startListening(forCalibration = false) {
       setScoreValue(startPlan.timed.initialScore);
       setTimedInfoVisible(true);
       clearSessionGoalProgress();
-      state.timerId = window.setInterval(() => {
-        try {
-          state.timeLeft--;
-          setTimerValue(state.timeLeft);
-          if (state.timeLeft <= 0) {
-            handleTimeUp();
-          }
-        } catch (error) {
-          handleSessionRuntimeError('timed interval tick', error);
-        }
-      }, 1000);
+      state.timerId = window.setInterval(
+        createTimedSessionIntervalHandler({
+          decrementTimeLeft: () => {
+            state.timeLeft--;
+            return state.timeLeft;
+          },
+          setTimerValue,
+          handleTimeUp,
+          onRuntimeError: handleSessionRuntimeError,
+        }),
+        1000
+      );
     }
 
     if (!startPlan.shouldStart) {
-      if (startPlan.errorMessage) {
-        alert(startPlan.errorMessage);
-      }
+      const startErrorMessage = startPlan.errorMessage;
       stopListening();
+      if (startErrorMessage) {
+        showNonBlockingError(startErrorMessage);
+      }
       return false;
     }
 
@@ -473,7 +553,7 @@ export async function startListening(forCalibration = false) {
 
     const goalTargetCorrect = getSessionGoalTargetCorrect(dom.sessionGoal.value);
     if (!startPlan.timed.enabled && goalTargetCorrect !== null) {
-      setSessionGoalProgress(`Goal progress: 0 / ${goalTargetCorrect} correct`);
+      setSessionGoalProgress(formatSessionGoalProgress(0, goalTargetCorrect));
     } else {
       clearSessionGoalProgress();
     }
@@ -482,67 +562,69 @@ export async function startListening(forCalibration = false) {
   try {
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
     if (!forCalibration && selectedInputSource === 'midi') {
-      await startMidiInput((event) => {
-        try {
-          if (!state.isListening || state.cooldown || state.isCalibrating) return;
-          const currentMode = modes[dom.trainingMode.value];
-          if (!currentMode) return;
-
-          if (currentMode.detectionType === 'polyphonic') {
-            handleMidiPolyphonicChordUpdate(event);
-            return;
-          }
-
-          if (event.kind === 'noteoff') {
-            if (dom.trainingMode.value === 'free' && event.heldNoteNames.length === 0) {
-              clearLiveDetectedNoteHighlight();
-            }
-            return;
-          }
-
-          handleStableMonophonicDetectedNote(event.noteName);
-        } catch (error) {
-          handleSessionRuntimeError('midi input message', error);
-        }
-      });
+      await startMidiInput(
+        createMidiSessionMessageHandler({
+          canProcessEvent: () => state.isListening && !state.cooldown && !state.isCalibrating,
+          getCurrentModeDetectionType: () => modes[dom.trainingMode.value]?.detectionType ?? null,
+          getTrainingModeValue: () => dom.trainingMode.value,
+          handleMelodyUpdate: handleMidiMelodyUpdate,
+          handlePolyphonicUpdate: handleMidiPolyphonicChordUpdate,
+          clearLiveDetectedHighlight: () => {
+            clearLiveDetectedHighlight(state, redrawFretboard);
+          },
+          handleStableMonophonicDetectedNote,
+          onRuntimeError: handleSessionRuntimeError,
+        })
+      );
     } else {
       await ensureAudioRuntime(state, { audioInputDeviceId: state.preferredAudioInputDeviceId });
       await refreshAudioInputDeviceOptions();
     }
 
-    state.isListening = true;
-    if (!forCalibration) {
-      const selectedMode = dom.trainingMode.selectedOptions[0];
-      const { minFret, maxFret } = getSelectedFretRange(dom.startFret.value, dom.endFret.value);
-      const inputSource = state.inputSource;
-      const inputDeviceLabel =
-        inputSource === 'midi'
-          ? dom.midiInputDevice.selectedOptions[0]?.textContent?.trim() || 'Default MIDI device'
-          : dom.audioInputDevice.selectedOptions[0]?.textContent?.trim() || 'Default microphone';
-      state.activeSessionStats = createSessionStats({
-        modeKey: dom.trainingMode.value,
-        modeLabel: selectedMode?.textContent?.trim() || dom.trainingMode.value,
-        instrumentName: state.currentInstrument.name,
-        tuningPresetKey: state.currentTuningPresetKey,
-        inputSource,
-        inputDeviceLabel,
-        stringOrder: state.currentInstrument.STRING_ORDER,
-        enabledStrings: Array.from(getEnabledStrings(dom.stringSelector)),
-        minFret,
-        maxFret,
-      });
-    }
-    Object.assign(state, createPromptCycleTrackingResetState());
-    if (!forCalibration) {
-      setStatusText(selectedInputSource === 'midi' ? 'Listening (MIDI)...' : 'Listening...');
-      nextPrompt();
-    }
-    if (selectedInputSource !== 'midi' || forCalibration) {
-      processAudio();
-    }
+    const selectedMode = !forCalibration ? dom.trainingMode.selectedOptions[0] : null;
+    const fretRange = !forCalibration
+      ? getSelectedFretRange(dom.startFret.value, dom.endFret.value)
+      : { minFret: undefined, maxFret: undefined };
+    executeSessionRuntimeActivation(
+      {
+        forCalibration,
+        selectedInputSource,
+        sessionInputSource: state.inputSource,
+        modeKey: !forCalibration ? dom.trainingMode.value : undefined,
+        modeLabel: !forCalibration
+          ? selectedMode?.textContent?.trim() || dom.trainingMode.value
+          : undefined,
+        instrumentName: !forCalibration ? state.currentInstrument.name : undefined,
+        tuningPresetKey: !forCalibration ? state.currentTuningPresetKey : undefined,
+        stringOrder: !forCalibration ? state.currentInstrument.STRING_ORDER : undefined,
+        enabledStrings: !forCalibration ? Array.from(getEnabledStrings(dom.stringSelector)) : undefined,
+        minFret: fretRange.minFret,
+        maxFret: fretRange.maxFret,
+        audioInputDeviceLabel: !forCalibration
+          ? dom.audioInputDevice.selectedOptions[0]?.textContent?.trim()
+          : undefined,
+        midiInputDeviceLabel: !forCalibration
+          ? dom.midiInputDevice.selectedOptions[0]?.textContent?.trim()
+          : undefined,
+      },
+      {
+        setIsListening: (value) => {
+          state.isListening = value;
+        },
+        setActiveSessionStats: (sessionStats) => {
+          state.activeSessionStats = sessionStats;
+        },
+        resetPromptCycleTracking: () => {
+          Object.assign(state, createPromptCycleTrackingResetState());
+        },
+        setStatusText,
+        nextPrompt,
+        processAudio,
+      }
+    );
   } catch (err) {
-    alert('Failed to start input: ' + (err as Error).message);
     if (!forCalibration) stopListening();
+    showNonBlockingError(formatUserFacingError('Failed to start input', err));
     return false;
   }
   return true;
@@ -559,17 +641,13 @@ export function stopListening(keepStreamOpen = false) {
   state.activeSessionStats = null;
   state.isListening = false;
   if (state.animationId) cancelAnimationFrame(state.animationId);
-  if (state.pendingTimeoutIds.size > 0) {
-    for (const timeoutId of state.pendingTimeoutIds) {
-      clearTimeout(timeoutId);
-    }
-    state.pendingTimeoutIds.clear();
-  }
+  clearTrackedTimeouts(state.pendingTimeoutIds);
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
   }
   state.cooldown = false;
+  state.ignorePromptAudioUntilMs = 0;
   stopMidiInput();
   if (!keepStreamOpen) {
     teardownAudioRuntime(state);
@@ -604,94 +682,41 @@ function displayResult(correct: boolean, elapsed: number) {
 
     if (correct && state.currentPrompt) {
       const trainingMode = dom.trainingMode.value;
-      const { targetNote, targetString, targetChordNotes } = state.currentPrompt;
       const mode = modes[trainingMode];
       const goalTargetCorrect = getSessionGoalTargetCorrect(dom.sessionGoal.value);
-      const infoSlots = buildSuccessInfoSlots(state.currentPrompt);
-      if (infoSlots.slot1 || infoSlots.slot2 || infoSlots.slot3) {
-        setInfoSlots(infoSlots.slot1, infoSlots.slot2, infoSlots.slot3);
-      }
-      if (goalTargetCorrect !== null && state.activeSessionStats) {
-        setSessionGoalProgress(
-          `Goal progress: ${Math.min(state.activeSessionStats.correctAttempts, goalTargetCorrect)} / ${goalTargetCorrect} correct`
-        );
-      }
-
-      if (
-        trainingMode !== 'timed' &&
-        goalTargetCorrect !== null &&
-        state.activeSessionStats &&
-        state.activeSessionStats.correctAttempts >= goalTargetCorrect
-      ) {
-        stopListening();
-        setResultMessage(`Goal reached: ${goalTargetCorrect} correct answers.`, 'success');
-        return;
-      }
-
-      const successPlan = buildSessionSuccessPlan({
-        trainingMode,
-        detectionType: mode?.detectionType ?? null,
-        elapsedSeconds: elapsed,
-        currentArpeggioIndex: state.currentArpeggioIndex,
-        arpeggioLength: targetChordNotes.length,
-        showingAllNotes: state.showingAllNotes,
-      });
-      state.currentArpeggioIndex = successPlan.nextArpeggioIndex;
-
-      if (successPlan.kind === 'arpeggio_continue') {
-        redrawFretboard();
-        nextPrompt();
-        return;
-      }
-
-      if (successPlan.kind === 'arpeggio_complete') {
-        redrawFretboard();
-        setResultMessage(successPlan.message, 'success');
-        scheduleSessionCooldown('arpeggio complete nextPrompt', successPlan.delayMs, () => {
-          nextPrompt();
-        });
-        return;
-      }
-
-      if (successPlan.kind === 'timed') {
-        state.currentScore += successPlan.scoreDelta;
-        setScoreValue(state.currentScore);
-        setResultMessage(successPlan.message, 'success');
-        scheduleSessionTimeout(successPlan.delayMs, () => {
-          nextPrompt();
-        }, 'timed nextPrompt');
-        return;
-      }
-
-      setResultMessage(successPlan.message, 'success');
-      if (successPlan.hideTuner) {
-        setTunerVisible(false);
-      }
-
-      if (successPlan.drawSolvedFretboard) {
-        if (successPlan.drawSolvedAsPolyphonic) {
-          drawFretboard(
-            false,
-            null,
-            null,
-            state.currentPrompt.targetChordFingering,
-            new Set(state.currentPrompt.targetChordNotes)
-          );
-        } else {
-          drawFretboard(false, targetNote, targetString);
+      const successFlowOutcome = executeDisplayResultSuccessFlow(
+        {
+          prompt: state.currentPrompt,
+          trainingMode,
+          modeDetectionType: mode?.detectionType ?? null,
+          elapsedSeconds: elapsed,
+          currentArpeggioIndex: state.currentArpeggioIndex,
+          showingAllNotes: state.showingAllNotes,
+          goalTargetCorrect,
+          correctAttempts: state.activeSessionStats?.correctAttempts ?? null,
+        },
+        {
+          setInfoSlots,
+          setSessionGoalProgress,
+          stopListening,
+          setCurrentArpeggioIndex: (index) => {
+            state.currentArpeggioIndex = index;
+          },
+          setResultMessage,
+          setScoreValue,
+          setTunerVisible,
+          redrawFretboard,
+          drawFretboard,
+          scheduleSessionTimeout,
+          scheduleSessionCooldown,
+          nextPrompt,
+          addScore: (delta) => {
+            state.currentScore += delta;
+            return state.currentScore;
+          },
         }
-      }
-
-      if (successPlan.usesCooldownDelay) {
-        scheduleSessionCooldown('standard cooldown nextPrompt', successPlan.delayMs, () => {
-          nextPrompt();
-        });
-        return;
-      }
-
-      scheduleSessionTimeout(successPlan.delayMs, () => {
-        nextPrompt();
-      }, 'standard nextPrompt');
+      );
+      if (successFlowOutcome === 'goal_reached') return;
     }
   } catch (error) {
     handleSessionRuntimeError('displayResult', error);
@@ -704,10 +729,11 @@ function nextPrompt() {
     if (!state.isListening) return;
     clearResultMessage();
     state.liveDetectedNote = null;
-    state.liveDetectedString = null;
-    state.rhythmLastJudgedBeatAtMs = null;
-    Object.assign(state, createPromptCycleTrackingResetState());
-    redrawFretboard();
+  state.liveDetectedString = null;
+  state.rhythmLastJudgedBeatAtMs = null;
+  state.currentMelodyEventFoundNotes.clear();
+  Object.assign(state, createPromptCycleTrackingResetState());
+  redrawFretboard();
 
     const trainingMode = dom.trainingMode.value;
     const mode = modes[trainingMode];
@@ -717,25 +743,20 @@ function nextPrompt() {
       detectionType: mode?.detectionType ?? null,
       hasPrompt: Boolean(prompt),
     });
-
-    if (nextPromptPlan.errorMessage) {
-      alert(nextPromptPlan.errorMessage);
-    }
-    if (nextPromptPlan.shouldStopListening) {
-      stopListening();
-      return;
-    }
-    if (nextPromptPlan.shouldResetTuner) {
-      updateTuner(null);
-    }
-    setTunerVisible(nextPromptPlan.tunerVisible);
-    if (!prompt) return;
-
-    state.currentPrompt = prompt;
-    setPromptText(prompt.displayText);
-
-    configurePromptAudio();
-    state.startTime = Date.now();
+    const executionResult = executeSessionNextPromptPlan(nextPromptPlan, prompt, {
+      stopListening,
+      showError: showNonBlockingError,
+      updateTuner,
+      setTunerVisible,
+      applyPrompt: (nextPrompt) => {
+        state.currentPrompt = nextPrompt;
+        state.currentMelodyEventFoundNotes.clear();
+        setPromptText(nextPrompt.displayText);
+        configurePromptAudio();
+        state.startTime = Date.now();
+      },
+    });
+    if (executionResult !== 'prompt_applied') return;
   } catch (error) {
     handleSessionRuntimeError('nextPrompt', error);
   }
@@ -750,45 +771,40 @@ function configurePromptAudio() {
     calibratedA4: state.calibratedA4,
     enabledStrings: getEnabledStrings(dom.stringSelector),
   });
-
-  state.targetFrequency = audioPlan.targetFrequency;
-  setSessionButtonsState({ playSoundDisabled: !audioPlan.playSoundEnabled });
-
-  if (audioPlan.notesToPlay.length === 1) {
-    playSound(audioPlan.notesToPlay[0]);
-  } else if (audioPlan.notesToPlay.length > 1) {
-    playSound(audioPlan.notesToPlay);
-  }
+  executePromptAudioPlan(audioPlan, {
+    setTargetFrequency: (frequency) => {
+      state.targetFrequency = frequency;
+    },
+    setPlaySoundDisabled: (disabled) => {
+      setSessionButtonsState({ playSoundDisabled: disabled });
+    },
+    playSound,
+  });
 }
 
 export function finishCalibration() {
   try {
-    if (state.calibrationFrequencies.length === 0) {
-      setCalibrationStatus('Could not detect A string. Please try again.');
-      scheduleSessionTimeout(2000, cancelCalibration, 'finishCalibration empty-samples');
-      return;
-    }
-
     const { octave } = getOpenATuningInfoFromTuning(state.currentInstrument.TUNING);
     const calibratedA4 = computeCalibratedA4FromSamples(state.calibrationFrequencies, octave);
-    if (calibratedA4 === null) {
-      setCalibrationStatus('Could not detect A string. Please try again.');
-      scheduleSessionTimeout(2000, cancelCalibration, 'finishCalibration invalid-samples');
+    const finishOutcome = buildFinishCalibrationOutcome({
+      hasSamples: state.calibrationFrequencies.length > 0,
+      calibratedA4,
+    });
+
+    setCalibrationStatus(finishOutcome.statusText);
+    if (finishOutcome.kind === 'retry') {
+      scheduleSessionTimeout(finishOutcome.delayMs, cancelCalibration, finishOutcome.timeoutContext);
       return;
     }
 
-    state.calibratedA4 = calibratedA4;
+    state.calibratedA4 = finishOutcome.nextCalibratedA4!;
     saveSettings();
-    setCalibrationStatus(`Calibration complete! New A4 = ${state.calibratedA4.toFixed(2)} Hz`);
     scheduleSessionTimeout(
-      2000,
+      finishOutcome.delayMs,
       () => {
-        hideCalibrationModal();
-        state.isCalibrating = false;
-        state.calibrationFrequencies = [];
-        stopListening(!state.isListening);
+        closeCalibrationSession(state, { hideCalibrationModal, stopListening });
       },
-      'finishCalibration timeout'
+      finishOutcome.timeoutContext
     );
   } catch (error) {
     handleSessionRuntimeError('finishCalibration', error);
@@ -797,10 +813,7 @@ export function finishCalibration() {
 
 export function cancelCalibration() {
   try {
-    hideCalibrationModal();
-    state.isCalibrating = false;
-    state.calibrationFrequencies = [];
-    stopListening(!state.isListening);
+    closeCalibrationSession(state, { hideCalibrationModal, stopListening });
   } catch (error) {
     handleSessionRuntimeError('cancelCalibration', error);
   }
@@ -808,19 +821,22 @@ export function cancelCalibration() {
 
 function handleTimeUp() {
   try {
-    if (state.timerId) clearInterval(state.timerId);
-    state.timerId = null;
-
     const timeUpPlan = buildSessionTimeUpPlan({
       currentScore: state.currentScore,
       currentHighScore: state.stats.highScore,
     });
-    if (timeUpPlan.shouldPersistHighScore) {
-      state.stats.highScore = timeUpPlan.nextHighScore;
-      saveStats();
-    }
-    stopListening();
-    setResultMessage(timeUpPlan.message);
+    executeSessionTimeUpPlan(timeUpPlan, {
+      clearTimer: () => {
+        if (state.timerId) clearInterval(state.timerId);
+        state.timerId = null;
+      },
+      persistHighScore: (nextHighScore) => {
+        state.stats.highScore = nextHighScore;
+        saveStats();
+      },
+      stopListening,
+      setResultMessage,
+    });
   } catch (error) {
     handleSessionRuntimeError('handleTimeUp', error);
   }

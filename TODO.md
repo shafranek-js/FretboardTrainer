@@ -60,3 +60,39 @@
   - [x] Extract renderer-agnostic `fretboard render plan` model with unit tests.
   - [x] Extract shared SVG rendering helpers (`enabled strings`, `fret range`, layout, string-label positioning).
   - [x] Migrate to SVG-only rendering and remove Canvas fallback/feature flag.
+
+## Sprint 4 (In Progress)
+
+- [x] Replace blocking `alert()` calls in core session start/prompt flow with non-blocking in-app error messaging.
+- [x] Replace blocking metronome start `alert()` calls in session controls with non-blocking in-app error messaging.
+- [x] Replace blocking `alert()` calls in profile controller and soundfont loading with non-blocking in-app messaging.
+- [x] Replace direct runtime `alert()` calls in `modes/*` with a feedback port wired to in-app messaging.
+- [x] Replace direct `confirm()` calls in controllers with a confirm port (native fallback for now).
+- [x] Implement in-app confirmation UX and wire the confirm port to non-blocking modal dialogs.
+- [ ] Reduce `src/logic.ts` orchestration size by extracting session lifecycle/error-reporting helpers.
+  - [x] Extract rhythm timing evaluation/formatting helpers into `src/rhythm-timing.ts` with unit tests.
+  - [x] Extract session goal mapping/formatting helpers into `src/session-goal.ts` with unit tests.
+  - [x] Extract timeout/cooldown registry helpers into `src/session-timeouts.ts` with unit tests.
+  - [x] Extract free-play live note highlight helpers into `src/live-detected-highlight.ts` with unit tests.
+  - [x] Extract session runtime error handler (with reentrancy guard) into `src/session-runtime-error-handler.ts` with unit tests.
+  - [x] Extract monophonic/MIDI reaction planners into `src/session-detection-reactions.ts` with unit tests.
+  - [x] Extract `displayResult()` success-plan branch executor into `src/session-success-executor.ts` with unit tests.
+  - [x] Extract `displayResult()` success/goal orchestration into `src/display-result-success-flow-executor.ts` with unit tests.
+  - [x] Extract `nextPrompt()` plan execution branch into `src/session-next-prompt-executor.ts` with unit tests.
+  - [x] Extract calibration finish/cancel flow helpers into `src/calibration-session-flow.ts` with unit tests.
+  - [x] Extract `configurePromptAudio()` side-effect executor into `src/prompt-audio-executor.ts` with unit tests.
+  - [x] Extend `session-detection-reactions` with audio polyphonic/monophonic/calibration frame planners and wire them into `processAudio()`.
+  - [x] Extract `processAudio()` post-volume silence/mode preflight planning into `src/process-audio-frame-preflight.ts` with unit tests.
+  - [x] Extract post-input session activation/startup side effects from `startListening()` into `src/session-runtime-activation-executor.ts` with unit tests.
+  - [x] Extract MIDI session message routing callback factory from `startListening()` into `src/midi-session-message-handler.ts` with unit tests.
+  - [x] Extract timed session interval tick callback from `startListening()` into `src/timed-session-interval-handler.ts` with unit tests.
+- [x] Harden DOM binding initialization (`src/state.ts`) with explicit missing-element assertions instead of unchecked casts.
+  - [x] Add DOM require-helpers and convert critical session/tuner/feedback/confirm elements to explicit startup assertions.
+  - [x] Expand `requireElementById` / `requireQuerySelector` usage across the full `dom` registry.
+
+## Future / Backlog
+
+- [ ] Add a dedicated polyphonic audio detector for microphone input (separate from MIDI note events) to support true simultaneous-note/chord verification in melody/chord practice.
+  - [ ] Research algorithm options/tradeoffs (e.g., harmonic product spectrum, spectral peak clustering, multi-pitch estimation) for browser/WebAudio constraints.
+  - [ ] Define UX fallback when confidence is low (avoid false chord matches from noise/room echo).
+  - [ ] Gate rollout behind a mode/feature flag and benchmark latency/CPU on typical devices.

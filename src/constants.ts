@@ -4,8 +4,9 @@
  */
 
 // --- GLOBAL CONSTANTS ---
-export const VOLUME_THRESHOLD = 0.02;
+export const VOLUME_THRESHOLD = 0.03;
 export const REQUIRED_STABLE_FRAMES = 3;
+export const PROMPT_AUDIO_INPUT_IGNORE_MS = 700;
 export const DEFAULT_A4_FREQUENCY = 440;
 export const CENTS_TOLERANCE = 10;
 export const CENTS_VISUAL_RANGE = 50;

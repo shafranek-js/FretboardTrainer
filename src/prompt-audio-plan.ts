@@ -18,12 +18,14 @@ export interface PromptAudioPlan {
   notesToPlay: string[];
   targetFrequency: number | null;
   playSoundEnabled: boolean;
+  autoPlaySound: boolean;
 }
 
 const EMPTY_AUDIO_PLAN: PromptAudioPlan = {
   notesToPlay: [],
   targetFrequency: null,
   playSoundEnabled: false,
+  autoPlaySound: false,
 };
 
 export function buildPromptAudioPlan({
@@ -46,6 +48,20 @@ export function buildPromptAudioPlan({
       notesToPlay,
       targetFrequency: null,
       playSoundEnabled: true,
+      autoPlaySound: true,
+    };
+  }
+
+  if (trainingMode === 'melody' && (prompt.targetMelodyEventNotes?.length ?? 0) > 1) {
+    const notesToPlay = (prompt.targetMelodyEventNotes ?? [])
+      .map((noteInfo) => instrument.getNoteWithOctave(noteInfo.string, noteInfo.fret))
+      .filter((note): note is string => note !== null);
+
+    return {
+      notesToPlay,
+      targetFrequency: null,
+      playSoundEnabled: notesToPlay.length > 0,
+      autoPlaySound: false,
     };
   }
 
@@ -73,5 +89,6 @@ export function buildPromptAudioPlan({
     notesToPlay: noteWithOctave ? [noteWithOctave] : [],
     targetFrequency,
     playSoundEnabled: Boolean(noteWithOctave && targetFrequency !== null),
+    autoPlaySound: trainingMode !== 'melody',
   };
 }

@@ -9,6 +9,7 @@ export interface FretboardRenderInputs {
   currentArpeggioIndex: number;
   liveDetectedNote?: string | null;
   liveDetectedString?: string | null;
+  melodyFoundNotes?: Set<string>;
 }
 
 export interface FretboardRenderPlan {
@@ -25,6 +26,7 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
   const { trainingMode, isListening, showingAllNotes, currentPrompt, currentArpeggioIndex } =
     inputs;
   const liveDetectedNote = inputs.liveDetectedNote ?? null;
+  const melodyFoundNotes = inputs.melodyFoundNotes ?? new Set<string>();
 
   const isChordBasedMode = isChordDataMode(trainingMode);
 
@@ -58,6 +60,40 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
       showAll: false,
       rootNote: liveDetectedNote,
       rootString: null,
+      chordFingering: [],
+      foundChordNotes: new Set(),
+      currentTargetNote: null,
+    };
+  }
+
+  if (trainingMode === 'melody' && isListening && currentPrompt) {
+    const melodyEventFingering = currentPrompt.targetMelodyEventNotes ?? [];
+    if (melodyEventFingering.length > 1) {
+      return {
+        showAll: false,
+        rootNote: null,
+        rootString: null,
+        chordFingering: melodyEventFingering,
+        foundChordNotes: new Set(melodyFoundNotes),
+        currentTargetNote: null,
+      };
+    }
+
+    if (!currentPrompt.targetNote) {
+      return {
+        showAll: false,
+        rootNote: null,
+        rootString: null,
+        chordFingering: [],
+        foundChordNotes: new Set(),
+        currentTargetNote: null,
+      };
+    }
+
+    return {
+      showAll: false,
+      rootNote: currentPrompt.targetNote,
+      rootString: currentPrompt.targetString,
       chordFingering: [],
       foundChordNotes: new Set(),
       currentTargetNote: null,

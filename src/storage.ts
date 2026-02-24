@@ -66,6 +66,7 @@ export interface ProfileSettings {
   randomizeChords?: boolean;
   selectedProgression?: string;
   arpeggioPattern?: string;
+  melodyShowNote?: boolean;
   calibratedA4?: number;
 }
 
@@ -143,6 +144,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     randomizeChords: dom.randomizeChords.checked,
     selectedProgression: dom.progressionSelector.value,
     arpeggioPattern: dom.arpeggioPatternSelector.value,
+    melodyShowNote: dom.melodyShowNote.checked,
     calibratedA4: state.calibratedA4,
   };
 }
@@ -220,6 +222,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     }
 
     dom.arpeggioPatternSelector.value = safeSettings.arpeggioPattern ?? 'ascending';
+    dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;
     dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);

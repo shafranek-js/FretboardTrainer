@@ -40,7 +40,7 @@
 
         <div class="prompt-container flex items-center justify-center gap-3 sm:gap-4">
           <div
-            class="prompt text-xl sm:text-2xl md:text-3xl font-bold min-h-[36px] sm:min-h-[40px] flex items-center justify-center"
+            class="prompt text-xl sm:text-2xl md:text-3xl font-bold min-h-[36px] sm:min-h-[40px] min-w-0 flex items-center justify-center text-center px-2 leading-tight"
             id="prompt"
             aria-live="polite"
           ></div>
@@ -63,7 +63,7 @@
           </button>
         </div>
 
-        <div class="controls-row flex justify-center gap-2 sm:gap-4 items-center">
+        <div class="controls-row w-full max-w-5xl mx-auto grid grid-cols-[auto,minmax(0,1fr)] gap-2 sm:gap-4 items-center">
           <button
             id="sessionToggleBtn"
             class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 sm:px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
@@ -85,19 +85,31 @@
               Stop Session
             </button>
           </div>
+          <div
+            id="sessionInlineFeedback"
+            class="session-inline-feedback min-w-0 h-9 sm:h-10 flex items-center gap-2 sm:gap-3 rounded-md border border-slate-600/70 bg-slate-800/70 px-2 sm:px-3"
+            aria-live="polite"
+          >
+            <div
+              class="result min-w-0 shrink text-sm sm:text-base leading-5 truncate"
+              id="result"
+            ></div>
+            <div id="sessionInlineDivider" class="h-4 w-px bg-slate-600/80 shrink-0"></div>
+            <div
+              class="note-info-container min-w-0 flex flex-nowrap items-center gap-x-2 sm:gap-x-4 overflow-hidden text-[10px] sm:text-[11px] leading-4 text-slate-400 font-medium"
+            >
+              <span id="infoSlot1" class="truncate whitespace-nowrap empty:hidden"></span>
+              <span id="infoSlot2" class="truncate whitespace-nowrap empty:hidden"></span>
+              <span id="infoSlot3" class="truncate whitespace-nowrap empty:hidden"></span>
+            </div>
+          </div>
         </div>
 
-        <div class="result w-full text-base leading-5 empty:hidden" id="result" aria-live="polite"></div>
         <div
           id="sessionGoalProgress"
           class="w-full hidden text-[11px] leading-4 text-emerald-200 bg-emerald-900/20 border border-emerald-700/35 rounded-md px-3 py-1"
           aria-live="polite"
         ></div>
-        <div class="note-info-container w-full flex items-center justify-center gap-x-5 text-[11px] leading-4 text-slate-400 font-medium min-h-0">
-          <span id="infoSlot1"></span>
-          <span id="infoSlot2"></span>
-          <span id="infoSlot3"></span>
-        </div>
       </div>
 
       <div class="learning-controls px-4 py-2 bg-slate-700 rounded-lg shrink-0 text-[10px]">
@@ -197,6 +209,7 @@
               <option value="random">Random Note</option>
               <option value="adaptive">Adaptive Practice</option>
               <option value="free">Free Play (Live Note)</option>
+              <option value="melody">Melodies (Follow the Notes)</option>
               <option value="rhythm">Rhythm (On the Click)</option>
               <option value="scales">Scale Practice</option>
             <option value="intervals">Interval Training</option>
@@ -216,6 +229,14 @@
             <option value="beginner_essentials">Step 1: Beginner Essentials</option>
             <option value="position_1_5">Step 2: Position 1-5 Mapping</option>
             <option value="interval_foundations">Step 3: Interval Foundations</option>
+            <option value="accidentals_position_1_5">Step 4: Accidentals in Position 1-5</option>
+            <option value="adaptive_full_fretboard">Step 5: Adaptive Full Fretboard</option>
+            <option value="scale_foundations">Step 6: Scale Foundations</option>
+            <option value="chord_foundations">Step 7: Chord Foundations</option>
+            <option value="arpeggio_foundations">Step 8: Arpeggio Foundations</option>
+            <option value="progression_foundations">Step 9: Progression Foundations</option>
+            <option value="rhythm_foundations">Step 10: Rhythm Foundations</option>
+            <option value="timed_challenge_intro">Step 11: Timed Challenge Intro</option>
           </select>
         </div>
           <div class="session-goal-selector flex items-center gap-2">
@@ -230,6 +251,41 @@
             <option value="correct_50">50 Correct</option>
           </select>
         </div>
+          <div
+            id="melodySelectorContainer"
+            class="melody-selector-container hidden flex flex-col items-stretch gap-2 w-full"
+          >
+            <div class="flex items-center gap-2 flex-wrap">
+              <label for="melodySelector">Melody:</label>
+              <select
+                id="melodySelector"
+                class="bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none min-w-[16rem]"
+              ></select>
+              <button
+                id="openMelodyImportBtn"
+                type="button"
+                class="px-3 py-2 text-sm bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 rounded-md"
+              >
+                Import ASCII Tab...
+              </button>
+              <button
+                id="deleteMelodyBtn"
+                type="button"
+                class="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-md"
+              >
+                Delete Custom
+              </button>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-slate-200">
+              <input
+                id="melodyShowNote"
+                type="checkbox"
+                checked
+                class="w-4 h-4 accent-cyan-500"
+              />
+              Показывать ноту (подсказка)
+            </label>
+          </div>
           <div
             id="scaleSelectorContainer"
             class="scale-selector-container hidden flex items-center gap-2"
@@ -989,6 +1045,103 @@
             class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md transition-colors"
           >
             Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="melodyImportModal"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[55]"
+      aria-hidden="true"
+    >
+      <div
+        class="modal-content relative bg-slate-700 p-8 rounded-lg shadow-xl w-full max-w-3xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="melodyImportTitle"
+      >
+        <button
+          id="closeMelodyImportBtn"
+          class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
+          aria-label="Close melody import"
+        >
+          &times;
+        </button>
+        <h2 id="melodyImportTitle" class="text-2xl font-bold mb-3 text-white">Import Melody from ASCII Tab</h2>
+        <p class="mb-4 text-sm text-slate-300">
+          Paste monophonic ASCII tabs with numbered string labels, for example:
+          <code class="text-cyan-200">1 струна 0---5---8---</code> or
+          <code class="text-cyan-200">1 string 0---5---8---</code>.
+        </p>
+        <div class="grid gap-3">
+          <input
+            id="melodyNameInput"
+            type="text"
+            placeholder="Custom melody name"
+            class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+          />
+          <textarea
+            id="melodyAsciiTabInput"
+            rows="10"
+            placeholder="Paste ASCII tab lines here"
+            class="w-full bg-slate-900 border border-slate-600 rounded-md p-2 font-mono text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+          ></textarea>
+          <div class="flex justify-end gap-3">
+            <button
+              id="cancelMelodyImportBtn"
+              type="button"
+              class="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              id="importMelodyBtn"
+              type="button"
+              class="bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+            >
+              Import Melody
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="confirmModal"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[60]"
+      aria-hidden="true"
+    >
+      <div
+        class="modal-content relative bg-slate-700 p-8 rounded-lg shadow-xl w-full max-w-md"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmTitle"
+        aria-describedby="confirmMessage"
+      >
+        <button
+          id="confirmCloseBtn"
+          class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
+          aria-label="Cancel confirmation"
+        >
+          &times;
+        </button>
+        <h2 id="confirmTitle" class="text-2xl font-bold mb-4 text-white">Confirm Action</h2>
+        <p id="confirmMessage" class="mb-6 text-slate-300">
+          Are you sure you want to continue?
+        </p>
+        <div class="flex justify-end gap-3">
+          <button
+            id="confirmCancelBtn"
+            class="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirmOkBtn"
+            class="btn-primary bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+          >
+            Confirm
           </button>
         </div>
       </div>

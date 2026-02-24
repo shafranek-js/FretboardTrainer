@@ -11,6 +11,9 @@ import {
 } from './src/controllers/profile-controller';
 import { registerModalControls } from './src/controllers/modal-controller';
 import { registerResizeObserver } from './src/controllers/resize-controller';
+import { registerConfirmControls } from './src/controllers/confirm-controller';
+import { showNonBlockingError } from './src/app-feedback';
+import { setUserErrorReporter } from './src/user-feedback-port';
 
 let globalErrorHandlersBound = false;
 
@@ -61,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await clearDevServiceWorkerState();
 
     bindUiSignals();
+    setUserErrorReporter(showNonBlockingError);
     await loadSettings(); // This now loads profiles, applies settings, and pre-loads audio
     loadStats();
     updateProfileButtonsState();
@@ -68,6 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerSessionControls();
     registerProfileControls();
     registerModalControls();
+    registerConfirmControls();
     registerResizeObserver();
   } catch (error) {
     reportBootstrapError(error);

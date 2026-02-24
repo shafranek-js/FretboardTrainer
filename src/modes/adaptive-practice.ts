@@ -7,6 +7,7 @@ import type { Prompt, NoteStat } from '../types';
 import { dom, state } from '../state';
 import { NATURAL_NOTES, ALL_NOTES } from '../constants';
 import { getEnabledStrings, getSelectedFretRange } from '../fretboard-ui-state';
+import { notifyUserError } from '../user-feedback-port';
 
 interface AdaptiveCandidate {
   note: string;
@@ -61,7 +62,7 @@ export class AdaptivePracticeMode implements ITrainingMode {
     const enabledStrings = Array.from(getEnabledStrings(dom.stringSelector));
 
     if (enabledStrings.length === 0) {
-      alert('Please select at least one string to practice on.');
+      notifyUserError('Please select at least one string to practice on.');
       return null;
     }
 
@@ -91,7 +92,7 @@ export class AdaptivePracticeMode implements ITrainingMode {
     }
 
     if (candidates.length === 0) {
-      alert(
+      notifyUserError(
         'No notes available for the selected strings, difficulty, and fret range. Please adjust your settings.'
       );
       return null;

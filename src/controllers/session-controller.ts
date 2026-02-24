@@ -9,6 +9,7 @@ import {
   refreshDisplayFormatting,
   setPracticeSetupCollapsed,
   setPracticeSetupSummary,
+  setModalVisible,
   setResultMessage,
   toggleSessionToolsCollapsed,
   togglePracticeSetupCollapsed,
@@ -18,6 +19,7 @@ import { buildPromptAudioPlan } from '../prompt-audio-plan';
 import {
   buildCurriculumPresetPlan,
   getCurriculumPresetDefinitions,
+  type CurriculumPresetPlan,
   type CurriculumPresetKey,
 } from '../curriculum-presets';
 import {
@@ -41,6 +43,14 @@ import {
   setInputSourcePreference,
   setPreferredMidiInputDeviceId,
 } from '../midi-runtime';
+import { formatUserFacingError, showNonBlockingError } from '../app-feedback';
+import {
+  deleteCustomMelody,
+  isCustomMelodyId,
+  listMelodiesForInstrument,
+  saveCustomAsciiTabMelody,
+} from '../melody-library';
+import { confirmUserAction } from '../user-feedback-port';
 
 function findPlayableStringForNote(note: string): string | null {
   const instrumentData = state.currentInstrument;
@@ -84,6 +94,61 @@ function applyEnabledStrings(enabledStrings: string[]) {
   });
 }
 
+function populateMelodyOptions() {
+  const melodies = listMelodiesForInstrument(state.currentInstrument);
+  const previousValue = dom.melodySelector.value;
+  dom.melodySelector.innerHTML = '';
+
+  melodies.forEach((melody) => {
+    const option = document.createElement('option');
+    option.value = melody.id;
+    option.textContent = melody.source === 'custom' ? `${melody.name} (Custom)` : melody.name;
+    dom.melodySelector.append(option);
+  });
+
+  const hasPrevious = melodies.some((melody) => melody.id === previousValue);
+  if (hasPrevious) {
+    dom.melodySelector.value = previousValue;
+  } else if (melodies.length > 0) {
+    dom.melodySelector.value = melodies[0].id;
+  }
+
+  dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
+}
+
+function setSelectValueIfAvailable(select: HTMLSelectElement, value: string | undefined) {
+  if (!value) return false;
+  const hasOption = Array.from(select.options).some((option) => option.value === value);
+  if (!hasOption) return false;
+  select.value = value;
+  return true;
+}
+
+function setFirstAvailableSelectValue(select: HTMLSelectElement, candidates: string[] | undefined) {
+  if (!candidates || candidates.length === 0) return false;
+  for (const value of candidates) {
+    if (setSelectValueIfAvailable(select, value)) return true;
+  }
+  return false;
+}
+
+function applyCurriculumPresetModeSpecificFields(plan: CurriculumPresetPlan) {
+  setSelectValueIfAvailable(dom.sessionGoal, plan.sessionGoal);
+  setSelectValueIfAvailable(dom.scaleSelector, plan.scaleValue);
+  setFirstAvailableSelectValue(dom.chordSelector, plan.chordValueCandidates);
+  setFirstAvailableSelectValue(dom.progressionSelector, plan.progressionValueCandidates);
+  setSelectValueIfAvailable(dom.arpeggioPatternSelector, plan.arpeggioPatternValue);
+  setSelectValueIfAvailable(dom.rhythmTimingWindow, plan.rhythmTimingWindow);
+
+  if (typeof plan.metronomeEnabled === 'boolean') {
+    dom.metronomeEnabled.checked = plan.metronomeEnabled;
+  }
+  if (typeof plan.metronomeBpm === 'number') {
+    dom.metronomeBpm.value = String(plan.metronomeBpm);
+    dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
+  }
+}
+
 function applyCurriculumPreset(key: CurriculumPresetKey) {
   const plan = buildCurriculumPresetPlan(key, state.currentInstrument.STRING_ORDER);
   if (!plan) {
@@ -102,6 +167,7 @@ function applyCurriculumPreset(key: CurriculumPresetKey) {
   dom.startFret.value = String(plan.startFret);
   dom.endFret.value = String(plan.endFret);
   applyEnabledStrings(plan.enabledStrings);
+  applyCurriculumPresetModeSpecificFields(plan);
 
   handleModeChange();
   redrawFretboard();
@@ -136,6 +202,10 @@ function updatePracticeSetupSummary() {
   let modeDetail = '';
   if (dom.trainingMode.value === 'scales') {
     modeDetail = ` | ${dom.scaleSelector.value}`;
+  } else if (dom.trainingMode.value === 'melody') {
+    const melodyLabel =
+      dom.melodySelector.selectedOptions[0]?.textContent?.trim() ?? dom.melodySelector.value;
+    modeDetail = ` | ${melodyLabel} | ${dom.melodyShowNote.checked ? 'Hint On' : 'Blind'}`;
   } else if (dom.trainingMode.value === 'chords') {
     modeDetail = ` | ${dom.chordSelector.value}`;
   } else if (dom.trainingMode.value === 'progressions') {
@@ -164,7 +234,7 @@ async function ensureRhythmModeMetronome() {
     return true;
   } catch (error) {
     dom.metronomeEnabled.checked = false;
-    alert(`Failed to start metronome for Rhythm mode: ${(error as Error).message}`);
+    showNonBlockingError(formatUserFacingError('Failed to start metronome for Rhythm mode', error));
     return false;
   }
 }
@@ -172,12 +242,18 @@ async function ensureRhythmModeMetronome() {
 export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
+  populateMelodyOptions();
   resetMetronomeVisualIndicator();
   updatePracticeSetupSummary();
   refreshInputSourceAvailabilityUi();
   setPracticeSetupCollapsed(window.innerWidth < 900);
   void refreshAudioInputDeviceOptions();
   void refreshMidiInputDevices(false);
+  dom.closeMelodyImportBtn.addEventListener('click', () => setModalVisible('melodyImport', false));
+  dom.cancelMelodyImportBtn.addEventListener('click', () => setModalVisible('melodyImport', false));
+  dom.melodyImportModal.addEventListener('click', (e) => {
+    if (e.target === dom.melodyImportModal) setModalVisible('melodyImport', false);
+  });
 
   dom.practiceSetupToggleBtn.addEventListener('click', () => {
     togglePracticeSetupCollapsed();
@@ -223,6 +299,7 @@ export function registerSessionControls() {
     state.currentInstrument = instruments[dom.instrumentSelector.value];
     state.currentTuningPresetKey = dom.tuningPreset.value;
     updateInstrumentUI(); // Redraw strings, fretboard, etc.
+    populateMelodyOptions();
     updatePracticeSetupSummary();
     await loadInstrumentSoundfont(state.currentInstrument.name);
     saveSettings();
@@ -352,7 +429,7 @@ export function registerSessionControls() {
     } catch (error) {
       dom.metronomeEnabled.checked = false;
       resetMetronomeVisualIndicator();
-      alert(`Failed to start metronome: ${(error as Error).message}`);
+      showNonBlockingError(formatUserFacingError('Failed to start metronome', error));
     }
   });
   dom.metronomeBpm.addEventListener('input', async () => {
@@ -378,6 +455,59 @@ export function registerSessionControls() {
     markCurriculumPresetAsCustom();
     updatePracticeSetupSummary();
     saveSettings();
+  });
+  dom.melodySelector.addEventListener('change', () => {
+    markCurriculumPresetAsCustom();
+    dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
+    if (state.isListening && dom.trainingMode.value === 'melody') {
+      stopListening();
+      setResultMessage('Melody changed. Session stopped; press Start to begin from the first note.');
+    }
+    updatePracticeSetupSummary();
+  });
+  dom.melodyShowNote.addEventListener('change', () => {
+    markCurriculumPresetAsCustom();
+    updatePracticeSetupSummary();
+    saveSettings();
+  });
+  dom.openMelodyImportBtn.addEventListener('click', () => {
+    dom.melodyNameInput.focus();
+    setModalVisible('melodyImport', true);
+  });
+  dom.importMelodyBtn.addEventListener('click', () => {
+    try {
+      const melodyId = saveCustomAsciiTabMelody(
+        dom.melodyNameInput.value,
+        dom.melodyAsciiTabInput.value,
+        state.currentInstrument
+      );
+      populateMelodyOptions();
+      dom.melodySelector.value = melodyId;
+      dom.deleteMelodyBtn.disabled = false;
+      dom.melodyNameInput.value = '';
+      dom.melodyAsciiTabInput.value = '';
+      setModalVisible('melodyImport', false);
+      markCurriculumPresetAsCustom();
+      updatePracticeSetupSummary();
+      setResultMessage('Custom melody imported from ASCII tab.');
+    } catch (error) {
+      showNonBlockingError(formatUserFacingError('Failed to import ASCII tab melody', error));
+    }
+  });
+  dom.deleteMelodyBtn.addEventListener('click', async () => {
+    const selectedId = dom.melodySelector.value;
+    if (!isCustomMelodyId(selectedId)) return;
+
+    const confirmed = await confirmUserAction('Delete selected custom melody from the local library?');
+    if (!confirmed) return;
+
+    const deleted = deleteCustomMelody(selectedId);
+    populateMelodyOptions();
+    markCurriculumPresetAsCustom();
+    updatePracticeSetupSummary();
+    if (deleted) {
+      setResultMessage('Custom melody deleted.');
+    }
   });
   dom.chordSelector.addEventListener('change', () => {
     markCurriculumPresetAsCustom();
@@ -421,9 +551,25 @@ export function registerSessionControls() {
 
   dom.hintBtn.addEventListener('click', () => {
     const prompt = state.currentPrompt;
-    if (!prompt || !prompt.targetNote) return;
+    if (!prompt) return;
 
     clearResultMessage();
+
+    if ((prompt.targetMelodyEventNotes?.length ?? 0) > 1) {
+      drawFretboard(false, null, null, prompt.targetMelodyEventNotes ?? []);
+      state.cooldown = true;
+      scheduleSessionTimeout(
+        2000,
+        () => {
+          redrawFretboard();
+          state.cooldown = false;
+        },
+        'melody poly hint cooldown redraw'
+      );
+      return;
+    }
+
+    if (!prompt.targetNote) return;
 
     const noteToShow = prompt.targetNote;
     const stringToShow = prompt.targetString || findPlayableStringForNote(noteToShow);

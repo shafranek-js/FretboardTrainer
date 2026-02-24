@@ -6,6 +6,7 @@ import { setModalVisible, setResultMessage, showCalibrationModal } from '../ui-s
 import { instruments } from '../instruments';
 import { refreshAudioInputDeviceOptions } from '../audio-input-devices';
 import { refreshInputSourceAvailabilityUi, refreshMidiInputDevices } from '../midi-runtime';
+import { confirmUserAction } from '../user-feedback-port';
 
 export function registerModalControls() {
   // --- Settings Modal and its Children ---
@@ -40,11 +41,13 @@ export function registerModalControls() {
   dom.statsModal.addEventListener('click', (e) => {
     if (e.target === dom.statsModal) setModalVisible('stats', false);
   });
-  dom.resetStatsBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to reset all your statistics? This cannot be undone.')) {
-      resetStats();
-      displayStats(); // Re-display the cleared stats
-    }
+  dom.resetStatsBtn.addEventListener('click', async () => {
+    const shouldReset = await confirmUserAction(
+      'Are you sure you want to reset all your statistics? This cannot be undone.'
+    );
+    if (!shouldReset) return;
+    resetStats();
+    displayStats(); // Re-display the cleared stats
   });
   dom.repeatLastSessionBtn.addEventListener('click', () => {
     const lastSession = state.lastSessionStats;

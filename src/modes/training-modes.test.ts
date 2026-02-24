@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NATURAL_NOTES } from '../constants';
 
-const { mockDom, mockState, setPromptTextMock } = vi.hoisted(() => ({
+const { mockDom, mockState, setPromptTextMock, getMelodyByIdMock } = vi.hoisted(() => ({
   mockDom: {
     stringSelector: {
       querySelectorAll: vi.fn(),
@@ -16,6 +16,8 @@ const { mockDom, mockState, setPromptTextMock } = vi.hoisted(() => ({
       options: [] as { value: string }[],
     },
     arpeggioPatternSelector: { value: 'ascending' },
+    melodySelector: { value: 'builtin:test' },
+    melodyShowNote: { checked: true },
   },
   mockState: {
     currentInstrument: {
@@ -34,9 +36,13 @@ const { mockDom, mockState, setPromptTextMock } = vi.hoisted(() => ({
       targetChordNotes: string[];
       targetChordFingering: { note: string; string: string; fret: number }[];
     } | null,
+    currentMelodyId: null as string | null,
+    currentMelodyEventIndex: 0,
+    currentMelodyEventFoundNotes: new Set<string>(),
     isListening: false,
   },
   setPromptTextMock: vi.fn(),
+  getMelodyByIdMock: vi.fn(),
 }));
 
 vi.mock('../state', () => ({
@@ -48,6 +54,10 @@ vi.mock('../ui-signals', () => ({
   setPromptText: setPromptTextMock,
 }));
 
+vi.mock('../melody-library', () => ({
+  getMelodyById: getMelodyByIdMock,
+}));
+
 import { RandomNoteMode } from './random-note';
 import { IntervalTrainingMode } from './interval-training';
 import { ScalePracticeMode } from './scale-practice';
@@ -57,6 +67,7 @@ import { ArpeggioTrainingMode } from './arpeggio-training';
 import { FreePlayMode } from './free-play';
 import { AdaptivePracticeMode } from './adaptive-practice';
 import { RhythmTrainingMode } from './rhythm-training';
+import { MelodyPracticeMode } from './melody-practice';
 
 function setEnabledStrings(strings: string[]) {
   mockDom.stringSelector.querySelectorAll.mockReturnValue(
@@ -76,6 +87,7 @@ beforeEach(() => {
   mockDom.chordSelector.value = 'C Major';
   mockDom.chordSelector.options = [{ value: 'C Major' }, { value: 'G Major' }];
   mockDom.arpeggioPatternSelector.value = 'ascending';
+  mockDom.melodyShowNote.checked = true;
 
   mockState.currentInstrument.FRETBOARD = {
     E: { E: 0, F: 1, G: 3, A: 5 },
@@ -102,9 +114,13 @@ beforeEach(() => {
   mockState.currentArpeggioIndex = 0;
   mockState.currentPrompt = null;
   mockState.isListening = false;
+  mockState.currentMelodyId = null;
+  mockState.currentMelodyEventIndex = 0;
+  mockState.currentMelodyEventFoundNotes.clear();
   (mockState as unknown as { stats?: { noteStats: Record<string, unknown> } }).stats = {
     noteStats: {},
   };
+  getMelodyByIdMock.mockReset();
   setEnabledStrings(['E', 'A']);
 });
 
@@ -282,5 +298,94 @@ describe('RhythmTrainingMode', () => {
     expect(prompt.targetString).toBeNull();
     expect(prompt.targetChordNotes).toEqual([]);
     expect(prompt.displayText).toContain('Rhythm');
+  });
+});
+
+describe('MelodyPracticeMode', () => {
+  it('generates sequential prompts from the selected melody', () => {
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Test Melody',
+      events: [
+        { notes: [{ note: 'C', stringName: 'A', fret: 3 }] },
+        { notes: [{ note: 'D', stringName: 'A', fret: 5 }] },
+      ],
+    });
+
+    const mode = new MelodyPracticeMode();
+    const first = mode.generatePrompt();
+    const second = mode.generatePrompt();
+
+    expect(first?.targetNote).toBe('C');
+    expect(first?.targetString).toBe('A');
+    expect(first?.displayText).toContain('[1/2]');
+    expect(second?.targetNote).toBe('D');
+    expect(second?.displayText).toContain('[2/2]');
+  });
+
+  it('returns null and signals completion after the last step', () => {
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Test Melody',
+      events: [{ notes: [{ note: 'C', stringName: null, fret: null }] }],
+    });
+    mockState.currentMelodyId = 'builtin:test';
+    mockState.currentMelodyEventIndex = 1;
+
+    const mode = new MelodyPracticeMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).toBeNull();
+    expect(setPromptTextMock).toHaveBeenCalledWith('Melody complete! (Test Melody)');
+  });
+
+  it('hides note hint text when melodyShowNote is disabled', () => {
+    mockDom.melodyShowNote.checked = false;
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Test Melody',
+      events: [{ notes: [{ note: 'C', stringName: 'A', fret: 3 }] }],
+    });
+
+    const mode = new MelodyPracticeMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt?.targetNote).toBe('C');
+    expect(prompt?.displayText).toContain('play the next note');
+    expect(prompt?.displayText).not.toContain('C');
+    expect(prompt?.displayText).not.toContain('fret 3');
+    expect(prompt?.displayText).not.toContain('Test Melody');
+  });
+
+  it('creates a polyphonic melody event prompt from one tab column', () => {
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Double Stop',
+      events: [
+        {
+          notes: [
+            { note: 'C', stringName: 'A', fret: 3 },
+            { note: 'E', stringName: 'E', fret: 0 },
+          ],
+        },
+      ],
+    });
+
+    const mode = new MelodyPracticeMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt?.targetNote).toBeNull();
+    expect(prompt?.targetString).toBeNull();
+    expect(prompt?.targetChordNotes).toEqual(['C', 'E']);
+    expect(prompt?.targetChordFingering).toEqual([
+      { note: 'C', string: 'A', fret: 3 },
+      { note: 'E', string: 'E', fret: 0 },
+    ]);
+    expect(prompt?.targetMelodyEventNotes).toEqual([
+      { note: 'C', string: 'A', fret: 3 },
+      { note: 'E', string: 'E', fret: 0 },
+    ]);
   });
 });

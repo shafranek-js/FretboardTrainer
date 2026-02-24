@@ -9,6 +9,19 @@ export function freqToNoteNameFromA4(freq: number, a4Frequency: number): string 
   return ALL_NOTES[noteIndex];
 }
 
+/** Returns the nearest equal-tempered target frequency for chromatic tuner use. */
+export function nearestChromaticTargetFrequencyFromA4(
+  freq: number,
+  a4Frequency: number
+): number | null {
+  if (!Number.isFinite(freq) || freq <= 0 || !Number.isFinite(a4Frequency) || a4Frequency <= 0) {
+    return null;
+  }
+
+  const semitoneOffsetFromA4 = Math.round(12 * Math.log2(freq / a4Frequency));
+  return a4Frequency * Math.pow(2, semitoneOffsetFromA4 / 12);
+}
+
 /** Returns major-third and perfect-fifth notes for a root note. */
 export function calculateTriadIntervals(rootNote: string): {
   majorThird: string;

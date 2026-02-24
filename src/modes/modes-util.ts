@@ -5,6 +5,7 @@
 import { dom, state } from '../state';
 import { Prompt, ChordNote } from '../types';
 import { CHORDS } from '../constants';
+import { notifyUserError } from '../user-feedback-port';
 export { getIntervalNameFromIndex } from './interval-name';
 
 /** Shared logic for generating a prompt for a single chord. Used by Chord and Arpeggio modes. */
@@ -13,7 +14,7 @@ export function generateChordPrompt(): Prompt | null {
   if (dom.randomizeChords.checked) {
     const allChords = Array.from(dom.chordSelector.options).map((opt) => opt.value);
     if (allChords.length === 0) {
-      alert('No chords available to practice. Please check instrument settings.');
+      notifyUserError('No chords available to practice. Please check instrument settings.');
       return null;
     }
     chordName = allChords[Math.floor(Math.random() * allChords.length)];
@@ -23,7 +24,7 @@ export function generateChordPrompt(): Prompt | null {
   }
 
   if (!chordName) {
-    alert('No chord selected. Please select one from the dropdown.');
+    notifyUserError('No chord selected. Please select one from the dropdown.');
     return null;
   }
 
@@ -31,7 +32,7 @@ export function generateChordPrompt(): Prompt | null {
   const chordFingering = state.currentInstrument.CHORD_FINGERINGS[chordName as keyof typeof CHORDS];
 
   if (!chordNotes || chordNotes.length === 0 || !chordFingering) {
-    alert(`Could not find complete data for chord "${chordName}". Stopping session.`);
+    notifyUserError(`Could not find complete data for chord "${chordName}". Stopping session.`);
     return null;
   }
 

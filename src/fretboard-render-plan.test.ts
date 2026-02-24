@@ -24,6 +24,7 @@ describe('computeFretboardRenderPlan', () => {
       currentArpeggioIndex: 0,
       liveDetectedNote: null,
       liveDetectedString: null,
+      melodyFoundNotes: new Set(),
     });
 
     expect(plan.showAll).toBe(false);
@@ -41,6 +42,7 @@ describe('computeFretboardRenderPlan', () => {
       currentArpeggioIndex: 1,
       liveDetectedNote: null,
       liveDetectedString: null,
+      melodyFoundNotes: new Set(),
     });
 
     expect(plan.showAll).toBe(false);
@@ -57,6 +59,7 @@ describe('computeFretboardRenderPlan', () => {
       currentArpeggioIndex: 0,
       liveDetectedNote: null,
       liveDetectedString: null,
+      melodyFoundNotes: new Set(),
     });
 
     expect(plan.showAll).toBe(true);
@@ -72,10 +75,72 @@ describe('computeFretboardRenderPlan', () => {
       currentArpeggioIndex: 0,
       liveDetectedNote: 'A',
       liveDetectedString: 'E',
+      melodyFoundNotes: new Set(),
     });
 
     expect(plan.showAll).toBe(false);
     expect(plan.rootNote).toBe('A');
     expect(plan.rootString).toBeNull();
+  });
+
+  it('returns target note highlight plan for melody mode', () => {
+    const melodyPrompt: Prompt = {
+      displayText: 'Melody [1/4]: C (A, fret 3)',
+      targetNote: 'C',
+      targetString: 'A',
+      targetChordNotes: [],
+      targetChordFingering: [],
+      baseChordName: null,
+    };
+
+    const plan = computeFretboardRenderPlan({
+      trainingMode: 'melody',
+      isListening: true,
+      showingAllNotes: false,
+      currentPrompt: melodyPrompt,
+      currentArpeggioIndex: 0,
+      liveDetectedNote: null,
+      liveDetectedString: null,
+      melodyFoundNotes: new Set(),
+    });
+
+    expect(plan.showAll).toBe(false);
+    expect(plan.rootNote).toBe('C');
+    expect(plan.rootString).toBe('A');
+    expect(plan.chordFingering).toEqual([]);
+  });
+
+  it('returns multi-note highlight plan for polyphonic melody events', () => {
+    const melodyPrompt: Prompt = {
+      displayText: 'Melody [1/4]: C + E',
+      targetNote: null,
+      targetString: null,
+      targetChordNotes: ['C', 'E'],
+      targetChordFingering: [
+        { note: 'C', string: 'A', fret: 3 },
+        { note: 'E', string: 'D', fret: 2 },
+      ],
+      targetMelodyEventNotes: [
+        { note: 'C', string: 'A', fret: 3 },
+        { note: 'E', string: 'D', fret: 2 },
+      ],
+      baseChordName: null,
+    };
+
+    const plan = computeFretboardRenderPlan({
+      trainingMode: 'melody',
+      isListening: true,
+      showingAllNotes: false,
+      currentPrompt: melodyPrompt,
+      currentArpeggioIndex: 0,
+      liveDetectedNote: null,
+      liveDetectedString: null,
+      melodyFoundNotes: new Set(['C']),
+    });
+
+    expect(plan.rootNote).toBeNull();
+    expect(plan.rootString).toBeNull();
+    expect(plan.chordFingering).toEqual(melodyPrompt.targetMelodyEventNotes);
+    expect([...plan.foundChordNotes]).toEqual(['C']);
   });
 });

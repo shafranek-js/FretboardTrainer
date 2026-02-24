@@ -11,6 +11,9 @@ export interface SessionStopResetState {
   currentProgression: string[];
   currentProgressionIndex: number;
   currentArpeggioIndex: number;
+  currentMelodyId: string | null;
+  currentMelodyEventIndex: number;
+  currentMelodyEventFoundNotes: Set<string>;
 }
 
 export function createSessionStopResetState() {
@@ -25,5 +28,8 @@ export function createSessionStopResetState() {
     currentProgression: [],
     currentProgressionIndex: 0,
     currentArpeggioIndex: 0,
+    currentMelodyId: null,
+    currentMelodyEventIndex: 0,
+    currentMelodyEventFoundNotes: new Set<string>(),
   } satisfies SessionStopResetState & ReturnType<typeof createPromptCycleTrackingResetState>;
 }

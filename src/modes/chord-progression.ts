@@ -6,6 +6,7 @@ import { ITrainingMode, DetectionType } from './training-mode';
 import { Prompt, ChordNote } from '../types';
 import { state } from '../state';
 import { CHORDS } from '../constants';
+import { notifyUserError } from '../user-feedback-port';
 
 export class ChordProgressionMode implements ITrainingMode {
   detectionType: DetectionType = 'polyphonic';
@@ -21,7 +22,7 @@ export class ChordProgressionMode implements ITrainingMode {
     const chordName = state.currentProgression[state.currentProgressionIndex];
 
     if (!chordName) {
-      alert(`Invalid chord found in progression. Stopping session.`);
+      notifyUserError(`Invalid chord found in progression. Stopping session.`);
       return null;
     }
 
@@ -30,7 +31,7 @@ export class ChordProgressionMode implements ITrainingMode {
       state.currentInstrument.CHORD_FINGERINGS[chordName as keyof typeof CHORDS];
 
     if (!chordNotes || chordNotes.length === 0 || !chordFingering) {
-      alert(
+      notifyUserError(
         `Could not find complete data for chord "${chordName}" in the progression. Stopping session.`
       );
       return null;

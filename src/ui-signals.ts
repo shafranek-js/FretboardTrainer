@@ -60,7 +60,7 @@ const loadingViewSignal = createSignal<LoadingViewState>({
   isLoading: false,
   message: '',
 });
-type ModalKey = 'settings' | 'stats' | 'guide' | 'links' | 'profileName';
+type ModalKey = 'settings' | 'stats' | 'guide' | 'links' | 'profileName' | 'melodyImport';
 type ModalVisibilityState = Record<ModalKey, boolean>;
 const modalVisibilitySignal = createSignal<ModalVisibilityState>({
   settings: false,
@@ -68,6 +68,7 @@ const modalVisibilitySignal = createSignal<ModalVisibilityState>({
   guide: false,
   links: false,
   profileName: false,
+  melodyImport: false,
 });
 interface ProfileActionsState {
   updateDisabled: boolean;
@@ -110,12 +111,28 @@ function renderResultView(resultView: ResultViewState) {
   } else if (resultView.tone === 'error') {
     dom.result.classList.add('text-red-400');
   }
+  syncSessionInlineFeedbackDividerVisibility();
 }
 
 function renderInfoSlots({ slot1, slot2, slot3 }: InfoSlotsState) {
   dom.infoSlot1.textContent = formatMusicText(slot1);
   dom.infoSlot2.textContent = formatMusicText(slot2);
   dom.infoSlot3.textContent = formatMusicText(slot3);
+  syncSessionInlineFeedbackDividerVisibility();
+}
+
+function syncSessionInlineFeedbackDividerVisibility() {
+  const hasResultText = (dom.result.textContent?.trim().length ?? 0) > 0;
+  const hasInfoText = [
+    dom.infoSlot1.textContent,
+    dom.infoSlot2.textContent,
+    dom.infoSlot3.textContent,
+  ].some((text) => (text?.trim().length ?? 0) > 0);
+  const hasAnyText = hasResultText || hasInfoText;
+
+  // Show the divider only when both sides have content.
+  dom.sessionInlineDivider.classList.toggle('hidden', !hasResultText || !hasInfoText);
+  dom.sessionInlineFeedback.classList.toggle('opacity-60', !hasAnyText);
 }
 
 function renderPracticeSetupCollapsed(collapsed: boolean) {
@@ -413,6 +430,7 @@ export function bindUiSignals() {
   trainingModeUiSignal.subscribe((mode) => {
     const visibility = getTrainingModeUiVisibility(mode);
 
+    dom.melodySelectorContainer.classList.toggle('hidden', !visibility.showMelodySelector);
     dom.scaleSelectorContainer.classList.toggle('hidden', !visibility.showScaleSelector);
     dom.chordSelectorContainer.classList.toggle('hidden', !visibility.showChordSelector);
     dom.progressionSelectorContainer.classList.toggle('hidden', !visibility.showProgressionSelector);
@@ -476,6 +494,12 @@ export function bindUiSignals() {
       dom.profileNameModal.classList.remove('hidden');
     } else {
       dom.profileNameModal.classList.add('hidden');
+    }
+
+    if (visibility.melodyImport) {
+      dom.melodyImportModal.classList.remove('hidden');
+    } else {
+      dom.melodyImportModal.classList.add('hidden');
     }
   });
 

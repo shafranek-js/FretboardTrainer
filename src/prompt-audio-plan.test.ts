@@ -36,6 +36,7 @@ describe('buildPromptAudioPlan', () => {
       notesToPlay: [],
       targetFrequency: null,
       playSoundEnabled: false,
+      autoPlaySound: false,
     });
   });
 
@@ -62,6 +63,7 @@ describe('buildPromptAudioPlan', () => {
       notesToPlay: ['C5', 'C5'],
       targetFrequency: null,
       playSoundEnabled: true,
+      autoPlaySound: true,
     });
   });
 
@@ -76,6 +78,22 @@ describe('buildPromptAudioPlan', () => {
 
     expect(result.notesToPlay).toEqual(['C5']);
     expect(result.playSoundEnabled).toBe(true);
+    expect(result.autoPlaySound).toBe(true);
+    expect(result.targetFrequency).not.toBeNull();
+  });
+
+  it('disables auto-play for melody mode while keeping manual sound enabled', () => {
+    const result = buildPromptAudioPlan({
+      prompt: basePrompt,
+      trainingMode: 'melody',
+      instrument,
+      calibratedA4: 440,
+      enabledStrings: new Set(['A', 'D']),
+    });
+
+    expect(result.notesToPlay).toEqual(['C5']);
+    expect(result.playSoundEnabled).toBe(true);
+    expect(result.autoPlaySound).toBe(false);
     expect(result.targetFrequency).not.toBeNull();
   });
 
@@ -92,6 +110,7 @@ describe('buildPromptAudioPlan', () => {
       notesToPlay: [],
       targetFrequency: null,
       playSoundEnabled: false,
+      autoPlaySound: false,
     });
   });
 
@@ -112,5 +131,6 @@ describe('buildPromptAudioPlan', () => {
     expect(result.notesToPlay).toEqual([]);
     expect(result.targetFrequency).not.toBeNull();
     expect(result.playSoundEnabled).toBe(false);
+    expect(result.autoPlaySound).toBe(true);
   });
 });
