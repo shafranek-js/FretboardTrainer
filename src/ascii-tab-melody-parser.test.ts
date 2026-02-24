@@ -11,6 +11,8 @@ const guitarLikeInstrument = {
     const baseByString: Record<string, string[]> = {
       e: ['E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E'],
       B: ['B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G'],
+      A: ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A'],
+      E: ['E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E'],
     };
     const notes = baseByString[stringName];
     if (!notes || !notes[fret]) return null;
@@ -132,5 +134,36 @@ describe('ascii-tab-melody-parser', () => {
 
   it('throws a user-friendly error when no tab lines are found', () => {
     expect(() => parseAsciiTabMelodyEvents('count 1 and 2 and')).toThrow(/No tab lines found/i);
+  });
+
+  it('supports lettered tab lines like E|... and ignores source comments', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        'E|-----------------------------------------------|',
+        'B|-----------------------------------------------|',
+        'G|-----------------------------------------------|',
+        'D|-----------------------------------------------|',
+        'A|-3--3--10--10--12--12--10--8--8--7--7--5--5--3-|',
+        'E|-1--1--8---8---10--10--8---6--6--5--5--3--3--1-|',
+        '[ Tab from: https://www.guitartabs.cc/tabs/m/misc/twinkle_twinkle_little_star_tab.html ]',
+        'E|------------------------------------------------|',
+        'B|------------------------------------------------|',
+        'G|------------------------------------------------|',
+        'D|------------------------------------------------|',
+        'A|-10--10--8--8--7--7--5----10--10--8--8--7--7--5-|',
+        'E|-8---8---6--6--5--5--3----8---8---6--6--5--5--3-|',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents.length).toBeGreaterThan(10);
+    expect(groupedEvents[0]?.notes.map((n) => [n.stringName, n.fret])).toEqual([
+      ['A', 3],
+      ['E', 1],
+    ]);
+    expect(groupedEvents[1]?.notes.map((n) => [n.stringName, n.fret])).toEqual([
+      ['A', 3],
+      ['E', 1],
+    ]);
   });
 });

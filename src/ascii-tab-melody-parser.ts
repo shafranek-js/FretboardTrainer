@@ -15,15 +15,21 @@ export interface ParsedAsciiTabMelodyEvent {
   notes: ParsedAsciiTabMelodyStep[];
 }
 
+interface ParsedTabLine {
+  explicitStringNumber: number | null;
+  labelText: string;
+  content: string;
+}
+
+interface ResolvedParsedTabLine {
+  stringNumber: number;
+  content: string;
+}
+
 interface ParsedTabEvent {
   stringNumber: number;
   fret: number;
   column: number;
-}
-
-interface ParsedTabLine {
-  stringNumber: number;
-  content: string;
 }
 
 interface ParsedTabBlock {
@@ -40,49 +46,169 @@ function toNoteName(noteWithOctave: string) {
   return noteWithOctave.replace(/\d+$/, '');
 }
 
+function parseTabLine(line: string): ParsedTabLine | null {
+  // Numbered format: "2 string ...", "3 ?????? ..."
+  const numberedMatch = line.match(/^\s*(\d+)\s+([^\s|]+)\s+(.*)$/i);
+  if (numberedMatch) {
+    return {
+      explicitStringNumber: Number.parseInt(numberedMatch[1], 10),
+      labelText: numberedMatch[2] ?? numberedMatch[1] ?? '',
+      content: numberedMatch[3] ?? '',
+    };
+  }
+
+  // Letter format: "E|---", "B|---" (common guitar tab sites)
+  const namedMatch = line.match(/^\s*([A-Ga-g])\s*\|(.*)$/);
+  if (namedMatch) {
+    return {
+      explicitStringNumber: null,
+      labelText: namedMatch[1] ?? '',
+      content: namedMatch[2] ?? '',
+    };
+  }
+
+  return null;
+}
+
+function extractCountContent(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Count lines may be labeled ("count ...") or just show spaced beat markers.
+  const looksLikeCountLabel = /\bcount\b/i.test(trimmed);
+  const hasDigits = /\d/.test(trimmed);
+  const hasSubdivisionWords = /\band\b/i.test(trimmed) || trimmed.includes('&');
+  const manyDigitTokens = (trimmed.match(/\d+/g) ?? []).length >= 2;
+  const looksLikeMeasuredCountGrid = manyDigitTokens && /\s{2,}/.test(trimmed);
+
+  if (!looksLikeCountLabel && !(hasDigits && (hasSubdivisionWords || looksLikeMeasuredCountGrid))) {
+    return null;
+  }
+
+  const firstDigitIndex = line.search(/\d/);
+  if (firstDigitIndex < 0) return null;
+  return line.slice(firstDigitIndex);
+}
+
 function parseTabBlocks(tabText: string): ParsedTabBlock[] {
   const lines = tabText.replace(/\r/g, '').split('\n');
   const blocks: ParsedTabBlock[] = [];
-  let currentBlock: ParsedTabLine[] = [];
+  let currentRows: ParsedTabLine[] = [];
+  let currentCountContent: string | null = null;
+  let separatedAfterRows = false;
 
-  const pushCurrentBlock = (countContent: string | null = null) => {
-    if (currentBlock.length === 0) return;
-    blocks.push({ rows: currentBlock, countContent });
-    currentBlock = [];
-  };
-
-  const extractCountContent = (line: string): string | null => {
-    const firstDigitIndex = line.search(/\d/);
-    if (firstDigitIndex < 0) return null;
-    return line.slice(firstDigitIndex);
+  const pushCurrentBlock = () => {
+    if (currentRows.length === 0) return;
+    blocks.push({ rows: currentRows, countContent: currentCountContent });
+    currentRows = [];
+    currentCountContent = null;
+    separatedAfterRows = false;
   };
 
   for (const line of lines) {
-    // Accept both "string" and localized labels such as "??????" by allowing any word after the number.
-    const match = line.match(/^\s*(\d+)\s*\S+\s+(.*)$/i);
-    if (!match) {
-      if (currentBlock.length > 0) {
-        pushCurrentBlock(extractCountContent(line));
+    const parsedTabLine = parseTabLine(line);
+    if (parsedTabLine) {
+      if (currentRows.length > 0 && separatedAfterRows) {
+        pushCurrentBlock();
       }
+      currentRows.push(parsedTabLine);
+      separatedAfterRows = false;
       continue;
     }
 
-    currentBlock.push({
-      stringNumber: Number.parseInt(match[1], 10),
-      content: match[2] ?? '',
-    });
+    if (currentRows.length === 0) {
+      continue;
+    }
+
+    const countContent = currentCountContent ? null : extractCountContent(line);
+    if (countContent) {
+      currentCountContent = countContent;
+      separatedAfterRows = true;
+      continue;
+    }
+
+    if (line.trim().length === 0) {
+      separatedAfterRows = true;
+      continue;
+    }
+
+    // Comment/annotation line (e.g. [ Tab from: ... ]) => end current block.
+    pushCurrentBlock();
   }
 
-  pushCurrentBlock(null);
+  pushCurrentBlock();
   return blocks;
 }
 
-function parseEventsFromBlock(block: ParsedTabLine[]): ParsedTabEvent[] {
-  const maxLength = block.reduce((max, row) => Math.max(max, row.content.length), 0);
+function normalizeStringLabelForMatching(label: string) {
+  const match = label.match(/[A-Ga-g]/);
+  return (match?.[0] ?? '').toLowerCase();
+}
+
+function resolveBlockRowsToStringNumbers(
+  rows: ParsedTabLine[],
+  instrument?: Pick<IInstrument, 'STRING_ORDER'>
+): ResolvedParsedTabLine[] {
+  if (!instrument) {
+    return rows.map((row, index) => ({
+      stringNumber: row.explicitStringNumber ?? index + 1,
+      content: row.content,
+    }));
+  }
+
+  const instrumentLabels = instrument.STRING_ORDER.map((stringName) => normalizeStringLabelForMatching(stringName));
+  const usedIndexes = new Set<number>();
+  let forwardCursor = 0;
+
+  return rows.map((row, index) => {
+    if (typeof row.explicitStringNumber === 'number') {
+      return { stringNumber: row.explicitStringNumber, content: row.content };
+    }
+
+    const wanted = normalizeStringLabelForMatching(row.labelText);
+    if (!wanted) {
+      throw new Error(`Unsupported tab string label "${row.labelText}".`);
+    }
+
+    let matchIndex = -1;
+    for (let i = forwardCursor; i < instrumentLabels.length; i++) {
+      if (!usedIndexes.has(i) && instrumentLabels[i] === wanted) {
+        matchIndex = i;
+        break;
+      }
+    }
+
+    if (matchIndex < 0) {
+      for (let i = 0; i < instrumentLabels.length; i++) {
+        if (!usedIndexes.has(i) && instrumentLabels[i] === wanted) {
+          matchIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (matchIndex < 0) {
+      throw new Error(
+        `Tab line ${index + 1} uses string label "${row.labelText}", which does not match the current instrument strings.`
+      );
+    }
+
+    usedIndexes.add(matchIndex);
+    forwardCursor = matchIndex + 1;
+
+    return {
+      stringNumber: matchIndex + 1,
+      content: row.content,
+    };
+  });
+}
+
+function parseEventsFromBlock(rows: ResolvedParsedTabLine[]): ParsedTabEvent[] {
+  const maxLength = rows.reduce((max, row) => Math.max(max, row.content.length), 0);
   const events: ParsedTabEvent[] = [];
 
   for (let column = 0; column < maxLength; column++) {
-    for (const row of block) {
+    for (const row of rows) {
       const char = row.content[column] ?? ' ';
       if (!/\d/.test(char)) continue;
 
@@ -98,11 +224,7 @@ function parseEventsFromBlock(block: ParsedTabLine[]): ParsedTabEvent[] {
       const fret = Number.parseInt(fretText, 10);
       if (!Number.isFinite(fret)) continue;
 
-      events.push({
-        stringNumber: row.stringNumber,
-        fret,
-        column,
-      });
+      events.push({ stringNumber: row.stringNumber, fret, column });
     }
   }
 
@@ -124,16 +246,15 @@ function inferCountStepsPerBeat(tokens: CountToken[]): number | null {
 
   if (numericTokenIndexes.length < 2) return null;
 
-  const diffFrequency = new Map<number, number>();
+  const histogram = new Map<number, number>();
   for (let i = 1; i < numericTokenIndexes.length; i++) {
     const diff = numericTokenIndexes[i] - numericTokenIndexes[i - 1];
     if (diff <= 0) continue;
-    diffFrequency.set(diff, (diffFrequency.get(diff) ?? 0) + 1);
+    histogram.set(diff, (histogram.get(diff) ?? 0) + 1);
   }
+  if (histogram.size === 0) return null;
 
-  if (diffFrequency.size === 0) return null;
-
-  return [...diffFrequency.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null;
+  return [...histogram.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null;
 }
 
 function findNearestCountTokenIndex(tokens: CountToken[], column: number): number | null {
@@ -148,7 +269,6 @@ function findNearestCountTokenIndex(tokens: CountToken[], column: number): numbe
       bestIndex = i;
     }
   }
-
   return bestIndex;
 }
 
@@ -189,10 +309,13 @@ function applyCountTiming(events: ParsedAsciiTabMelodyEvent[], blockMaxLength: n
 export function parseAsciiTabMelodyEvents(tabText: string): ParsedTabEvent[] {
   const blocks = parseTabBlocks(tabText);
   if (blocks.length === 0) {
-    throw new Error('No tab lines found. Use lines like "1 string ..." or localized string labels.');
+    throw new Error('No tab lines found. Use lines like "1 string ...", "1 ?????? ...", or "E|---".');
   }
 
-  return blocks.flatMap((block) => parseEventsFromBlock(block.rows));
+  return blocks.flatMap((block) => {
+    const resolvedRows = resolveBlockRowsToStringNumbers(block.rows);
+    return parseEventsFromBlock(resolvedRows);
+  });
 }
 
 export function parseAsciiTabToMelodySteps(
@@ -232,15 +355,17 @@ export function parseAsciiTabToMelodyEvents(
 ): ParsedAsciiTabMelodyEvent[] {
   const blocks = parseTabBlocks(tabText);
   if (blocks.length === 0) {
-    throw new Error('No tab lines found. Use lines like "1 string ..." or localized string labels.');
+    throw new Error('No tab lines found. Use lines like "1 string ...", "1 ?????? ...", or "E|---".');
   }
 
   const groupedEvents: ParsedAsciiTabMelodyEvent[] = [];
+
   for (const block of blocks) {
-    const events = parseEventsFromBlock(block.rows);
+    const resolvedRows = resolveBlockRowsToStringNumbers(block.rows, instrument);
+    const events = parseEventsFromBlock(resolvedRows);
     if (events.length === 0) continue;
 
-    const blockMaxLength = block.rows.reduce((max, row) => Math.max(max, row.content.length), 0);
+    const blockMaxLength = resolvedRows.reduce((max, row) => Math.max(max, row.content.length), 0);
     const blockGroupedEvents: ParsedAsciiTabMelodyEvent[] = [];
 
     let currentColumn: number | null = null;
