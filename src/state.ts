@@ -205,6 +205,10 @@ export const state = {
   currentMelodyId: null as string | null,
   currentMelodyEventIndex: 0,
   currentMelodyEventFoundNotes: new Set<string>(),
+  preferredMelodyId: null as string | null,
+  pendingSessionStopResultMessage: null as
+    | { text: string; tone: 'neutral' | 'success' | 'error' }
+    | null,
   // --- End mode-specific state ---
   targetFrequency: null as number | null,
   calibratedA4: DEFAULT_A4_FREQUENCY,

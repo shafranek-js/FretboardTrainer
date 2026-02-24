@@ -61,7 +61,6 @@ import {
   getOpenATuningInfoFromTuning,
 } from './calibration-utils';
 import { buildSessionTimeUpPlan } from './session-timeup-plan';
-import { resolvePromptTargetPosition } from './prompt-audio';
 import {
   finalizeSessionStats,
   recordRhythmTimingAttempt,
@@ -728,12 +727,13 @@ function nextPrompt() {
   try {
     if (!state.isListening) return;
     clearResultMessage();
+    state.pendingSessionStopResultMessage = null;
     state.liveDetectedNote = null;
-  state.liveDetectedString = null;
-  state.rhythmLastJudgedBeatAtMs = null;
-  state.currentMelodyEventFoundNotes.clear();
-  Object.assign(state, createPromptCycleTrackingResetState());
-  redrawFretboard();
+    state.liveDetectedString = null;
+    state.rhythmLastJudgedBeatAtMs = null;
+    state.currentMelodyEventFoundNotes.clear();
+    Object.assign(state, createPromptCycleTrackingResetState());
+    redrawFretboard();
 
     const trainingMode = dom.trainingMode.value;
     const mode = modes[trainingMode];
@@ -743,6 +743,8 @@ function nextPrompt() {
       detectionType: mode?.detectionType ?? null,
       hasPrompt: Boolean(prompt),
     });
+    const pendingStopResultMessage = state.pendingSessionStopResultMessage;
+    state.pendingSessionStopResultMessage = null;
     const executionResult = executeSessionNextPromptPlan(nextPromptPlan, prompt, {
       stopListening,
       showError: showNonBlockingError,
@@ -756,6 +758,9 @@ function nextPrompt() {
         state.startTime = Date.now();
       },
     });
+    if (executionResult === 'stopped' && pendingStopResultMessage) {
+      setResultMessage(pendingStopResultMessage.text, pendingStopResultMessage.tone);
+    }
     if (executionResult !== 'prompt_applied') return;
   } catch (error) {
     handleSessionRuntimeError('nextPrompt', error);

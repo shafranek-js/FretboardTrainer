@@ -39,6 +39,9 @@ const { mockDom, mockState, setPromptTextMock, getMelodyByIdMock } = vi.hoisted(
     currentMelodyId: null as string | null,
     currentMelodyEventIndex: 0,
     currentMelodyEventFoundNotes: new Set<string>(),
+    pendingSessionStopResultMessage: null as
+      | { text: string; tone: 'neutral' | 'success' | 'error' }
+      | null,
     isListening: false,
   },
   setPromptTextMock: vi.fn(),
@@ -117,6 +120,7 @@ beforeEach(() => {
   mockState.currentMelodyId = null;
   mockState.currentMelodyEventIndex = 0;
   mockState.currentMelodyEventFoundNotes.clear();
+  mockState.pendingSessionStopResultMessage = null;
   (mockState as unknown as { stats?: { noteStats: Record<string, unknown> } }).stats = {
     noteStats: {},
   };
@@ -323,7 +327,7 @@ describe('MelodyPracticeMode', () => {
     expect(second?.displayText).toContain('[2/2]');
   });
 
-  it('returns null and signals completion after the last step', () => {
+  it('returns null and queues completion feedback after the last step', () => {
     getMelodyByIdMock.mockReturnValue({
       id: 'builtin:test',
       name: 'Test Melody',
@@ -336,7 +340,10 @@ describe('MelodyPracticeMode', () => {
     const prompt = mode.generatePrompt();
 
     expect(prompt).toBeNull();
-    expect(setPromptTextMock).toHaveBeenCalledWith('Melody complete! (Test Melody)');
+    expect(mockState.pendingSessionStopResultMessage).toEqual({
+      text: 'Melody complete! (Test Melody)',
+      tone: 'success',
+    });
   });
 
   it('hides note hint text when melodyShowNote is disabled', () => {

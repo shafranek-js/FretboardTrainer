@@ -14,6 +14,7 @@ export interface SessionStopResetState {
   currentMelodyId: string | null;
   currentMelodyEventIndex: number;
   currentMelodyEventFoundNotes: Set<string>;
+  pendingSessionStopResultMessage: { text: string; tone: 'neutral' | 'success' | 'error' } | null;
 }
 
 export function createSessionStopResetState() {
@@ -31,5 +32,6 @@ export function createSessionStopResetState() {
     currentMelodyId: null,
     currentMelodyEventIndex: 0,
     currentMelodyEventFoundNotes: new Set<string>(),
+    pendingSessionStopResultMessage: null,
   } satisfies SessionStopResetState & ReturnType<typeof createPromptCycleTrackingResetState>;
 }

@@ -69,6 +69,9 @@
 - [x] Replace direct runtime `alert()` calls in `modes/*` with a feedback port wired to in-app messaging.
 - [x] Replace direct `confirm()` calls in controllers with a confirm port (native fallback for now).
 - [x] Implement in-app confirmation UX and wire the confirm port to non-blocking modal dialogs.
+- [x] Fix melody practice completion UX so "Melody complete" feedback remains visible after session auto-stop.
+- [x] Persist selected melody in profile settings and restore it after reload/profile switch.
+- [ ] Tighten training-mode contract so `generatePrompt()` stays side-effect free (no direct UI writes on completion/error paths).
 - [ ] Reduce `src/logic.ts` orchestration size by extracting session lifecycle/error-reporting helpers.
   - [x] Extract rhythm timing evaluation/formatting helpers into `src/rhythm-timing.ts` with unit tests.
   - [x] Extract session goal mapping/formatting helpers into `src/session-goal.ts` with unit tests.

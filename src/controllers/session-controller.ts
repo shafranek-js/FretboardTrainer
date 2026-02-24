@@ -96,7 +96,7 @@ function applyEnabledStrings(enabledStrings: string[]) {
 
 function populateMelodyOptions() {
   const melodies = listMelodiesForInstrument(state.currentInstrument);
-  const previousValue = dom.melodySelector.value;
+  const previousValue = state.preferredMelodyId ?? dom.melodySelector.value;
   dom.melodySelector.innerHTML = '';
 
   melodies.forEach((melody) => {
@@ -113,6 +113,7 @@ function populateMelodyOptions() {
     dom.melodySelector.value = melodies[0].id;
   }
 
+  state.preferredMelodyId = dom.melodySelector.value || null;
   dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
 }
 
@@ -458,12 +459,14 @@ export function registerSessionControls() {
   });
   dom.melodySelector.addEventListener('change', () => {
     markCurriculumPresetAsCustom();
+    state.preferredMelodyId = dom.melodySelector.value || null;
     dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
     if (state.isListening && dom.trainingMode.value === 'melody') {
       stopListening();
       setResultMessage('Melody changed. Session stopped; press Start to begin from the first note.');
     }
     updatePracticeSetupSummary();
+    saveSettings();
   });
   dom.melodyShowNote.addEventListener('change', () => {
     markCurriculumPresetAsCustom();
@@ -483,12 +486,14 @@ export function registerSessionControls() {
       );
       populateMelodyOptions();
       dom.melodySelector.value = melodyId;
+      state.preferredMelodyId = melodyId;
       dom.deleteMelodyBtn.disabled = false;
       dom.melodyNameInput.value = '';
       dom.melodyAsciiTabInput.value = '';
       setModalVisible('melodyImport', false);
       markCurriculumPresetAsCustom();
       updatePracticeSetupSummary();
+      saveSettings();
       setResultMessage('Custom melody imported from ASCII tab.');
     } catch (error) {
       showNonBlockingError(formatUserFacingError('Failed to import ASCII tab melody', error));
@@ -505,6 +510,7 @@ export function registerSessionControls() {
     populateMelodyOptions();
     markCurriculumPresetAsCustom();
     updatePracticeSetupSummary();
+    saveSettings();
     if (deleted) {
       setResultMessage('Custom melody deleted.');
     }

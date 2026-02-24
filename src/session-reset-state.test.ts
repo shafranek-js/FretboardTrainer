@@ -19,6 +19,10 @@ describe('createSessionStopResetState', () => {
       currentProgression: [],
       currentProgressionIndex: 0,
       currentArpeggioIndex: 0,
+      currentMelodyId: null,
+      currentMelodyEventIndex: 0,
+      currentMelodyEventFoundNotes: new Set<string>(),
+      pendingSessionStopResultMessage: null,
     });
   });
 
@@ -29,5 +33,6 @@ describe('createSessionStopResetState', () => {
     expect(first.lastPitches).not.toBe(second.lastPitches);
     expect(first.scaleNotes).not.toBe(second.scaleNotes);
     expect(first.currentProgression).not.toBe(second.currentProgression);
+    expect(first.currentMelodyEventFoundNotes).not.toBe(second.currentMelodyEventFoundNotes);
   });
 });

@@ -1,5 +1,4 @@
 import { dom, state } from '../state';
-import { setPromptText } from '../ui-signals';
 import { notifyUserError } from '../user-feedback-port';
 import { getMelodyById, type MelodyEvent } from '../melody-library';
 import type { ChordNote, Prompt } from '../types';
@@ -78,7 +77,10 @@ export class MelodyPracticeMode implements ITrainingMode {
     }
 
     if (state.currentMelodyEventIndex >= melody.events.length) {
-      setPromptText(`Melody complete! (${melody.name})`);
+      state.pendingSessionStopResultMessage = {
+        text: `Melody complete! (${melody.name})`,
+        tone: 'success',
+      };
       return null;
     }
 
