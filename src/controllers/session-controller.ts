@@ -12,6 +12,7 @@ import {
   setPracticeSetupCollapsed,
   setPracticeSetupSummary,
   setModalVisible,
+  setPromptText,
   setResultMessage,
   toggleSessionToolsCollapsed,
   togglePracticeSetupCollapsed,
@@ -52,6 +53,7 @@ import {
   isCustomMelodyId,
   listMelodiesForInstrument,
   saveCustomAsciiTabMelody,
+  type MelodyEvent,
   updateCustomAsciiTabMelody,
 } from '../melody-library';
 import { confirmUserAction } from '../user-feedback-port';
@@ -63,6 +65,178 @@ import {
 } from '../mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
+import type { ChordNote, Prompt } from '../types';
+
+const MELODY_DEMO_DEFAULT_STEP_MS = 700;
+const MELODY_DEMO_POLYPHONIC_STEP_MS = 850;
+let melodyDemoTimeoutId: number | null = null;
+let melodyDemoRunToken = 0;
+let isMelodyDemoPlaying = false;
+
+function renderMelodyDemoButtonState() {
+  dom.melodyDemoBtn.textContent = isMelodyDemoPlaying ? 'Stop Demo' : 'Play Demo';
+  dom.melodyDemoBtn.classList.toggle('bg-emerald-700', !isMelodyDemoPlaying);
+  dom.melodyDemoBtn.classList.toggle('hover:bg-emerald-600', !isMelodyDemoPlaying);
+  dom.melodyDemoBtn.classList.toggle('border-emerald-500', !isMelodyDemoPlaying);
+  dom.melodyDemoBtn.classList.toggle('bg-red-700', isMelodyDemoPlaying);
+  dom.melodyDemoBtn.classList.toggle('hover:bg-red-600', isMelodyDemoPlaying);
+  dom.melodyDemoBtn.classList.toggle('border-red-500', isMelodyDemoPlaying);
+}
+
+function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
+  melodyDemoRunToken++;
+  if (melodyDemoTimeoutId !== null) {
+    window.clearTimeout(melodyDemoTimeoutId);
+    melodyDemoTimeoutId = null;
+  }
+  const wasPlaying = isMelodyDemoPlaying;
+  isMelodyDemoPlaying = false;
+  renderMelodyDemoButtonState();
+
+  if (options?.clearUi) {
+    setPromptText('');
+    redrawFretboard();
+  }
+
+  if (wasPlaying && options?.message) {
+    setResultMessage(options.message);
+  }
+}
+
+function formatMelodyDemoEventHint(event: MelodyEvent) {
+  return event.notes
+    .map((note) => {
+      if (note.stringName !== null && typeof note.fret === 'number') {
+        return `${note.note} (${note.stringName}, fret ${note.fret})`;
+      }
+      return note.note;
+    })
+    .join(' + ');
+}
+
+function toMelodyDemoFingering(event: MelodyEvent): ChordNote[] {
+  return event.notes
+    .filter(
+      (note): note is MelodyEvent['notes'][number] & { stringName: string; fret: number } =>
+        note.stringName !== null && typeof note.fret === 'number'
+    )
+    .map((note) => ({
+      note: note.note,
+      string: note.stringName,
+      fret: note.fret,
+    }));
+}
+
+function buildMelodyDemoPrompt(
+  melodyName: string,
+  event: MelodyEvent,
+  eventIndex: number,
+  totalEvents: number
+): Prompt {
+  const fingering = toMelodyDemoFingering(event);
+  const isPolyphonic = event.notes.length > 1;
+  const first = event.notes[0] ?? null;
+  const stepLabel = `[${eventIndex + 1}/${totalEvents}]`;
+
+  return {
+    displayText: `Demo ${stepLabel}: ${formatMelodyDemoEventHint(event)} (${melodyName})`,
+    targetNote: isPolyphonic ? null : (first?.note ?? null),
+    targetString: isPolyphonic ? null : (first?.stringName ?? null),
+    targetChordNotes: isPolyphonic ? [...new Set(event.notes.map((note) => note.note))] : [],
+    targetChordFingering: isPolyphonic ? fingering : [],
+    targetMelodyEventNotes: fingering,
+    baseChordName: null,
+  };
+}
+
+function playPromptAudioFromPrompt(prompt: Prompt) {
+  const audioPlan = buildPromptAudioPlan({
+    prompt,
+    trainingMode: 'melody',
+    autoPlayPromptSoundEnabled: true,
+    instrument: state.currentInstrument,
+    calibratedA4: state.calibratedA4,
+    enabledStrings: getEnabledStrings(dom.stringSelector),
+  });
+
+  if (audioPlan.notesToPlay.length === 1) {
+    playSound(audioPlan.notesToPlay[0]);
+  } else if (audioPlan.notesToPlay.length > 1) {
+    playSound(audioPlan.notesToPlay);
+  }
+}
+
+async function startMelodyDemoPlayback() {
+  const selectedMelodyId = dom.melodySelector.value;
+  if (!selectedMelodyId) {
+    setResultMessage('Select a melody first.', 'error');
+    return;
+  }
+
+  const melody = getMelodyById(selectedMelodyId, state.currentInstrument);
+  if (!melody) {
+    setResultMessage('Selected melody is unavailable for the current instrument.', 'error');
+    return;
+  }
+  if (melody.events.length === 0) {
+    setResultMessage('Selected melody has no playable notes.', 'error');
+    return;
+  }
+
+  if (state.isListening) {
+    stopListening();
+  }
+  stopMelodyDemoPlayback();
+
+  try {
+    await loadInstrumentSoundfont(state.currentInstrument.name);
+    if (state.audioContext?.state === 'suspended') {
+      await state.audioContext.resume();
+    }
+  } catch (error) {
+    showNonBlockingError(formatUserFacingError('Failed to initialize sound for melody demo', error));
+  }
+
+  isMelodyDemoPlaying = true;
+  renderMelodyDemoButtonState();
+  const runToken = ++melodyDemoRunToken;
+  setResultMessage(`Playing demo: ${melody.name}`);
+
+  const playStep = (index: number) => {
+    if (!isMelodyDemoPlaying || runToken !== melodyDemoRunToken) return;
+
+    if (index >= melody.events.length) {
+      melodyDemoTimeoutId = null;
+      isMelodyDemoPlaying = false;
+      renderMelodyDemoButtonState();
+      redrawFretboard();
+      setResultMessage(`Demo complete: ${melody.name}`, 'success');
+      return;
+    }
+
+    const event = melody.events[index];
+    const prompt = buildMelodyDemoPrompt(melody.name, event, index, melody.events.length);
+    setPromptText(prompt.displayText);
+
+    if ((prompt.targetMelodyEventNotes?.length ?? 0) > 1) {
+      drawFretboard(false, null, null, prompt.targetMelodyEventNotes ?? []);
+    } else if (prompt.targetNote) {
+      drawFretboard(false, prompt.targetNote, prompt.targetString || findPlayableStringForNote(prompt.targetNote));
+    } else {
+      redrawFretboard();
+    }
+
+    playPromptAudioFromPrompt(prompt);
+
+    const stepDelayMs =
+      (prompt.targetMelodyEventNotes?.length ?? 0) > 1 ? MELODY_DEMO_POLYPHONIC_STEP_MS : MELODY_DEMO_DEFAULT_STEP_MS;
+    melodyDemoTimeoutId = window.setTimeout(() => {
+      playStep(index + 1);
+    }, stepDelayMs);
+  };
+
+  playStep(0);
+}
 
 function findPlayableStringForNote(note: string): string | null {
   const instrumentData = state.currentInstrument;
@@ -185,6 +359,7 @@ function populateMelodyOptions() {
 
   state.preferredMelodyId = dom.melodySelector.value || null;
   dom.editMelodyBtn.disabled = melodies.length === 0;
+  dom.melodyDemoBtn.disabled = melodies.length === 0;
   dom.deleteMelodyBtn.disabled = !isCustomMelodyId(dom.melodySelector.value);
 }
 
@@ -388,6 +563,7 @@ export function registerSessionControls() {
   populateMelodyOptions();
   resetMelodyEditorDraft();
   updateMelodyEditorUiForCurrentMode();
+  renderMelodyDemoButtonState();
   resetMetronomeVisualIndicator();
   updateMicNoiseGateInfo();
   updatePracticeSetupSummary();
@@ -435,6 +611,10 @@ export function registerSessionControls() {
 
   // --- Main Session Controls ---
   dom.sessionToggleBtn.addEventListener('click', async () => {
+    if (isMelodyDemoPlaying) {
+      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody demo stopped.' });
+      return;
+    }
     if (!dom.stopBtn.disabled) {
       stopListening();
       return;
@@ -444,6 +624,7 @@ export function registerSessionControls() {
   });
 
   dom.startBtn.addEventListener('click', async () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     await startSessionFromUi();
   });
 
@@ -453,6 +634,7 @@ export function registerSessionControls() {
 
   // --- Top Control Bar Listeners ---
   dom.instrumentSelector.addEventListener('change', async () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     markCurriculumPresetAsCustom();
     state.currentInstrument = instruments[dom.instrumentSelector.value];
     state.currentTuningPresetKey = dom.tuningPreset.value;
@@ -464,6 +646,7 @@ export function registerSessionControls() {
   });
 
   dom.tuningPreset.addEventListener('change', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     markCurriculumPresetAsCustom();
     if (state.isListening) {
       stopListening();
@@ -567,6 +750,7 @@ export function registerSessionControls() {
   });
 
   dom.inputSource.addEventListener('change', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     const nextInputSource = normalizeInputSource(dom.inputSource.value);
     setInputSourcePreference(nextInputSource);
 
@@ -595,6 +779,7 @@ export function registerSessionControls() {
   });
 
   dom.trainingMode.addEventListener('change', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     markCurriculumPresetAsCustom();
     handleModeChange();
     updatePracticeSetupSummary();
@@ -678,6 +863,7 @@ export function registerSessionControls() {
     saveSettings();
   });
   dom.melodySelector.addEventListener('change', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     markCurriculumPresetAsCustom();
     state.preferredMelodyId = dom.melodySelector.value || null;
     dom.editMelodyBtn.disabled = dom.melodySelector.options.length === 0;
@@ -695,13 +881,23 @@ export function registerSessionControls() {
     saveSettings();
   });
   dom.openMelodyImportBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     openMelodyEditorModal({ mode: 'create' });
   });
   dom.editMelodyBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     openMelodyEditorModal({ mode: 'edit-custom' });
+  });
+  dom.melodyDemoBtn.addEventListener('click', async () => {
+    if (isMelodyDemoPlaying) {
+      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody demo stopped.' });
+      return;
+    }
+    await startMelodyDemoPlayback();
   });
   dom.importMelodyBtn.addEventListener('click', () => {
     try {
+      stopMelodyDemoPlayback({ clearUi: true });
       let melodyId: string;
       let successMessage = 'Custom melody imported from ASCII tab.';
 
@@ -743,6 +939,7 @@ export function registerSessionControls() {
     }
   });
   dom.deleteMelodyBtn.addEventListener('click', async () => {
+    stopMelodyDemoPlayback({ clearUi: true });
     const selectedId = dom.melodySelector.value;
     if (!isCustomMelodyId(selectedId)) return;
 

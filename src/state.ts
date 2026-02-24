@@ -60,6 +60,7 @@ export const dom = {
   melodyShowNote: requireElementById<HTMLInputElement>('melodyShowNote'),
   openMelodyImportBtn: requireElementById<HTMLButtonElement>('openMelodyImportBtn'),
   editMelodyBtn: requireElementById<HTMLButtonElement>('editMelodyBtn'),
+  melodyDemoBtn: requireElementById<HTMLButtonElement>('melodyDemoBtn'),
   melodyNameInput: requireElementById<HTMLInputElement>('melodyNameInput'),
   melodyAsciiTabInput: requireElementById<HTMLTextAreaElement>('melodyAsciiTabInput'),
   melodyImportTitle: requireElementById<HTMLElement>('melodyImportTitle'),
