@@ -92,10 +92,20 @@
 - [x] Harden DOM binding initialization (`src/state.ts`) with explicit missing-element assertions instead of unchecked casts.
   - [x] Add DOM require-helpers and convert critical session/tuner/feedback/confirm elements to explicit startup assertions.
   - [x] Expand `requireElementById` / `requireQuerySelector` usage across the full `dom` registry.
+- [x] Fix post-import / parser regressions from code review.
+  - [x] Prevent ASCII count lines (starting with digits) from being parsed as tab string rows.
+  - [x] Preserve `e` vs `E` disambiguation for lettered guitar tabs.
+  - [x] Re-apply saved melody selection on profile switch.
+  - [x] Skip/warn unresolved MIDI notes instead of saving `null` fret/string positions into imported melody events.
 
 ## Future / Backlog
 
-- [ ] Add a dedicated polyphonic audio detector for microphone input (separate from MIDI note events) to support true simultaneous-note/chord verification in melody/chord practice.
-  - [ ] Research algorithm options/tradeoffs (e.g., harmonic product spectrum, spectral peak clustering, multi-pitch estimation) for browser/WebAudio constraints.
+- [x] Add microphone polyphonic detection support for true simultaneous-note/chord verification in melody practice (separate from MIDI note events) using the existing spectrum-based detector path.
+  - [x] Extract a pluggable mic polyphonic detector provider interface (`spectrum` baseline first, external engine adapters next).
+  - [x] Add an experimental `Essentia.js` (`MultiPitchKlapuri` / `MultiPitchMelodia`) provider spike behind a feature flag (license/CPU review required).
+  - [ ] Evaluate `Basic Pitch` (`basic-pitch-ts`) as an offline/analysis import path (likely not low-latency enough for live session verification).
+  - [ ] Evaluate `ONNX Runtime Web` (`wasm` / `webgpu`) runtime path for custom multi-pitch models if `Essentia.js` quality is insufficient.
+  - [ ] Improve algorithm quality/tradeoffs (e.g., harmonic product spectrum, spectral peak clustering, multi-pitch estimation) for browser/WebAudio constraints.
   - [ ] Define UX fallback when confidence is low (avoid false chord matches from noise/room echo).
-  - [ ] Gate rollout behind a mode/feature flag and benchmark latency/CPU on typical devices.
+  - [ ] Benchmark latency/CPU on typical devices and tune thresholds for stability.
+    - [x] Add runtime telemetry UI for mic poly detector (frames / avg/last/max latency / fallback count / warning count).

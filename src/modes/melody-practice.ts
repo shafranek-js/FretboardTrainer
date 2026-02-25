@@ -91,7 +91,14 @@ export class MelodyPracticeMode implements ITrainingMode {
 
     const firstNote = event.notes[0] ?? null;
     const melodyEventFingering = toMelodyEventFingering(event);
-    const isPolyphonicEvent = event.notes.length > 1;
+    const targetPitchClasses = toMelodyEventChordNotes(event);
+    const isPolyphonicEvent = targetPitchClasses.length > 1;
+    const firstPlayableNote = melodyEventFingering[0] ?? null;
+    const fallbackSingleNoteTarget = firstPlayableNote
+      ? { note: firstPlayableNote.note, string: firstPlayableNote.string }
+      : firstNote
+        ? { note: firstNote.note, string: firstNote.stringName }
+        : null;
 
     return {
       displayText: formatMelodyPromptText(
@@ -100,9 +107,14 @@ export class MelodyPracticeMode implements ITrainingMode {
         event,
         dom.melodyShowNote.checked
       ),
-      targetNote: isPolyphonicEvent ? null : (firstNote?.note ?? null),
-      targetString: isPolyphonicEvent ? null : (firstNote?.stringName ?? null),
-      targetChordNotes: isPolyphonicEvent ? toMelodyEventChordNotes(event) : [],
+      // Keep a visual fallback target even for degraded polyphonic imports that have only one playable position.
+      targetNote: isPolyphonicEvent
+        ? (melodyEventFingering.length <= 1 ? (fallbackSingleNoteTarget?.note ?? null) : null)
+        : (fallbackSingleNoteTarget?.note ?? null),
+      targetString: isPolyphonicEvent
+        ? (melodyEventFingering.length <= 1 ? (fallbackSingleNoteTarget?.string ?? null) : null)
+        : (fallbackSingleNoteTarget?.string ?? null),
+      targetChordNotes: isPolyphonicEvent ? targetPitchClasses : [],
       targetChordFingering: isPolyphonicEvent ? melodyEventFingering : [],
       targetMelodyEventNotes: melodyEventFingering,
       baseChordName: null,

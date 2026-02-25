@@ -555,7 +555,7 @@ export function drawFretboardSvg(
   } else if (
     chordFingering.length > 0 &&
     (isChordTrainingModeActive(dom.trainingMode.value, state.isListening) ||
-      (dom.trainingMode.value === 'melody' && state.isListening))
+      dom.trainingMode.value === 'melody')
   ) {
     svg.setAttribute(
       'aria-label',

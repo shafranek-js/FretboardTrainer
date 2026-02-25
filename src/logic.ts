@@ -13,7 +13,6 @@ import {
 import {
   detectCalibrationFrame,
   detectMonophonicFrame,
-  detectPolyphonicFrame,
 } from './audio-detection-handlers';
 import {
   clearResultMessage,
@@ -107,6 +106,8 @@ import type { Prompt } from './types';
 import { resolveMicVolumeThreshold } from './mic-input-sensitivity';
 import { shouldAcceptMicNoteByAttackStrength } from './mic-note-attack-filter';
 import { shouldAcceptMicNoteByHoldDuration } from './mic-note-hold-filter';
+import { detectMicPolyphonicFrame } from './mic-polyphonic-detector';
+import { refreshMicPolyphonicDetectorAudioInfoUi } from './mic-polyphonic-detector-ui';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -115,6 +116,20 @@ const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   setStatusText,
   setResultMessage,
 });
+
+function resetMicPolyphonicDetectorTelemetry() {
+  state.lastMicPolyphonicDetectorProviderUsed = null;
+  state.lastMicPolyphonicDetectorFallbackFrom = null;
+  state.lastMicPolyphonicDetectorWarning = null;
+  state.micPolyphonicDetectorTelemetryFrames = 0;
+  state.micPolyphonicDetectorTelemetryTotalLatencyMs = 0;
+  state.micPolyphonicDetectorTelemetryMaxLatencyMs = 0;
+  state.micPolyphonicDetectorTelemetryLastLatencyMs = null;
+  state.micPolyphonicDetectorTelemetryFallbackFrames = 0;
+  state.micPolyphonicDetectorTelemetryWarningFrames = 0;
+  state.micPolyphonicDetectorTelemetryWindowStartedAtMs = 0;
+  state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = 0;
+}
 
 function resetMicMonophonicAttackTracking() {
   state.micMonophonicAttackTrackedNote = null;
@@ -176,6 +191,54 @@ function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
   return [...new Set((prompt.targetMelodyEventNotes ?? []).map((note) => note.note))];
 }
 
+function setsEqual<T>(a: Set<T>, b: Set<T>) {
+  if (a.size !== b.size) return false;
+  for (const value of a) {
+    if (!b.has(value)) return false;
+  }
+  return true;
+}
+
+function updateMicPolyphonicDetectorRuntimeStatusFromResult(
+  result: ReturnType<typeof detectMicPolyphonicFrame>,
+  latencyMs: number
+) {
+  const nowMs = Date.now();
+  if (state.micPolyphonicDetectorTelemetryWindowStartedAtMs <= 0) {
+    state.micPolyphonicDetectorTelemetryWindowStartedAtMs = nowMs;
+  }
+  state.micPolyphonicDetectorTelemetryFrames += 1;
+  state.micPolyphonicDetectorTelemetryTotalLatencyMs += Math.max(0, latencyMs);
+  state.micPolyphonicDetectorTelemetryMaxLatencyMs = Math.max(
+    state.micPolyphonicDetectorTelemetryMaxLatencyMs,
+    Math.max(0, latencyMs)
+  );
+  state.micPolyphonicDetectorTelemetryLastLatencyMs = Math.max(0, latencyMs);
+  if (result.fallbackFrom) state.micPolyphonicDetectorTelemetryFallbackFrames += 1;
+  if ((result.warnings?.length ?? 0) > 0) state.micPolyphonicDetectorTelemetryWarningFrames += 1;
+
+  const nextProvider = result.provider ?? null;
+  const nextFallbackFrom = result.fallbackFrom ?? null;
+  const nextWarning = result.warnings?.[0] ?? null;
+  const changed =
+    state.lastMicPolyphonicDetectorProviderUsed !== nextProvider ||
+    state.lastMicPolyphonicDetectorFallbackFrom !== nextFallbackFrom ||
+    state.lastMicPolyphonicDetectorWarning !== nextWarning;
+
+  state.lastMicPolyphonicDetectorProviderUsed = nextProvider;
+  state.lastMicPolyphonicDetectorFallbackFrom = nextFallbackFrom;
+  state.lastMicPolyphonicDetectorWarning = nextWarning;
+
+  const shouldRefreshTelemetryUi =
+    state.inputSource === 'microphone' &&
+    (changed || nowMs - state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs >= 1000);
+
+  if (shouldRefreshTelemetryUi) {
+    state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = nowMs;
+    refreshMicPolyphonicDetectorAudioInfoUi();
+  }
+}
+
 function handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, context: string) {
   state.currentMelodyEventFoundNotes.clear();
   redrawFretboard();
@@ -188,6 +251,68 @@ function handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, co
   scheduleSessionCooldown(context, 1200, () => {
     redrawFretboard();
   });
+}
+
+function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
+  const prompt = state.currentPrompt;
+  if (!isPolyphonicMelodyPrompt(prompt) || !state.analyser || !state.audioContext) return false;
+
+  state.analyser.getFloatFrequencyData(state.frequencyDataArray!);
+  const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
+  const polyphonicDetectorStartedAt = performance.now();
+  const polyphonicResult = detectMicPolyphonicFrame({
+    spectrum: state.frequencyDataArray!,
+    timeDomainData: state.dataArray ?? undefined,
+    frameVolumeRms,
+    timestampMs: Date.now(),
+    sampleRate: state.audioContext.sampleRate,
+    fftSize: state.analyser.fftSize,
+    calibratedA4: state.calibratedA4,
+    lastDetectedChord: state.lastDetectedChord,
+    stableChordCounter: state.stableChordCounter,
+    requiredStableFrames: REQUIRED_STABLE_FRAMES,
+    targetChordNotes: targetPitchClasses,
+    provider: state.micPolyphonicDetectorProvider,
+  });
+  state.lastDetectedChord = polyphonicResult.detectedNotesText;
+  state.stableChordCounter = polyphonicResult.nextStableChordCounter;
+  updateMicPolyphonicDetectorRuntimeStatusFromResult(
+    polyphonicResult,
+    performance.now() - polyphonicDetectorStartedAt
+  );
+
+  const detectedNotes = polyphonicResult.detectedNoteNames;
+  const matchedTargetNotes = detectedNotes.filter((note) => targetPitchClasses.includes(note));
+  const nextFoundNotes = new Set(matchedTargetNotes);
+  if (!setsEqual(state.currentMelodyEventFoundNotes, nextFoundNotes)) {
+    state.currentMelodyEventFoundNotes = nextFoundNotes;
+    redrawFretboard();
+  }
+
+  if (polyphonicResult.isStableMatch) {
+    const elapsed = (Date.now() - state.startTime) / 1000;
+    displayResult(true, elapsed);
+    return true;
+  }
+
+  if (detectedNotes.length > 0) {
+    const hasOutOfTargetNotes = detectedNotes.some((note) => !targetPitchClasses.includes(note));
+    if (!hasOutOfTargetNotes && matchedTargetNotes.length < targetPitchClasses.length) {
+      setResultMessage(`Heard: ${polyphonicResult.detectedNotesText} [${matchedTargetNotes.length}/${targetPitchClasses.length}]`);
+      return true;
+    }
+  }
+
+  if (polyphonicResult.isStableMismatch) {
+    handleMelodyPolyphonicMismatch(
+      prompt,
+      polyphonicResult.detectedNotesText || '...',
+      'mic melody polyphonic mismatch redraw'
+    );
+    return true;
+  }
+
+  return true;
 }
 
 function handleMidiMelodyUpdate(event: MidiNoteEvent) {
@@ -420,11 +545,20 @@ function processAudio() {
       return;
     }
 
-    if (mode.detectionType === 'polyphonic') {
+    const shouldUseMicrophonePolyphonicMelodyDetection =
+      trainingMode === 'melody' && state.inputSource !== 'midi' && isPolyphonicMelodyPrompt(state.currentPrompt);
+
+    if (shouldUseMicrophonePolyphonicMelodyDetection) {
+      handleMicrophonePolyphonicMelodyFrame(volume);
+    } else if (mode.detectionType === 'polyphonic') {
       // --- Polyphonic (Chord Strum) Detection ---
       state.analyser.getFloatFrequencyData(state.frequencyDataArray!);
-      const polyphonicResult = detectPolyphonicFrame({
+      const polyphonicDetectorStartedAt = performance.now();
+      const polyphonicResult = detectMicPolyphonicFrame({
         spectrum: state.frequencyDataArray!,
+        timeDomainData: state.dataArray ?? undefined,
+        frameVolumeRms: volume,
+        timestampMs: Date.now(),
         sampleRate: state.audioContext.sampleRate,
         fftSize: state.analyser.fftSize,
         calibratedA4: state.calibratedA4,
@@ -432,9 +566,14 @@ function processAudio() {
         stableChordCounter: state.stableChordCounter,
         requiredStableFrames: REQUIRED_STABLE_FRAMES,
         targetChordNotes: state.currentPrompt.targetChordNotes,
+        provider: state.micPolyphonicDetectorProvider,
       });
       state.lastDetectedChord = polyphonicResult.detectedNotesText;
       state.stableChordCounter = polyphonicResult.nextStableChordCounter;
+      updateMicPolyphonicDetectorRuntimeStatusFromResult(
+        polyphonicResult,
+        performance.now() - polyphonicDetectorStartedAt
+      );
       const polyphonicReactionPlan = buildAudioPolyphonicReactionPlan({
         isStableMatch: polyphonicResult.isStableMatch,
         isStableMismatch: polyphonicResult.isStableMismatch,
@@ -618,6 +757,12 @@ export async function startListening(forCalibration = false) {
 
   try {
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
+    if (!forCalibration) {
+      resetMicPolyphonicDetectorTelemetry();
+      if (selectedInputSource === 'microphone') {
+        refreshMicPolyphonicDetectorAudioInfoUi();
+      }
+    }
     if (!forCalibration && selectedInputSource === 'midi') {
       await startMidiInput(
         createMidiSessionMessageHandler({
@@ -706,6 +851,7 @@ export function stopListening(keepStreamOpen = false) {
   state.cooldown = false;
   state.ignorePromptAudioUntilMs = 0;
   resetMicMonophonicAttackTracking();
+  resetMicPolyphonicDetectorTelemetry();
   stopMidiInput();
   if (!keepStreamOpen) {
     teardownAudioRuntime(state);
@@ -721,6 +867,9 @@ export function stopListening(keepStreamOpen = false) {
   setInfoSlots();
   Object.assign(state, createSessionStopResetState());
   setTimedInfoVisible(false);
+  if (state.inputSource === 'microphone') {
+    refreshMicPolyphonicDetectorAudioInfoUi();
+  }
   redrawFretboard();
 }
 
@@ -815,6 +964,7 @@ function nextPrompt() {
         state.currentPrompt = nextPrompt;
         state.currentMelodyEventFoundNotes.clear();
         setPromptText(nextPrompt.displayText);
+        redrawFretboard();
         configurePromptAudio();
         state.startTime = Date.now();
       },

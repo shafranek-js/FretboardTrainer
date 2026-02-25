@@ -10,6 +10,7 @@ import {
 } from '../storage';
 import { stopListening } from '../logic';
 import { populateProfileSelector } from '../ui';
+import { refreshMelodyOptionsForCurrentInstrument } from './session-controller';
 import { setModalVisible, setProfileActionsState, setStatusText } from '../ui-signals';
 import { showNonBlockingError, showNonBlockingInfo } from '../app-feedback';
 import { confirmUserAction } from '../user-feedback-port';
@@ -67,6 +68,7 @@ export function registerProfileControls() {
     setActiveProfileName(profileName);
     const profiles = getProfiles();
     await applySettings(profiles[profileName] || {});
+    refreshMelodyOptionsForCurrentInstrument();
     updateProfileButtonsState();
   });
 

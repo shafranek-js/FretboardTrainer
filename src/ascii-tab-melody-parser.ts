@@ -46,10 +46,15 @@ function toNoteName(noteWithOctave: string) {
   return noteWithOctave.replace(/\d+$/, '');
 }
 
+function looksLikeTabContent(content: string) {
+  // Prevent beat/count lines like "1 & 2 & 3 &" from being parsed as "1 string ..."
+  return /[-|]/.test(content);
+}
+
 function parseTabLine(line: string): ParsedTabLine | null {
   // Numbered format: "2 string ...", "3 ?????? ..."
   const numberedMatch = line.match(/^\s*(\d+)\s+([^\s|]+)\s+(.*)$/i);
-  if (numberedMatch) {
+  if (numberedMatch && looksLikeTabContent(numberedMatch[3] ?? '')) {
     return {
       explicitStringNumber: Number.parseInt(numberedMatch[1], 10),
       labelText: numberedMatch[2] ?? numberedMatch[1] ?? '',
@@ -145,6 +150,26 @@ function normalizeStringLabelForMatching(label: string) {
   return (match?.[0] ?? '').toLowerCase();
 }
 
+function exactStringLabelForMatching(label: string) {
+  const match = label.match(/[A-Ga-g]/);
+  return match?.[0] ?? '';
+}
+
+function hasCaseSensitiveLabelDisambiguation(rows: ParsedTabLine[]) {
+  const letters = rows
+    .map((row) => exactStringLabelForMatching(row.labelText))
+    .filter((letter): letter is string => letter.length > 0);
+  const letterSet = new Set(letters);
+  for (const letter of letterSet) {
+    const lower = letter.toLowerCase();
+    const upper = letter.toUpperCase();
+    if (lower !== upper && letterSet.has(lower) && letterSet.has(upper)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function resolveBlockRowsToStringNumbers(
   rows: ParsedTabLine[],
   instrument?: Pick<IInstrument, 'STRING_ORDER'>
@@ -157,6 +182,8 @@ function resolveBlockRowsToStringNumbers(
   }
 
   const instrumentLabels = instrument.STRING_ORDER.map((stringName) => normalizeStringLabelForMatching(stringName));
+  const instrumentExactLabels = instrument.STRING_ORDER.map((stringName) => exactStringLabelForMatching(stringName));
+  const useExactCaseFirst = hasCaseSensitiveLabelDisambiguation(rows);
   const usedIndexes = new Set<number>();
   let forwardCursor = 0;
 
@@ -165,13 +192,32 @@ function resolveBlockRowsToStringNumbers(
       return { stringNumber: row.explicitStringNumber, content: row.content };
     }
 
+    const wantedExact = exactStringLabelForMatching(row.labelText);
     const wanted = normalizeStringLabelForMatching(row.labelText);
-    if (!wanted) {
+    if (!wantedExact && !wanted) {
       throw new Error(`Unsupported tab string label "${row.labelText}".`);
     }
 
     let matchIndex = -1;
+    if (useExactCaseFirst && wantedExact) {
+      for (let i = forwardCursor; i < instrumentExactLabels.length; i++) {
+        if (!usedIndexes.has(i) && instrumentExactLabels[i] === wantedExact) {
+          matchIndex = i;
+          break;
+        }
+      }
+      if (matchIndex < 0) {
+        for (let i = 0; i < instrumentExactLabels.length; i++) {
+          if (!usedIndexes.has(i) && instrumentExactLabels[i] === wantedExact) {
+            matchIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
     for (let i = forwardCursor; i < instrumentLabels.length; i++) {
+      if (matchIndex >= 0) break;
       if (!usedIndexes.has(i) && instrumentLabels[i] === wanted) {
         matchIndex = i;
         break;

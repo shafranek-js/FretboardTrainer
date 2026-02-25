@@ -11,6 +11,7 @@ import type { SessionPace } from './session-pace';
 import type { MicSensitivityPreset } from './mic-input-sensitivity';
 import type { MicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import type { MicNoteHoldFilterPreset } from './mic-note-hold-filter';
+import type { MicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
 
 function requireElementById<T extends Element>(id: string): T {
   const element = document.getElementById(id);
@@ -46,6 +47,8 @@ export const dom = {
   micNoteAttackFilter: requireElementById<HTMLSelectElement>('micNoteAttackFilter'),
   micHoldFilterRow: requireElementById<HTMLElement>('micHoldFilterRow'),
   micNoteHoldFilter: requireElementById<HTMLSelectElement>('micNoteHoldFilter'),
+  micPolyphonicDetectorRow: requireElementById<HTMLElement>('micPolyphonicDetectorRow'),
+  micPolyphonicDetectorProvider: requireElementById<HTMLSelectElement>('micPolyphonicDetectorProvider'),
   micNoiseCalibrationRow: requireElementById<HTMLElement>('micNoiseCalibrationRow'),
   calibrateNoiseFloorBtn: requireElementById<HTMLButtonElement>('calibrateNoiseFloorBtn'),
   midiInputRow: requireElementById<HTMLElement>('midiInputRow'),
@@ -62,6 +65,7 @@ export const dom = {
   editMelodyBtn: requireElementById<HTMLButtonElement>('editMelodyBtn'),
   melodyDemoBtn: requireElementById<HTMLButtonElement>('melodyDemoBtn'),
   melodyDemoBpm: requireElementById<HTMLInputElement>('melodyDemoBpm'),
+  melodyDemoBpmValue: requireElementById<HTMLElement>('melodyDemoBpmValue'),
   melodyNameInput: requireElementById<HTMLInputElement>('melodyNameInput'),
   melodyAsciiTabInput: requireElementById<HTMLTextAreaElement>('melodyAsciiTabInput'),
   melodyGpFileInput: requireElementById<HTMLInputElement>('melodyGpFileInput'),
@@ -96,6 +100,7 @@ export const dom = {
   endFret: requireElementById<HTMLInputElement>('endFret'),
   metronomeEnabled: requireElementById<HTMLInputElement>('metronomeEnabled'),
   metronomeBpm: requireElementById<HTMLInputElement>('metronomeBpm'),
+  metronomeBpmValue: requireElementById<HTMLElement>('metronomeBpmValue'),
   rhythmTimingWindow: requireElementById<HTMLSelectElement>('rhythmTimingWindow'),
   metronomePulse: requireElementById<HTMLElement>('metronomePulse'),
   metronomeBeatLabel: requireElementById<HTMLElement>('metronomeBeatLabel'),
@@ -278,6 +283,18 @@ export const state = {
   micMonophonicAttackTrackedNote: null as string | null,
   micMonophonicAttackPeakVolume: 0,
   micMonophonicFirstDetectedAtMs: null as number | null,
+  micPolyphonicDetectorProvider: 'spectrum' as MicPolyphonicDetectorProvider,
+  lastMicPolyphonicDetectorProviderUsed: null as MicPolyphonicDetectorProvider | null,
+  lastMicPolyphonicDetectorFallbackFrom: null as MicPolyphonicDetectorProvider | null,
+  lastMicPolyphonicDetectorWarning: null as string | null,
+  micPolyphonicDetectorTelemetryFrames: 0,
+  micPolyphonicDetectorTelemetryTotalLatencyMs: 0,
+  micPolyphonicDetectorTelemetryMaxLatencyMs: 0,
+  micPolyphonicDetectorTelemetryLastLatencyMs: null as number | null,
+  micPolyphonicDetectorTelemetryFallbackFrames: 0,
+  micPolyphonicDetectorTelemetryWarningFrames: 0,
+  micPolyphonicDetectorTelemetryWindowStartedAtMs: 0,
+  micPolyphonicDetectorTelemetryLastUiRefreshAtMs: 0,
   preferredMidiInputDeviceId: null as string | null,
   midiAccess: null as MIDIAccess | null,
   midiInput: null as MIDIInput | null,

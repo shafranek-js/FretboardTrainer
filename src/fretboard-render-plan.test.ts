@@ -143,4 +143,31 @@ describe('computeFretboardRenderPlan', () => {
     expect(plan.chordFingering).toEqual(melodyPrompt.targetMelodyEventNotes);
     expect([...plan.foundChordNotes]).toEqual(['C']);
   });
+
+  it('falls back to a single exact position when a melody poly-event has one playable note', () => {
+    const melodyPrompt: Prompt = {
+      displayText: 'Melody [1/4]: C + E',
+      targetNote: null,
+      targetString: null,
+      targetChordNotes: ['C', 'E'],
+      targetChordFingering: [{ note: 'C', string: 'A', fret: 3 }],
+      targetMelodyEventNotes: [{ note: 'C', string: 'A', fret: 3 }],
+      baseChordName: null,
+    };
+
+    const plan = computeFretboardRenderPlan({
+      trainingMode: 'melody',
+      isListening: true,
+      showingAllNotes: false,
+      currentPrompt: melodyPrompt,
+      currentArpeggioIndex: 0,
+      liveDetectedNote: null,
+      liveDetectedString: null,
+      melodyFoundNotes: new Set(['C']),
+    });
+
+    expect(plan.rootNote).toBe('C');
+    expect(plan.rootString).toBe('A');
+    expect(plan.chordFingering).toEqual([]);
+  });
 });

@@ -395,4 +395,28 @@ describe('MelodyPracticeMode', () => {
       { note: 'E', string: 'E', fret: 0 },
     ]);
   });
+
+  it('keeps a visible fallback target when a polyphonic event has only one playable position', () => {
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Legacy Import',
+      events: [
+        {
+          notes: [
+            { note: 'C', stringName: 'A', fret: 3 },
+            { note: 'E', stringName: null, fret: null },
+          ],
+        },
+      ],
+    });
+
+    const mode = new MelodyPracticeMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt?.targetChordNotes).toEqual(['C', 'E']);
+    expect(prompt?.targetMelodyEventNotes).toEqual([{ note: 'C', string: 'A', fret: 3 }]);
+    expect(prompt?.targetNote).toBe('C');
+    expect(prompt?.targetString).toBe('A');
+  });
 });

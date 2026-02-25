@@ -132,6 +132,19 @@ describe('ascii-tab-melody-parser', () => {
     expect(groupedEvents.map((event) => event.durationCountSteps)).toEqual([1, 1, 1]);
   });
 
+  it('does not parse unlabeled count rows that start with digits as tab strings', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        '1 string 0---5---8---',
+        '2 string ------------',
+        '1   &   2   &   3   &',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents.map((event) => event.notes[0]?.fret)).toEqual([0, 5, 8]);
+  });
+
   it('throws a user-friendly error when no tab lines are found', () => {
     expect(() => parseAsciiTabMelodyEvents('count 1 and 2 and')).toThrow(/No tab lines found/i);
   });
@@ -179,6 +192,21 @@ describe('ascii-tab-melody-parser', () => {
     expect(groupedEvents.map((event) => event.notes.map((n) => [n.stringName, n.fret]))).toEqual([
       [['e', 0]],
       [['e', 3]],
+    ]);
+  });
+
+  it('preserves case-sensitive E/e string labels for guitar letter tabs', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        'e|--0--|',
+        'E|--1--|',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents[0]?.notes.map((n) => [n.stringName, n.fret])).toEqual([
+      ['e', 0],
+      ['E', 1],
     ]);
   });
 });

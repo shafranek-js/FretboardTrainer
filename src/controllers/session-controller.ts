@@ -66,6 +66,8 @@ import {
 } from '../mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
+import { normalizeMicPolyphonicDetectorProvider } from '../mic-polyphonic-detector';
+import { refreshMicPolyphonicDetectorAudioInfoUi } from '../mic-polyphonic-detector-ui';
 import type { ChordNote, Prompt } from '../types';
 import { parseAsciiTabToMelodyEvents } from '../ascii-tab-melody-parser';
 import {
@@ -105,6 +107,14 @@ let pendingMidiImport: {
   quantize: MidiImportQuantize;
   importedPreview: MidiImportedMelody | null;
 } | null = null;
+
+function syncMetronomeBpmDisplay() {
+  dom.metronomeBpmValue.textContent = dom.metronomeBpm.value;
+}
+
+function syncMelodyDemoBpmDisplay() {
+  dom.melodyDemoBpmValue.textContent = dom.melodyDemoBpm.value;
+}
 
 function renderMelodyDemoButtonState() {
   dom.melodyDemoBtn.textContent = isMelodyDemoPlaying ? 'Stop Demo' : 'Play Demo';
@@ -551,6 +561,7 @@ function getClampedMelodyDemoBpmFromInput() {
     ? Math.max(MELODY_DEMO_MIN_BPM, Math.min(MELODY_DEMO_MAX_BPM, parsed))
     : MELODY_DEMO_DEFAULT_BPM;
   dom.melodyDemoBpm.value = String(clamped);
+  syncMelodyDemoBpmDisplay();
   return clamped;
 }
 
@@ -683,19 +694,21 @@ function setCurriculumPresetInfo(text: string) {
 
 function updateMicNoiseGateInfo() {
   const threshold = resolveMicVolumeThreshold(state.micSensitivityPreset, state.micAutoNoiseFloorRms);
+  const polyProviderLabel =
+    dom.micPolyphonicDetectorProvider.selectedOptions[0]?.textContent?.trim() ?? 'Spectrum (Fast baseline)';
   if (state.micSensitivityPreset === 'auto') {
     const noiseFloorText =
       typeof state.micAutoNoiseFloorRms === 'number' ? state.micAutoNoiseFloorRms.toFixed(4) : 'n/a';
     const attackLabel = dom.micNoteAttackFilter.selectedOptions[0]?.textContent?.trim() ?? 'Balanced';
     const holdLabel = dom.micNoteHoldFilter.selectedOptions[0]?.textContent?.trim() ?? '80 ms';
-    dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (Auto; room noise floor ${noiseFloorText} RMS). Attack: ${attackLabel}; Hold: ${holdLabel}.`;
+    dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (Auto; room noise floor ${noiseFloorText} RMS). Attack: ${attackLabel}; Hold: ${holdLabel}. Poly detector: ${polyProviderLabel}.`;
     return;
   }
 
   const presetLabel = dom.micSensitivityPreset.selectedOptions[0]?.textContent?.trim() ?? 'Normal';
   const attackLabel = dom.micNoteAttackFilter.selectedOptions[0]?.textContent?.trim() ?? 'Balanced';
   const holdLabel = dom.micNoteHoldFilter.selectedOptions[0]?.textContent?.trim() ?? '80 ms';
-  dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (${presetLabel} preset). Attack: ${attackLabel}; Hold: ${holdLabel}. Use Auto calibration for noisy rooms.`;
+  dom.micNoiseGateInfo.textContent = `Mic noise gate threshold: ${threshold.toFixed(4)} (${presetLabel} preset). Attack: ${attackLabel}; Hold: ${holdLabel}. Poly detector: ${polyProviderLabel}. Use Auto calibration for noisy rooms.`;
 }
 
 async function measureRoomNoiseFloorRms(durationMs = 2000) {
@@ -758,7 +771,7 @@ function applyEnabledStrings(enabledStrings: string[]) {
   });
 }
 
-function populateMelodyOptions() {
+export function refreshMelodyOptionsForCurrentInstrument() {
   const melodies = listMelodiesForInstrument(state.currentInstrument);
   const previousValue = state.preferredMelodyId ?? dom.melodySelector.value;
   dom.melodySelector.innerHTML = '';
@@ -782,7 +795,7 @@ function populateMelodyOptions() {
 }
 
 function finalizeMelodyImportSelection(melodyId: string, successMessage: string) {
-  populateMelodyOptions();
+  refreshMelodyOptionsForCurrentInstrument();
   dom.melodySelector.value = melodyId;
   state.preferredMelodyId = melodyId;
   updateMelodyActionButtonsForSelection();
@@ -953,6 +966,7 @@ function getClampedMetronomeBpmFromInput() {
   const parsed = Number.parseInt(dom.metronomeBpm.value, 10);
   const clamped = clampMetronomeBpm(parsed);
   dom.metronomeBpm.value = String(clamped);
+  syncMetronomeBpmDisplay();
   return clamped;
 }
 
@@ -1016,12 +1030,15 @@ export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
   dom.melodyDemoBpm.value = String(getClampedMelodyDemoBpmFromInput());
-  populateMelodyOptions();
+  syncMetronomeBpmDisplay();
+  syncMelodyDemoBpmDisplay();
+  refreshMelodyOptionsForCurrentInstrument();
   resetMelodyEditorDraft();
   updateMelodyEditorUiForCurrentMode();
   renderMelodyDemoButtonState();
   resetMetronomeVisualIndicator();
   updateMicNoiseGateInfo();
+  refreshMicPolyphonicDetectorAudioInfoUi();
   updatePracticeSetupSummary();
   refreshInputSourceAvailabilityUi();
   setPracticeSetupCollapsed(window.innerWidth < 900);
@@ -1101,7 +1118,7 @@ export function registerSessionControls() {
     state.currentInstrument = instruments[dom.instrumentSelector.value];
     state.currentTuningPresetKey = dom.tuningPreset.value;
     updateInstrumentUI(); // Redraw strings, fretboard, etc.
-    populateMelodyOptions();
+    refreshMelodyOptionsForCurrentInstrument();
     updatePracticeSetupSummary();
     await loadInstrumentSoundfont(state.currentInstrument.name);
     saveSettings();
@@ -1178,6 +1195,26 @@ export function registerSessionControls() {
     updateMicNoiseGateInfo();
     saveSettings();
   });
+  dom.micPolyphonicDetectorProvider.addEventListener('change', () => {
+    state.micPolyphonicDetectorProvider = normalizeMicPolyphonicDetectorProvider(
+      dom.micPolyphonicDetectorProvider.value
+    );
+    dom.micPolyphonicDetectorProvider.value = state.micPolyphonicDetectorProvider;
+    state.lastMicPolyphonicDetectorProviderUsed = null;
+    state.lastMicPolyphonicDetectorFallbackFrom = null;
+    state.lastMicPolyphonicDetectorWarning = null;
+    state.micPolyphonicDetectorTelemetryFrames = 0;
+    state.micPolyphonicDetectorTelemetryTotalLatencyMs = 0;
+    state.micPolyphonicDetectorTelemetryMaxLatencyMs = 0;
+    state.micPolyphonicDetectorTelemetryLastLatencyMs = null;
+    state.micPolyphonicDetectorTelemetryFallbackFrames = 0;
+    state.micPolyphonicDetectorTelemetryWarningFrames = 0;
+    state.micPolyphonicDetectorTelemetryWindowStartedAtMs = 0;
+    state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = 0;
+    updateMicNoiseGateInfo();
+    refreshMicPolyphonicDetectorAudioInfoUi();
+    saveSettings();
+  });
 
   dom.calibrateNoiseFloorBtn.addEventListener('click', async () => {
     if (state.isListening) {
@@ -1197,6 +1234,7 @@ export function registerSessionControls() {
       state.micSensitivityPreset = 'auto';
       dom.micSensitivityPreset.value = 'auto';
       updateMicNoiseGateInfo();
+      refreshMicPolyphonicDetectorAudioInfoUi();
       saveSettings();
       setResultMessage(
         `Room noise calibrated. Auto threshold is now based on ${noiseFloorRms.toFixed(4)} RMS.`,
@@ -1493,7 +1531,7 @@ export function registerSessionControls() {
     if (!confirmed) return;
 
     const deleted = deleteCustomMelody(selectedId);
-    populateMelodyOptions();
+    refreshMelodyOptionsForCurrentInstrument();
     markCurriculumPresetAsCustom();
     updatePracticeSetupSummary();
     saveSettings();

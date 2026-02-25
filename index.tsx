@@ -14,6 +14,7 @@ import { registerResizeObserver } from './src/controllers/resize-controller';
 import { registerConfirmControls } from './src/controllers/confirm-controller';
 import { showNonBlockingError } from './src/app-feedback';
 import { setUserErrorReporter } from './src/user-feedback-port';
+import { registerOptionalMicPolyphonicDetectorAdapters } from './src/mic-polyphonic-detector-bootstrap';
 
 let globalErrorHandlersBound = false;
 
@@ -66,6 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindUiSignals();
     setUserErrorReporter(showNonBlockingError);
     await loadSettings(); // This now loads profiles, applies settings, and pre-loads audio
+    await registerOptionalMicPolyphonicDetectorAdapters();
     loadStats();
     updateProfileButtonsState();
 

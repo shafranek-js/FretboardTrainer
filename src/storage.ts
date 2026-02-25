@@ -22,6 +22,7 @@ import { normalizeAudioInputDeviceId, setPreferredAudioInputDeviceId } from './a
 import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from './mic-note-hold-filter';
+import { normalizeMicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
 import {
   normalizeInputSource,
   normalizeMidiInputDeviceId,
@@ -60,6 +61,7 @@ export interface ProfileSettings {
   micSensitivityPreset?: 'quiet_room' | 'normal' | 'noisy_room' | 'auto';
   micNoteAttackFilter?: 'off' | 'balanced' | 'strong';
   micNoteHoldFilter?: 'off' | '40ms' | '80ms' | '120ms';
+  micPolyphonicDetectorProvider?: string;
   micAutoNoiseFloorRms?: number | null;
   midiInputDeviceId?: string | null;
   startFret?: string;
@@ -145,6 +147,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     micSensitivityPreset: state.micSensitivityPreset,
     micNoteAttackFilter: state.micNoteAttackFilterPreset,
     micNoteHoldFilter: state.micNoteHoldFilterPreset,
+    micPolyphonicDetectorProvider: state.micPolyphonicDetectorProvider,
     micAutoNoiseFloorRms: state.micAutoNoiseFloorRms,
     midiInputDeviceId: state.preferredMidiInputDeviceId,
     startFret: dom.startFret.value,
@@ -209,6 +212,10 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.micNoteAttackFilter.value = state.micNoteAttackFilterPreset;
     state.micNoteHoldFilterPreset = normalizeMicNoteHoldFilterPreset(safeSettings.micNoteHoldFilter);
     dom.micNoteHoldFilter.value = state.micNoteHoldFilterPreset;
+    state.micPolyphonicDetectorProvider = normalizeMicPolyphonicDetectorProvider(
+      safeSettings.micPolyphonicDetectorProvider
+    );
+    dom.micPolyphonicDetectorProvider.value = state.micPolyphonicDetectorProvider;
     state.micAutoNoiseFloorRms =
       typeof safeSettings.micAutoNoiseFloorRms === 'number' &&
       Number.isFinite(safeSettings.micAutoNoiseFloorRms) &&
@@ -224,6 +231,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.sessionPace.value = state.sessionPace;
     dom.metronomeEnabled.checked = safeSettings.metronomeEnabled ?? false;
     dom.metronomeBpm.value = safeSettings.metronomeBpm ?? '80';
+    dom.metronomeBpmValue.textContent = dom.metronomeBpm.value;
     dom.rhythmTimingWindow.value = safeSettings.rhythmTimingWindow ?? 'normal';
     const selectedTrainingModeOption = dom.trainingMode.selectedOptions[0];
     if (selectedTrainingModeOption?.disabled) {
@@ -260,6 +268,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
         ? safeSettings.selectedMelodyId
         : null;
     dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
+    dom.melodyDemoBpmValue.textContent = dom.melodyDemoBpm.value;
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;
     state.autoPlayPromptSound = dom.autoPlayPromptSound.checked;

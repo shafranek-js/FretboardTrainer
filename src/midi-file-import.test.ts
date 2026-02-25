@@ -128,4 +128,71 @@ describe('midi-file-import', () => {
     expect(imported.events[1]?.durationBeats).toBe(0.5);
     expect(imported.events[2]?.durationBeats).toBe(0.5);
   });
+
+  it('skips unresolved out-of-range MIDI notes and reports a warning', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: { ppq: 480 },
+        tracks: [
+          {
+            name: 'High Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 120, ticks: 0, durationTicks: 480 }, // unreachable with default import fret cap
+              { midi: 64, ticks: 480, durationTicks: 480 },
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'high.mid'
+    );
+
+    expect(imported.events).toHaveLength(1);
+    expect(imported.events[0]?.notes).toEqual([{ note: 'E', stringName: expect.any(String), fret: expect.any(Number) }]);
+    expect(imported.warnings.some((warning) => /Skipped .*outside the playable import range/i.test(warning))).toBe(
+      true
+    );
+    expect(imported.warnings.some((warning) => /Skipped .*event/i.test(warning))).toBe(true);
+    imported.events.flatMap((event) => event.notes).forEach((note) => {
+      expect(note.stringName).not.toBeNull();
+      expect(note.fret).not.toBeNull();
+    });
+  });
+
+  it('preserves duplicated pitch classes in one MIDI event and chooses playable positions', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: { ppq: 480 },
+        tracks: [
+          {
+            name: 'Piano Chords',
+            channel: 0,
+            instrument: { percussion: false, name: 'piano' },
+            notes: [
+              { midi: 52, ticks: 0, durationTicks: 480 }, // E3
+              { midi: 64, ticks: 0, durationTicks: 480 }, // E4 (duplicate pitch class)
+              { midi: 67, ticks: 0, durationTicks: 480 }, // G4
+              { midi: 71, ticks: 0, durationTicks: 480 }, // B4
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'duplicate-pitch-class.mid'
+    );
+
+    expect(imported.events).toHaveLength(1);
+    const event = imported.events[0];
+    expect(event?.notes.length).toBe(4);
+    const pitchClasses = event?.notes.map((note) => note.note) ?? [];
+    expect(pitchClasses.filter((note) => note === 'E')).toHaveLength(2);
+    expect(imported.warnings.some((warning) => /duplicated pitch-class note/i.test(warning))).toBe(false);
+
+    const eNotes = event?.notes.filter((note) => note.note === 'E') ?? [];
+    expect(new Set(eNotes.map((note) => note.stringName)).size).toBe(eNotes.length);
+    const eFrets = eNotes.map((note) => note.fret ?? 99);
+    expect(Math.max(...eFrets) - Math.min(...eFrets)).toBeLessThanOrEqual(5);
+  });
 });

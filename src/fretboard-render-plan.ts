@@ -79,6 +79,18 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
       };
     }
 
+    if (melodyEventFingering.length === 1 && !currentPrompt.targetNote) {
+      const onlyNote = melodyEventFingering[0];
+      return {
+        showAll: false,
+        rootNote: onlyNote?.note ?? null,
+        rootString: onlyNote?.string ?? null,
+        chordFingering: [],
+        foundChordNotes: new Set(melodyFoundNotes),
+        currentTargetNote: null,
+      };
+    }
+
     if (!currentPrompt.targetNote) {
       return {
         showAll: false,
