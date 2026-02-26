@@ -224,7 +224,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
         : null;
     setPreferredMidiInputDeviceId(normalizeMidiInputDeviceId(safeSettings.midiInputDeviceId));
     dom.startFret.value = safeSettings.startFret ?? '0';
-    dom.endFret.value = safeSettings.endFret ?? '12';
+    dom.endFret.value = safeSettings.endFret ?? '20';
     dom.trainingMode.value = safeSettings.trainingMode ?? 'random';
     dom.sessionGoal.value = safeSettings.sessionGoal ?? 'none';
     state.sessionPace = normalizeSessionPace(safeSettings.sessionPace);

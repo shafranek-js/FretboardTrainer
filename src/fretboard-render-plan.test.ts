@@ -166,8 +166,9 @@ describe('computeFretboardRenderPlan', () => {
       melodyFoundNotes: new Set(['C']),
     });
 
-    expect(plan.rootNote).toBe('C');
-    expect(plan.rootString).toBe('A');
-    expect(plan.chordFingering).toEqual([]);
+    expect(plan.rootNote).toBeNull();
+    expect(plan.rootString).toBeNull();
+    expect(plan.chordFingering).toEqual([{ note: 'C', string: 'A', fret: 3 }]);
+    expect(plan.foundChordNotes).toEqual(new Set(['C']));
   });
 });

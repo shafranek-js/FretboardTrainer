@@ -11,6 +11,8 @@ export interface FretboardLayout {
   nutX: number;
   openNoteX: number;
   fretNumberAreaHeight: number;
+  fretWireXs: number[]; // index 0 = nut, index n = nth fret wire
+  fretCenterXs: number[]; // index n = center of fret n (n>=1), index 0 = open note area center
 }
 
 interface LayoutOptions {
@@ -78,6 +80,20 @@ export function computeFretboardLayout(
   const labelFontSize = Math.min(width * 0.015, 14);
   const nutX = drawingStartX + openNoteAreaUnits * fretSpacing;
   const openNoteX = drawingStartX + openNoteAreaUnits * fretSpacing * 0.5;
+  const playableBoardWidth = Math.max(1, fretboardWidth - openNoteAreaUnits * fretSpacing);
+  const denominator = 1 - 2 ** (-fretCount / 12);
+  const safeDenominator = denominator > 0 ? denominator : 1;
+  const fretWireXs = Array.from({ length: fretCount + 1 }, (_, fret) => {
+    if (fret === 0) return nutX;
+    const normalizedDistance = (1 - 2 ** (-fret / 12)) / safeDenominator;
+    return nutX + playableBoardWidth * normalizedDistance;
+  });
+  const fretCenterXs = Array.from({ length: fretCount + 1 }, (_, fret) => {
+    if (fret === 0) return openNoteX;
+    const left = fretWireXs[fret - 1] ?? nutX;
+    const right = fretWireXs[fret] ?? nutX;
+    return (left + right) / 2;
+  });
 
   return {
     fretCount,
@@ -92,5 +108,7 @@ export function computeFretboardLayout(
     nutX,
     openNoteX,
     fretNumberAreaHeight,
+    fretWireXs,
+    fretCenterXs,
   };
 }

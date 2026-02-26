@@ -211,7 +211,10 @@ export function drawFretboard(
   rootString: string | null = null,
   chordFingering: ChordNote[] = [],
   foundChordNotes: Set<string> = new Set(),
-  currentTargetNote: string | null = null
+  currentTargetNote: string | null = null,
+  wrongDetectedNote: string | null = null,
+  wrongDetectedString: string | null = null,
+  wrongDetectedFret: number | null = null
 ) {
   drawFretboardSvg(
     showAll,
@@ -219,7 +222,10 @@ export function drawFretboard(
     rootString,
     chordFingering,
     foundChordNotes,
-    currentTargetNote
+    currentTargetNote,
+    wrongDetectedNote,
+    wrongDetectedString,
+    wrongDetectedFret
   );
 }
 
@@ -250,7 +256,10 @@ export function redrawFretboard() {
     plan.rootString,
     plan.chordFingering,
     plan.foundChordNotes,
-    plan.currentTargetNote
+    plan.currentTargetNote,
+    state.wrongDetectedNote,
+    state.wrongDetectedString,
+    state.wrongDetectedFret
   );
 }
 

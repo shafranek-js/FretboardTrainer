@@ -5,7 +5,7 @@
 import { dom, state } from './state';
 import { updateStats, saveLastSessionStats, saveSettings, saveStats } from './storage';
 import { updateTuner, redrawFretboard, drawFretboard, displayStats } from './ui';
-import { freqToNoteName, detectPitch, playSound } from './audio';
+import { freqToNoteName, freqToScientificNoteName, detectPitch, playSound } from './audio';
 import { modes } from './modes';
 import {
   calculateRmsLevel,
@@ -40,6 +40,7 @@ import {
 } from './constants';
 import { getEnabledStrings, getSelectedFretRange } from './fretboard-ui-state';
 import { buildPromptAudioPlan } from './prompt-audio-plan';
+import { resolvePromptTargetPosition } from './prompt-audio';
 import {
   createPromptCycleTrackingResetState,
   createStabilityTrackingResetState,
@@ -239,6 +240,80 @@ function updateMicPolyphonicDetectorRuntimeStatusFromResult(
   }
 }
 
+function clearWrongDetectedHighlight(redraw = false) {
+  const hadHighlight = state.wrongDetectedNote !== null || state.wrongDetectedString !== null;
+  state.wrongDetectedNote = null;
+  state.wrongDetectedString = null;
+  state.wrongDetectedFret = null;
+  if (redraw && hadHighlight) {
+    redrawFretboard();
+  }
+}
+
+function resolveDetectedScientificPosition(
+  detectedScientificNote: string,
+  enabledStrings: Set<string>,
+  maxFret = 24
+) {
+  for (const stringName of state.currentInstrument.STRING_ORDER) {
+    if (!enabledStrings.has(stringName)) continue;
+    for (let fret = 0; fret <= maxFret; fret++) {
+      const noteWithOctave = state.currentInstrument.getNoteWithOctave(stringName, fret);
+      if (noteWithOctave === detectedScientificNote) {
+        return { stringName, fret };
+      }
+    }
+  }
+  return null;
+}
+
+function setWrongDetectedHighlight(detectedNote: string, detectedFrequency?: number | null) {
+  const enabledStrings = getEnabledStrings(dom.stringSelector);
+  const detectedScientific =
+    typeof detectedFrequency === 'number' && detectedFrequency > 0
+      ? freqToScientificNoteName(detectedFrequency)
+      : null;
+  const exactResolved = detectedScientific
+    ? resolveDetectedScientificPosition(detectedScientific, enabledStrings)
+    : null;
+  const resolved = resolvePromptTargetPosition({
+    targetNote: detectedNote,
+    preferredString: null,
+    enabledStrings,
+    instrument: state.currentInstrument,
+  });
+
+  state.wrongDetectedNote = detectedNote;
+  state.wrongDetectedString = exactResolved?.stringName ?? resolved?.stringName ?? null;
+  state.wrongDetectedFret = exactResolved?.fret ?? resolved?.fret ?? null;
+}
+
+function stripScientificOctave(noteWithOctave: string) {
+  return noteWithOctave.replace(/-?\d+$/, '');
+}
+
+function detectMonophonicOctaveMismatch(
+  detectedNote: string,
+  detectedFrequency?: number | null
+): { detectedScientific: string; targetScientific: string } | null {
+  const prompt = state.currentPrompt;
+  if (!prompt?.targetNote || !prompt.targetString) return null;
+  if (typeof detectedFrequency !== 'number' || !Number.isFinite(detectedFrequency) || detectedFrequency <= 0) {
+    return null;
+  }
+  if (!Number.isFinite(state.targetFrequency) || !state.targetFrequency || state.targetFrequency <= 0) {
+    return null;
+  }
+
+  const detectedScientific = freqToScientificNoteName(detectedFrequency);
+  const targetScientific = freqToScientificNoteName(state.targetFrequency);
+  if (!detectedScientific || !targetScientific) return null;
+  if (stripScientificOctave(detectedScientific) !== detectedNote) return null;
+  if (stripScientificOctave(targetScientific) !== prompt.targetNote) return null;
+  if (detectedScientific === targetScientific) return null;
+  return { detectedScientific, targetScientific };
+}
+
 function handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, context: string) {
   state.currentMelodyEventFoundNotes.clear();
   redrawFretboard();
@@ -388,7 +463,7 @@ function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
   }
 }
 
-function handleStableMonophonicDetectedNote(detectedNote: string) {
+function handleStableMonophonicDetectedNote(detectedNote: string, detectedFrequency?: number | null) {
   const trainingMode = dom.trainingMode.value;
   const prompt = state.currentPrompt;
   if (trainingMode === 'melody' && prompt && isPolyphonicMelodyPrompt(prompt)) {
@@ -427,6 +502,7 @@ function handleStableMonophonicDetectedNote(detectedNote: string) {
   });
 
   if (reactionPlan.kind === 'free_highlight') {
+    clearWrongDetectedHighlight();
     updateLiveDetectedHighlight({
       note: detectedNote,
       stateRef: state,
@@ -438,11 +514,48 @@ function handleStableMonophonicDetectedNote(detectedNote: string) {
   }
 
   if (reactionPlan.kind === 'rhythm_feedback') {
+    clearWrongDetectedHighlight();
     handleRhythmModeStableNote(detectedNote);
     return;
   }
 
+  const octaveMismatch = detectMonophonicOctaveMismatch(detectedNote, detectedFrequency);
+  if (octaveMismatch && prompt) {
+    recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
+    setResultMessage(
+      `Heard: ${octaveMismatch.detectedScientific} [wrong octave, expected ${octaveMismatch.targetScientific}]`,
+      'error'
+    );
+    setWrongDetectedHighlight(detectedNote, detectedFrequency);
+    if (!state.showingAllNotes && prompt.targetNote) {
+      drawFretboard(
+        false,
+        prompt.targetNote,
+        prompt.targetString,
+        [],
+        new Set(),
+        null,
+        state.wrongDetectedNote,
+        state.wrongDetectedString,
+        state.wrongDetectedFret
+      );
+      scheduleSessionCooldown('monophonic octave mismatch redraw', 1500, () => {
+        clearWrongDetectedHighlight();
+        redrawFretboard();
+      });
+      return;
+    }
+
+    redrawFretboard();
+    scheduleSessionCooldown('monophonic octave mismatch clear wrong highlight', 1500, () => {
+      clearWrongDetectedHighlight();
+      redrawFretboard();
+    });
+    return;
+  }
+
   if (reactionPlan.kind === 'success') {
+    clearWrongDetectedHighlight();
     const elapsed = (Date.now() - state.startTime) / 1000;
     displayResult(true, elapsed);
     return;
@@ -451,13 +564,36 @@ function handleStableMonophonicDetectedNote(detectedNote: string) {
   if (reactionPlan.kind === 'ignore_no_prompt' || !prompt) return;
 
   recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
-  setResultMessage(`Heard: ${detectedNote} [wrong]`, 'error');
+  const detectedScientific =
+    typeof detectedFrequency === 'number' && detectedFrequency > 0
+      ? freqToScientificNoteName(detectedFrequency)
+      : null;
+  setResultMessage(`Heard: ${detectedScientific ?? detectedNote} [wrong]`, 'error');
+  setWrongDetectedHighlight(detectedNote, detectedFrequency);
   if (reactionPlan.shouldDrawTargetFretboard) {
-    drawFretboard(false, reactionPlan.targetNote, reactionPlan.targetString);
+    drawFretboard(
+      false,
+      reactionPlan.targetNote,
+      reactionPlan.targetString,
+      [],
+      new Set(),
+      null,
+      state.wrongDetectedNote,
+      state.wrongDetectedString,
+      state.wrongDetectedFret
+    );
     scheduleSessionCooldown('monophonic mismatch redraw', reactionPlan.cooldownDelayMs, () => {
+      clearWrongDetectedHighlight();
       redrawFretboard();
     });
+    return;
   }
+
+  redrawFretboard();
+  scheduleSessionCooldown('monophonic mismatch clear wrong highlight', reactionPlan.cooldownDelayMs, () => {
+    clearWrongDetectedHighlight();
+    redrawFretboard();
+  });
 }
 
 export function scheduleSessionTimeout(delayMs: number, callback: () => void, context: string) {
@@ -675,7 +811,7 @@ function processAudio() {
             ) {
               return;
             }
-            handleStableMonophonicDetectedNote(detectedNote);
+            handleStableMonophonicDetectedNote(detectedNote, monophonicResult.smoothedFrequency);
           },
         });
         if (monophonicReactionPlan.kind === 'none') {
@@ -939,6 +1075,9 @@ function nextPrompt() {
     state.pendingSessionStopResultMessage = null;
     state.liveDetectedNote = null;
     state.liveDetectedString = null;
+    state.wrongDetectedNote = null;
+    state.wrongDetectedString = null;
+    state.wrongDetectedFret = null;
     state.rhythmLastJudgedBeatAtMs = null;
     state.currentMelodyEventFoundNotes.clear();
     resetMicMonophonicAttackTracking();

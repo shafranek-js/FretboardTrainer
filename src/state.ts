@@ -225,6 +225,9 @@ export const state = {
   currentPrompt: null as Prompt | null,
   liveDetectedNote: null as string | null,
   liveDetectedString: null as string | null,
+  wrongDetectedNote: null as string | null,
+  wrongDetectedString: null as string | null,
+  wrongDetectedFret: null as number | null,
   previousNote: null as string | null, // To avoid consecutive identical prompts
   startTime: 0,
   stableNoteCounter: 0,

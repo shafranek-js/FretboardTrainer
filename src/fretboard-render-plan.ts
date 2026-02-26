@@ -68,26 +68,14 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
 
   if (trainingMode === 'melody' && isListening && currentPrompt) {
     const melodyEventFingering = currentPrompt.targetMelodyEventNotes ?? [];
-    if (melodyEventFingering.length > 1) {
+    if (melodyEventFingering.length >= 1) {
       return {
         showAll: false,
         rootNote: null,
         rootString: null,
         chordFingering: melodyEventFingering,
         foundChordNotes: new Set(melodyFoundNotes),
-        currentTargetNote: null,
-      };
-    }
-
-    if (melodyEventFingering.length === 1 && !currentPrompt.targetNote) {
-      const onlyNote = melodyEventFingering[0];
-      return {
-        showAll: false,
-        rootNote: onlyNote?.note ?? null,
-        rootString: onlyNote?.string ?? null,
-        chordFingering: [],
-        foundChordNotes: new Set(melodyFoundNotes),
-        currentTargetNote: null,
+        currentTargetNote: melodyEventFingering.length === 1 ? currentPrompt.targetNote : null,
       };
     }
 

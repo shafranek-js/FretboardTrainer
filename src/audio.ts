@@ -5,7 +5,7 @@
 import * as Soundfont from 'soundfont-player';
 import { state } from './state';
 import { VOLUME_THRESHOLD } from './constants';
-import { freqToNoteNameFromA4 } from './music-theory';
+import { freqToNoteNameFromA4, freqToScientificNoteNameFromA4 } from './music-theory';
 import { setLoadingState } from './ui';
 import { detectPitchYin } from './dsp/pitch';
 import { showNonBlockingInfo } from './app-feedback';
@@ -14,6 +14,11 @@ import { getPromptAudioInputIgnoreMs } from './session-pace';
 /** Converts a frequency in Hz to the closest musical note name. */
 export function freqToNoteName(freq: number): string | null {
   return freqToNoteNameFromA4(freq, state.calibratedA4);
+}
+
+/** Converts a frequency in Hz to the closest scientific note name (e.g. E2). */
+export function freqToScientificNoteName(freq: number): string | null {
+  return freqToScientificNoteNameFromA4(freq, state.calibratedA4);
 }
 
 /** Detects pitch in monophonic input (YIN algorithm). */

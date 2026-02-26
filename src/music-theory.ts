@@ -9,6 +9,18 @@ export function freqToNoteNameFromA4(freq: number, a4Frequency: number): string 
   return ALL_NOTES[noteIndex];
 }
 
+/** Converts a frequency in Hz to the closest scientific note (e.g. E2) using a provided A4 reference. */
+export function freqToScientificNoteNameFromA4(freq: number, a4Frequency: number): string | null {
+  if (freq <= 0 || a4Frequency <= 0) return null;
+
+  const semitoneOffsetFromA4 = Math.round(12 * Math.log2(freq / a4Frequency));
+  const noteIndex = (((semitoneOffsetFromA4 + 9) % 12) + 12) % 12;
+  const octave = 4 + Math.floor((semitoneOffsetFromA4 + 9) / 12);
+  const note = ALL_NOTES[noteIndex];
+  if (!note) return null;
+  return `${note}${octave}`;
+}
+
 /** Returns the nearest equal-tempered target frequency for chromatic tuner use. */
 export function nearestChromaticTargetFrequencyFromA4(
   freq: number,

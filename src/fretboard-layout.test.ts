@@ -16,6 +16,13 @@ describe('computeFretboardLayout', () => {
     expect(layout!.stringSpacing).toBeGreaterThan(0);
     expect(layout!.fretSpacing).toBeGreaterThan(0);
     expect(layout!.nutX).toBeGreaterThan(layout!.openNoteX);
+    expect(layout!.fretWireXs).toHaveLength(layout!.fretCount + 1);
+    expect(layout!.fretCenterXs).toHaveLength(layout!.fretCount + 1);
+    expect(layout!.fretWireXs[0]).toBe(layout!.nutX);
+    expect(layout!.fretWireXs[12]).toBeGreaterThan(layout!.fretWireXs[11]);
+    const gap1 = layout!.fretWireXs[1] - layout!.fretWireXs[0];
+    const gap12 = layout!.fretWireXs[12] - layout!.fretWireXs[11];
+    expect(gap1).toBeGreaterThan(gap12);
   });
 
   it('supports single-string instruments without division errors', () => {

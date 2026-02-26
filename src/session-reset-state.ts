@@ -5,6 +5,9 @@ export interface SessionStopResetState {
   currentPrompt: Prompt | null;
   liveDetectedNote: string | null;
   liveDetectedString: string | null;
+  wrongDetectedNote: string | null;
+  wrongDetectedString: string | null;
+  wrongDetectedFret: number | null;
   rhythmLastJudgedBeatAtMs: number | null;
   scaleNotes: { note: string; string: string }[];
   currentScaleIndex: number;
@@ -23,6 +26,9 @@ export function createSessionStopResetState() {
     currentPrompt: null,
     liveDetectedNote: null,
     liveDetectedString: null,
+    wrongDetectedNote: null,
+    wrongDetectedString: null,
+    wrongDetectedFret: null,
     rhythmLastJudgedBeatAtMs: null,
     scaleNotes: [],
     currentScaleIndex: 0,

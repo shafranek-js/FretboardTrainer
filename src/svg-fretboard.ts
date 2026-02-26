@@ -8,8 +8,11 @@ import { computeFretboardLayout } from './fretboard-layout';
 import { positionStringLabels } from './fretboard-string-labels';
 import type { ChordNote } from './types';
 import { formatMusicText } from './note-display';
+import { playSound } from './audio';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const MIN_RENDER_FRET_COUNT = 20;
+const MAX_RENDER_FRET_COUNT = 24;
 
 function createSvgEl<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -31,16 +34,16 @@ function appendCircle(
   stroke = 'none',
   strokeWidth = 0
 ) {
-  svg.appendChild(
-    createSvgEl('circle', {
-      cx: x,
-      cy: y,
-      r,
-      fill,
-      stroke,
-      'stroke-width': strokeWidth,
-    })
-  );
+  const circle = createSvgEl('circle', {
+    cx: x,
+    cy: y,
+    r,
+    fill,
+    stroke,
+    'stroke-width': strokeWidth,
+  });
+  svg.appendChild(circle);
+  return circle;
 }
 
 function appendText(
@@ -64,6 +67,7 @@ function appendText(
   });
   textEl.textContent = formatMusicText(text);
   svg.appendChild(textEl);
+  return textEl;
 }
 
 function appendRect(svg: SVGSVGElement, attrs: Record<string, string | number>) {
@@ -72,6 +76,84 @@ function appendRect(svg: SVGSVGElement, attrs: Record<string, string | number>) 
 
 function appendLine(svg: SVGSVGElement, attrs: Record<string, string | number>) {
   svg.appendChild(createSvgEl('line', attrs));
+}
+
+function stripOctaveSuffix(noteWithOctave: string) {
+  return noteWithOctave.replace(/-?\d+$/, '');
+}
+
+function appendHoverableNoteMarker(
+  svg: SVGSVGElement,
+  x: number,
+  y: number,
+  note: string,
+  radius: number,
+  fill: string,
+  stroke: string,
+  strokeWidth: number,
+  fontSize: number,
+  textFill = '#fff',
+  textWeight = 'normal'
+) {
+  const group = createSvgEl('g', {});
+  group.style.cursor = 'pointer';
+
+  const halo = createSvgEl('circle', {
+    cx: x,
+    cy: y,
+    r: radius * 1.42,
+    fill: 'rgba(255, 255, 255, 0.08)',
+    stroke: 'rgba(251, 191, 36, 0.9)',
+    'stroke-width': Math.max(1.25, strokeWidth || 0),
+    opacity: 0,
+    'pointer-events': 'none',
+  });
+
+  const circle = createSvgEl('circle', {
+    cx: x,
+    cy: y,
+    r: radius,
+    fill,
+    stroke,
+    'stroke-width': strokeWidth,
+  });
+
+  const textEl = createSvgEl('text', {
+    x,
+    y,
+    fill: textFill,
+    'font-size': fontSize,
+    'font-family': 'Segoe UI',
+    'font-weight': textWeight,
+    'text-anchor': 'middle',
+    'dominant-baseline': 'middle',
+    'pointer-events': 'none',
+  });
+  textEl.textContent = formatMusicText(note);
+
+  const base = {
+    radius,
+    stroke,
+    strokeWidth,
+  };
+
+  const applyHover = (isHovering: boolean) => {
+    halo.setAttribute('opacity', isHovering ? '1' : '0');
+    circle.setAttribute('r', String(isHovering ? base.radius * 1.07 : base.radius));
+    circle.setAttribute('stroke', isHovering ? '#f59e0b' : base.stroke);
+    circle.setAttribute('stroke-width', String(isHovering ? Math.max(2, base.strokeWidth || 0) : base.strokeWidth));
+    textEl.setAttribute('font-weight', isHovering ? 'bold' : textWeight);
+  };
+
+  group.addEventListener('pointerenter', () => applyHover(true));
+  group.addEventListener('pointerleave', () => applyHover(false));
+  group.addEventListener('pointercancel', () => applyHover(false));
+
+  group.appendChild(halo);
+  group.appendChild(circle);
+  group.appendChild(textEl);
+  svg.appendChild(group);
+  return group;
 }
 
 function appendFretboardDefs(svg: SVGSVGElement) {
@@ -168,7 +250,10 @@ export function drawFretboardSvg(
   rootString: string | null = null,
   chordFingering: ChordNote[] = [],
   foundChordNotes: Set<string> = new Set(),
-  currentTargetNote: string | null = null
+  currentTargetNote: string | null = null,
+  wrongDetectedNote: string | null = null,
+  wrongDetectedString: string | null = null,
+  wrongDetectedFret: number | null = null
 ) {
   const svg = dom.fretboardSvg;
   const instrumentData = state.currentInstrument;
@@ -176,6 +261,18 @@ export function drawFretboardSvg(
   const STRING_ORDER = instrumentData.STRING_ORDER;
   const MARKER_POSITIONS = instrumentData.MARKER_POSITIONS;
   const enabledStrings = getEnabledStrings(dom.stringSelector);
+  const { maxFret: selectedMaxFret } = getSelectedFretRange(dom.startFret.value, dom.endFret.value);
+  const highestChordFret = chordFingering.reduce((max, note) => Math.max(max, note.fret), 0);
+  const wrongHighlightFret =
+    typeof wrongDetectedFret === 'number'
+      ? wrongDetectedFret
+      : wrongDetectedNote && wrongDetectedString
+        ? (FRETBOARD[wrongDetectedString as keyof typeof FRETBOARD]?.[wrongDetectedNote] ?? 0)
+      : 0;
+  const renderFretCount = Math.max(
+    MIN_RENDER_FRET_COUNT,
+    Math.min(MAX_RENDER_FRET_COUNT, Math.max(selectedMaxFret, highestChordFret, wrongHighlightFret))
+  );
 
   const width = dom.fretboard.clientWidth;
   const height = dom.fretboard.clientHeight;
@@ -187,7 +284,7 @@ export function drawFretboardSvg(
   svg.innerHTML = '';
 
   const stringCount = STRING_ORDER.length;
-  const layout = computeFretboardLayout(width, height, stringCount);
+  const layout = computeFretboardLayout(width, height, stringCount, { fretCount: renderFretCount });
   if (!layout) return;
 
   const {
@@ -202,9 +299,18 @@ export function drawFretboardSvg(
     nutX,
     openNoteX,
     fretNumberAreaHeight,
+    fretWireXs,
+    fretCenterXs,
   } = layout;
+  const getFretWireX = (fret: number) => fretWireXs[fret] ?? (nutX + fret * fretSpacing);
+  const getFretCenterX = (fret: number) => fretCenterXs[fret] ?? (fret === 0 ? openNoteX : nutX + (fret - 0.5) * fretSpacing);
+  const getPitchClassAtPosition = (stringName: string, fret: number) => {
+    const noteWithOctave = instrumentData.getNoteWithOctave(stringName, fret);
+    return noteWithOctave ? stripOctaveSuffix(noteWithOctave) : null;
+  };
+  const lastFretX = getFretWireX(fretCount);
   const fretboardX = Math.max(0, nutX - fretSpacing * 0.18);
-  const fretboardWidth = Math.min(width - fretboardX, fretCount * fretSpacing + fretSpacing * 0.36);
+  const fretboardWidth = Math.min(width - fretboardX, Math.max(0, lastFretX - nutX) + fretSpacing * 0.36);
   const fretboardY = startY - Math.max(8, stringSpacing * 0.38);
   const visualBoardHeight = fretboardHeight + Math.max(16, stringSpacing * 0.76);
   const boardRadius = Math.max(10, stringSpacing * 0.6);
@@ -276,7 +382,7 @@ export function drawFretboardSvg(
 
   // Fret markers
   MARKER_POSITIONS.forEach((fret) => {
-    const x = nutX + (fret - 0.5) * fretSpacing;
+    const x = getFretCenterX(fret);
     const markerRadius = noteRadius * 0.7;
     if (fret === 12) {
       const y1 = startY + (stringCount / 2 - 1.5) * stringSpacing;
@@ -312,7 +418,7 @@ export function drawFretboardSvg(
   const fretRightFalloffWidth = Math.max(0.36, fretCrownWidth * 0.18);
   const fretLeftEdgeShadowWidth = Math.max(0.55, fretCrownWidth * 0.28);
   for (let i = 1; i <= fretCount; i++) {
-    const x = nutX + i * fretSpacing;
+    const x = getFretWireX(i);
     // Fret slot shadow (cut into the wood)
     appendLine(svg, {
       x1: x + 0.15,
@@ -383,7 +489,7 @@ export function drawFretboardSvg(
     appendLine(svg, {
       x1: nutX,
       y1: y,
-      x2: nutX + fretCount * fretSpacing,
+      x2: lastFretX,
       y2: y,
       stroke: strokeColor,
       'stroke-width': strokeWidth,
@@ -398,7 +504,7 @@ export function drawFretboardSvg(
         appendLine(svg, {
           x1: nutX,
           y1: y,
-          x2: nutX + fretCount * fretSpacing,
+          x2: lastFretX,
           y2: y,
           stroke: 'rgba(255, 214, 163, 0.38)',
           'stroke-width': Math.max(0.4, strokeWidth * 0.27),
@@ -410,7 +516,7 @@ export function drawFretboardSvg(
         appendLine(svg, {
           x1: nutX,
           y1: y + 0.12,
-          x2: nutX + fretCount * fretSpacing,
+          x2: lastFretX,
           y2: y + 0.12,
           stroke: 'rgba(66, 35, 16, 0.34)',
           'stroke-width': Math.max(0.25, strokeWidth * 0.17),
@@ -422,7 +528,7 @@ export function drawFretboardSvg(
         appendLine(svg, {
           x1: nutX,
           y1: y - 0.12,
-          x2: nutX + fretCount * fretSpacing,
+          x2: lastFretX,
           y2: y - 0.12,
           stroke: 'rgba(255, 238, 214, 0.18)',
           'stroke-width': Math.max(0.2, strokeWidth * 0.1),
@@ -435,7 +541,7 @@ export function drawFretboardSvg(
       appendLine(svg, {
         x1: nutX,
         y1: y - 0.45,
-        x2: nutX + fretCount * fretSpacing,
+        x2: lastFretX,
         y2: y - 0.45,
         stroke: isWoundString ? 'rgba(255, 236, 210, 0.16)' : 'rgba(255, 255, 255, 0.24)',
         'stroke-width': Math.max(0.45, strokeWidth * (isWoundString ? 0.16 : 0.22)),
@@ -456,36 +562,30 @@ export function drawFretboardSvg(
     STRING_ORDER.forEach((stringName, stringIdx) => {
       if (!enabledStrings.has(stringName)) return;
       const y = startY + stringIdx * stringSpacing;
-      const stringNotes = FRETBOARD[stringName as keyof typeof FRETBOARD] as Record<string, number>;
-      Object.entries(stringNotes).forEach(([note, fret]) => {
-        if (fret >= minFret && fret <= maxFret) {
-          const x = fret === 0 ? openNoteX : nutX + (fret - 0.5) * fretSpacing;
-          appendCircle(svg, x, y, noteRadius, 'rgba(28, 22, 19, 0.88)', 'rgba(176, 144, 109, 0.35)', 1.2);
-          appendText(svg, x, y, note, noteFontSize * 0.9, '#e6d5ba');
-        }
-      });
-
-      // Preserve legacy behavior: duplicate open note at fret 12 when range includes 12.
-      if (maxFret === 12) {
-        const openStringNote = Object.keys(stringNotes)[0];
-        const fret12X = nutX + (12 - 0.5) * fretSpacing;
-        appendCircle(
+      const visibleMaxFret = Math.min(maxFret, fretCount);
+      for (let fret = Math.max(0, minFret); fret <= visibleMaxFret; fret++) {
+        const note = getPitchClassAtPosition(stringName, fret);
+        if (!note) continue;
+        const x = fret === 0 ? openNoteX : getFretCenterX(fret);
+        appendHoverableNoteMarker(
           svg,
-          fret12X,
+          x,
           y,
+          note,
           noteRadius,
           'rgba(28, 22, 19, 0.88)',
           'rgba(176, 144, 109, 0.35)',
-          1.2
+          1.2,
+          noteFontSize * 0.9,
+          '#e6d5ba'
         );
-        appendText(svg, fret12X, y, openStringNote, noteFontSize * 0.9, '#e6d5ba');
       }
     });
   }
 
   // Fret numbers
   for (let i = 1; i <= fretCount; i++) {
-    const x = nutX + (i - 0.5) * fretSpacing;
+    const x = getFretCenterX(i);
     const y = startY + fretboardHeight + fretNumberAreaHeight * 0.2;
     const textEl = createSvgEl('text', {
       x,
@@ -508,9 +608,20 @@ export function drawFretboardSvg(
       const rootFret = stringNotes[rootNote];
       if (stringIdx >= 0 && typeof rootFret === 'number') {
         const y = startY + stringIdx * stringSpacing;
-        const x = rootFret === 0 ? openNoteX : nutX + (rootFret - 0.5) * fretSpacing;
-        appendCircle(svg, x, y, noteRadius * 1.2, '#28a745', '#1e7e34', 2);
-        appendText(svg, x, y, rootNote, noteFontSize, '#fff', 'bold');
+        const x = rootFret === 0 ? openNoteX : getFretCenterX(rootFret);
+        appendHoverableNoteMarker(
+          svg,
+          x,
+          y,
+          rootNote,
+          noteRadius * 1.2,
+          '#28a745',
+          '#1e7e34',
+          2,
+          noteFontSize,
+          '#fff',
+          'bold'
+        );
         svg.setAttribute(
           'aria-label',
           `Fretboard showing note ${rootNote} on the ${rootString} string.`
@@ -522,26 +633,26 @@ export function drawFretboardSvg(
 
       STRING_ORDER.forEach((stringName, stringIdx) => {
         if (!enabledStrings.has(stringName)) return;
-        const stringNotes = FRETBOARD[stringName as keyof typeof FRETBOARD] as Record<string, number>;
-        const fret = stringNotes[rootNote];
         const y = startY + stringIdx * stringSpacing;
-
-        if (typeof fret === 'number' && fret >= minFret && fret <= maxFret) {
-          const x = fret === 0 ? openNoteX : nutX + (fret - 0.5) * fretSpacing;
-          appendCircle(svg, x, y, noteRadius * 1.15, '#28a745', '#1e7e34', 2);
-          appendText(svg, x, y, rootNote, noteFontSize, '#fff', 'bold');
+        const visibleMaxFret = Math.min(maxFret, fretCount);
+        for (let fret = Math.max(0, minFret); fret <= visibleMaxFret; fret++) {
+          const noteAtFret = getPitchClassAtPosition(stringName, fret);
+          if (noteAtFret !== rootNote) continue;
+          const x = fret === 0 ? openNoteX : getFretCenterX(fret);
+          appendHoverableNoteMarker(
+            svg,
+            x,
+            y,
+            rootNote,
+            noteRadius * 1.15,
+            '#28a745',
+            '#1e7e34',
+            2,
+            noteFontSize,
+            '#fff',
+            'bold'
+          );
           highlightedCount++;
-        }
-
-        // Like show-all mode, duplicate the open-string pitch class at fret 12 when visible.
-        if (maxFret === 12 && minFret <= 12) {
-          const openStringNote = Object.keys(stringNotes)[0];
-          if (openStringNote === rootNote) {
-            const fret12X = nutX + (12 - 0.5) * fretSpacing;
-            appendCircle(svg, fret12X, y, noteRadius * 1.15, '#28a745', '#1e7e34', 2);
-            appendText(svg, fret12X, y, rootNote, noteFontSize, '#fff', 'bold');
-            highlightedCount++;
-          }
         }
       });
 
@@ -570,18 +681,246 @@ export function drawFretboardSvg(
       if (stringIdx < 0) return;
 
       const y = startY + stringIdx * stringSpacing;
-      const x = fret === 0 ? openNoteX : nutX + (fret - 0.5) * fretSpacing;
+      const x = fret === 0 ? openNoteX : getFretCenterX(fret);
       const isFound = foundChordNotes.has(note);
       const isCurrent = note === currentTargetNote;
 
       const fill = isCurrent ? '#ffc107' : isFound ? '#28a745' : '#17a2b8';
       const stroke = isCurrent ? '#d39e00' : isFound ? '#1e7e34' : '#138496';
-      appendCircle(svg, x, y, noteRadius * 1.1, fill, stroke, 2);
-      appendText(svg, x, y, note, noteFontSize, '#fff', 'bold');
+      appendHoverableNoteMarker(svg, x, y, note, noteRadius * 1.1, fill, stroke, 2, noteFontSize, '#fff', 'bold');
     });
   } else {
     svg.setAttribute('aria-label', `${state.currentInstrument.name} fretboard visualization.`);
   }
+
+  if (wrongDetectedNote && wrongDetectedString && enabledStrings.has(wrongDetectedString)) {
+    const wrongStringIdx = STRING_ORDER.indexOf(wrongDetectedString);
+    if (wrongStringIdx >= 0) {
+      const wrongFret =
+        typeof wrongDetectedFret === 'number'
+          ? wrongDetectedFret
+          : FRETBOARD[wrongDetectedString as keyof typeof FRETBOARD]?.[wrongDetectedNote];
+      if (typeof wrongFret === 'number' && wrongFret <= fretCount) {
+        const y = startY + wrongStringIdx * stringSpacing;
+        const x = wrongFret === 0 ? openNoteX : getFretCenterX(wrongFret);
+        appendHoverableNoteMarker(
+          svg,
+          x,
+          y,
+          wrongDetectedNote,
+          noteRadius * 1.12,
+          '#dc2626',
+          '#7f1d1d',
+          2.4,
+          noteFontSize,
+          '#fff',
+          'bold'
+        );
+      }
+    }
+  }
+
+  // Hover preview for any string+fret position (not only visible note markers).
+  const hoverGroup = createSvgEl('g', {
+    opacity: 0,
+    'pointer-events': 'none',
+  });
+  const hoverHalo = createSvgEl('circle', {
+    cx: 0,
+    cy: 0,
+    r: noteRadius * 1.45,
+    fill: 'rgba(251, 191, 36, 0.16)',
+    stroke: 'rgba(251, 191, 36, 0.95)',
+    'stroke-width': 2,
+  });
+  const hoverDot = createSvgEl('circle', {
+    cx: 0,
+    cy: 0,
+    r: noteRadius * 1.08,
+    fill: 'rgba(15, 23, 42, 0.92)',
+    stroke: '#f59e0b',
+    'stroke-width': 2,
+  });
+  const hoverText = createSvgEl('text', {
+    x: 0,
+    y: 0,
+    fill: '#fde68a',
+    'font-size': noteFontSize,
+    'font-family': 'Segoe UI',
+    'font-weight': 'bold',
+    'text-anchor': 'middle',
+    'dominant-baseline': 'middle',
+    'pointer-events': 'none',
+  });
+  hoverText.textContent = '';
+  hoverGroup.appendChild(hoverHalo);
+  hoverGroup.appendChild(hoverDot);
+  hoverGroup.appendChild(hoverText);
+  svg.appendChild(hoverGroup);
+
+  const openAreaLeftX = Math.max(0, openNoteX - fretSpacing * 0.6);
+  const openAreaRightX = nutX;
+  const boardHoverBottomY = fretBottomY + Math.max(6, stringSpacing * 0.15);
+  const boardHoverTopY = fretTopY - Math.max(6, stringSpacing * 0.15);
+
+  const hideHoverPreview = () => {
+    hoverGroup.setAttribute('opacity', '0');
+  };
+
+  const showHoverPreview = (x: number, y: number, noteName: string) => {
+    hoverHalo.setAttribute('cx', String(x));
+    hoverHalo.setAttribute('cy', String(y));
+    hoverDot.setAttribute('cx', String(x));
+    hoverDot.setAttribute('cy', String(y));
+    hoverText.setAttribute('x', String(x));
+    hoverText.setAttribute('y', String(y));
+    hoverText.textContent = formatMusicText(noteName);
+    hoverGroup.setAttribute('opacity', '1');
+  };
+
+  const getHoveredStringIndex = (y: number) => {
+    const nearest = Math.round((y - startY) / stringSpacing);
+    if (nearest < 0 || nearest >= stringCount) return null;
+    const centerY = startY + nearest * stringSpacing;
+    return Math.abs(y - centerY) <= stringSpacing * 0.62 ? nearest : null;
+  };
+
+  const getHoveredFret = (x: number) => {
+    if (x >= openAreaLeftX && x < openAreaRightX) return 0;
+    if (x < nutX || x > lastFretX) return null;
+    for (let fret = 1; fret <= fretCount; fret++) {
+      const left = getFretWireX(fret - 1);
+      const right = getFretWireX(fret);
+      if (x >= left && x <= right) return fret;
+    }
+    return null;
+  };
+
+  const resolvePointerNotePosition = (event: PointerEvent) => {
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) {
+      return null;
+    }
+    const local = point.matrixTransform(ctm.inverse());
+    if (
+      local.x < openAreaLeftX ||
+      local.x > boardEndX ||
+      local.y < boardHoverTopY ||
+      local.y > boardHoverBottomY
+    ) {
+      return null;
+    }
+
+    const stringIdx = getHoveredStringIndex(local.y);
+    if (stringIdx === null) {
+      return null;
+    }
+    const fret = getHoveredFret(local.x);
+    if (fret === null) {
+      return null;
+    }
+
+    const stringName = STRING_ORDER[stringIdx];
+    const noteWithOctave = instrumentData.getNoteWithOctave(stringName, fret);
+    if (!noteWithOctave) {
+      return null;
+    }
+
+    return {
+      x: fret === 0 ? openNoteX : getFretCenterX(fret),
+      y: startY + stringIdx * stringSpacing,
+      fret,
+      stringName,
+      noteWithOctave,
+      noteName: stripOctaveSuffix(noteWithOctave),
+    };
+  };
+
+  let activeDragPointerId: number | null = null;
+  let lastDragPositionKey: string | null = null;
+  let lastDragPlayAtMs = 0;
+  const DRAG_PLAY_MIN_INTERVAL_MS = 28;
+
+  const playResolvedPointerNote = (
+    resolved: NonNullable<ReturnType<typeof resolvePointerNotePosition>>,
+    options: { force?: boolean } = {}
+  ) => {
+    const key = `${resolved.stringName}:${resolved.fret}`;
+    const now = performance.now();
+    const force = options.force === true;
+    if (!force) {
+      if (key === lastDragPositionKey) return;
+      if (now - lastDragPlayAtMs < DRAG_PLAY_MIN_INTERVAL_MS) return;
+    }
+    playSound(resolved.noteWithOctave);
+    lastDragPositionKey = key;
+    lastDragPlayAtMs = now;
+  };
+
+  const endDragPlayback = (event?: PointerEvent) => {
+    if (event && activeDragPointerId !== null && event.pointerId !== activeDragPointerId) return;
+    if (event && svg.hasPointerCapture?.(event.pointerId)) {
+      try {
+        svg.releasePointerCapture(event.pointerId);
+      } catch {
+        // no-op
+      }
+    }
+    activeDragPointerId = null;
+    lastDragPositionKey = null;
+    lastDragPlayAtMs = 0;
+  };
+
+  svg.onpointermove = (event: PointerEvent) => {
+    const resolved = resolvePointerNotePosition(event);
+    if (!resolved) {
+      if (activeDragPointerId !== null && event.pointerId === activeDragPointerId) {
+        lastDragPositionKey = null;
+      }
+      hideHoverPreview();
+      return;
+    }
+    showHoverPreview(resolved.x, resolved.y, resolved.noteName);
+    if (activeDragPointerId !== null && event.pointerId === activeDragPointerId) {
+      playResolvedPointerNote(resolved);
+    }
+  };
+  svg.onpointerleave = () => {
+    if (activeDragPointerId === null) {
+      hideHoverPreview();
+    }
+  };
+  svg.onpointercancel = (event: PointerEvent) => {
+    hideHoverPreview();
+    endDragPlayback(event);
+  };
+  svg.onpointerdown = (event: PointerEvent) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const resolved = resolvePointerNotePosition(event);
+    if (!resolved) return;
+    activeDragPointerId = event.pointerId;
+    lastDragPositionKey = null;
+    lastDragPlayAtMs = 0;
+    try {
+      svg.setPointerCapture(event.pointerId);
+    } catch {
+      // no-op
+    }
+    playResolvedPointerNote(resolved, { force: true });
+    showHoverPreview(resolved.x, resolved.y, resolved.noteName);
+  };
+  svg.onpointerup = (event: PointerEvent) => {
+    endDragPlayback(event);
+  };
+  svg.onlostpointercapture = () => {
+    activeDragPointerId = null;
+    lastDragPositionKey = null;
+    lastDragPlayAtMs = 0;
+  };
 
   const stringLabels = Array.from(dom.stringSelector.children) as HTMLElement[];
   positionStringLabels(stringLabels, stringCount, startY, stringSpacing, nutX, fretSpacing);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateTriadIntervals,
   freqToNoteNameFromA4,
+  freqToScientificNoteNameFromA4,
   nearestChromaticTargetFrequencyFromA4,
 } from './music-theory';
 
@@ -31,6 +32,23 @@ describe('calculateTriadIntervals', () => {
 
   it('returns fallback markers for unknown root notes', () => {
     expect(calculateTriadIntervals('H')).toEqual({ majorThird: '?', perfectFifth: '?' });
+  });
+});
+
+describe('freqToScientificNoteNameFromA4', () => {
+  it('maps frequencies to scientific notes including octave', () => {
+    expect(freqToScientificNoteNameFromA4(440, 440)).toBe('A4');
+    expect(freqToScientificNoteNameFromA4(82.4069, 440)).toBe('E2');
+    expect(freqToScientificNoteNameFromA4(329.6276, 440)).toBe('E4');
+  });
+
+  it('supports calibrated A4 references', () => {
+    expect(freqToScientificNoteNameFromA4(442, 442)).toBe('A4');
+  });
+
+  it('returns null for invalid inputs', () => {
+    expect(freqToScientificNoteNameFromA4(0, 440)).toBeNull();
+    expect(freqToScientificNoteNameFromA4(440, 0)).toBeNull();
   });
 });
 

@@ -19,7 +19,7 @@ describe('fretboard-ui-state', () => {
   });
 
   it('falls back to safe defaults on invalid fret inputs', () => {
-    expect(getSelectedFretRange('abc', '')).toEqual({ minFret: 0, maxFret: 12 });
+    expect(getSelectedFretRange('abc', '')).toEqual({ minFret: 0, maxFret: 20 });
   });
 
   it('extracts enabled string values from checked inputs', () => {
