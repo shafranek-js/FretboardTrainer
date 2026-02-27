@@ -14,9 +14,13 @@ const PITCH_CLASS_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A',
 
 interface MidiHeaderLike {
   ppq?: number;
+  PPQ?: number;
+  ticksPerBeat?: number;
   tempos?: { bpm?: number }[];
   timeSignatures?: { ticks?: number; timeSignature?: number[] }[];
   keySignatures?: { key?: string; scale?: string }[];
+  ticksToMeasures?: (ticks: number) => number;
+  secondsToTicks?: (seconds: number) => number;
   name?: string;
 }
 
@@ -24,6 +28,8 @@ interface MidiNoteLike {
   midi?: number;
   ticks?: number;
   durationTicks?: number;
+  time?: number;
+  duration?: number;
   name?: string;
 }
 
@@ -32,6 +38,7 @@ interface MidiTrackLike {
   channel?: number;
   instrument?: { percussion?: boolean; name?: string };
   notes?: MidiNoteLike[];
+  durationTicks?: number;
 }
 
 interface MidiFileLike {
@@ -88,6 +95,16 @@ interface NormalizedMidiNote {
   durationTicks: number;
 }
 
+function getSafeMidiPpq(header: MidiHeaderLike | undefined) {
+  const candidates = [header?.ppq, header?.PPQ, header?.ticksPerBeat];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+      return Number(candidate);
+    }
+  }
+  return 480;
+}
+
 function toScientificNameFromMidi(midi: number) {
   const rounded = Math.round(midi);
   const pitch = PITCH_CLASS_NAMES[((rounded % 12) + 12) % 12] ?? 'C';
@@ -113,6 +130,7 @@ function quantizeTick(tick: number, stepTicks: number) {
 
 function normalizeMidiNotesForConversion(
   notes: MidiNoteLike[],
+  header: MidiHeaderLike | undefined,
   ppq: number,
   quantize: MidiImportQuantize
 ): NormalizedMidiNote[] {
@@ -120,11 +138,35 @@ function normalizeMidiNotesForConversion(
   const minimumDurationTicks = quantizeStepTicks !== null ? Math.max(1, Math.round(quantizeStepTicks)) : 1;
 
   return notes
-    .filter((note) => Number.isFinite(note.midi) && Number.isFinite(note.ticks))
+    .filter((note) => Number.isFinite(note.midi))
     .map((note) => {
       const midi = Math.round(Number(note.midi));
-      const rawStartTick = Math.max(0, Math.round(Number(note.ticks)));
-      const rawDurationTicks = Math.max(1, Math.round(Number(note.durationTicks ?? 0) || 1));
+      const startTickFromTicks =
+        typeof note.ticks === 'number' && Number.isFinite(note.ticks) ? Number(note.ticks) : null;
+      const startTickFromSeconds =
+        startTickFromTicks === null &&
+        typeof note.time === 'number' &&
+        Number.isFinite(note.time) &&
+        typeof header?.secondsToTicks === 'function'
+          ? header.secondsToTicks(note.time)
+          : null;
+      const rawStartTick = Math.max(0, Math.round(startTickFromTicks ?? startTickFromSeconds ?? 0));
+
+      const durationTicksFromTicks =
+        typeof note.durationTicks === 'number' && Number.isFinite(note.durationTicks)
+          ? Number(note.durationTicks)
+          : null;
+      const durationTicksFromSeconds =
+        durationTicksFromTicks === null &&
+        typeof note.duration === 'number' &&
+        Number.isFinite(note.duration) &&
+        typeof header?.secondsToTicks === 'function'
+          ? Math.max(
+              0,
+              header.secondsToTicks((note.time ?? 0) + note.duration) - header.secondsToTicks(note.time ?? 0)
+            )
+          : null;
+      const rawDurationTicks = Math.max(1, Math.round(durationTicksFromTicks ?? durationTicksFromSeconds ?? 1));
 
       if (quantizeStepTicks === null) {
         return { midi, startTick: rawStartTick, durationTicks: rawDurationTicks };
@@ -184,7 +226,17 @@ function getTicksPerBar(ppq: number, header: MidiHeaderLike | undefined) {
   return ticksPerBar;
 }
 
-function resolveBarIndexFromTick(startTick: number, ticksPerBar: number | null) {
+function resolveBarIndexFromTick(
+  startTick: number,
+  ticksPerBar: number | null,
+  header?: MidiHeaderLike
+) {
+  if (typeof header?.ticksToMeasures === 'function') {
+    const measures = header.ticksToMeasures(startTick);
+    if (typeof measures === 'number' && Number.isFinite(measures)) {
+      return Math.max(0, Math.floor(measures));
+    }
+  }
   if (ticksPerBar === null || !Number.isFinite(ticksPerBar) || ticksPerBar <= 0) return undefined;
   return Math.max(0, Math.floor(startTick / ticksPerBar));
 }
@@ -203,15 +255,20 @@ function getPrimaryKeySignatureText(header: MidiHeaderLike | undefined) {
 
 function estimateTrackBars(track: MidiTrackSelection, midi: MidiFileLike): number | null {
   if (track.notes.length === 0) return null;
-  const ppq = Number.isFinite(midi.header?.ppq) && Number(midi.header?.ppq) > 0 ? Number(midi.header?.ppq) : 480;
+  const ppq = getSafeMidiPpq(midi.header);
   const ticksPerBar = getTicksPerBar(ppq, midi.header);
   if (ticksPerBar === null) return null;
 
-  const endTick = track.notes.reduce((max, note) => {
-    const start = Number.isFinite(note.ticks) ? Number(note.ticks) : 0;
-    const duration = Number.isFinite(note.durationTicks) ? Number(note.durationTicks) : 0;
-    return Math.max(max, start + Math.max(1, duration));
-  }, 0);
+  const normalizedNotes = normalizeMidiNotesForConversion(track.notes, midi.header, ppq, 'off');
+  const endTickFromNotes = normalizedNotes.reduce(
+    (max, note) => Math.max(max, note.startTick + Math.max(1, note.durationTicks)),
+    0
+  );
+  const endTickFromTrack =
+    typeof track.track.durationTicks === 'number' && Number.isFinite(track.track.durationTicks)
+      ? Math.max(0, Math.round(track.track.durationTicks))
+      : 0;
+  const endTick = Math.max(endTickFromNotes, endTickFromTrack);
   if (endTick <= 0) return null;
   return Math.max(1, Math.ceil(endTick / ticksPerBar));
 }
@@ -238,7 +295,7 @@ function listMidiTrackSelections(midi: MidiFileLike): MidiTrackSelection[] {
       track,
       index,
       notes: Array.isArray(track.notes) ? track.notes : [],
-      isPercussion: Boolean(track.instrument?.percussion) || track.channel === 9,
+      isPercussion: Boolean(track.instrument?.percussion) || track.channel === 9 || track.channel === 10,
     }))
     .filter((entry) => entry.notes.length > 0);
 }
@@ -273,7 +330,7 @@ function convertMidiTrackSelectionToImportedMelody(
   warnings: string[],
   options?: MidiImportConversionOptions
 ): MidiImportedMelody {
-  const ppq = Number.isFinite(midi.header?.ppq) && Number(midi.header?.ppq) > 0 ? Number(midi.header?.ppq) : 480;
+  const ppq = getSafeMidiPpq(midi.header);
   const quantize = normalizeMidiImportQuantize(options?.quantize);
   const tempoBpm =
     typeof midi.header?.tempos?.[0]?.bpm === 'number' && Number.isFinite(midi.header.tempos[0].bpm)
@@ -282,7 +339,7 @@ function convertMidiTrackSelectionToImportedMelody(
   const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
   const trackName = getTrackDisplayName(selection.track, selection.index);
 
-  const notes = normalizeMidiNotesForConversion(selection.notes, ppq, quantize);
+  const notes = normalizeMidiNotesForConversion(selection.notes, midi.header, ppq, quantize);
   const ticksPerBar = getTicksPerBar(ppq, midi.header);
 
   if (notes.length === 0) {
@@ -320,7 +377,7 @@ function convertMidiTrackSelectionToImportedMelody(
 
     const assignments = chooseEventPositions(eventMidiOccurrences, candidateMap);
     return {
-      barIndex: resolveBarIndexFromTick(startTick, ticksPerBar),
+      barIndex: resolveBarIndexFromTick(startTick, ticksPerBar, midi.header),
       durationBeats: durationTicks / ppq,
       occurrences: eventMidiOccurrences,
       assignments:
@@ -392,6 +449,7 @@ export function convertParsedMidiToImportedMelody(
 
 export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: string): LoadedMidiFile {
   const trackSelections = listMidiTrackSelections(midi);
+  const ppq = getSafeMidiPpq(midi.header);
   const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
   const tempoEvents = Array.isArray(midi.header?.tempos) ? midi.header.tempos : [];
   const tempoBpm =
@@ -414,11 +472,18 @@ export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: str
     isPercussion: selection.isPercussion,
     noteRangeText: getTrackNoteRangeText(selection),
     estimatedBars: estimateTrackBars(selection, midi),
-    endTick: selection.notes.reduce((max, note) => {
-      const start = Number.isFinite(note.ticks) ? Number(note.ticks) : 0;
-      const duration = Number.isFinite(note.durationTicks) ? Number(note.durationTicks) : 0;
-      return Math.max(max, start + Math.max(1, duration));
-    }, 0),
+    endTick: (() => {
+      const normalized = normalizeMidiNotesForConversion(selection.notes, midi.header, ppq, 'off');
+      const endTickFromNotes = normalized.reduce(
+        (max, note) => Math.max(max, note.startTick + Math.max(1, note.durationTicks)),
+        0
+      );
+      const endTickFromTrack =
+        typeof selection.track.durationTicks === 'number' && Number.isFinite(selection.track.durationTicks)
+          ? Math.max(0, Math.round(selection.track.durationTicks))
+          : 0;
+      return Math.max(endTickFromNotes, endTickFromTrack);
+    })(),
   }));
 
   const melodic = trackSelections.filter((selection) => !selection.isPercussion);

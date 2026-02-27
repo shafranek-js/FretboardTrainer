@@ -129,6 +129,61 @@ describe('midi-file-import', () => {
     expect(imported.events[2]?.durationBeats).toBe(0.5);
   });
 
+  it('supports PPQ-style headers from tonejs/midi metadata', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: {
+          PPQ: 960,
+        },
+        tracks: [
+          {
+            name: 'Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 60, ticks: 0, durationTicks: 960 },
+              { midi: 62, ticks: 960, durationTicks: 960 },
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'ppq.mid'
+    );
+
+    expect(imported.events).toHaveLength(2);
+    expect(imported.events[0]?.durationBeats).toBe(1);
+    expect(imported.events[1]?.durationBeats).toBe(1);
+  });
+
+  it('falls back to second-based timing when ticks fields are unavailable', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: {
+          ppq: 480,
+          secondsToTicks: (seconds: number) => Math.round(seconds * 960),
+        },
+        tracks: [
+          {
+            name: 'Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 64, time: 0, duration: 0.5 },
+              { midi: 67, time: 0.5, duration: 0.5 },
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'seconds.mid'
+    );
+
+    expect(imported.events).toHaveLength(2);
+    expect(imported.events[0]?.durationBeats).toBe(1);
+    expect(imported.events[1]?.durationBeats).toBe(1);
+  });
+
   it('assigns bar indexes from MIDI time signature and start ticks', () => {
     const imported = convertParsedMidiToImportedMelody(
       {
@@ -155,6 +210,33 @@ describe('midi-file-import', () => {
 
     expect(imported.events).toHaveLength(3);
     expect(imported.events.map((event) => event.barIndex)).toEqual([0, 0, 1]);
+  });
+
+  it('uses header ticksToMeasures when available to derive bar indexes', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: {
+          ppq: 480,
+          ticksToMeasures: (ticks: number) => ticks / 960,
+        },
+        tracks: [
+          {
+            name: 'Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 60, ticks: 0, durationTicks: 480 },
+              { midi: 62, ticks: 960, durationTicks: 480 },
+              { midi: 64, ticks: 1920, durationTicks: 480 },
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'bars-by-header.mid'
+    );
+
+    expect(imported.events.map((event) => event.barIndex)).toEqual([0, 1, 2]);
   });
 
   it('skips unresolved out-of-range MIDI notes and reports a warning', () => {
