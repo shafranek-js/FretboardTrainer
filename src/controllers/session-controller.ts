@@ -1117,6 +1117,8 @@ export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
   dom.melodyDemoBpm.value = String(getClampedMelodyDemoBpmFromInput());
+  state.melodyTimelineViewMode = dom.melodyTabTimelineView.value === 'grid' ? 'grid' : 'classic';
+  dom.melodyTabTimelineView.value = state.melodyTimelineViewMode;
   syncMetronomeBpmDisplay();
   syncMelodyDemoBpmDisplay();
   refreshMelodyOptionsForCurrentInstrument();
@@ -1466,6 +1468,11 @@ export function registerSessionControls() {
     markCurriculumPresetAsCustom();
     updatePracticeSetupSummary();
     saveSettings();
+  });
+  dom.melodyTabTimelineView.addEventListener('change', () => {
+    state.melodyTimelineViewMode = dom.melodyTabTimelineView.value === 'grid' ? 'grid' : 'classic';
+    dom.melodyTabTimelineView.value = state.melodyTimelineViewMode;
+    renderMelodyTabTimelineFromState();
   });
   dom.melodyAsciiTabInput.addEventListener('input', () => {
     scheduleMelodyEditorPreviewUpdate();

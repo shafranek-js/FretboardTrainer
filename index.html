@@ -487,8 +487,18 @@
         class="hidden shrink-0 rounded-lg border border-cyan-500/30 bg-slate-900/70 px-2 py-1.5"
       >
         <div class="flex items-center justify-between gap-2 mb-1">
-          <h3 class="text-[11px] font-semibold leading-4 text-cyan-100">TAB Timeline</h3>
-          <span id="melodyTabTimelineMeta" class="text-[10px] leading-4 text-slate-300"></span>
+          <div class="flex items-center gap-2 min-w-0">
+            <h3 class="text-[11px] font-semibold leading-4 text-cyan-100">TAB Timeline</h3>
+            <label for="melodyTabTimelineView" class="text-[10px] leading-4 text-slate-400">View</label>
+            <select
+              id="melodyTabTimelineView"
+              class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-[10px] leading-4 text-slate-100 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
+            >
+              <option value="classic" selected>Classic TAB</option>
+              <option value="grid">Grid</option>
+            </select>
+          </div>
+          <span id="melodyTabTimelineMeta" class="text-[10px] leading-4 text-slate-300 truncate"></span>
         </div>
         <div
           id="melodyTabTimelineGrid"

@@ -31,41 +31,19 @@ function clearGrid() {
   dom.melodyTabTimelineGrid.innerHTML = '';
 }
 
-export function hideMelodyTabTimeline() {
-  dom.melodyTabTimelinePanel.classList.add('hidden');
-  dom.melodyTabTimelineMeta.textContent = '';
-  clearGrid();
-  lastRenderKey = '';
+function getClassicCellTextRaw(notes: TimelineNoteChip[]) {
+  if (notes.length === 0) return '';
+  return notes.map((note) => String(note.fret)).join('/');
 }
 
-export function renderMelodyTabTimeline(
-  melody: MelodyDefinition,
-  stringOrder: string[],
-  activeEventIndex: number | null,
-  options: { modeLabel?: string | null } = {}
-) {
-  const modeLabel = options.modeLabel?.trim() ?? '';
-  const model = buildMelodyTabTimelineViewModel(melody, stringOrder, activeEventIndex);
-  const renderKey = [
-    melody.id,
-    melody.events.length,
-    model.activeEventIndex ?? -1,
-    modeLabel,
-    stringOrder.join(','),
-  ].join('|');
-  if (renderKey === lastRenderKey && dom.melodyTabTimelineGrid.childElementCount > 0) {
-    return;
-  }
-  lastRenderKey = renderKey;
+function getClassicCellText(notes: TimelineNoteChip[], width: number) {
+  const raw = getClassicCellTextRaw(notes);
+  if (!raw) return '-'.repeat(width);
+  if (raw.length >= width) return raw;
+  return `${raw}${'-'.repeat(width - raw.length)}`;
+}
 
-  dom.melodyTabTimelinePanel.classList.remove('hidden');
-  const stepText =
-    model.activeEventIndex === null
-      ? `Step -/${model.totalEvents}`
-      : `Step ${model.activeEventIndex + 1}/${model.totalEvents}`;
-  dom.melodyTabTimelineMeta.textContent = modeLabel ? `${modeLabel} | ${stepText}` : stepText;
-
-  clearGrid();
+function renderGridTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewModel>) {
   const table = document.createElement('table');
   table.className = 'min-w-max border-separate border-spacing-px text-[10px] font-mono text-slate-200';
 
@@ -109,7 +87,7 @@ export function renderMelodyTabTimeline(
       if (cell.notes.length === 0) {
         const empty = document.createElement('span');
         empty.className = cell.isActive ? 'text-cyan-400/70' : 'text-slate-600';
-        empty.textContent = '·';
+        empty.textContent = '.';
         td.appendChild(empty);
       } else if (cell.notes.length === 1) {
         td.appendChild(createCellNoteChip(cell.notes[0]));
@@ -129,6 +107,114 @@ export function renderMelodyTabTimeline(
 
   table.appendChild(tbody);
   dom.melodyTabTimelineGrid.appendChild(table);
+}
+
+function renderClassicTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewModel>) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'min-w-max text-[11px] leading-5 font-mono text-slate-200';
+
+  const eventWidths = Array.from({ length: model.totalEvents }, (_, eventIndex) => {
+    const widestRaw = Math.max(
+      0,
+      ...model.rows.map((row) => getClassicCellTextRaw(row.cells[eventIndex]?.notes ?? []).length)
+    );
+    return Math.max(3, widestRaw);
+  });
+
+  const buildLine = (labelText: string, segments: string[], isHeader = false) => {
+    const line = document.createElement('div');
+    line.className = 'flex items-center whitespace-nowrap';
+
+    const label = document.createElement('span');
+    label.className = `inline-block w-7 shrink-0 ${isHeader ? 'text-slate-400' : 'text-cyan-200'}`;
+    label.textContent = labelText;
+    line.appendChild(label);
+
+    const startPipe = document.createElement('span');
+    startPipe.className = 'text-slate-500';
+    startPipe.textContent = '|';
+    line.appendChild(startPipe);
+
+    segments.forEach((segment, eventIndex) => {
+      const cell = document.createElement('span');
+      cell.dataset.eventIndex = String(eventIndex);
+      cell.className =
+        'inline-block px-[1px] rounded-sm ' +
+        (model.activeEventIndex === eventIndex
+          ? 'bg-cyan-700/40 text-cyan-100'
+          : isHeader
+            ? 'text-slate-400'
+            : 'text-slate-200');
+      cell.style.minWidth = `${eventWidths[eventIndex]}ch`;
+      cell.style.width = `${eventWidths[eventIndex]}ch`;
+      cell.textContent = segment;
+      line.appendChild(cell);
+    });
+
+    const endPipe = document.createElement('span');
+    endPipe.className = 'text-slate-500';
+    endPipe.textContent = '|';
+    line.appendChild(endPipe);
+
+    return line;
+  };
+
+  const headerSegments = eventWidths.map((width, eventIndex) => String(eventIndex + 1).padEnd(width, ' '));
+  wrapper.appendChild(buildLine('Stp', headerSegments, true));
+
+  model.rows.forEach((row) => {
+    const segments = row.cells.map((cell, eventIndex) => getClassicCellText(cell.notes, eventWidths[eventIndex]));
+    wrapper.appendChild(buildLine(row.stringName, segments));
+  });
+
+  dom.melodyTabTimelineGrid.appendChild(wrapper);
+}
+
+export function hideMelodyTabTimeline() {
+  dom.melodyTabTimelinePanel.classList.add('hidden');
+  dom.melodyTabTimelineMeta.textContent = '';
+  clearGrid();
+  lastRenderKey = '';
+}
+
+export function renderMelodyTabTimeline(
+  melody: MelodyDefinition,
+  stringOrder: string[],
+  activeEventIndex: number | null,
+  options: { modeLabel?: string | null; viewMode?: 'classic' | 'grid' } = {}
+) {
+  const modeLabel = options.modeLabel?.trim() ?? '';
+  const viewMode = options.viewMode ?? 'classic';
+  const model = buildMelodyTabTimelineViewModel(melody, stringOrder, activeEventIndex);
+  const renderKey = [
+    melody.id,
+    melody.events.length,
+    model.activeEventIndex ?? -1,
+    modeLabel,
+    viewMode,
+    stringOrder.join(','),
+  ].join('|');
+  if (renderKey === lastRenderKey && dom.melodyTabTimelineGrid.childElementCount > 0) {
+    return;
+  }
+  lastRenderKey = renderKey;
+
+  dom.melodyTabTimelinePanel.classList.remove('hidden');
+  const stepText =
+    model.activeEventIndex === null
+      ? `Step -/${model.totalEvents}`
+      : `Step ${model.activeEventIndex + 1}/${model.totalEvents}`;
+  const viewLabel = viewMode === 'classic' ? 'Classic TAB' : 'Grid';
+  dom.melodyTabTimelineMeta.textContent = modeLabel
+    ? `${modeLabel} | ${viewLabel} | ${stepText}`
+    : `${viewLabel} | ${stepText}`;
+
+  clearGrid();
+  if (viewMode === 'grid') {
+    renderGridTimeline(model);
+  } else {
+    renderClassicTimeline(model);
+  }
 
   if (model.activeEventIndex !== null) {
     const activeHeader = dom.melodyTabTimelineGrid.querySelector<HTMLElement>(

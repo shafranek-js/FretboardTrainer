@@ -317,6 +317,7 @@ export function renderMelodyTabTimelineFromState() {
 
   renderMelodyTabTimeline(melody, state.currentInstrument.STRING_ORDER, activeIndex, {
     modeLabel,
+    viewMode: state.melodyTimelineViewMode,
   });
 }
 
