@@ -10,6 +10,9 @@ export interface FretboardRenderInputs {
   liveDetectedNote?: string | null;
   liveDetectedString?: string | null;
   melodyFoundNotes?: Set<string>;
+  melodyPreviewEventFingering?: ChordNote[];
+  melodyPreviewTargetNote?: string | null;
+  melodyPreviewTargetString?: string | null;
 }
 
 export interface FretboardRenderPlan {
@@ -27,6 +30,9 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
     inputs;
   const liveDetectedNote = inputs.liveDetectedNote ?? null;
   const melodyFoundNotes = inputs.melodyFoundNotes ?? new Set<string>();
+  const melodyPreviewEventFingering = inputs.melodyPreviewEventFingering ?? [];
+  const melodyPreviewTargetNote = inputs.melodyPreviewTargetNote ?? null;
+  const melodyPreviewTargetString = inputs.melodyPreviewTargetString ?? null;
 
   const isChordBasedMode = isChordDataMode(trainingMode);
 
@@ -98,6 +104,30 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
       foundChordNotes: new Set(),
       currentTargetNote: null,
     };
+  }
+
+  if (trainingMode === 'melody' && !isListening) {
+    if (melodyPreviewEventFingering.length >= 1) {
+      return {
+        showAll: false,
+        rootNote: null,
+        rootString: null,
+        chordFingering: melodyPreviewEventFingering,
+        foundChordNotes: new Set(),
+        currentTargetNote: melodyPreviewEventFingering.length === 1 ? melodyPreviewTargetNote : null,
+      };
+    }
+
+    if (melodyPreviewTargetNote) {
+      return {
+        showAll: false,
+        rootNote: melodyPreviewTargetNote,
+        rootString: melodyPreviewTargetString,
+        chordFingering: [],
+        foundChordNotes: new Set(),
+        currentTargetNote: null,
+      };
+    }
   }
 
   if (showingAllNotes) {

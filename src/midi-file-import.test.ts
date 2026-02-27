@@ -195,4 +195,32 @@ describe('midi-file-import', () => {
     const eFrets = eNotes.map((note) => note.fret ?? 99);
     expect(Math.max(...eFrets) - Math.min(...eFrets)).toBeLessThanOrEqual(5);
   });
+
+  it('uses global DP pathing to avoid large position jumps when possible', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: { ppq: 480 },
+        tracks: [
+          {
+            name: 'Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 64, ticks: 0, durationTicks: 480 }, // E4 (many positions)
+              { midi: 79, ticks: 480, durationTicks: 480 }, // G5 (high neck)
+              { midi: 76, ticks: 960, durationTicks: 480 }, // E5 (high neck)
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'dp-smoothing.mid'
+    );
+
+    expect(imported.events).toHaveLength(3);
+    const frets = imported.events.map((event) => event.notes[0]?.fret ?? null);
+    expect(frets.every((fret) => typeof fret === 'number')).toBe(true);
+    // A purely local choice prefers open E first, but the global DP should move the whole phrase higher.
+    expect((frets[0] as number) >= 9).toBe(true);
+  });
 });

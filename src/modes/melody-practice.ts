@@ -1,6 +1,7 @@
 import { dom, state } from '../state';
 import { notifyUserError } from '../user-feedback-port';
 import { getMelodyById, type MelodyEvent } from '../melody-library';
+import { getMelodyFingeredEvent } from '../melody-fingering';
 import type { ChordNote, Prompt } from '../types';
 import { ITrainingMode, DetectionType } from './training-mode';
 
@@ -30,19 +31,6 @@ function formatMelodyPromptText(
 
 function toMelodyEventChordNotes(event: MelodyEvent) {
   return [...new Set(event.notes.map((note) => note.note))];
-}
-
-function toMelodyEventFingering(event: MelodyEvent): ChordNote[] {
-  return event.notes
-    .filter(
-      (note): note is MelodyEvent['notes'][number] & { stringName: string; fret: number } =>
-        note.stringName !== null && typeof note.fret === 'number'
-    )
-    .map((note) => ({
-      note: note.note,
-      string: note.stringName,
-      fret: note.fret,
-    }));
 }
 
 export class MelodyPracticeMode implements ITrainingMode {
@@ -90,7 +78,7 @@ export class MelodyPracticeMode implements ITrainingMode {
     state.currentMelodyEventFoundNotes.clear();
 
     const firstNote = event.notes[0] ?? null;
-    const melodyEventFingering = toMelodyEventFingering(event);
+    const melodyEventFingering = getMelodyFingeredEvent(melody.events, currentEventIndex);
     const targetPitchClasses = toMelodyEventChordNotes(event);
     const isPolyphonicEvent = targetPitchClasses.length > 1;
     const firstPlayableNote = melodyEventFingering[0] ?? null;

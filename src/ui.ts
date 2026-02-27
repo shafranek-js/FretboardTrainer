@@ -18,6 +18,9 @@ import { buildStatsViewModel } from './stats-view';
 import { isChordDataMode } from './training-mode-groups';
 import type { ChordNote } from './types';
 import { nearestChromaticTargetFrequencyFromA4 } from './music-theory';
+import { getMelodyById } from './melody-library';
+import { getMelodyFingeredEvent } from './melody-fingering';
+import { hideMelodyTabTimeline, renderMelodyTabTimeline } from './melody-tab-timeline';
 import {
   applyTuningPresetToInstrument,
   getDefaultTuningPresetKey,
@@ -239,6 +242,25 @@ export function updateTuner(frequency: number | null) {
 
 /** Redraws the fretboard based on the current application state. */
 export function redrawFretboard() {
+  let melodyPreviewEventFingering: ChordNote[] = [];
+  let melodyPreviewTargetNote: string | null = null;
+  let melodyPreviewTargetString: string | null = null;
+  const hasMelodyPreview = typeof state.melodyTimelinePreviewIndex === 'number';
+
+  if (dom.trainingMode.value === 'melody' && !state.isListening && hasMelodyPreview) {
+    const selectedMelodyId = dom.melodySelector.value;
+    const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+    if (melody && melody.events.length > 0) {
+      const safeIndex = Math.max(0, Math.min(melody.events.length - 1, state.melodyTimelinePreviewIndex ?? 0));
+      const previewEvent = melody.events[safeIndex];
+      melodyPreviewEventFingering = getMelodyFingeredEvent(melody.events, safeIndex);
+      const firstPlayable = melodyPreviewEventFingering[0] ?? null;
+      const firstEventNote = previewEvent?.notes[0] ?? null;
+      melodyPreviewTargetNote = firstPlayable?.note ?? firstEventNote?.note ?? null;
+      melodyPreviewTargetString = firstPlayable?.string ?? firstEventNote?.stringName ?? null;
+    }
+  }
+
   const plan = computeFretboardRenderPlan({
     trainingMode: dom.trainingMode.value,
     isListening: state.isListening,
@@ -248,6 +270,9 @@ export function redrawFretboard() {
     liveDetectedNote: state.liveDetectedNote,
     liveDetectedString: state.liveDetectedString,
     melodyFoundNotes: state.currentMelodyEventFoundNotes,
+    melodyPreviewEventFingering,
+    melodyPreviewTargetNote,
+    melodyPreviewTargetString,
   });
 
   drawFretboard(
@@ -261,6 +286,38 @@ export function redrawFretboard() {
     state.wrongDetectedString,
     state.wrongDetectedFret
   );
+  renderMelodyTabTimelineFromState();
+}
+
+export function renderMelodyTabTimelineFromState() {
+  const selectedMelodyId = dom.melodySelector.value;
+  const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+  const inMelodyMode = dom.trainingMode.value === 'melody';
+  const isMelodySessionActive = inMelodyMode && state.isListening;
+  const hasPreviewIndex = typeof state.melodyTimelinePreviewIndex === 'number';
+
+  if (!melody || (!hasPreviewIndex && !isMelodySessionActive)) {
+    hideMelodyTabTimeline();
+    return;
+  }
+
+  let activeIndex: number | null = null;
+  let modeLabel: string | null = null;
+
+  if (hasPreviewIndex) {
+    activeIndex = state.melodyTimelinePreviewIndex;
+    modeLabel = state.melodyTimelinePreviewLabel ?? 'Preview';
+  } else if (inMelodyMode) {
+    const sessionIndex = state.currentMelodyEventIndex - 1;
+    if (Number.isFinite(sessionIndex) && sessionIndex >= 0) {
+      activeIndex = sessionIndex;
+    }
+    modeLabel = state.isListening ? 'Session' : null;
+  }
+
+  renderMelodyTabTimeline(melody, state.currentInstrument.STRING_ORDER, activeIndex, {
+    modeLabel,
+  });
 }
 
 /** Handles UI changes when the training mode is switched. */
@@ -268,6 +325,7 @@ export function handleModeChange() {
   const mode = dom.trainingMode.value;
   setTunerVisible(false);
   setTrainingModeUi(mode);
+  renderMelodyTabTimelineFromState();
 }
 
 /** Updates and displays the statistics in the modal. */

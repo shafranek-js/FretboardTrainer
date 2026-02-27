@@ -171,4 +171,26 @@ describe('computeFretboardRenderPlan', () => {
     expect(plan.chordFingering).toEqual([{ note: 'C', string: 'A', fret: 3 }]);
     expect(plan.foundChordNotes).toEqual(new Set(['C']));
   });
+
+  it('keeps rendering melody preview note positions when demo preview is active and session is not listening', () => {
+    const plan = computeFretboardRenderPlan({
+      trainingMode: 'melody',
+      isListening: false,
+      showingAllNotes: false,
+      currentPrompt: null,
+      currentArpeggioIndex: 0,
+      liveDetectedNote: null,
+      liveDetectedString: null,
+      melodyFoundNotes: new Set(),
+      melodyPreviewEventFingering: [{ note: 'F#', string: 'B', fret: 7, finger: 4 }],
+      melodyPreviewTargetNote: 'F#',
+      melodyPreviewTargetString: 'B',
+    });
+
+    expect(plan.showAll).toBe(false);
+    expect(plan.rootNote).toBeNull();
+    expect(plan.rootString).toBeNull();
+    expect(plan.chordFingering).toEqual([{ note: 'F#', string: 'B', fret: 7, finger: 4 }]);
+    expect(plan.currentTargetNote).toBe('F#');
+  });
 });

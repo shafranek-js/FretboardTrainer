@@ -64,12 +64,39 @@
         </div>
 
         <div class="controls-row w-full max-w-5xl mx-auto grid grid-cols-[auto,minmax(0,1fr)] gap-2 sm:gap-4 items-center">
-          <button
-            id="sessionToggleBtn"
-            class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 sm:px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
-          >
-            Start Session
-          </button>
+          <div class="flex items-center gap-2">
+            <div id="melodyPlaybackControls" class="hidden flex items-center gap-2">
+              <button
+                id="melodyDemoBtn"
+                type="button"
+                class="px-3 py-2 text-sm bg-emerald-700 hover:bg-emerald-600 border border-emerald-500 rounded-md"
+              >
+                Play Demo
+              </button>
+              <button
+                id="melodyStepBackBtn"
+                type="button"
+                class="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-md disabled:bg-slate-700/60 disabled:text-slate-400 disabled:cursor-not-allowed"
+                aria-label="Melody step back"
+              >
+                &lt;
+              </button>
+              <button
+                id="melodyStepForwardBtn"
+                type="button"
+                class="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-md disabled:bg-slate-700/60 disabled:text-slate-400 disabled:cursor-not-allowed"
+                aria-label="Melody step forward"
+              >
+                &gt;
+              </button>
+            </div>
+            <button
+              id="sessionToggleBtn"
+              class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 sm:px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
+            >
+              Start Session
+            </button>
+          </div>
           <div class="hidden" aria-hidden="true">
             <button
               id="startBtn"
@@ -296,13 +323,6 @@
               >
                 Edit Melody...
               </button>
-              <button
-                id="melodyDemoBtn"
-                type="button"
-                class="px-3 py-2 text-sm bg-emerald-700 hover:bg-emerald-600 border border-emerald-500 rounded-md"
-              >
-                Play Demo
-              </button>
               <label for="melodyDemoBpm" class="text-sm text-slate-200">Demo BPM:</label>
               <div class="flex items-center gap-2 min-w-[16rem]">
                 <input
@@ -460,6 +480,20 @@
             You can manage active strings here. The fretboard-edge string toggles are optional and can stay hidden.
           </div>
         </div>
+      </div>
+
+      <div
+        id="melodyTabTimelinePanel"
+        class="hidden shrink-0 rounded-lg border border-cyan-500/30 bg-slate-900/70 px-2 py-1.5"
+      >
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <h3 class="text-[11px] font-semibold leading-4 text-cyan-100">TAB Timeline</h3>
+          <span id="melodyTabTimelineMeta" class="text-[10px] leading-4 text-slate-300"></span>
+        </div>
+        <div
+          id="melodyTabTimelineGrid"
+          class="overflow-x-auto overflow-y-hidden rounded-md border border-slate-600/70 bg-slate-950/60 p-1"
+        ></div>
       </div>
 
       <!-- This is now the main content panel -->

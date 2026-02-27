@@ -1,5 +1,6 @@
 import type { IInstrument } from './instruments/instrument';
 import { parseAsciiTabToMelodyEvents } from './ascii-tab-melody-parser';
+import { resolveMelodyEventPositions } from './melody-position-resolver';
 
 export interface MelodyEventNote {
   note: string;
@@ -263,12 +264,13 @@ function mapStoredCustomMelodyToDefinition(
   if (entry.instrumentName !== instrument.name) return null;
   try {
     if (entry.format === 'events') {
+      const resolved = resolveMelodyEventPositions(cloneMelodyEvents(entry.events), instrument);
       return {
         id: entry.id,
         name: entry.name,
         source: 'custom',
         instrumentName: entry.instrumentName,
-        events: cloneMelodyEvents(entry.events),
+        events: resolved.events,
         createdAtMs: entry.createdAtMs,
         sourceFormat: entry.sourceFormat,
         sourceFileName: entry.sourceFileName,
@@ -408,7 +410,7 @@ export function isCustomMelodyId(melodyId: string) {
 export function saveCustomEventMelody(
   name: string,
   events: MelodyEvent[],
-  instrument: Pick<IInstrument, 'name'>,
+  instrument: Pick<IInstrument, 'name' | 'STRING_ORDER' | 'getNoteWithOctave'>,
   options?: {
     sourceFormat?: StoredCustomEventMelody['sourceFormat'];
     sourceFileName?: string;
@@ -427,6 +429,7 @@ export function saveCustomEventMelody(
   if (!events.every((event) => isMelodyEvent(event))) {
     throw new Error('Imported melody event data is invalid.');
   }
+  const resolvedEvents = resolveMelodyEventPositions(cloneMelodyEvents(events), instrument).events;
 
   const entry: StoredCustomEventMelody = {
     id: `custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
@@ -441,7 +444,7 @@ export function saveCustomEventMelody(
       typeof options?.sourceTempoBpm === 'number' && Number.isFinite(options.sourceTempoBpm)
         ? Math.round(options.sourceTempoBpm)
         : undefined,
-    events: cloneMelodyEvents(events),
+    events: resolvedEvents,
     createdAtMs: Date.now(),
   };
 

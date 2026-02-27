@@ -49,7 +49,7 @@ export interface RhythmSessionStats {
   bestAbsOffsetMs: number | null;
 }
 
-export type ChordNote = { note: string; string: string; fret: number };
+export type ChordNote = { note: string; string: string; fret: number; finger?: number };
 
 /** Represents all the necessary data for a single user challenge. */
 export interface Prompt {

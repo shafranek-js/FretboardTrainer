@@ -431,6 +431,7 @@ export function bindUiSignals() {
     const visibility = getTrainingModeUiVisibility(mode);
 
     dom.melodySelectorContainer.classList.toggle('hidden', !visibility.showMelodySelector);
+    dom.melodyPlaybackControls.classList.toggle('hidden', !visibility.showMelodySelector);
     dom.scaleSelectorContainer.classList.toggle('hidden', !visibility.showScaleSelector);
     dom.chordSelectorContainer.classList.toggle('hidden', !visibility.showChordSelector);
     dom.progressionSelectorContainer.classList.toggle('hidden', !visibility.showProgressionSelector);

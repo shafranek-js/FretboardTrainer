@@ -71,6 +71,7 @@
 - [x] Implement in-app confirmation UX and wire the confirm port to non-blocking modal dialogs.
 - [x] Fix melody practice completion UX so "Melody complete" feedback remains visible after session auto-stop.
 - [x] Persist selected melody in profile settings and restore it after reload/profile switch.
+- [x] Add in-session melody TAB timeline panel with active-step highlight and finger-color note chips synchronized with demo/session step progression.
 - [ ] Tighten training-mode contract so `generatePrompt()` stays side-effect free (no direct UI writes on completion/error paths).
 - [ ] Reduce `src/logic.ts` orchestration size by extracting session lifecycle/error-reporting helpers.
   - [x] Extract rhythm timing evaluation/formatting helpers into `src/rhythm-timing.ts` with unit tests.
@@ -97,6 +98,10 @@
   - [x] Preserve `e` vs `E` disambiguation for lettered guitar tabs.
   - [x] Re-apply saved melody selection on profile switch.
   - [x] Skip/warn unresolved MIDI notes instead of saving `null` fret/string positions into imported melody events.
+- [x] Consolidate tablature position optimization into a shared DP/Viterbi module (`src/tablature-optimizer.ts`) and route MIDI import through it.
+  - [x] Keep duplicated pitch classes as distinct playable notes (no collapsing) when events are polyphonic.
+  - [x] Improve ergonomic cost model (stretch/high-fret penalties, softer open-string bonus for polyphony).
+  - [x] Reuse the same optimizer for event-melody import/storage fallback when explicit string/fret constraints are missing.
 
 ## Future / Backlog
 

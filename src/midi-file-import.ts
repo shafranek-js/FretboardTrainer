@@ -1,7 +1,15 @@
 import type { IInstrument } from './instruments/instrument';
-import type { MelodyEvent, MelodyEventNote } from './melody-library';
+import type { MelodyEvent } from './melody-library';
+import {
+  DEFAULT_TABLATURE_MAX_FRET,
+  buildPositionCandidatesByMidi,
+  chooseEventPositions,
+  createFallbackEmptyAssignment,
+  selectOptimalAssignmentPath,
+  toPitchClassFromMidi,
+  type EventMidiOccurrence,
+} from './tablature-optimizer';
 
-const DEFAULT_MIDI_IMPORT_MAX_FRET = 24;
 const PITCH_CLASS_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 
 interface MidiHeaderLike {
@@ -74,43 +82,10 @@ export interface LoadedMidiFile {
   defaultTrackIndex: number | null;
 }
 
-interface PositionCandidate {
-  stringName: string;
-  fret: number;
-  stringIndex: number;
-}
-
-interface EventMidiOccurrence {
-  midi: number;
-  pitchClass: string;
-  occurrenceIndex: number;
-}
-
-interface AssignedEventMidiOccurrence extends EventMidiOccurrence {
-  assigned: PositionCandidate;
-}
-
 interface NormalizedMidiNote {
   midi: number;
   startTick: number;
   durationTicks: number;
-}
-
-function parseScientificNoteToMidi(noteWithOctave: string): number | null {
-  const match = /^([A-G])(#?)(-?\d+)$/.exec(noteWithOctave.trim());
-  if (!match) return null;
-  const [, letter, sharp, octaveText] = match;
-  const octave = Number.parseInt(octaveText, 10);
-  if (!Number.isFinite(octave)) return null;
-  const baseByLetter: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-  const base = baseByLetter[letter];
-  if (!Number.isFinite(base)) return null;
-  return (octave + 1) * 12 + base + (sharp ? 1 : 0);
-}
-
-function toPitchClassFromMidi(midi: number) {
-  const normalized = ((Math.round(midi) % 12) + 12) % 12;
-  return PITCH_CLASS_NAMES[normalized] ?? 'C';
 }
 
 function toScientificNameFromMidi(midi: number) {
@@ -279,128 +254,6 @@ function pickMidiTrack(midi: MidiFileLike) {
   return { selected, warnings };
 }
 
-function buildPositionCandidatesByMidi(
-  instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
-  maxFret = DEFAULT_MIDI_IMPORT_MAX_FRET
-) {
-  const byMidi = new Map<number, PositionCandidate[]>();
-  instrument.STRING_ORDER.forEach((stringName, stringIndex) => {
-    for (let fret = 0; fret <= maxFret; fret++) {
-      const noteWithOctave = instrument.getNoteWithOctave(stringName, fret);
-      if (!noteWithOctave) continue;
-      const midi = parseScientificNoteToMidi(noteWithOctave);
-      if (midi === null) continue;
-      const list = byMidi.get(midi) ?? [];
-      list.push({ stringName, fret, stringIndex });
-      byMidi.set(midi, list);
-    }
-  });
-  byMidi.forEach((list) => list.sort((a, b) => a.fret - b.fret || a.stringIndex - b.stringIndex));
-  return byMidi;
-}
-
-function chooseEventPositions(
-  eventMidiOccurrences: EventMidiOccurrence[],
-  candidateMap: Map<number, PositionCandidate[]>,
-  previousAssigned: PositionCandidate[]
-) {
-  const previousAvgFret =
-    previousAssigned.length > 0
-      ? previousAssigned.reduce((sum, item) => sum + item.fret, 0) / previousAssigned.length
-      : 5;
-  const previousAvgString =
-    previousAssigned.length > 0
-      ? previousAssigned.reduce((sum, item) => sum + item.stringIndex, 0) / previousAssigned.length
-      : 0;
-
-  const sortedOccurrences = [...eventMidiOccurrences]
-    .map((occurrence) => ({
-      ...occurrence,
-      candidates: (candidateMap.get(occurrence.midi) ?? []).slice().sort((a, b) => {
-        const scoreA =
-          Math.abs(a.fret - previousAvgFret) + Math.abs(a.stringIndex - previousAvgString) * 1.5 + a.fret * 0.03;
-        const scoreB =
-          Math.abs(b.fret - previousAvgFret) + Math.abs(b.stringIndex - previousAvgString) * 1.5 + b.fret * 0.03;
-        return scoreA - scoreB;
-      }),
-    }))
-    .sort((a, b) => {
-      const candidateDelta = a.candidates.length - b.candidates.length;
-      if (candidateDelta !== 0) return candidateDelta;
-      return b.midi - a.midi || a.occurrenceIndex - b.occurrenceIndex;
-    });
-
-  const candidateLimitPerNote = 6;
-  let bestAssigned: AssignedEventMidiOccurrence[] = [];
-  let bestScore = Number.POSITIVE_INFINITY;
-  const currentAssigned: AssignedEventMidiOccurrence[] = [];
-  const usedStrings = new Set<string>();
-
-  const incrementalScore = (candidate: PositionCandidate, occurrence: EventMidiOccurrence) => {
-    const base =
-      Math.abs(candidate.fret - previousAvgFret) +
-      Math.abs(candidate.stringIndex - previousAvgString) * 1.5 +
-      candidate.fret * 0.03;
-    const pairwise = currentAssigned.reduce((sum, assigned) => {
-      const fretDistance = Math.abs(candidate.fret - assigned.assigned.fret);
-      const stringDistance = Math.abs(candidate.stringIndex - assigned.assigned.stringIndex);
-      const duplicatePitchClassPenalty =
-        assigned.pitchClass === occurrence.pitchClass ? fretDistance * 1.4 + stringDistance * 2.2 : 0;
-      return sum + fretDistance * 0.18 + stringDistance * 0.35 + duplicatePitchClassPenalty;
-    }, 0);
-    return base + pairwise;
-  };
-
-  const backtrack = (index: number, score: number) => {
-    if (index >= sortedOccurrences.length) {
-      if (
-        currentAssigned.length > bestAssigned.length ||
-        (currentAssigned.length === bestAssigned.length && score < bestScore)
-      ) {
-        bestAssigned = currentAssigned.map((item) => ({ ...item, assigned: { ...item.assigned } }));
-        bestScore = score;
-      }
-      return;
-    }
-
-    const remaining = sortedOccurrences.length - index;
-    if (currentAssigned.length + remaining < bestAssigned.length) {
-      return;
-    }
-
-    const occurrence = sortedOccurrences[index];
-    const rankedCandidates = occurrence.candidates
-      .filter((candidate) => !usedStrings.has(candidate.stringName))
-      .slice(0, candidateLimitPerNote);
-
-    for (const candidate of rankedCandidates) {
-      const nextScore = score + incrementalScore(candidate, occurrence);
-      if (currentAssigned.length + 1 === bestAssigned.length && nextScore >= bestScore) {
-        continue;
-      }
-      usedStrings.add(candidate.stringName);
-      currentAssigned.push({ ...occurrence, assigned: candidate });
-      backtrack(index + 1, nextScore);
-      currentAssigned.pop();
-      usedStrings.delete(candidate.stringName);
-    }
-
-    // Allow skipping unresolved/conflicting notes only if a full unique-string assignment is impossible.
-    backtrack(index + 1, score + 1000);
-  };
-
-  backtrack(0, 0);
-
-  const chosen = new Map<number, PositionCandidate[]>();
-  for (const assigned of bestAssigned) {
-    const list = chosen.get(assigned.occurrenceIndex) ?? [];
-    list.push(assigned.assigned);
-    chosen.set(assigned.occurrenceIndex, list);
-  }
-
-  return chosen;
-}
-
 function convertMidiTrackSelectionToImportedMelody(
   midi: MidiFileLike,
   selection: MidiTrackSelection,
@@ -433,13 +286,7 @@ function convertMidiTrackSelectionToImportedMelody(
 
   const startTicks = [...grouped.keys()].sort((a, b) => a - b);
   const candidateMap = buildPositionCandidatesByMidi(instrument);
-  let previousAssigned: PositionCandidate[] = [];
-  const events: MelodyEvent[] = [];
-  let skippedUnresolvedNotesCount = 0;
-  let skippedEmptyEventsCount = 0;
-
-  for (let i = 0; i < startTicks.length; i++) {
-    const startTick = startTicks[i];
+  const importEvents = startTicks.map((startTick, i) => {
     const eventNotes = grouped.get(startTick) ?? [];
     const nextStartTick = startTicks[i + 1] ?? null;
     const maxEndTick = eventNotes.reduce((max, note) => {
@@ -447,7 +294,6 @@ function convertMidiTrackSelectionToImportedMelody(
       return Math.max(max, endTick);
     }, startTick + 1);
     const durationTicks = Math.max(1, (nextStartTick ?? maxEndTick) - startTick);
-
     const eventMidiOccurrences: EventMidiOccurrence[] = eventNotes
       .map((note, occurrenceIndex) => {
         const midi = Math.round(note.midi);
@@ -460,59 +306,44 @@ function convertMidiTrackSelectionToImportedMelody(
       })
       .filter((occurrence): occurrence is EventMidiOccurrence => occurrence !== null);
 
-    const assignedMap = chooseEventPositions(eventMidiOccurrences, candidateMap, previousAssigned);
-
-    const melodyNotes: MelodyEventNote[] = eventMidiOccurrences.flatMap((occurrence) => {
-      const assigned = assignedMap.get(occurrence.occurrenceIndex)?.[0];
-      if (!assigned || typeof assigned.fret !== 'number') {
-        skippedUnresolvedNotesCount++;
-        return [];
-      }
-
-      return [
-        {
-          note: occurrence.pitchClass,
-          stringName: assigned.stringName,
-          fret: assigned.fret,
-        },
-      ];
-    });
-
-    if (melodyNotes.length === 0) {
-      skippedEmptyEventsCount++;
-      previousAssigned = [];
-      continue;
-    }
-
-    events.push({
+    const assignments = chooseEventPositions(eventMidiOccurrences, candidateMap);
+    return {
       durationBeats: durationTicks / ppq,
-      notes: melodyNotes,
-    });
+      occurrences: eventMidiOccurrences,
+      assignments:
+        assignments.length > 0 ? assignments : [createFallbackEmptyAssignment(eventMidiOccurrences.length)],
+    };
+  });
+  const assignmentPath = selectOptimalAssignmentPath(importEvents, { unresolvedPenalty: 28 });
 
-    previousAssigned = melodyNotes
-      .map((melodyNote) => ({
-        stringName: melodyNote.stringName,
-        fret: melodyNote.fret,
-        stringIndex: instrument.STRING_ORDER.indexOf(melodyNote.stringName ?? ''),
-      }))
-      .filter(
-        (candidate): candidate is PositionCandidate =>
-          candidate.stringName !== null &&
-          typeof candidate.fret === 'number' &&
-          Number.isFinite(candidate.stringIndex) &&
-          candidate.stringIndex >= 0
-      );
+  const events: MelodyEvent[] = [];
+  let skippedUnresolvedNotesCount = 0;
+  let skippedEmptyEventsCount = 0;
+
+  if (assignmentPath.events.length > 0) {
+    assignmentPath.events.forEach((event, eventIndex) => {
+      const assignment = assignmentPath.selectedAssignments[eventIndex];
+      skippedUnresolvedNotesCount += assignment.unresolvedCount;
+      if (assignment.notes.length === 0) {
+        skippedEmptyEventsCount++;
+        return;
+      }
+      events.push({
+        durationBeats: event.durationBeats,
+        notes: assignment.notes,
+      });
+    });
   }
 
   if (events.length === 0) {
     throw new Error(
-      `Selected MIDI track has note events, but none could be mapped to playable positions within fret 0-${DEFAULT_MIDI_IMPORT_MAX_FRET}.`
+      `Selected MIDI track has note events, but none could be mapped to playable positions within fret 0-${DEFAULT_TABLATURE_MAX_FRET}.`
     );
   }
 
   if (skippedUnresolvedNotesCount > 0) {
     warnings.push(
-      `Skipped ${skippedUnresolvedNotesCount} MIDI note${skippedUnresolvedNotesCount === 1 ? '' : 's'} outside the playable import range (frets 0-${DEFAULT_MIDI_IMPORT_MAX_FRET}).`
+      `Skipped ${skippedUnresolvedNotesCount} MIDI note${skippedUnresolvedNotesCount === 1 ? '' : 's'} outside the playable import range (frets 0-${DEFAULT_TABLATURE_MAX_FRET}).`
     );
   }
   if (skippedEmptyEventsCount > 0) {

@@ -169,4 +169,56 @@ describe('melody-library custom editing', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('auto-resolves missing fret/string positions for stored event melodies', () => {
+    const storageMap = new Map<string, string>();
+    const localStorageStub = {
+      getItem: (key: string) => storageMap.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storageMap.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        storageMap.delete(key);
+      },
+      clear: () => {
+        storageMap.clear();
+      },
+    };
+    vi.stubGlobal('localStorage', localStorageStub);
+    try {
+      localStorage.clear();
+
+      saveCustomEventMelody(
+        'Legacy Event Melody',
+        [
+          {
+            durationBeats: 1,
+            notes: [
+              { note: 'E', stringName: null, fret: null },
+              { note: 'E', stringName: null, fret: null },
+            ],
+          },
+        ],
+        instruments.guitar,
+        {
+          sourceFormat: 'midi',
+          sourceFileName: 'legacy.mid',
+        }
+      );
+
+      const customMelodies = listMelodiesForInstrument(instruments.guitar).filter(
+        (melody) => melody.source === 'custom'
+      );
+      expect(customMelodies).toHaveLength(1);
+      const notes = customMelodies[0]?.events[0]?.notes ?? [];
+      expect(notes.length).toBe(2);
+      notes.forEach((note) => {
+        expect(note.stringName).not.toBeNull();
+        expect(note.fret).not.toBeNull();
+      });
+      expect(new Set(notes.map((note) => note.stringName)).size).toBe(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

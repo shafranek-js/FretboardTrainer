@@ -13,6 +13,13 @@ import { playSound } from './audio';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MIN_RENDER_FRET_COUNT = 20;
 const MAX_RENDER_FRET_COUNT = 24;
+const FINGER_COLORS: Record<number, string> = {
+  0: '#9ca3af',
+  1: '#f59e0b',
+  2: '#a855f7',
+  3: '#0ea5e9',
+  4: '#ef4444',
+};
 
 function createSvgEl<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -80,6 +87,40 @@ function appendLine(svg: SVGSVGElement, attrs: Record<string, string | number>) 
 
 function stripOctaveSuffix(noteWithOctave: string) {
   return noteWithOctave.replace(/-?\d+$/, '');
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getFingerColorForFret(
+  fret: number,
+  options: { anchorFret?: number | null; useAbsoluteCycle?: boolean } = {}
+) {
+  const { anchorFret = null, useAbsoluteCycle = false } = options;
+  if (fret <= 0) return FINGER_COLORS[0];
+  if (useAbsoluteCycle || anchorFret === null || !Number.isFinite(anchorFret)) {
+    const finger = ((fret - 1) % 4) + 1;
+    return FINGER_COLORS[finger] ?? FINGER_COLORS[4];
+  }
+  const finger = Math.max(1, Math.min(4, fret - anchorFret + 1));
+  return FINGER_COLORS[finger] ?? FINGER_COLORS[4];
+}
+
+function getFingerColorForAssignedFinger(finger: number | null | undefined) {
+  if (!Number.isFinite(finger)) return null;
+  const normalized = clamp(Math.round(Number(finger)), 0, 4);
+  return FINGER_COLORS[normalized] ?? null;
+}
+
+function resolveAnchorFretFromFrets(frets: number[]) {
+  const positiveFrets = frets.filter((fret) => Number.isFinite(fret) && fret > 0).sort((a, b) => a - b);
+  if (positiveFrets.length === 0) return null;
+  const minFret = positiveFrets[0];
+  const maxFret = positiveFrets[positiveFrets.length - 1];
+  const spread = maxFret - minFret;
+  if (spread > 5) return null;
+  return minFret;
 }
 
 function appendHoverableNoteMarker(
@@ -567,17 +608,18 @@ export function drawFretboardSvg(
         const note = getPitchClassAtPosition(stringName, fret);
         if (!note) continue;
         const x = fret === 0 ? openNoteX : getFretCenterX(fret);
+        const fingerFill = getFingerColorForFret(fret, { useAbsoluteCycle: true });
         appendHoverableNoteMarker(
           svg,
           x,
           y,
           note,
           noteRadius,
-          'rgba(28, 22, 19, 0.88)',
-          'rgba(176, 144, 109, 0.35)',
-          1.2,
+          fingerFill,
+          'rgba(22, 28, 36, 0.85)',
+          1.4,
           noteFontSize * 0.9,
-          '#e6d5ba'
+          '#f8fafc'
         );
       }
     });
@@ -609,13 +651,14 @@ export function drawFretboardSvg(
       if (stringIdx >= 0 && typeof rootFret === 'number') {
         const y = startY + stringIdx * stringSpacing;
         const x = rootFret === 0 ? openNoteX : getFretCenterX(rootFret);
+        const fingerFill = getFingerColorForFret(rootFret, { useAbsoluteCycle: true });
         appendHoverableNoteMarker(
           svg,
           x,
           y,
           rootNote,
           noteRadius * 1.2,
-          '#28a745',
+          fingerFill,
           '#1e7e34',
           2,
           noteFontSize,
@@ -639,13 +682,14 @@ export function drawFretboardSvg(
           const noteAtFret = getPitchClassAtPosition(stringName, fret);
           if (noteAtFret !== rootNote) continue;
           const x = fret === 0 ? openNoteX : getFretCenterX(fret);
+          const fingerFill = getFingerColorForFret(fret, { useAbsoluteCycle: true });
           appendHoverableNoteMarker(
             svg,
             x,
             y,
             rootNote,
             noteRadius * 1.15,
-            '#28a745',
+            fingerFill,
             '#1e7e34',
             2,
             noteFontSize,
@@ -674,6 +718,7 @@ export function drawFretboardSvg(
         ? 'Fretboard showing the notes for the current melody event.'
         : 'Fretboard showing the notes for a chord.'
     );
+    const chordFingerAnchor = resolveAnchorFretFromFrets(chordFingering.map((note) => note.fret));
     chordFingering.forEach((noteInfo) => {
       const { note, string, fret } = noteInfo;
       if (!enabledStrings.has(string)) return;
@@ -685,7 +730,9 @@ export function drawFretboardSvg(
       const isFound = foundChordNotes.has(note);
       const isCurrent = note === currentTargetNote;
 
-      const fill = isCurrent ? '#ffc107' : isFound ? '#28a745' : '#17a2b8';
+      const fill =
+        getFingerColorForAssignedFinger(noteInfo.finger) ??
+        getFingerColorForFret(fret, { anchorFret: chordFingerAnchor });
       const stroke = isCurrent ? '#d39e00' : isFound ? '#1e7e34' : '#138496';
       appendHoverableNoteMarker(svg, x, y, note, noteRadius * 1.1, fill, stroke, 2, noteFontSize, '#fff', 'bold');
     });
