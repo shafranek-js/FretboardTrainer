@@ -54,14 +54,25 @@ export function buildPromptAudioPlan({
     };
   }
 
-  if (trainingMode === 'melody' && (prompt.targetMelodyEventNotes?.length ?? 0) > 1) {
-    const notesToPlay = (prompt.targetMelodyEventNotes ?? [])
+  if (trainingMode === 'melody' && (prompt.targetMelodyEventNotes?.length ?? 0) > 0) {
+    const melodyNotes = prompt.targetMelodyEventNotes ?? [];
+    const notesToPlay = melodyNotes
       .map((noteInfo) => instrument.getNoteWithOctave(noteInfo.string, noteInfo.fret))
       .filter((note): note is string => note !== null);
+    let targetFrequency: number | null = null;
+    if (melodyNotes.length === 1) {
+      const singleNote = melodyNotes[0];
+      const openStringTuning = instrument.TUNING[singleNote.string];
+      targetFrequency = calculateFrettedFrequencyFromTuning(
+        openStringTuning,
+        singleNote.fret,
+        calibratedA4
+      );
+    }
 
     return {
       notesToPlay,
-      targetFrequency: null,
+      targetFrequency,
       playSoundEnabled: notesToPlay.length > 0,
       autoPlaySound: false,
     };

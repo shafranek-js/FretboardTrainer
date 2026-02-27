@@ -17,6 +17,7 @@ const instrument = {
   FRETBOARD: { A: { C: 3 }, D: { C: 10 } },
   getNoteWithOctave: (stringName: string, fret: number) => {
     if (stringName === 'A' && fret === 3) return 'C5';
+    if (stringName === 'A' && fret === 15) return 'C6';
     if (stringName === 'D' && fret === 10) return 'C5';
     return null;
   },
@@ -92,6 +93,27 @@ describe('buildPromptAudioPlan', () => {
     });
 
     expect(result.notesToPlay).toEqual(['C5']);
+    expect(result.playSoundEnabled).toBe(true);
+    expect(result.autoPlaySound).toBe(false);
+    expect(result.targetFrequency).not.toBeNull();
+  });
+
+  it('uses exact melody event fret for monophonic melody playback (no octave fallback)', () => {
+    const prompt: Prompt = {
+      ...basePrompt,
+      targetString: 'D',
+      targetMelodyEventNotes: [{ note: 'C', string: 'A', fret: 15 }],
+    };
+
+    const result = buildPromptAudioPlan({
+      prompt,
+      trainingMode: 'melody',
+      instrument,
+      calibratedA4: 440,
+      enabledStrings: new Set(['A', 'D']),
+    });
+
+    expect(result.notesToPlay).toEqual(['C6']);
     expect(result.playSoundEnabled).toBe(true);
     expect(result.autoPlaySound).toBe(false);
     expect(result.targetFrequency).not.toBeNull();
