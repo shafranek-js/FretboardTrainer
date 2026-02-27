@@ -2,6 +2,8 @@ import { dom } from './state';
 import type { MelodyDefinition } from './melody-library';
 import { buildMelodyTabTimelineViewModel, type TimelineNoteChip } from './melody-tab-timeline-model';
 
+const DEFAULT_TIMELINE_BEATS_PER_BAR = 4;
+
 const FINGER_COLORS: Record<number, string> = {
   0: '#9ca3af',
   1: '#f59e0b',
@@ -11,6 +13,13 @@ const FINGER_COLORS: Record<number, string> = {
 };
 
 let lastRenderKey = '';
+
+interface TimelineBarGrouping {
+  hasBeatTiming: boolean;
+  beatsPerBar: number;
+  totalBars: number | null;
+  barStartEventIndexes: Set<number>;
+}
 
 function getFingerColor(finger: number) {
   const normalized = Number.isFinite(finger) ? Math.max(0, Math.min(4, Math.round(finger))) : 0;
@@ -29,6 +38,55 @@ function createCellNoteChip(note: TimelineNoteChip) {
 
 function clearGrid() {
   dom.melodyTabTimelineGrid.innerHTML = '';
+}
+
+function normalizePositiveNumber(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
+  return value;
+}
+
+function getEventDurationBeats(event: MelodyDefinition['events'][number]) {
+  const fromBeats = normalizePositiveNumber(event.durationBeats);
+  if (fromBeats !== null) return fromBeats;
+  const countSteps = normalizePositiveNumber(event.durationCountSteps);
+  if (countSteps !== null) return countSteps / 2;
+  return null;
+}
+
+function buildTimelineBarGrouping(melody: Pick<MelodyDefinition, 'events'>): TimelineBarGrouping {
+  const durations = melody.events.map((event) => getEventDurationBeats(event));
+  const hasBeatTiming = durations.every((duration) => duration !== null);
+  if (!hasBeatTiming || durations.length === 0) {
+    return {
+      hasBeatTiming: false,
+      beatsPerBar: DEFAULT_TIMELINE_BEATS_PER_BAR,
+      totalBars: null,
+      barStartEventIndexes: new Set<number>(),
+    };
+  }
+
+  const beatsPerBar = DEFAULT_TIMELINE_BEATS_PER_BAR;
+  const barStartEventIndexes = new Set<number>();
+  const epsilon = 1e-6;
+  let accumulatedBeats = 0;
+
+  for (let eventIndex = 0; eventIndex < durations.length; eventIndex++) {
+    if (eventIndex > 0) {
+      const remainder = ((accumulatedBeats % beatsPerBar) + beatsPerBar) % beatsPerBar;
+      if (remainder < epsilon || Math.abs(remainder - beatsPerBar) < epsilon) {
+        barStartEventIndexes.add(eventIndex);
+      }
+    }
+    accumulatedBeats += durations[eventIndex]!;
+  }
+
+  const totalBars = Math.max(1, Math.ceil((accumulatedBeats + epsilon) / beatsPerBar));
+  return {
+    hasBeatTiming: true,
+    beatsPerBar,
+    totalBars,
+    barStartEventIndexes,
+  };
 }
 
 function getClassicCellTextRaw(notes: TimelineNoteChip[]) {
@@ -109,7 +167,10 @@ function renderGridTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewM
   dom.melodyTabTimelineGrid.appendChild(table);
 }
 
-function renderClassicTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewModel>) {
+function renderClassicTimeline(
+  model: ReturnType<typeof buildMelodyTabTimelineViewModel>,
+  barGrouping: TimelineBarGrouping
+) {
   const wrapper = document.createElement('div');
   wrapper.className = 'min-w-max text-[11px] leading-5 font-mono text-slate-200';
 
@@ -136,6 +197,13 @@ function renderClassicTimeline(model: ReturnType<typeof buildMelodyTabTimelineVi
     line.appendChild(startPipe);
 
     segments.forEach((segment, eventIndex) => {
+      if (barGrouping.barStartEventIndexes.has(eventIndex)) {
+        const barPipe = document.createElement('span');
+        barPipe.className = 'text-slate-500';
+        barPipe.textContent = '|';
+        line.appendChild(barPipe);
+      }
+
       const cell = document.createElement('span');
       cell.dataset.eventIndex = String(eventIndex);
       cell.className =
@@ -186,12 +254,15 @@ export function renderMelodyTabTimeline(
   const modeLabel = options.modeLabel?.trim() ?? '';
   const viewMode = options.viewMode ?? 'classic';
   const model = buildMelodyTabTimelineViewModel(melody, stringOrder, activeEventIndex);
+  const barGrouping = buildTimelineBarGrouping(melody);
   const renderKey = [
     melody.id,
     melody.events.length,
     model.activeEventIndex ?? -1,
     modeLabel,
     viewMode,
+    barGrouping.totalBars ?? -1,
+    barGrouping.hasBeatTiming ? 1 : 0,
     stringOrder.join(','),
   ].join('|');
   if (renderKey === lastRenderKey && dom.melodyTabTimelineGrid.childElementCount > 0) {
@@ -205,15 +276,19 @@ export function renderMelodyTabTimeline(
       ? `Step -/${model.totalEvents}`
       : `Step ${model.activeEventIndex + 1}/${model.totalEvents}`;
   const viewLabel = viewMode === 'classic' ? 'Classic TAB' : 'Grid';
+  const barText =
+    barGrouping.hasBeatTiming && typeof barGrouping.totalBars === 'number'
+      ? ` | ${barGrouping.totalBars} bar${barGrouping.totalBars === 1 ? '' : 's'} (${barGrouping.beatsPerBar}/4)`
+      : '';
   dom.melodyTabTimelineMeta.textContent = modeLabel
-    ? `${modeLabel} | ${viewLabel} | ${stepText}`
-    : `${viewLabel} | ${stepText}`;
+    ? `${modeLabel} | ${viewLabel} | ${stepText}${barText}`
+    : `${viewLabel} | ${stepText}${barText}`;
 
   clearGrid();
   if (viewMode === 'grid') {
     renderGridTimeline(model);
   } else {
-    renderClassicTimeline(model);
+    renderClassicTimeline(model, barGrouping);
   }
 
   if (model.activeEventIndex !== null) {
