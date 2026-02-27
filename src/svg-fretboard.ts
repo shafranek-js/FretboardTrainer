@@ -11,7 +11,7 @@ import { formatMusicText } from './note-display';
 import { playSound } from './audio';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const MIN_RENDER_FRET_COUNT = 20;
+const MIN_RENDER_FRET_COUNT = 1;
 const MAX_RENDER_FRET_COUNT = 24;
 const FINGER_COLORS: Record<number, string> = {
   0: '#9ca3af',
@@ -303,17 +303,7 @@ export function drawFretboardSvg(
   const MARKER_POSITIONS = instrumentData.MARKER_POSITIONS;
   const enabledStrings = getEnabledStrings(dom.stringSelector);
   const { maxFret: selectedMaxFret } = getSelectedFretRange(dom.startFret.value, dom.endFret.value);
-  const highestChordFret = chordFingering.reduce((max, note) => Math.max(max, note.fret), 0);
-  const wrongHighlightFret =
-    typeof wrongDetectedFret === 'number'
-      ? wrongDetectedFret
-      : wrongDetectedNote && wrongDetectedString
-        ? (FRETBOARD[wrongDetectedString as keyof typeof FRETBOARD]?.[wrongDetectedNote] ?? 0)
-      : 0;
-  const renderFretCount = Math.max(
-    MIN_RENDER_FRET_COUNT,
-    Math.min(MAX_RENDER_FRET_COUNT, Math.max(selectedMaxFret, highestChordFret, wrongHighlightFret))
-  );
+  const renderFretCount = Math.max(MIN_RENDER_FRET_COUNT, Math.min(MAX_RENDER_FRET_COUNT, selectedMaxFret));
 
   const width = dom.fretboard.clientWidth;
   const height = dom.fretboard.clientHeight;
