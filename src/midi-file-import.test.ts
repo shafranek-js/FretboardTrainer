@@ -129,6 +129,34 @@ describe('midi-file-import', () => {
     expect(imported.events[2]?.durationBeats).toBe(0.5);
   });
 
+  it('assigns bar indexes from MIDI time signature and start ticks', () => {
+    const imported = convertParsedMidiToImportedMelody(
+      {
+        header: {
+          ppq: 480,
+          timeSignatures: [{ ticks: 0, timeSignature: [3, 4] }],
+        },
+        tracks: [
+          {
+            name: 'Lead',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 60, ticks: 0, durationTicks: 480 },
+              { midi: 62, ticks: 960, durationTicks: 480 },
+              { midi: 64, ticks: 1440, durationTicks: 480 },
+            ],
+          },
+        ],
+      },
+      instruments.guitar,
+      'bars.mid'
+    );
+
+    expect(imported.events).toHaveLength(3);
+    expect(imported.events.map((event) => event.barIndex)).toEqual([0, 0, 1]);
+  });
+
   it('skips unresolved out-of-range MIDI notes and reports a warning', () => {
     const imported = convertParsedMidiToImportedMelody(
       {

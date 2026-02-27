@@ -12,6 +12,7 @@ export interface ParsedAsciiTabMelodyEvent {
   durationColumns: number;
   durationCountSteps?: number;
   durationBeats?: number;
+  barIndex?: number;
   notes: ParsedAsciiTabMelodyStep[];
 }
 
@@ -80,9 +81,10 @@ function extractCountContent(line: string): string | null {
   if (!trimmed) return null;
 
   // Count lines may be labeled ("count ...") or just show spaced beat markers.
-  const looksLikeCountLabel = /\bcount\b/i.test(trimmed);
+  const countLabelMatch = line.match(/count|сч[её]т/i);
+  const looksLikeCountLabel = countLabelMatch !== null;
   const hasDigits = /\d/.test(trimmed);
-  const hasSubdivisionWords = /\band\b/i.test(trimmed) || trimmed.includes('&');
+  const hasSubdivisionWords = /(^|\s)(and|и)(\s|$)/i.test(trimmed) || trimmed.includes('&');
   const manyDigitTokens = (trimmed.match(/\d+/g) ?? []).length >= 2;
   const looksLikeMeasuredCountGrid = manyDigitTokens && /\s{2,}/.test(trimmed);
 
@@ -90,9 +92,19 @@ function extractCountContent(line: string): string | null {
     return null;
   }
 
-  const firstDigitIndex = line.search(/\d/);
-  if (firstDigitIndex < 0) return null;
-  return line.slice(firstDigitIndex);
+  if (looksLikeCountLabel && countLabelMatch) {
+    const labelStartIndex = countLabelMatch.index ?? 0;
+    const labelEndIndex = labelStartIndex + countLabelMatch[0].length;
+    const suffix = line.slice(labelEndIndex);
+    const firstGridToken = suffix.match(/(\d+|and|и|&)/i);
+    if (firstGridToken && typeof firstGridToken.index === 'number') {
+      return line.slice(labelEndIndex + firstGridToken.index);
+    }
+  }
+
+  const firstNumericOrSubdivisionIndex = line.search(/(\d+|and|и|&)/i);
+  if (firstNumericOrSubdivisionIndex < 0) return null;
+  return line.slice(firstNumericOrSubdivisionIndex);
 }
 
 function parseTabBlocks(tabText: string): ParsedTabBlock[] {
@@ -318,6 +330,22 @@ function findNearestCountTokenIndex(tokens: CountToken[], column: number): numbe
   return bestIndex;
 }
 
+function countBarlinesBeforeColumn(content: string, column: number) {
+  const limit = Math.min(content.length, Math.max(0, column));
+  let barlines = 0;
+  for (let i = 0; i < limit; i++) {
+    if ((content[i] ?? '') === '|') {
+      barlines++;
+    }
+  }
+  return barlines;
+}
+
+function resolveLocalBarIndex(rows: ResolvedParsedTabLine[], column: number): number | null {
+  if (!rows.some((row) => row.content.includes('|'))) return null;
+  return rows.reduce((max, row) => Math.max(max, countBarlinesBeforeColumn(row.content, column)), 0);
+}
+
 function applyDurationColumns(events: ParsedAsciiTabMelodyEvent[], blockMaxLength: number) {
   for (let i = 0; i < events.length; i++) {
     const current = events[i];
@@ -405,6 +433,7 @@ export function parseAsciiTabToMelodyEvents(
   }
 
   const groupedEvents: ParsedAsciiTabMelodyEvent[] = [];
+  let barOffsetAcrossBlocks = 0;
 
   for (const block of blocks) {
     const resolvedRows = resolveBlockRowsToStringNumbers(block.rows, instrument);
@@ -419,9 +448,11 @@ export function parseAsciiTabToMelodyEvents(
 
     const pushCurrent = () => {
       if (currentColumn === null || currentNotes.length === 0) return;
+      const localBarIndex = resolveLocalBarIndex(resolvedRows, currentColumn);
       blockGroupedEvents.push({
         column: currentColumn,
         durationColumns: 1,
+        barIndex: localBarIndex ?? undefined,
         notes: currentNotes,
       });
     };
@@ -438,6 +469,21 @@ export function parseAsciiTabToMelodyEvents(
     pushCurrent();
     applyDurationColumns(blockGroupedEvents, blockMaxLength);
     applyCountTiming(blockGroupedEvents, blockMaxLength, block.countContent);
+
+    if (blockGroupedEvents.some((event) => typeof event.barIndex === 'number')) {
+      for (const event of blockGroupedEvents) {
+        if (typeof event.barIndex !== 'number' || !Number.isFinite(event.barIndex)) continue;
+        event.barIndex = Math.max(0, Math.round(event.barIndex)) + barOffsetAcrossBlocks;
+      }
+
+      const maxBarIndexInBlock = blockGroupedEvents.reduce((max, event) => {
+        if (typeof event.barIndex !== 'number' || !Number.isFinite(event.barIndex)) return max;
+        return Math.max(max, event.barIndex);
+      }, -1);
+      if (maxBarIndexInBlock >= 0) {
+        barOffsetAcrossBlocks = maxBarIndexInBlock + 1;
+      }
+    }
 
     groupedEvents.push(...blockGroupedEvents);
   }

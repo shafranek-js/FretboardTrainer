@@ -132,6 +132,38 @@ describe('ascii-tab-melody-parser', () => {
     expect(groupedEvents.map((event) => event.durationCountSteps)).toEqual([1, 1, 1]);
   });
 
+  it('supports upbeat count rows where subdivision appears before the first digit token', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        '1 string 0---5---8---7---',
+        '2 string ----------------',
+        'count    and 4 and 1 and 2 and',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents[0]?.durationBeats).toBe(0.5);
+    expect(groupedEvents[0]?.durationCountSteps).toBe(1);
+    expect(groupedEvents.every((event) => typeof event.durationCountSteps === 'number')).toBe(true);
+    expect(groupedEvents.every((event) => typeof event.durationBeats === 'number')).toBe(true);
+  });
+
+  it('derives bar indexes from explicit tab separators and continues bar numbering across blocks', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        '1 string 0---|5---',
+        '2 string ----|----',
+        '',
+        '1 string 7---|8---',
+        '2 string ----|----',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents.map((event) => event.notes[0]?.fret)).toEqual([0, 5, 7, 8]);
+    expect(groupedEvents.map((event) => event.barIndex)).toEqual([0, 1, 2, 3]);
+  });
+
   it('does not parse unlabeled count rows that start with digits as tab strings', () => {
     const groupedEvents = parseAsciiTabToMelodyEvents(
       [

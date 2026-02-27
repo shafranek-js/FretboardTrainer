@@ -268,9 +268,11 @@ function convertTrackSelectionToMelodyEvents(
   selection: TrackSelection,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>
 ) {
-  const grouped = new Map<number, { endTick: number; notes: MelodyEventNote[] }>();
+  const grouped = new Map<number, { endTick: number; barIndex: number; notes: MelodyEventNote[] }>();
+  const bars = selection.staff.bars ?? [];
 
-  for (const bar of selection.staff.bars ?? []) {
+  for (let barIndex = 0; barIndex < bars.length; barIndex++) {
+    const bar = bars[barIndex];
     for (const voice of bar.voices ?? []) {
       for (const beat of voice.beats ?? []) {
         const beatNotes = (beat.notes ?? [])
@@ -294,9 +296,10 @@ function convertTrackSelectionToMelodyEvents(
         const existing = grouped.get(startTick);
         if (existing) {
           existing.endTick = Math.max(existing.endTick, endTick);
+          existing.barIndex = Math.min(existing.barIndex, barIndex);
           existing.notes.push(...beatNotes);
         } else {
-          grouped.set(startTick, { endTick, notes: [...beatNotes] });
+          grouped.set(startTick, { endTick, barIndex, notes: [...beatNotes] });
         }
       }
     }
@@ -317,6 +320,7 @@ function convertTrackSelectionToMelodyEvents(
     if (notes.length === 0) continue;
 
     events.push({
+      barIndex: entry.barIndex,
       durationBeats: durationTicks / ALPHATAB_TICKS_PER_QUARTER,
       notes,
     });

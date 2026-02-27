@@ -15,8 +15,9 @@ const FINGER_COLORS: Record<number, string> = {
 let lastRenderKey = '';
 
 interface TimelineBarGrouping {
+  source: 'none' | 'explicit' | 'duration';
   hasBeatTiming: boolean;
-  beatsPerBar: number;
+  beatsPerBar: number | null;
   totalBars: number | null;
   barStartEventIndexes: Set<number>;
 }
@@ -45,6 +46,11 @@ function normalizePositiveNumber(value: unknown) {
   return value;
 }
 
+function normalizeNonNegativeInteger(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.round(value));
+}
+
 function getEventDurationBeats(event: MelodyDefinition['events'][number]) {
   const fromBeats = normalizePositiveNumber(event.durationBeats);
   if (fromBeats !== null) return fromBeats;
@@ -54,12 +60,35 @@ function getEventDurationBeats(event: MelodyDefinition['events'][number]) {
 }
 
 function buildTimelineBarGrouping(melody: Pick<MelodyDefinition, 'events'>): TimelineBarGrouping {
+  const explicitBarIndexes = melody.events.map((event) => normalizeNonNegativeInteger(event.barIndex));
+  const hasExplicitBarIndexes = explicitBarIndexes.length > 0 && explicitBarIndexes.every((bar) => bar !== null);
+  if (hasExplicitBarIndexes) {
+    const bars = explicitBarIndexes as number[];
+    const barStartEventIndexes = new Set<number>();
+    for (let eventIndex = 1; eventIndex < bars.length; eventIndex++) {
+      if (bars[eventIndex] !== bars[eventIndex - 1]) {
+        barStartEventIndexes.add(eventIndex);
+      }
+    }
+
+    const minBar = Math.min(...bars);
+    const maxBar = Math.max(...bars);
+    return {
+      source: 'explicit',
+      hasBeatTiming: false,
+      beatsPerBar: null,
+      totalBars: Math.max(1, maxBar - minBar + 1),
+      barStartEventIndexes,
+    };
+  }
+
   const durations = melody.events.map((event) => getEventDurationBeats(event));
   const hasBeatTiming = durations.every((duration) => duration !== null);
   if (!hasBeatTiming || durations.length === 0) {
     return {
+      source: 'none',
       hasBeatTiming: false,
-      beatsPerBar: DEFAULT_TIMELINE_BEATS_PER_BAR,
+      beatsPerBar: null,
       totalBars: null,
       barStartEventIndexes: new Set<number>(),
     };
@@ -82,6 +111,7 @@ function buildTimelineBarGrouping(melody: Pick<MelodyDefinition, 'events'>): Tim
 
   const totalBars = Math.max(1, Math.ceil((accumulatedBeats + epsilon) / beatsPerBar));
   return {
+    source: 'duration',
     hasBeatTiming: true,
     beatsPerBar,
     totalBars,
@@ -261,6 +291,7 @@ export function renderMelodyTabTimeline(
     model.activeEventIndex ?? -1,
     modeLabel,
     viewMode,
+    barGrouping.source,
     barGrouping.totalBars ?? -1,
     barGrouping.hasBeatTiming ? 1 : 0,
     stringOrder.join(','),
@@ -276,10 +307,14 @@ export function renderMelodyTabTimeline(
       ? `Step -/${model.totalEvents}`
       : `Step ${model.activeEventIndex + 1}/${model.totalEvents}`;
   const viewLabel = viewMode === 'classic' ? 'Classic TAB' : 'Grid';
-  const barText =
-    barGrouping.hasBeatTiming && typeof barGrouping.totalBars === 'number'
-      ? ` | ${barGrouping.totalBars} bar${barGrouping.totalBars === 1 ? '' : 's'} (${barGrouping.beatsPerBar}/4)`
-      : '';
+  const barText = (() => {
+    if (typeof barGrouping.totalBars !== 'number') return '';
+    const base = ` | ${barGrouping.totalBars} bar${barGrouping.totalBars === 1 ? '' : 's'}`;
+    if (barGrouping.hasBeatTiming && typeof barGrouping.beatsPerBar === 'number') {
+      return `${base} (${barGrouping.beatsPerBar}/4)`;
+    }
+    return base;
+  })();
   dom.melodyTabTimelineMeta.textContent = modeLabel
     ? `${modeLabel} | ${viewLabel} | ${stepText}${barText}`
     : `${viewLabel} | ${stepText}${barText}`;

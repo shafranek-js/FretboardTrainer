@@ -201,6 +201,7 @@ export function resolveMelodyEventPositions(
     });
 
     return {
+      barIndex: context.event.barIndex,
       column: context.event.column,
       durationColumns: context.event.durationColumns,
       durationCountSteps: context.event.durationCountSteps,

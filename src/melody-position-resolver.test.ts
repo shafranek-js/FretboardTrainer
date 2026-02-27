@@ -7,6 +7,7 @@ describe('melody-position-resolver', () => {
   it('fills missing note positions while preserving explicit positions', () => {
     const events: MelodyEvent[] = [
       {
+        barIndex: 2,
         durationBeats: 1,
         notes: [
           { note: 'C', stringName: null, fret: null },
@@ -25,6 +26,7 @@ describe('melody-position-resolver', () => {
     const resolved = resolveMelodyEventPositions(events, instruments.guitar);
 
     expect(resolved.filledPositions).toBeGreaterThanOrEqual(3);
+    expect(resolved.events[0]?.barIndex).toBe(2);
     expect(resolved.events[0]?.notes[1]).toEqual({ note: 'E', stringName: 'D', fret: 2 });
     resolved.events.forEach((event) => {
       event.notes.forEach((note) => {

@@ -148,6 +148,10 @@ function clearMelodyEditorPreview() {
 }
 
 function formatMelodyPreviewEventLine(eventIndex: number, totalEvents: number, event: MelodyEvent) {
+  const barText =
+    typeof event.barIndex === 'number' && Number.isFinite(event.barIndex)
+      ? `bar ${Math.max(0, Math.round(event.barIndex)) + 1} | `
+      : '';
   const notesText = event.notes
     .map((note) =>
       note.stringName !== null && typeof note.fret === 'number'
@@ -161,7 +165,7 @@ function formatMelodyPreviewEventLine(eventIndex: number, totalEvents: number, e
       ? `${event.durationBeats.toFixed(2)} beat`
       : `${Math.max(1, event.durationColumns ?? 1)} col`;
 
-  return `[${eventIndex + 1}/${totalEvents}] ${notesText}  ->  ${timingText}`;
+  return `[${eventIndex + 1}/${totalEvents}] ${barText}${notesText}  ->  ${timingText}`;
 }
 
 function renderMelodyEditorPreviewError(prefix: string, error: unknown) {
@@ -376,6 +380,7 @@ function updateMelodyEditorPreview() {
     clearPendingGpImportDraft();
     clearPendingMidiImportDraft();
     const parsedEvents = parseAsciiTabToMelodyEvents(tabText, state.currentInstrument).map((event) => ({
+      barIndex: event.barIndex,
       column: event.column,
       durationColumns: event.durationColumns,
       durationCountSteps: event.durationCountSteps,

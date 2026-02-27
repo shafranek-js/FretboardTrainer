@@ -9,6 +9,7 @@ export interface MelodyEventNote {
 }
 
 export interface MelodyEvent {
+  barIndex?: number;
   column?: number;
   durationColumns?: number;
   durationCountSteps?: number;
@@ -196,8 +197,8 @@ function isMelodyEvent(value: unknown): value is MelodyEvent {
 
   const numericOptionalKeys: (keyof Pick<
     MelodyEvent,
-    'column' | 'durationColumns' | 'durationCountSteps' | 'durationBeats'
-  >)[] = ['column', 'durationColumns', 'durationCountSteps', 'durationBeats'];
+    'barIndex' | 'column' | 'durationColumns' | 'durationCountSteps' | 'durationBeats'
+  >)[] = ['barIndex', 'column', 'durationColumns', 'durationCountSteps', 'durationBeats'];
 
   return numericOptionalKeys.every((key) => {
     const fieldValue = (value as Record<string, unknown>)[key];
@@ -245,6 +246,7 @@ function isStoredCustomMelody(value: unknown): value is StoredCustomMelody {
 
 function cloneMelodyEvents(events: MelodyEvent[]): MelodyEvent[] {
   return events.map((event) => ({
+    barIndex: event.barIndex,
     column: event.column,
     durationColumns: event.durationColumns,
     durationCountSteps: event.durationCountSteps,
@@ -281,6 +283,7 @@ function mapStoredCustomMelodyToDefinition(
     }
 
     const events = parseAsciiTabToMelodyEvents(entry.tabText, instrument).map((event) => ({
+      barIndex: event.barIndex,
       column: event.column,
       durationColumns: event.durationColumns,
       durationCountSteps: event.durationCountSteps,
@@ -314,6 +317,7 @@ function mapBuiltinAsciiTabMelodyToDefinition(
   if (spec.instrumentName !== instrument.name) return null;
   try {
     const events = parseAsciiTabToMelodyEvents(spec.tabText, instrument).map((event) => ({
+      barIndex: event.barIndex,
       column: event.column,
       durationColumns: event.durationColumns,
       durationCountSteps: event.durationCountSteps,

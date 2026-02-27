@@ -175,6 +175,20 @@ function getPrimaryTimeSignature(header: MidiHeaderLike | undefined) {
   return { numerator: Math.round(numerator), denominator: Math.round(denominator) };
 }
 
+function getTicksPerBar(ppq: number, header: MidiHeaderLike | undefined) {
+  const ts = getPrimaryTimeSignature(header);
+  const numerator = ts?.numerator ?? 4;
+  const denominator = ts?.denominator ?? 4;
+  const ticksPerBar = ppq * numerator * (4 / denominator);
+  if (!Number.isFinite(ticksPerBar) || ticksPerBar <= 0) return null;
+  return ticksPerBar;
+}
+
+function resolveBarIndexFromTick(startTick: number, ticksPerBar: number | null) {
+  if (ticksPerBar === null || !Number.isFinite(ticksPerBar) || ticksPerBar <= 0) return undefined;
+  return Math.max(0, Math.floor(startTick / ticksPerBar));
+}
+
 function getPrimaryKeySignatureText(header: MidiHeaderLike | undefined) {
   const first = header?.keySignatures?.find(
     (item) => typeof item?.key === 'string' && item.key.trim().length > 0
@@ -190,11 +204,8 @@ function getPrimaryKeySignatureText(header: MidiHeaderLike | undefined) {
 function estimateTrackBars(track: MidiTrackSelection, midi: MidiFileLike): number | null {
   if (track.notes.length === 0) return null;
   const ppq = Number.isFinite(midi.header?.ppq) && Number(midi.header?.ppq) > 0 ? Number(midi.header?.ppq) : 480;
-  const ts = getPrimaryTimeSignature(midi.header);
-  const numerator = ts?.numerator ?? 4;
-  const denominator = ts?.denominator ?? 4;
-  const ticksPerBar = ppq * numerator * (4 / denominator);
-  if (!Number.isFinite(ticksPerBar) || ticksPerBar <= 0) return null;
+  const ticksPerBar = getTicksPerBar(ppq, midi.header);
+  if (ticksPerBar === null) return null;
 
   const endTick = track.notes.reduce((max, note) => {
     const start = Number.isFinite(note.ticks) ? Number(note.ticks) : 0;
@@ -272,6 +283,7 @@ function convertMidiTrackSelectionToImportedMelody(
   const trackName = getTrackDisplayName(selection.track, selection.index);
 
   const notes = normalizeMidiNotesForConversion(selection.notes, ppq, quantize);
+  const ticksPerBar = getTicksPerBar(ppq, midi.header);
 
   if (notes.length === 0) {
     throw new Error('Selected MIDI track has no note events.');
@@ -308,6 +320,7 @@ function convertMidiTrackSelectionToImportedMelody(
 
     const assignments = chooseEventPositions(eventMidiOccurrences, candidateMap);
     return {
+      barIndex: resolveBarIndexFromTick(startTick, ticksPerBar),
       durationBeats: durationTicks / ppq,
       occurrences: eventMidiOccurrences,
       assignments:
@@ -329,6 +342,7 @@ function convertMidiTrackSelectionToImportedMelody(
         return;
       }
       events.push({
+        barIndex: event.barIndex,
         durationBeats: event.durationBeats,
         notes: assignment.notes,
       });
