@@ -421,11 +421,20 @@ export function drawFretboardSvg(
     'stroke-linecap': 'round',
   });
 
-  // Fret markers
-  MARKER_POSITIONS.forEach((fret) => {
+  // Fret markers (repeat marker pattern every octave for extended fretboards).
+  const markerFrets = new Set<number>();
+  MARKER_POSITIONS.forEach((baseFret) => {
+    for (let fret = baseFret; fret <= fretCount; fret += 12) {
+      if (fret > 0) markerFrets.add(fret);
+    }
+  });
+
+  [...markerFrets]
+    .sort((a, b) => a - b)
+    .forEach((fret) => {
     const x = getFretCenterX(fret);
     const markerRadius = noteRadius * 0.7;
-    if (fret === 12) {
+    if (fret % 12 === 0) {
       const y1 = startY + (stringCount / 2 - 1.5) * stringSpacing;
       const y2 = startY + (stringCount / 2 + 0.5) * stringSpacing;
       appendCircle(svg, x, y1, markerRadius, 'rgba(237, 243, 247, 0.72)', 'rgba(60, 67, 76, 0.5)', 1);
