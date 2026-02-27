@@ -1,6 +1,11 @@
 import { dom } from './state';
 import type { MelodyDefinition } from './melody-library';
 import { buildMelodyTabTimelineViewModel, type TimelineNoteChip } from './melody-tab-timeline-model';
+import {
+  computeTimelineDurationLayout,
+  getEventDurationBeats,
+  type TimelineDurationLayout,
+} from './melody-timeline-duration';
 
 const DEFAULT_TIMELINE_BEATS_PER_BAR = 4;
 
@@ -41,22 +46,9 @@ function clearGrid() {
   dom.melodyTabTimelineGrid.innerHTML = '';
 }
 
-function normalizePositiveNumber(value: unknown) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
-  return value;
-}
-
 function normalizeNonNegativeInteger(value: unknown) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   return Math.max(0, Math.round(value));
-}
-
-function getEventDurationBeats(event: MelodyDefinition['events'][number]) {
-  const fromBeats = normalizePositiveNumber(event.durationBeats);
-  if (fromBeats !== null) return fromBeats;
-  const countSteps = normalizePositiveNumber(event.durationCountSteps);
-  if (countSteps !== null) return countSteps / 2;
-  return null;
 }
 
 function buildTimelineBarGrouping(melody: Pick<MelodyDefinition, 'events'>): TimelineBarGrouping {
@@ -131,7 +123,11 @@ function getClassicCellText(notes: TimelineNoteChip[], width: number) {
   return `${raw}${'-'.repeat(width - raw.length)}`;
 }
 
-function renderGridTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewModel>) {
+function renderGridTimeline(
+  model: ReturnType<typeof buildMelodyTabTimelineViewModel>,
+  barGrouping: TimelineBarGrouping,
+  durationLayout: TimelineDurationLayout
+) {
   const table = document.createElement('table');
   table.className = 'min-w-max border-separate border-spacing-px text-[10px] font-mono text-slate-200';
 
@@ -144,13 +140,20 @@ function renderGridTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewM
   headerRow.appendChild(corner);
 
   for (let eventIndex = 0; eventIndex < model.totalEvents; eventIndex++) {
+    const widthPx = durationLayout.cellPixelWidths[eventIndex] ?? 28;
     const step = document.createElement('th');
     step.dataset.eventIndex = String(eventIndex);
     step.className =
-      'px-1.5 py-0.5 border rounded text-center min-w-7 ' +
+      'px-1.5 py-0.5 border rounded text-center whitespace-nowrap ' +
       (model.activeEventIndex === eventIndex
         ? 'border-cyan-300 bg-cyan-700/35 text-cyan-100'
         : 'border-slate-600 bg-slate-800/85 text-slate-300');
+    step.style.minWidth = `${widthPx}px`;
+    step.style.width = `${widthPx}px`;
+    if (barGrouping.barStartEventIndexes.has(eventIndex)) {
+      step.style.borderLeftWidth = '2px';
+      step.style.borderLeftColor = model.activeEventIndex === eventIndex ? '#67e8f9' : '#94a3b8';
+    }
     step.textContent = String(eventIndex + 1);
     headerRow.appendChild(step);
   }
@@ -166,11 +169,18 @@ function renderGridTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewM
     label.textContent = row.stringName;
     tr.appendChild(label);
 
-    row.cells.forEach((cell) => {
+    row.cells.forEach((cell, eventIndex) => {
+      const widthPx = durationLayout.cellPixelWidths[eventIndex] ?? 28;
       const td = document.createElement('td');
       td.className =
-        'min-w-7 h-6 border rounded text-center align-middle ' +
+        'h-6 border rounded text-center align-middle ' +
         (cell.isActive ? 'border-cyan-300 bg-cyan-950/55' : 'border-slate-700 bg-slate-900/45');
+      td.style.minWidth = `${widthPx}px`;
+      td.style.width = `${widthPx}px`;
+      if (barGrouping.barStartEventIndexes.has(eventIndex)) {
+        td.style.borderLeftWidth = '2px';
+        td.style.borderLeftColor = cell.isActive ? '#67e8f9' : '#94a3b8';
+      }
 
       if (cell.notes.length === 0) {
         const empty = document.createElement('span');
@@ -199,17 +209,19 @@ function renderGridTimeline(model: ReturnType<typeof buildMelodyTabTimelineViewM
 
 function renderClassicTimeline(
   model: ReturnType<typeof buildMelodyTabTimelineViewModel>,
-  barGrouping: TimelineBarGrouping
+  barGrouping: TimelineBarGrouping,
+  durationLayout: TimelineDurationLayout
 ) {
   const wrapper = document.createElement('div');
   wrapper.className = 'min-w-max text-[11px] leading-5 font-mono text-slate-200';
 
   const eventWidths = Array.from({ length: model.totalEvents }, (_, eventIndex) => {
+    const durationWidth = durationLayout.cellCharWidths[eventIndex] ?? 3;
     const widestRaw = Math.max(
       0,
       ...model.rows.map((row) => getClassicCellTextRaw(row.cells[eventIndex]?.notes ?? []).length)
     );
-    return Math.max(3, widestRaw);
+    return Math.max(3, widestRaw, durationWidth);
   });
 
   const buildLine = (labelText: string, segments: string[], isHeader = false) => {
@@ -285,6 +297,10 @@ export function renderMelodyTabTimeline(
   const viewMode = options.viewMode ?? 'classic';
   const model = buildMelodyTabTimelineViewModel(melody, stringOrder, activeEventIndex);
   const barGrouping = buildTimelineBarGrouping(melody);
+  const durationLayout = computeTimelineDurationLayout(melody);
+  const durationSignature = durationLayout.weights
+    .map((weight, index) => `${index}:${Math.round(weight * 100)}`)
+    .join(',');
   const renderKey = [
     melody.id,
     melody.events.length,
@@ -294,6 +310,8 @@ export function renderMelodyTabTimeline(
     barGrouping.source,
     barGrouping.totalBars ?? -1,
     barGrouping.hasBeatTiming ? 1 : 0,
+    durationLayout.source,
+    durationSignature,
     stringOrder.join(','),
   ].join('|');
   if (renderKey === lastRenderKey && dom.melodyTabTimelineGrid.childElementCount > 0) {
@@ -315,15 +333,21 @@ export function renderMelodyTabTimeline(
     }
     return base;
   })();
+  const durationText = (() => {
+    if (!durationLayout.hasDurationData) return '';
+    if (durationLayout.source === 'beats') return ' | Duration: beat-scaled';
+    if (durationLayout.source === 'columns') return ' | Duration: column-scaled';
+    return ' | Duration: mixed';
+  })();
   dom.melodyTabTimelineMeta.textContent = modeLabel
-    ? `${modeLabel} | ${viewLabel} | ${stepText}${barText}`
-    : `${viewLabel} | ${stepText}${barText}`;
+    ? `${modeLabel} | ${viewLabel} | ${stepText}${barText}${durationText}`
+    : `${viewLabel} | ${stepText}${barText}${durationText}`;
 
   clearGrid();
   if (viewMode === 'grid') {
-    renderGridTimeline(model);
+    renderGridTimeline(model, barGrouping, durationLayout);
   } else {
-    renderClassicTimeline(model, barGrouping);
+    renderClassicTimeline(model, barGrouping, durationLayout);
   }
 
   if (model.activeEventIndex !== null) {
