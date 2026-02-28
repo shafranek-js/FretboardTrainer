@@ -1,5 +1,5 @@
 import type { ChordNote, Prompt } from './types';
-import { isArpeggioMode, isChordDataMode } from './training-mode-groups';
+import { isArpeggioMode, isChordDataMode, isMelodyWorkflowMode } from './training-mode-groups';
 
 export interface FretboardRenderInputs {
   trainingMode: string;
@@ -72,7 +72,7 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
     };
   }
 
-  if (trainingMode === 'melody' && isListening && currentPrompt) {
+  if (isMelodyWorkflowMode(trainingMode) && isListening && currentPrompt) {
     const melodyEventFingering = currentPrompt.targetMelodyEventNotes ?? [];
     if (melodyEventFingering.length >= 1) {
       return {
@@ -106,7 +106,7 @@ export function computeFretboardRenderPlan(inputs: FretboardRenderInputs): Fretb
     };
   }
 
-  if (trainingMode === 'melody' && !isListening) {
+  if (isMelodyWorkflowMode(trainingMode) && !isListening) {
     if (melodyPreviewEventFingering.length >= 1) {
       return {
         showAll: false,

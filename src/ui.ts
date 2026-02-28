@@ -20,6 +20,9 @@ import type { ChordNote } from './types';
 import { nearestChromaticTargetFrequencyFromA4 } from './music-theory';
 import { getMelodyById } from './melody-library';
 import { getMelodyFingeredEvent } from './melody-fingering';
+import { normalizeMelodyStudyRange } from './melody-study-range';
+import { isMelodyWorkflowMode } from './training-mode-groups';
+import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
 import { hideMelodyTabTimeline, renderMelodyTabTimeline } from './melody-tab-timeline';
 import {
   applyTuningPresetToInstrument,
@@ -104,16 +107,16 @@ function renderSessionToolsStringSelector() {
   fretboardStringInputs.forEach((fretboardCheckbox) => {
     const label = document.createElement('label');
     label.className =
-      'inline-flex items-center gap-1.5 cursor-pointer rounded-md border border-slate-600 bg-slate-800/70 px-2 py-1 text-slate-200';
+      'session-string-chip inline-flex items-center gap-1 cursor-pointer rounded-md border border-slate-600 bg-slate-800/70 px-1.5 py-0.5 text-slate-200';
 
     const mirrorCheckbox = document.createElement('input');
     mirrorCheckbox.type = 'checkbox';
     mirrorCheckbox.checked = fretboardCheckbox.checked;
-    mirrorCheckbox.className = 'w-4 h-4 accent-cyan-500';
+    mirrorCheckbox.className = 'h-3.5 w-3.5 accent-cyan-500';
     mirrorCheckbox.setAttribute('aria-label', `Enable ${fretboardCheckbox.value} string`);
 
     const text = document.createElement('span');
-    text.className = 'font-mono';
+    text.className = 'font-mono text-[11px] leading-3.5';
     text.textContent = fretboardCheckbox.value;
 
     mirrorCheckbox.addEventListener('change', () => {
@@ -247,9 +250,18 @@ export function redrawFretboard() {
   let melodyPreviewTargetString: string | null = null;
   const hasMelodyPreview = typeof state.melodyTimelinePreviewIndex === 'number';
 
-  if (dom.trainingMode.value === 'melody' && !state.isListening && hasMelodyPreview) {
+  if (isMelodyWorkflowMode(dom.trainingMode.value) && !state.isListening && hasMelodyPreview) {
     const selectedMelodyId = dom.melodySelector.value;
-    const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+    const baseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+    const melody =
+      baseMelody === null
+        ? null
+        : getMelodyWithPracticeAdjustments(
+            baseMelody,
+            state.melodyTransposeSemitones,
+            state.melodyStringShift,
+            state.currentInstrument
+          );
     if (melody && melody.events.length > 0) {
       const safeIndex = Math.max(0, Math.min(melody.events.length - 1, state.melodyTimelinePreviewIndex ?? 0));
       const previewEvent = melody.events[safeIndex];
@@ -291,12 +303,20 @@ export function redrawFretboard() {
 
 export function renderMelodyTabTimelineFromState() {
   const selectedMelodyId = dom.melodySelector.value;
-  const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
-  const inMelodyMode = dom.trainingMode.value === 'melody';
-  const isMelodySessionActive = inMelodyMode && state.isListening;
+  const baseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+  const melody =
+    baseMelody === null
+      ? null
+      : getMelodyWithPracticeAdjustments(
+          baseMelody,
+          state.melodyTransposeSemitones,
+          state.melodyStringShift,
+          state.currentInstrument
+        );
+  const inMelodyMode = isMelodyWorkflowMode(dom.trainingMode.value);
   const hasPreviewIndex = typeof state.melodyTimelinePreviewIndex === 'number';
 
-  if (!melody || (!hasPreviewIndex && !isMelodySessionActive)) {
+  if (!melody || !inMelodyMode) {
     hideMelodyTabTimeline();
     return;
   }
@@ -315,9 +335,19 @@ export function renderMelodyTabTimelineFromState() {
     modeLabel = state.isListening ? 'Session' : null;
   }
 
-  renderMelodyTabTimeline(melody, state.currentInstrument.STRING_ORDER, activeIndex, {
+  const studyRange = normalizeMelodyStudyRange(
+    { startIndex: state.melodyStudyRangeStartIndex, endIndex: state.melodyStudyRangeEndIndex },
+    melody.events.length
+  );
+  renderMelodyTabTimeline(melody, state.currentInstrument, activeIndex, {
     modeLabel,
     viewMode: state.melodyTimelineViewMode,
+    studyRange,
+    showStepNumbers: state.showMelodyTimelineSteps,
+    showMetaDetails: state.showMelodyTimelineDetails,
+    minimapRangeEditor: dom.trainingMode.value === 'melody',
+    selectedEventIndex: state.melodyTimelineSelectedEventIndex,
+    selectedNoteIndex: state.melodyTimelineSelectedNoteIndex,
   });
 }
 

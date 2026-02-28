@@ -68,6 +68,7 @@ import {
 import { getMetronomeTimingSnapshot } from './metronome';
 import { formatUserFacingError, showNonBlockingError } from './app-feedback';
 import { evaluateRhythmTiming, formatRhythmFeedback } from './rhythm-timing';
+import { buildSuccessInfoSlots } from './session-result';
 import {
   formatSessionGoalProgress,
   getSessionGoalTargetCorrect,
@@ -109,6 +110,7 @@ import { shouldAcceptMicNoteByAttackStrength } from './mic-note-attack-filter';
 import { shouldAcceptMicNoteByHoldDuration } from './mic-note-hold-filter';
 import { detectMicPolyphonicFrame } from './mic-polyphonic-detector';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from './mic-polyphonic-detector-ui';
+import { isMelodyWorkflowMode } from './training-mode-groups';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -117,6 +119,7 @@ const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   setStatusText,
   setResultMessage,
 });
+let performancePromptRunToken = 0;
 
 function resetMicPolyphonicDetectorTelemetry() {
   state.lastMicPolyphonicDetectorProviderUsed = null;
@@ -179,6 +182,93 @@ function handleRhythmModeStableNote(detectedNote: string) {
     timing.tone === 'success'
   );
   setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
+}
+
+function updateSessionGoalProgressFromActiveStats() {
+  const goalTargetCorrect = getSessionGoalTargetCorrect(dom.sessionGoal.value);
+  if (goalTargetCorrect === null) return;
+  setSessionGoalProgress(
+    formatSessionGoalProgress(state.activeSessionStats?.correctAttempts ?? 0, goalTargetCorrect)
+  );
+}
+
+function recordPerformancePromptOutcome(correct: boolean, elapsedSeconds: number) {
+  const prompt = state.currentPrompt;
+  if (!prompt) return;
+
+  recordSessionAttempt(state.activeSessionStats, prompt, correct, elapsedSeconds, state.currentInstrument);
+  updateStats(correct, elapsedSeconds);
+  updateSessionGoalProgressFromActiveStats();
+
+  if (!correct) return;
+
+  const infoSlots = buildSuccessInfoSlots(prompt);
+  if (infoSlots.slot1 || infoSlots.slot2 || infoSlots.slot3) {
+    setInfoSlots(infoSlots.slot1, infoSlots.slot2, infoSlots.slot3);
+  }
+
+  if (state.showingAllNotes) {
+    redrawFretboard();
+    return;
+  }
+
+  const melodyFingering = prompt.targetMelodyEventNotes ?? [];
+  if (melodyFingering.length > 0) {
+    drawFretboard(false, null, null, melodyFingering, new Set(melodyFingering.map((note) => note.note)));
+    return;
+  }
+
+  if (prompt.targetChordNotes.length > 0) {
+    drawFretboard(false, null, null, prompt.targetChordFingering, new Set(prompt.targetChordNotes));
+    return;
+  }
+
+  drawFretboard(false, prompt.targetNote, prompt.targetString);
+}
+
+function resolvePerformancePromptSuccess(elapsedSeconds: number) {
+  if (dom.trainingMode.value !== 'performance' || !state.currentPrompt || state.performancePromptResolved) {
+    return;
+  }
+
+  clearWrongDetectedHighlight();
+  state.performancePromptResolved = true;
+  state.performancePromptMatched = true;
+  recordPerformancePromptOutcome(true, elapsedSeconds);
+  setResultMessage(`Hit: ${elapsedSeconds.toFixed(2)}s`, 'success');
+}
+
+function schedulePerformancePromptAdvance(prompt: Prompt) {
+  if (dom.trainingMode.value !== 'performance') return;
+
+  const durationMs =
+    typeof prompt.melodyEventDurationMs === 'number' && Number.isFinite(prompt.melodyEventDurationMs)
+      ? Math.max(1, Math.round(prompt.melodyEventDurationMs))
+      : 700;
+  const runToken = ++performancePromptRunToken;
+
+  state.performancePromptResolved = false;
+  state.performancePromptMatched = false;
+
+  scheduleSessionTimeout(
+    durationMs,
+    () => {
+      if (!state.isListening || dom.trainingMode.value !== 'performance') return;
+      if (runToken !== performancePromptRunToken) return;
+      if (state.currentPrompt !== prompt) return;
+
+      if (!state.performancePromptResolved) {
+        state.performancePromptResolved = true;
+        state.performancePromptMatched = false;
+        recordPerformancePromptOutcome(false, 0);
+        setResultMessage('Missed event.', 'error');
+        redrawFretboard();
+      }
+
+      nextPrompt();
+    },
+    'performance nextPrompt'
+  );
 }
 
 function isPolyphonicMelodyPrompt(prompt: Prompt | null): prompt is Prompt & {
@@ -331,6 +421,7 @@ function handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, co
 function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
   const prompt = state.currentPrompt;
   if (!isPolyphonicMelodyPrompt(prompt) || !state.analyser || !state.audioContext) return false;
+  const trainingMode = dom.trainingMode.value;
 
   state.analyser.getFloatFrequencyData(state.frequencyDataArray!);
   const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
@@ -364,6 +455,29 @@ function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
     redrawFretboard();
   }
 
+  if (trainingMode === 'performance') {
+    if (state.performancePromptResolved) return true;
+
+    if (polyphonicResult.isStableMatch) {
+      const elapsed = (Date.now() - state.startTime) / 1000;
+      resolvePerformancePromptSuccess(elapsed);
+      return true;
+    }
+
+    if (detectedNotes.length > 0) {
+      const hasOutOfTargetNotes = detectedNotes.some((note) => !targetPitchClasses.includes(note));
+      if (!hasOutOfTargetNotes && matchedTargetNotes.length < targetPitchClasses.length) {
+        setResultMessage(`Heard: ${polyphonicResult.detectedNotesText} [${matchedTargetNotes.length}/${targetPitchClasses.length}]`);
+        return true;
+      }
+      if (hasOutOfTargetNotes) {
+        setResultMessage(`Heard: ${polyphonicResult.detectedNotesText || '...'} [off target]`, 'error');
+      }
+    }
+
+    return true;
+  }
+
   if (polyphonicResult.isStableMatch) {
     const elapsed = (Date.now() - state.startTime) / 1000;
     displayResult(true, elapsed);
@@ -393,6 +507,7 @@ function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
 function handleMidiMelodyUpdate(event: MidiNoteEvent) {
   const prompt = state.currentPrompt;
   if (!prompt) return;
+  const trainingMode = dom.trainingMode.value;
 
   if (!isPolyphonicMelodyPrompt(prompt)) {
     if (event.kind === 'noteoff') return;
@@ -408,6 +523,25 @@ function handleMidiMelodyUpdate(event: MidiNoteEvent) {
   redrawFretboard();
 
   if (event.kind === 'noteoff' && heldNoteNames.length === 0) {
+    return;
+  }
+
+  if (trainingMode === 'performance') {
+    if (state.performancePromptResolved) return;
+
+    if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetPitchClasses)) {
+      const elapsed = (Date.now() - state.startTime) / 1000;
+      resolvePerformancePromptSuccess(elapsed);
+      return;
+    }
+
+    const heldUniqueCount = new Set(heldNoteNames).size;
+    if (heldUniqueCount < targetPitchClasses.length) {
+      setResultMessage(`Heard: ${detectedNotesText} [${state.currentMelodyEventFoundNotes.size}/${targetPitchClasses.length}]`);
+      return;
+    }
+
+    setResultMessage(`Heard: ${detectedNotesText} [off target]`, 'error');
     return;
   }
 
@@ -466,9 +600,16 @@ function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
 function handleStableMonophonicDetectedNote(detectedNote: string, detectedFrequency?: number | null) {
   const trainingMode = dom.trainingMode.value;
   const prompt = state.currentPrompt;
-  if (trainingMode === 'melody' && prompt && isPolyphonicMelodyPrompt(prompt)) {
+  if (isMelodyWorkflowMode(trainingMode) && prompt && isPolyphonicMelodyPrompt(prompt)) {
     const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
+    if (trainingMode === 'performance' && state.performancePromptResolved) {
+      return;
+    }
     if (!targetPitchClasses.includes(detectedNote)) {
+      if (trainingMode === 'performance') {
+        setResultMessage(`Heard: ${detectedNote} [off target]`, 'error');
+        return;
+      }
       handleMelodyPolyphonicMismatch(prompt, detectedNote, 'melody polyphonic mismatch redraw');
       return;
     }
@@ -488,7 +629,41 @@ function handleStableMonophonicDetectedNote(detectedNote: string, detectedFreque
     }
 
     const elapsed = (Date.now() - state.startTime) / 1000;
-    displayResult(true, elapsed);
+    if (trainingMode === 'performance') {
+      resolvePerformancePromptSuccess(elapsed);
+    } else {
+      displayResult(true, elapsed);
+    }
+    return;
+  }
+
+  if (trainingMode === 'performance') {
+    if (state.performancePromptResolved || !prompt) return;
+
+    const octaveMismatch = detectMonophonicOctaveMismatch(detectedNote, detectedFrequency);
+    if (octaveMismatch) {
+      setResultMessage(
+        `Heard: ${octaveMismatch.detectedScientific} [wrong octave, expected ${octaveMismatch.targetScientific}]`,
+        'error'
+      );
+      setWrongDetectedHighlight(detectedNote, detectedFrequency);
+      redrawFretboard();
+      return;
+    }
+
+    if (prompt.targetNote && detectedNote === prompt.targetNote) {
+      const elapsed = (Date.now() - state.startTime) / 1000;
+      resolvePerformancePromptSuccess(elapsed);
+      return;
+    }
+
+    const detectedScientific =
+      typeof detectedFrequency === 'number' && detectedFrequency > 0
+        ? freqToScientificNoteName(detectedFrequency)
+        : null;
+    setResultMessage(`Heard: ${detectedScientific ?? detectedNote} [off target]`, 'error');
+    setWrongDetectedHighlight(detectedNote, detectedFrequency);
+    redrawFretboard();
     return;
   }
 
@@ -682,7 +857,9 @@ function processAudio() {
     }
 
     const shouldUseMicrophonePolyphonicMelodyDetection =
-      trainingMode === 'melody' && state.inputSource !== 'midi' && isPolyphonicMelodyPrompt(state.currentPrompt);
+      isMelodyWorkflowMode(trainingMode) &&
+      state.inputSource !== 'midi' &&
+      isPolyphonicMelodyPrompt(state.currentPrompt);
 
     if (shouldUseMicrophonePolyphonicMelodyDetection) {
       handleMicrophonePolyphonicMelodyFrame(volume);
@@ -980,6 +1157,7 @@ export function stopListening(keepStreamOpen = false) {
   state.isListening = false;
   if (state.animationId) cancelAnimationFrame(state.animationId);
   clearTrackedTimeouts(state.pendingTimeoutIds);
+  performancePromptRunToken++;
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
@@ -1007,6 +1185,22 @@ export function stopListening(keepStreamOpen = false) {
     refreshMicPolyphonicDetectorAudioInfoUi();
   }
   redrawFretboard();
+}
+
+export function seekActiveMelodySessionToEvent(eventIndex: number) {
+  if (!state.isListening) return false;
+  if (!isMelodyWorkflowMode(dom.trainingMode.value)) return false;
+
+  clearTrackedTimeouts(state.pendingTimeoutIds);
+  performancePromptRunToken++;
+  state.currentMelodyEventIndex = Math.max(0, Math.round(eventIndex));
+  state.currentMelodyEventFoundNotes.clear();
+  state.performancePromptResolved = false;
+  state.performancePromptMatched = false;
+  state.pendingSessionStopResultMessage = null;
+  clearWrongDetectedHighlight();
+  nextPrompt();
+  return true;
 }
 
 /** Displays the result of a user's attempt and triggers the next prompt on success. */
@@ -1106,6 +1300,7 @@ function nextPrompt() {
         redrawFretboard();
         configurePromptAudio();
         state.startTime = Date.now();
+        schedulePerformancePromptAdvance(nextPrompt);
       },
     });
     if (executionResult === 'stopped' && pendingStopResultMessage) {

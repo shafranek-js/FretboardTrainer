@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clampMelodyPlaybackBpm,
   computeTimelineDurationLayout,
+  getMelodyEventPlaybackDurationMs,
   getEventDurationBeats,
 } from './melody-timeline-duration';
 import type { MelodyDefinition } from './melody-library';
@@ -62,5 +64,16 @@ describe('melody-timeline-duration', () => {
     expect(layout.source).toBe('mixed');
     expect(layout.weights).toHaveLength(2);
     expect(layout.hasDurationData).toBe(true);
+  });
+
+  it('clamps playback bpm to a safe range', () => {
+    expect(clampMelodyPlaybackBpm(-10)).toBe(40);
+    expect(clampMelodyPlaybackBpm(999)).toBe(220);
+    expect(clampMelodyPlaybackBpm(NaN)).toBe(90);
+  });
+
+  it('computes playback duration from beats or columns', () => {
+    expect(getMelodyEventPlaybackDurationMs({ notes: [], durationBeats: 1 }, 120)).toBe(500);
+    expect(getMelodyEventPlaybackDurationMs({ notes: [], durationColumns: 8 }, 120)).toBe(760);
   });
 });

@@ -24,6 +24,8 @@ describe('createPromptCycleTrackingResetState', () => {
       stableChordCounter: 0,
       consecutiveSilence: 0,
       lastPitches: [],
+      performancePromptResolved: false,
+      performancePromptMatched: false,
     });
   });
 

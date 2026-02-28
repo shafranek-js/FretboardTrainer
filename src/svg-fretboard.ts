@@ -1,4 +1,5 @@
 import { dom, state } from './state';
+import { isMelodyWorkflowMode } from './training-mode-groups';
 import {
   getEnabledStrings,
   getSelectedFretRange,
@@ -6,8 +7,8 @@ import {
 } from './fretboard-ui-state';
 import { computeFretboardLayout } from './fretboard-layout';
 import { positionStringLabels } from './fretboard-string-labels';
-import type { ChordNote } from './types';
 import { formatMusicText } from './note-display';
+import type { ChordNote } from './types';
 import { playSound } from './audio';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -51,30 +52,6 @@ function appendCircle(
   });
   svg.appendChild(circle);
   return circle;
-}
-
-function appendText(
-  svg: SVGSVGElement,
-  x: number,
-  y: number,
-  text: string,
-  fontSize: number,
-  fill = '#fff',
-  weight = 'normal'
-) {
-  const textEl = createSvgEl('text', {
-    x,
-    y,
-    fill,
-    'font-size': fontSize,
-    'font-family': 'Segoe UI',
-    'font-weight': weight,
-    'text-anchor': 'middle',
-    'dominant-baseline': 'middle',
-  });
-  textEl.textContent = formatMusicText(text);
-  svg.appendChild(textEl);
-  return textEl;
 }
 
 function appendRect(svg: SVGSVGElement, attrs: Record<string, string | number>) {
@@ -344,7 +321,7 @@ export function drawFretboardSvg(
   const fretboardWidth = Math.min(width - fretboardX, Math.max(0, lastFretX - nutX) + fretSpacing * 0.36);
   const fretboardY = startY - Math.max(8, stringSpacing * 0.38);
   const visualBoardHeight = fretboardHeight + Math.max(16, stringSpacing * 0.76);
-  const boardRadius = Math.max(10, stringSpacing * 0.6);
+  const boardRadius = 0;
   const boardEndX = fretboardX + fretboardWidth;
   const fretTopY = fretboardY + Math.max(4, stringSpacing * 0.18);
   const fretBottomY = fretboardY + visualBoardHeight - Math.max(4, stringSpacing * 0.18);
@@ -709,11 +686,11 @@ export function drawFretboardSvg(
   } else if (
     chordFingering.length > 0 &&
     (isChordTrainingModeActive(dom.trainingMode.value, state.isListening) ||
-      dom.trainingMode.value === 'melody')
+      isMelodyWorkflowMode(dom.trainingMode.value))
   ) {
     svg.setAttribute(
       'aria-label',
-      dom.trainingMode.value === 'melody'
+      isMelodyWorkflowMode(dom.trainingMode.value)
         ? 'Fretboard showing the notes for the current melody event.'
         : 'Fretboard showing the notes for a chord.'
     );

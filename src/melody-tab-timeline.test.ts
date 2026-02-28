@@ -46,7 +46,23 @@ describe('melody-tab-timeline', () => {
     const model = buildMelodyTabTimelineViewModel(TEST_MELODY, ['e', 'B', 'G', 'D', 'A', 'E'], 2);
     const aRow = model.rows.find((row) => row.stringName === 'A');
     const dRow = model.rows.find((row) => row.stringName === 'D');
-    expect(aRow?.cells[2]?.notes).toEqual([{ note: 'C', fret: 3, finger: 2 }]);
-    expect(dRow?.cells[2]?.notes).toEqual([{ note: 'E', fret: 2, finger: 1 }]);
+    expect(aRow?.cells[2]?.notes).toEqual([{ note: 'C', stringName: 'A', fret: 3, finger: 2, noteIndex: 0 }]);
+    expect(dRow?.cells[2]?.notes).toEqual([{ note: 'E', stringName: 'D', fret: 2, finger: 1, noteIndex: 1 }]);
+  });
+
+  it('marks the selected study range on timeline cells', () => {
+    const model = buildMelodyTabTimelineViewModel(
+      TEST_MELODY,
+      ['e', 'B', 'G', 'D', 'A', 'E'],
+      1,
+      { startIndex: 1, endIndex: 2 }
+    );
+    const lowERow = model.rows.find((row) => row.stringName === 'E');
+
+    expect(lowERow?.cells[0]?.isInStudyRange).toBe(false);
+    expect(lowERow?.cells[1]?.isInStudyRange).toBe(true);
+    expect(lowERow?.cells[1]?.isStudyRangeStart).toBe(true);
+    expect(lowERow?.cells[2]?.isInStudyRange).toBe(true);
+    expect(lowERow?.cells[2]?.isStudyRangeEnd).toBe(true);
   });
 });

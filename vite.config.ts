@@ -7,6 +7,12 @@ export default defineConfig(({ mode }) => {
   const basePath = env.VITE_BASE_PATH || '/';
   return {
     base: basePath,
+    build: {
+      // alphaTab is loaded only on demand for GP import and already ships as a dedicated lazy chunk.
+      // Its minified bundle is legitimately larger than Vite's default 500 kB warning threshold.
+      // Raise the threshold just above the expected alphaTab chunk size so real regressions still surface.
+      chunkSizeWarningLimit: 1300,
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',

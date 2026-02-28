@@ -3,6 +3,7 @@ import { createSignal } from './reactive/signal';
 import { CENTS_TOLERANCE, CENTS_VISUAL_RANGE } from './constants';
 import { computeTunerView } from './tuner-view';
 import { getTrainingModeUiVisibility } from './training-mode-ui';
+import { isMelodyWorkflowMode } from './training-mode-groups';
 import type { LastSessionHeatmapView, StatsViewModel } from './stats-view';
 import { formatMusicText } from './note-display';
 
@@ -27,8 +28,11 @@ const scoreValueSignal = createSignal('0');
 const timedInfoVisibleSignal = createSignal(false);
 const sessionGoalProgressSignal = createSignal('');
 const practiceSetupCollapsedSignal = createSignal(false);
+const melodySetupCollapsedSignal = createSignal(false);
 const sessionToolsCollapsedSignal = createSignal(true);
 const practiceSetupSummarySignal = createSignal('');
+const melodySetupSummarySignal = createSignal('');
+const sessionToolsSummarySignal = createSignal('');
 interface SessionButtonsState {
   startDisabled: boolean;
   stopDisabled: boolean;
@@ -97,6 +101,7 @@ const infoSlotsSignal = createSignal<InfoSlotsState>({ slot1: '', slot2: '', slo
 let isBound = false;
 let previousSessionActive = false;
 let wasAutoCollapsedForSession = false;
+let wasAutoCollapsedMelodySetupForSession = false;
 let wasAutoCollapsedSessionToolsForSession = false;
 
 function renderPromptText(promptText: string) {
@@ -135,32 +140,68 @@ function syncSessionInlineFeedbackDividerVisibility() {
   dom.sessionInlineFeedback.classList.toggle('opacity-60', !hasAnyText);
 }
 
+function setPanelToggleVisualState(button: HTMLButtonElement, expanded: boolean) {
+  button.classList.toggle('bg-slate-700', expanded);
+  button.classList.toggle('text-white', expanded);
+  button.classList.toggle('shadow-inner', expanded);
+  button.classList.toggle('shadow-black/20', expanded);
+  button.classList.toggle('bg-transparent', !expanded);
+  button.classList.toggle('text-slate-300', !expanded);
+  button.classList.toggle('hover:bg-slate-800/70', !expanded);
+}
+
 function renderPracticeSetupCollapsed(collapsed: boolean) {
   dom.practiceSetupPanel.classList.toggle('hidden', collapsed);
+  dom.practiceSetupPanel.style.display = collapsed ? 'none' : 'flex';
   dom.practiceSetupToggleBtn.setAttribute('aria-expanded', String(!collapsed));
   dom.practiceSetupChevron.textContent = collapsed ? '>' : 'v';
+  setPanelToggleVisualState(dom.practiceSetupToggleBtn, !collapsed);
+}
+
+function renderMelodySetupCollapsed(collapsed: boolean) {
+  if (dom.melodySetupToggleBtn.classList.contains('hidden')) {
+    dom.melodySetupPanel.classList.add('hidden');
+    dom.melodySetupPanel.style.display = 'none';
+    dom.melodySetupToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.melodySetupChevron.textContent = '>';
+    setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
+    return;
+  }
+  dom.melodySetupPanel.classList.toggle('hidden', collapsed);
+  dom.melodySetupPanel.style.display = collapsed ? 'none' : 'flex';
+  dom.melodySetupToggleBtn.setAttribute('aria-expanded', String(!collapsed));
+  dom.melodySetupChevron.textContent = collapsed ? '>' : 'v';
+  setPanelToggleVisualState(dom.melodySetupToggleBtn, !collapsed);
 }
 
 function renderSessionToolsCollapsed(collapsed: boolean) {
   if (dom.sessionToolsToggleBtn.classList.contains('hidden')) {
     dom.sessionToolsPanel.classList.add('hidden');
+    dom.sessionToolsPanel.style.display = 'none';
     dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'false');
     dom.sessionToolsChevron.textContent = '>';
+    setPanelToggleVisualState(dom.sessionToolsToggleBtn, false);
     return;
   }
   dom.sessionToolsPanel.classList.toggle('hidden', collapsed);
+  dom.sessionToolsPanel.style.display = collapsed ? 'none' : 'flex';
   dom.sessionToolsToggleBtn.setAttribute('aria-expanded', String(!collapsed));
   dom.sessionToolsChevron.textContent = collapsed ? '>' : 'v';
+  setPanelToggleVisualState(dom.sessionToolsToggleBtn, !collapsed);
 }
 
 function renderSessionToolsModeVisibility(mode: string) {
   const hideSessionTools = mode === 'rhythm';
   const hideShowAllNotes = mode === 'free' || mode === 'rhythm';
   dom.sessionToolsToggleBtn.classList.toggle('hidden', hideSessionTools);
+  dom.sessionToolsSummary.style.display =
+    hideSessionTools || sessionToolsSummarySignal.get().length === 0 ? 'none' : '';
   if (hideSessionTools) {
     dom.sessionToolsPanel.classList.add('hidden');
+    dom.sessionToolsPanel.style.display = 'none';
     dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'false');
     dom.sessionToolsChevron.textContent = '>';
+    setPanelToggleVisualState(dom.sessionToolsToggleBtn, false);
   }
 
   dom.sessionToolsShowAllNotesRow.classList.toggle('hidden', hideShowAllNotes);
@@ -168,9 +209,52 @@ function renderSessionToolsModeVisibility(mode: string) {
   dom.sessionToolsPrimaryControls.classList.toggle('opacity-80', mode === 'free');
 }
 
+function renderMelodySetupModeVisibility(mode: string) {
+  const showMelodySetup = isMelodyWorkflowMode(mode);
+  dom.melodySetupToggleBtn.classList.toggle('hidden', !showMelodySetup);
+  dom.melodySetupSummary.style.display =
+    !showMelodySetup || melodySetupSummarySignal.get().length === 0 ? 'none' : '';
+  if (!showMelodySetup) {
+    dom.melodySetupPanel.classList.add('hidden');
+    dom.melodySetupPanel.style.display = 'none';
+    dom.melodySetupToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.melodySetupChevron.textContent = '>';
+    setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
+  }
+}
+
 function renderPracticeSetupSummary(summaryText: string) {
   dom.practiceSetupSummary.textContent = summaryText;
   dom.practiceSetupSummary.title = summaryText;
+  dom.practiceSetupSummary.removeAttribute('title');
+  dom.practiceSetupToggleBtn.dataset.summaryTooltip = summaryText;
+  dom.practiceSetupPanel.dataset.summaryTooltip = summaryText;
+  dom.practiceSetupToggleBtn.removeAttribute('title');
+  dom.practiceSetupPanel.removeAttribute('title');
+}
+
+function renderMelodySetupSummary(summaryText: string) {
+  dom.melodySetupSummary.textContent = summaryText;
+  dom.melodySetupSummary.title = summaryText;
+  dom.melodySetupSummary.removeAttribute('title');
+  dom.melodySetupToggleBtn.dataset.summaryTooltip = summaryText;
+  dom.melodySetupPanel.dataset.summaryTooltip = summaryText;
+  dom.melodySetupToggleBtn.removeAttribute('title');
+  dom.melodySetupPanel.removeAttribute('title');
+  dom.melodySetupSummary.style.display =
+    dom.melodySetupToggleBtn.classList.contains('hidden') || summaryText.length === 0 ? 'none' : '';
+}
+
+function renderSessionToolsSummary(summaryText: string) {
+  dom.sessionToolsSummary.textContent = summaryText;
+  dom.sessionToolsSummary.title = summaryText;
+  dom.sessionToolsSummary.removeAttribute('title');
+  dom.sessionToolsToggleBtn.dataset.summaryTooltip = summaryText;
+  dom.sessionToolsPanel.dataset.summaryTooltip = summaryText;
+  dom.sessionToolsToggleBtn.removeAttribute('title');
+  dom.sessionToolsPanel.removeAttribute('title');
+  dom.sessionToolsSummary.style.display =
+    dom.sessionToolsToggleBtn.classList.contains('hidden') || summaryText.length === 0 ? 'none' : '';
 }
 
 function createHeatmapCellColor(intensity: number, hasErrors: boolean) {
@@ -370,6 +454,7 @@ export function bindUiSignals() {
 
       const sessionActive = !stopDisabled;
       const isCurrentlyCollapsed = practiceSetupCollapsedSignal.get();
+      const isMelodySetupCollapsed = melodySetupCollapsedSignal.get();
       const isSessionToolsCollapsed = sessionToolsCollapsedSignal.get();
       if (sessionActive && !previousSessionActive) {
         if (!isCurrentlyCollapsed) {
@@ -377,6 +462,15 @@ export function bindUiSignals() {
           practiceSetupCollapsedSignal.set(true);
         } else {
           wasAutoCollapsedForSession = false;
+        }
+        if (
+          !dom.melodySetupToggleBtn.classList.contains('hidden') &&
+          !isMelodySetupCollapsed
+        ) {
+          wasAutoCollapsedMelodySetupForSession = true;
+          melodySetupCollapsedSignal.set(true);
+        } else {
+          wasAutoCollapsedMelodySetupForSession = false;
         }
         if (!isSessionToolsCollapsed) {
           wasAutoCollapsedSessionToolsForSession = true;
@@ -388,10 +482,14 @@ export function bindUiSignals() {
         if (wasAutoCollapsedForSession) {
           practiceSetupCollapsedSignal.set(false);
         }
+        if (wasAutoCollapsedMelodySetupForSession) {
+          melodySetupCollapsedSignal.set(false);
+        }
         if (wasAutoCollapsedSessionToolsForSession) {
           sessionToolsCollapsedSignal.set(false);
         }
         wasAutoCollapsedForSession = false;
+        wasAutoCollapsedMelodySetupForSession = false;
         wasAutoCollapsedSessionToolsForSession = false;
       }
       previousSessionActive = sessionActive;
@@ -431,7 +529,9 @@ export function bindUiSignals() {
     const visibility = getTrainingModeUiVisibility(mode);
 
     dom.melodySelectorContainer.classList.toggle('hidden', !visibility.showMelodySelector);
+    dom.melodySelectorContainer.style.display = visibility.showMelodySelector ? 'flex' : 'none';
     dom.melodyPlaybackControls.classList.toggle('hidden', !visibility.showMelodySelector);
+    dom.melodyDemoQuickControls.classList.toggle('hidden', !visibility.showMelodySelector);
     dom.scaleSelectorContainer.classList.toggle('hidden', !visibility.showScaleSelector);
     dom.chordSelectorContainer.classList.toggle('hidden', !visibility.showChordSelector);
     dom.progressionSelectorContainer.classList.toggle('hidden', !visibility.showProgressionSelector);
@@ -440,10 +540,16 @@ export function bindUiSignals() {
       !visibility.showArpeggioPatternSelector
     );
     dom.hintBtn.style.display = visibility.showHintButton ? 'inline-block' : 'none';
+    dom.volumeSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
+    dom.tunerSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
     dom.metronomeQuickControls.classList.toggle('hidden', mode !== 'rhythm');
+    renderMelodySetupModeVisibility(mode);
     renderSessionToolsModeVisibility(mode);
+    dom.trainingModeField.dataset.fieldHint =
+      visibility.helperText.length > 0 ? `Mode. ${visibility.helperText}` : 'Mode';
     dom.modeHelpText.textContent = visibility.helperText;
-    dom.modeHelpText.classList.toggle('hidden', visibility.helperText.length === 0);
+    dom.modeHelpText.classList.add('hidden');
+    dom.modeHelpText.setAttribute('aria-hidden', 'true');
   });
 
   loadingViewSignal.subscribe(({ isLoading, message }) => {
@@ -540,12 +646,24 @@ export function bindUiSignals() {
     renderPracticeSetupCollapsed(collapsed);
   });
 
+  melodySetupCollapsedSignal.subscribe((collapsed) => {
+    renderMelodySetupCollapsed(collapsed);
+  });
+
   sessionToolsCollapsedSignal.subscribe((collapsed) => {
     renderSessionToolsCollapsed(collapsed);
   });
 
   practiceSetupSummarySignal.subscribe((summaryText) => {
     renderPracticeSetupSummary(summaryText);
+  });
+
+  melodySetupSummarySignal.subscribe((summaryText) => {
+    renderMelodySetupSummary(summaryText);
+  });
+
+  sessionToolsSummarySignal.subscribe((summaryText) => {
+    renderSessionToolsSummary(summaryText);
   });
 
   syncSessionToggleButton();
@@ -611,6 +729,14 @@ export function togglePracticeSetupCollapsed() {
   practiceSetupCollapsedSignal.set(!practiceSetupCollapsedSignal.get());
 }
 
+export function setMelodySetupCollapsed(collapsed: boolean) {
+  melodySetupCollapsedSignal.set(collapsed);
+}
+
+export function toggleMelodySetupCollapsed() {
+  melodySetupCollapsedSignal.set(!melodySetupCollapsedSignal.get());
+}
+
 export function setSessionToolsCollapsed(collapsed: boolean) {
   sessionToolsCollapsedSignal.set(collapsed);
 }
@@ -621,6 +747,14 @@ export function toggleSessionToolsCollapsed() {
 
 export function setPracticeSetupSummary(summaryText: string) {
   practiceSetupSummarySignal.set(summaryText);
+}
+
+export function setMelodySetupSummary(summaryText: string) {
+  melodySetupSummarySignal.set(summaryText);
+}
+
+export function setSessionToolsSummary(summaryText: string) {
+  sessionToolsSummarySignal.set(summaryText);
 }
 
 export function setInfoSlots(slot1 = '', slot2 = '', slot3 = '') {
@@ -720,6 +854,8 @@ export function refreshDisplayFormatting() {
   renderInfoSlots(infoSlotsSignal.get());
   renderStatsView(statsViewSignal.get());
   renderPracticeSetupSummary(practiceSetupSummarySignal.get());
+  renderMelodySetupSummary(melodySetupSummarySignal.get());
+  renderSessionToolsSummary(sessionToolsSummarySignal.get());
   const goalProgressText = formatMusicText(sessionGoalProgressSignal.get());
   dom.sessionGoalProgress.textContent = goalProgressText;
   dom.sessionGoalProgress.classList.toggle('hidden', goalProgressText.length === 0);

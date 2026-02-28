@@ -1,6 +1,6 @@
 import type { IInstrument } from './instruments/instrument';
 import type { Prompt } from './types';
-import { isChordAudioReferenceMode } from './training-mode-groups';
+import { isChordAudioReferenceMode, isMelodyWorkflowMode } from './training-mode-groups';
 import {
   calculateFrettedFrequencyFromTuning,
   resolvePromptTargetPosition,
@@ -54,7 +54,7 @@ export function buildPromptAudioPlan({
     };
   }
 
-  if (trainingMode === 'melody' && (prompt.targetMelodyEventNotes?.length ?? 0) > 0) {
+  if (isMelodyWorkflowMode(trainingMode) && (prompt.targetMelodyEventNotes?.length ?? 0) > 0) {
     const melodyNotes = prompt.targetMelodyEventNotes ?? [];
     const notesToPlay = melodyNotes
       .map((noteInfo) => instrument.getNoteWithOctave(noteInfo.string, noteInfo.fret))
@@ -102,6 +102,6 @@ export function buildPromptAudioPlan({
     notesToPlay: noteWithOctave ? [noteWithOctave] : [],
     targetFrequency,
     playSoundEnabled: Boolean(noteWithOctave && targetFrequency !== null),
-    autoPlaySound: autoPlayPromptSoundEnabled && trainingMode !== 'melody',
+    autoPlaySound: autoPlayPromptSoundEnabled && !isMelodyWorkflowMode(trainingMode),
   };
 }

@@ -1,5 +1,6 @@
 import type { MidiNoteEvent } from './midi-runtime';
 import type { DetectionType } from './modes/training-mode';
+import { isMelodyWorkflowMode } from './training-mode-groups';
 
 export interface MidiSessionMessageHandlerDeps {
   canProcessEvent: () => boolean;
@@ -20,7 +21,7 @@ export function createMidiSessionMessageHandler(deps: MidiSessionMessageHandlerD
       const detectionType = deps.getCurrentModeDetectionType();
       if (!detectionType) return;
 
-      if (deps.getTrainingModeValue() === 'melody') {
+      if (isMelodyWorkflowMode(deps.getTrainingModeValue())) {
         deps.handleMelodyUpdate(event);
         return;
       }

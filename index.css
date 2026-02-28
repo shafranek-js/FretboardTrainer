@@ -8,8 +8,47 @@
 @tailwind utilities;
 
 body {
+  margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #2b3e50 0%, #1a252f 100%);
+}
+
+:root {
+  --ff-compact-gap-xs: 0.4rem;
+  --ff-compact-gap-sm: 0.55rem;
+  --ff-compact-gap-md: 0.7rem;
+  --ff-compact-pad-x: 0.75rem;
+  --ff-compact-pad-y: 0.65rem;
+  --ff-control-h-sm: 2rem;
+  --ff-control-h-md: 2.15rem;
+  --ff-control-h-lg: 2.35rem;
+  --ff-shell-radius: 0;
+  --ff-shell-border: rgba(71, 85, 105, 0.48);
+  --ff-shell-fill:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.54), rgba(2, 6, 23, 0.4));
+  --ff-shell-shadow:
+    inset 0 1px 0 rgba(148, 163, 184, 0.05),
+    0 0 0 1px rgba(34, 211, 238, 0.035);
+  --ff-surface-fill:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.26), rgba(2, 6, 23, 0.18));
+  --ff-surface-fill-strong:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.34), rgba(2, 6, 23, 0.24));
+  --ff-surface-stroke: rgba(148, 163, 184, 0.07);
+  --ff-surface-shadow:
+    inset 0 1px 0 rgba(226, 232, 240, 0.018),
+    inset 0 0 0 1px rgba(148, 163, 184, 0.055);
+  --ff-text-muted: rgba(203, 213, 225, 0.68);
+  --ff-text-soft: rgba(226, 232, 240, 0.86);
+  --ff-control-fill: rgba(30, 41, 59, 0.72);
+  --ff-control-fill-hover: rgba(51, 65, 85, 0.82);
+  --ff-control-stroke: rgba(148, 163, 184, 0.16);
+  --ff-control-stroke-strong: rgba(148, 163, 184, 0.24);
+  --ff-chip-fill: rgba(30, 41, 59, 0.58);
+  --ff-chip-fill-hover: rgba(51, 65, 85, 0.74);
+  --ff-primary-fill:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.82), rgba(29, 78, 216, 0.68));
+  --ff-primary-fill-hover:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.88), rgba(37, 99, 235, 0.72));
 }
 
 /* Hides the arrows in number inputs for a cleaner look */
@@ -29,7 +68,1536 @@ input[type='number'] {
   transition-delay: 0s;
 }
 
+.app-shell {
+  gap: 0;
+}
+
+.session-area,
+#melodyTabTimelinePanel,
+.fretboard-area {
+  border: 1px solid var(--ff-shell-border);
+  border-radius: var(--ff-shell-radius) !important;
+  background: var(--ff-shell-fill) !important;
+  box-shadow: var(--ff-shell-shadow);
+}
+
+.learning-controls,
+.learning-controls > .flex > .min-w-0 > .inline-flex,
+.session-area .info-box,
+.session-area .session-status,
+.session-area #prompt,
+.session-area #sessionInlineFeedback,
+.session-area #sessionGoalProgress,
+#curriculumPresetInfo,
+#melodySelectorContainer,
+#practiceSetupPanel section,
+#melodySetupPanel section,
+#sessionToolsPanel section,
+#melodyTabTimelinePanel #melodyTabTimelineViewport,
+.fretboard-area .fretboard-and-strings-panel,
+#loadingOverlay > div,
+#settingsModal .modal-content,
+#statsModal .modal-content,
+#guideModal .modal-content,
+#linksModal .modal-content,
+#profileNameModal .modal-content,
+#melodyImportModal .modal-content,
+#confirmModal .modal-content,
+#calibrationModal .modal-content,
+#settingsModal section,
+#settingsModal .settings-inline-note,
+#statsModal .rounded-lg.border.border-slate-600,
+#statsModal .rounded-md,
+#melodyImportModal .rounded-lg.border.border-slate-600 {
+  border-radius: 0 !important;
+}
+
+.session-area .info-box,
+.session-area .session-status,
+.session-area #prompt,
+.session-area #sessionInlineFeedback,
+.session-area #sessionGoalProgress,
+#curriculumPresetInfo,
+#melodySelectorContainer,
+#practiceSetupPanel section,
+#melodySetupPanel section,
+#sessionToolsPanel section,
+#melodyTabTimelinePanel #melodyTabTimelineViewport,
+.fretboard-area .fretboard-and-strings-panel,
+#settingsModal section,
+#settingsModal .settings-inline-note,
+#statsModal .rounded-lg.border.border-slate-600,
+#statsModal .rounded-md,
+#melodyImportModal .rounded-lg.border.border-slate-600,
+#melodyImportModal #melodyGpTrackImportPanel,
+#melodyImportModal #melodyMidiTrackImportPanel,
+#melodyImportModal .compact-section,
+#statsModal .compact-section {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.session-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.35rem;
+  row-gap: 0.18rem;
+  padding-right: clamp(11.4rem, 22vw, 15.5rem) !important;
+}
+
+.session-area .session-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+}
+
+.session-area .info-box {
+  padding: 0.1rem 0.35rem;
+  border: 1px solid transparent;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.session-area .info-label,
+.session-area #inputStatusBar,
+.session-area .note-info-container,
+#melodyTabTimelineMeta,
+.tuner-section .tuner-cents,
+.tuner-section .tuner-label,
+.panel-toggle-btn .text-slate-300 {
+  color: var(--ff-text-muted) !important;
+}
+
+.session-area #statusBar,
+.session-area #timer,
+.session-area #score,
+.panel-toggle-btn,
+#practiceSetupPanel,
+#melodySetupPanel,
+#sessionToolsPanel {
+  color: var(--ff-text-soft);
+}
+
+.session-area .prompt-container {
+  min-width: 0;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0.28rem;
+}
+
+.session-area .controls-row {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  grid-template-columns: none !important;
+  white-space: nowrap;
+  gap: 0.32rem;
+}
+
+.session-area .controls-row > :first-child {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 0.28rem;
+}
+
+.session-area #timer,
+.session-area #score {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.session-area #prompt {
+  min-height: 1.45rem;
+  padding: 0.08rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  justify-content: flex-start;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: clamp(0.8rem, 1.45vw, 1.02rem) !important;
+  line-height: 1.1 !important;
+}
+
+.session-area #playSoundBtn {
+  width: 1.82rem;
+  height: 1.82rem;
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.14);
+  box-shadow: var(--ff-surface-shadow);
+}
+
+.session-area #playSoundBtn svg {
+  width: 1.02rem;
+  height: 1.02rem;
+}
+
+.session-area #melodyPlaybackControls,
+.session-area #melodyPlaybackControls:not(.hidden) {
+  flex-wrap: nowrap;
+  gap: 0.28rem;
+}
+
+.session-area #melodyDemoQuickControls,
+.session-area #melodyDemoQuickControls:not(.hidden) {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.24rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.session-area #melodyDemoQuickControls input[type='range'] {
+  width: 5rem;
+}
+
+.session-area #melodyDemoQuickControls > span {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.session-area #melodyPlaybackControls button,
+.session-area #sessionToggleBtn,
+.session-area #hintBtn {
+  height: var(--ff-control-h-md);
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 0.56rem;
+  padding-right: 0.56rem;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.session-area #sessionToggleBtn {
+  min-width: 6.35rem;
+}
+
+.session-area #melodyStepBackBtn,
+.session-area #melodyStepForwardBtn {
+  min-width: 1.72rem;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.session-area #settingsBtn {
+  width: var(--ff-control-h-md);
+  height: var(--ff-control-h-md);
+}
+
+.session-area #sessionInlineFeedback {
+  height: 1.85rem;
+  padding-left: 0.28rem;
+  padding-right: 0.28rem;
+  min-width: 0;
+  flex: 0 1 16rem;
+  max-width: min(16rem, 31vw);
+  overflow: hidden;
+}
+
+.session-area #sessionInlineFeedback .result {
+  font-size: 0.68rem;
+  line-height: 1.05;
+}
+
+.session-area #sessionGoalProgress {
+  grid-column: 1 / -1;
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
+}
+
+.session-area .session-status {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.22rem;
+  max-width: min(10rem, 17vw);
+  overflow: hidden;
+}
+
+.session-area #inputStatusBar {
+  display: block;
+  min-width: 0;
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learning-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 0.18rem;
+  padding-top: 0.22rem;
+  padding-bottom: 0.22rem;
+  padding-left: 0.55rem !important;
+  padding-right: 0.55rem !important;
+}
+
+.learning-controls > .flex:first-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.24rem;
+}
+
+.learning-controls > .flex:first-child > .min-w-0 {
+  gap: 0.18rem !important;
+}
+
+.learning-controls > .flex:first-child > :last-child {
+  align-self: end;
+  gap: 0.32rem !important;
+}
+
+.panel-toggle-btn {
+  min-height: var(--ff-control-h-md) !important;
+  padding: 0.3rem 0.68rem !important;
+  font-weight: 600;
+}
+
+#metronomeBpmValue,
+#melodyTransposeValue,
+#melodyStudyValue,
+#melodyDemoBpmValue {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+}
+
+#metronomeBpmValue {
+  color: rgba(251, 191, 36, 0.78) !important;
+}
+
+#melodyTransposeValue,
+#melodyDemoBpmValue {
+  color: rgba(125, 211, 252, 0.8) !important;
+}
+
+#melodyStudyValue {
+  color: rgba(253, 230, 138, 0.82) !important;
+}
+
+.summary-tooltip-host {
+  position: relative;
+}
+
+.summary-tooltip-host::after {
+  content: attr(data-summary-tooltip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.35rem);
+  min-width: 14rem;
+  max-width: min(28rem, 72vw);
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(71, 85, 105, 0.88);
+  border-radius: 0.5rem;
+  background: rgba(2, 6, 23, 0.97);
+  color: rgb(226, 232, 240);
+  font-size: 0.7rem;
+  line-height: 1.25;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 30;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.summary-tooltip-host:hover::after,
+.summary-tooltip-host:focus-within::after {
+  opacity: 1;
+}
+
+.summary-tooltip-host[data-summary-tooltip='']::after {
+  display: none;
+}
+
+.panel-toggle-btn.summary-tooltip-host::after {
+  top: calc(100% + 0.3rem);
+}
+
+.panel-toggle-btn[aria-expanded='true']::after {
+  top: calc(100% + 0.45rem);
+}
+
+.compact-section {
+  position: relative;
+  padding-right: 2rem !important;
+}
+
+.compact-section::before {
+  content: '?';
+  position: absolute;
+  top: 0.45rem;
+  right: 0.55rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 9999px;
+  color: rgba(148, 163, 184, 0.48);
+  background: rgba(15, 23, 42, 0.2);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 0.95rem;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0.55;
+  transition:
+    opacity 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.compact-section::after {
+  content: attr(data-section-hint);
+  position: absolute;
+  top: 0.15rem;
+  right: 1.85rem;
+  transform: translateY(calc(-100% - 0.2rem));
+  max-width: 18rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(71, 85, 105, 0.9);
+  border-radius: 0.45rem;
+  background: rgba(2, 6, 23, 0.96);
+  color: rgb(226, 232, 240);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 20;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.compact-section:hover::after,
+.compact-section:focus-within::after {
+  opacity: 1;
+}
+
+.compact-section:hover::before,
+.compact-section:focus-within::before {
+  opacity: 0.92;
+  border-color: rgba(148, 163, 184, 0.42);
+  color: rgba(226, 232, 240, 0.86);
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.field-tooltip-host {
+  position: relative;
+}
+
+.field-tooltip-host::after {
+  content: attr(data-field-hint);
+  position: absolute;
+  left: 0;
+  top: -0.3rem;
+  transform: translateY(-100%);
+  max-width: min(14rem, 70vw);
+  padding: 0.3rem 0.45rem;
+  border: 1px solid rgba(71, 85, 105, 0.88);
+  border-radius: 0.45rem;
+  background: rgba(2, 6, 23, 0.96);
+  color: rgb(226, 232, 240);
+  font-size: 0.67rem;
+  line-height: 1.2;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 26;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.field-tooltip-host:hover::after,
+.field-tooltip-host:focus-within::after {
+  opacity: 1;
+}
+
+.field-tooltip-host[data-field-hint='']::after {
+  display: none;
+}
+
+.field-tooltip-label {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+#practiceSetupPanel,
+#melodySetupPanel,
+#sessionToolsPanel {
+  margin-top: 0.08rem !important;
+  padding-top: 0.08rem !important;
+  gap: 0.18rem !important;
+  border-top-width: 0 !important;
+}
+
+#melodySetupPanel {
+  display: block;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+#melodySetupPanel,
+#melodySelectorContainer,
+#melodyLibrarySection,
+#melodyPracticeSection,
+#melodyLibraryRow,
+#melodyPracticeFieldsRow,
+#melodyPracticeActionsRow,
+#practiceSetupPanel,
+#practiceSetupCore,
+#curriculumPresetInfo {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 0 !important;
+}
+
+#practiceSetupPanel {
+  display: block;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+#practiceSetupCore {
+  display: block;
+}
+
+#sessionToolsPanel,
+#sessionToolsPlanSection,
+#sessionToolsPrimaryControls,
+#sessionToolsDisplaySection,
+#sessionToolsActiveStringsSection {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 0 !important;
+}
+
+#sessionToolsPanel {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 0.38rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+#practiceSetupPanel.hidden,
+#melodySetupPanel.hidden,
+#sessionToolsPanel.hidden,
+#melodySelectorContainer.hidden,
+#melodyDemoQuickControls.hidden,
+#melodyPlaybackControls.hidden {
+  display: none !important;
+}
+
+#sessionToolsPanel.hidden {
+  display: none !important;
+}
+
+#melodySelectorContainer {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+  min-width: max-content;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+#melodyLibrarySection,
+#melodyPracticeSection {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  min-height: 0;
+  height: auto !important;
+  padding: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  box-sizing: border-box;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#melodyLibrarySection.compact-section,
+#melodyPracticeSection.compact-section {
+  padding-right: 0 !important;
+}
+
+#melodyLibrarySection.compact-section::before,
+#melodyLibrarySection.compact-section::after,
+#melodyPracticeSection.compact-section::before,
+#melodyPracticeSection.compact-section::after {
+  display: none !important;
+}
+
+#melodyLibrarySection {
+  display: flex !important;
+  align-items: center !important;
+}
+
+#melodyPracticeSection {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.35rem !important;
+  min-width: max-content;
+}
+
+#melodyLibraryRow,
+#melodyPracticeFieldsRow,
+#melodyPracticeActionsRow,
+#melodyPracticeActionsRow > div {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.35rem !important;
+}
+
+#melodyLibraryRow {
+  height: auto;
+}
+
+#melodyLibraryRow .field-tooltip-host {
+  flex: 0 0 15rem;
+  min-width: 15rem !important;
+}
+
+#melodyPracticeFieldsRow > .field-tooltip-host {
+  flex: 0 0 auto;
+}
+
+#melodyPracticeSection .field-tooltip-host[data-field-hint='Transpose'] > div {
+  width: 11rem;
+}
+
+#melodyPracticeSection .field-tooltip-host[data-field-hint='Study Range'] > div {
+  width: 13.6rem;
+}
+
+#melodyPracticeSection .field-tooltip-host[data-field-hint='Demo BPM'] > div {
+  width: 11rem;
+}
+
+#melodyPracticeActionsRow {
+  margin-top: 0 !important;
+  justify-content: flex-start !important;
+  flex: 0 0 auto;
+}
+
+#melodySelectorContainer > .mt-3,
+#melodyPracticeSection.mt-3 {
+  margin-top: 0 !important;
+}
+
+#practiceSetupPanel > div,
+#melodySetupPanel > div,
+#sessionToolsPanel > div,
+#sessionToolsPrimaryControls,
+#settingsModal .settings-menu,
+#settingsModal .settings-menu > div,
+#statsModal .grid,
+#melodyImportModal .grid {
+  gap: 0.38rem;
+}
+
+#sessionToolsPanel > div,
+#sessionToolsPrimaryControls,
+#sessionToolsDisplaySection,
+#sessionToolsActiveStringsSection,
+#sessionToolsPlanSection,
+#sessionToolsPlanSection > .grid,
+#sessionToolsDisplaySection > .flex,
+#sessionToolsStringSelector {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+}
+
+#sessionToolsPanel > div {
+  flex: 0 0 auto;
+}
+
+#sessionToolsPlanSection > .grid,
+#sessionToolsPrimaryControls,
+#sessionToolsDisplaySection > .flex,
+#sessionToolsStringSelector {
+  gap: 0.38rem !important;
+}
+
+#sessionToolsPlanSection > .grid {
+  min-width: max-content;
+}
+
+#sessionToolsDisplaySection > .flex {
+  flex-direction: row !important;
+}
+
+#sessionToolsPrimaryControls {
+  flex: 0 0 auto;
+}
+
+#sessionToolsActiveStringsSection,
+#sessionToolsStringSelector {
+  min-width: max-content;
+}
+
+#practiceSetupPanel section,
+#melodySetupPanel section,
+#sessionToolsPanel section {
+  padding: 0.42rem 0.5rem !important;
+}
+
+#practiceSetupPanel select,
+#practiceSetupPanel input[type='number'],
+#melodySetupPanel select,
+#melodySetupPanel input[type='number'],
+#sessionToolsPanel select,
+#sessionToolsPanel input[type='number'] {
+  height: var(--ff-control-h-sm) !important;
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+  border-color: var(--ff-control-stroke) !important;
+  background: var(--ff-control-fill) !important;
+  color: var(--ff-text-soft) !important;
+  box-shadow: none !important;
+}
+
+#practiceSetupPanel button.h-9,
+#melodySetupPanel button.h-9,
+#sessionToolsPanel button.h-9,
+#practiceSetupPanel label.h-9,
+#melodySetupPanel label.h-9,
+#sessionToolsPanel label.h-9 {
+  height: var(--ff-control-h-sm) !important;
+}
+
+#sessionToolsPanel label.font-medium {
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+#sessionToolsPanel .session-setting-chip {
+  min-height: 1.8rem;
+  padding: 0.18rem 0.48rem;
+  border: 1px solid var(--ff-control-stroke);
+  border-radius: 0.45rem;
+  background: var(--ff-chip-fill);
+  font-size: 0.68rem;
+  line-height: 1.1;
+  color: var(--ff-text-soft);
+}
+
+#sessionToolsPanel #sessionToolsStringSelector {
+  gap: 0.3rem !important;
+}
+
+#sessionToolsPanel .session-string-chip {
+  min-height: 1.6rem;
+  padding: 0.12rem 0.36rem;
+  font-size: 0.68rem;
+  line-height: 1.05;
+  border-color: var(--ff-control-stroke) !important;
+  background: var(--ff-chip-fill) !important;
+  color: var(--ff-text-soft) !important;
+}
+
+#practiceSetupPanel label.font-medium,
+#melodySetupPanel label.font-medium {
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+#practiceSetupPanel .randomize-label,
+#melodySetupPanel .melody-setting-chip,
+#melodySetupPanel .melody-action-chip {
+  min-height: 1.8rem;
+  padding: 0.16rem 0.44rem;
+  font-size: 0.68rem;
+  line-height: 1.1;
+  border-color: var(--ff-control-stroke) !important;
+  background: var(--ff-chip-fill) !important;
+  color: var(--ff-text-soft) !important;
+}
+
+#practiceSetupCore > .flex,
+#sessionToolsPlanSection > .grid,
+#sessionToolsDisplaySection > .flex {
+  gap: 0.38rem !important;
+}
+
+#practiceSetupPanel .randomize-label:hover,
+#melodySetupPanel .melody-setting-chip:hover,
+#melodySetupPanel .melody-action-chip:hover,
+#sessionToolsPanel .session-setting-chip:hover,
+#sessionToolsPanel .session-string-chip:hover {
+  background: var(--ff-chip-fill-hover) !important;
+  border-color: var(--ff-control-stroke-strong) !important;
+}
+
+.btn-primary,
+.session-area #hintBtn,
+.session-area #melodyDemoBtn {
+  border: 1px solid rgba(147, 197, 253, 0.22) !important;
+  background: var(--ff-primary-fill) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.btn-primary:hover:enabled,
+.session-area #hintBtn:hover:enabled,
+.session-area #melodyDemoBtn:hover:enabled {
+  background: var(--ff-primary-fill-hover) !important;
+}
+
+.learning-controls > .flex > .min-w-0 > .inline-flex {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.panel-toggle-btn {
+  border-right-color: transparent !important;
+}
+
+#practiceSetupPanel,
+#melodySetupPanel,
+#sessionToolsPanel {
+  border-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+#sessionInlineDivider,
+#practiceSetupSummary + .h-3\.5,
+#melodySetupSummary + .h-3\.5,
+.learning-controls .h-3\.5.w-px {
+  background: transparent !important;
+}
+
+.session-area #settingsBtn,
+.session-area #melodyPauseDemoBtn,
+.session-area #melodyStepBackBtn,
+.session-area #melodyStepForwardBtn,
+#melodySetupPanel .melody-action-chip,
+#melodySetupPanel #editMelodyBtn,
+#melodySetupPanel #deleteMelodyBtn {
+  border-color: var(--ff-control-stroke) !important;
+  background: var(--ff-control-fill) !important;
+  color: var(--ff-text-soft) !important;
+  box-shadow: none !important;
+}
+
+.session-area #settingsBtn:hover,
+.session-area #melodyPauseDemoBtn:hover:enabled,
+.session-area #melodyStepBackBtn:hover:enabled,
+.session-area #melodyStepForwardBtn:hover:enabled,
+#melodySetupPanel .melody-action-chip:hover,
+#melodySetupPanel #editMelodyBtn:hover,
+#melodySetupPanel #deleteMelodyBtn:hover {
+  background: var(--ff-control-fill-hover) !important;
+  border-color: var(--ff-control-stroke-strong) !important;
+}
+
+#practiceSetupPanel label.font-medium,
+#melodySetupPanel label.font-medium,
+#sessionToolsPanel label.font-medium,
+#settingsModal label.text-slate-300 {
+  color: var(--ff-text-muted) !important;
+}
+
+#melodySetupPanel .h-7,
+#sessionToolsPanel .h-7,
+#practiceSetupPanel .h-7 {
+  height: 1.7rem !important;
+}
+
+#practiceSetupPanel .w-7,
+#melodySetupPanel .w-7,
+#sessionToolsPanel .w-7 {
+  width: 1.7rem !important;
+}
+
+#practiceSetupPanel .mt-3,
+#melodySetupPanel .mt-3,
+#sessionToolsPanel .mt-3,
+#settingsModal .mt-3,
+#statsModal .mt-3,
+#melodyImportModal .mt-3 {
+  margin-top: 0.5rem !important;
+}
+
+#practiceSetupPanel .gap-3,
+#melodySetupPanel .gap-3,
+#sessionToolsPanel .gap-3,
+#settingsModal .gap-3,
+#settingsModal .gap-4,
+#statsModal .gap-3,
+#statsModal .gap-4,
+#melodyImportModal .gap-3 {
+  gap: var(--ff-compact-gap-md) !important;
+}
+
+#practiceSetupPanel .px-3,
+#melodySetupPanel .px-3,
+#sessionToolsPanel .px-3,
+#settingsModal .px-3,
+#statsModal .px-3 {
+  padding-left: var(--ff-compact-pad-x) !important;
+  padding-right: var(--ff-compact-pad-x) !important;
+}
+
+#practiceSetupPanel .py-3,
+#melodySetupPanel .py-3,
+#sessionToolsPanel .py-3,
+#settingsModal .py-3,
+#statsModal .py-3 {
+  padding-top: var(--ff-compact-pad-y) !important;
+  padding-bottom: var(--ff-compact-pad-y) !important;
+}
+
+#settingsModal .modal-content,
+#statsModal .modal-content,
+#guideModal .modal-content,
+#linksModal .modal-content,
+#profileNameModal .modal-content,
+#melodyImportModal .modal-content,
+#confirmModal .modal-content,
+#calibrationModal .modal-content {
+  padding: 1rem !important;
+}
+
+#settingsModal section,
+#settingsModal .rounded-lg.border.border-slate-600,
+#statsModal .rounded-lg.border.border-slate-600,
+#statsModal .rounded-md,
+#melodyImportModal .rounded-lg.border.border-slate-600 {
+  padding: 0.75rem !important;
+}
+
+#settingsModal .settings-menu-btn {
+  padding: 0.75rem !important;
+  min-height: var(--ff-control-h-lg);
+  font-size: 0.95rem !important;
+}
+
+#settingsModal .grid.text-xs {
+  gap: 0.6rem !important;
+}
+
+#settingsModal .grid.text-xs > div,
+#settingsModal .grid.text-xs > section,
+#settingsModal .grid.text-xs .flex.flex-col.items-stretch.gap-1\.5 {
+  gap: 0.32rem !important;
+}
+
+#settingsModal label.text-slate-300 {
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+#settingsModal select {
+  min-height: 1.95rem;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  font-size: 0.74rem !important;
+}
+
+#settingsModal .settings-inline-note {
+  margin-top: 0.35rem !important;
+  padding: 0.35rem 0.5rem !important;
+  font-size: 0.64rem !important;
+  line-height: 1.15 !important;
+  border-radius: 0 !important;
+}
+
+#settingsModal .settings-card-tight {
+  padding: 0.62rem !important;
+}
+
+#settingsModal .settings-card-tight .profile-manager {
+  gap: 0.45rem !important;
+}
+
+#settingsModal .settings-card-tight .field-tooltip-host {
+  margin-bottom: 0 !important;
+}
+
+#settingsModal .settings-card-tight .grid.grid-cols-3 {
+  gap: 0.35rem !important;
+}
+
+#settingsModal .settings-card-tight .h-10 {
+  height: 2rem !important;
+  min-height: 2rem !important;
+  font-size: 1rem !important;
+}
+
+#settingsModal .profile-manager .h-10 {
+  height: 2.4rem !important;
+}
+
+#settingsModal select,
+#settingsModal input[type='text'],
+#settingsModal input[type='number'],
+#settingsModal button.h-10,
+#statsModal button.h-9,
+#melodyImportModal button.h-9,
+#profileNameModal button.h-10 {
+  min-height: var(--ff-control-h-md);
+}
+
+#melodyImportModal textarea {
+  line-height: 1.2;
+}
+
+#melodyImportModal #melodyImportHelpText {
+  margin-bottom: 0.5rem !important;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+#melodyImportModal #melodyPreviewList {
+  padding-right: 0.1rem;
+}
+
+#melodyImportModal #melodyPreviewList li {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+#settingsModal .text-xs,
+#settingsModal .text-\[11px\],
+#statsModal .text-xs,
+#statsModal .text-\[11px\] {
+  line-height: 1.2;
+}
+
+@media (min-width: 1280px) {
+  #settingsModal .settings-card-balanced {
+    min-height: 14.4rem;
+  }
+}
+
+.fretboard-area {
+  gap: 0.3rem;
+  padding: 0 !important;
+}
+
+.fretboard-area .rounded-lg,
+.fretboard-area .rounded-md {
+  margin-bottom: 0;
+}
+
+.fretboard-area .fretboard-and-strings-panel {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.fretboard-area .fretboard {
+  border-radius: 0;
+  background:
+    radial-gradient(circle at top, rgba(34, 211, 238, 0.05), transparent 58%);
+  padding: 0 !important;
+}
+
+#melodyTabTimelinePanel {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0.18rem !important;
+  padding-bottom: 0.18rem !important;
+  padding-left: 0.28rem !important;
+  padding-right: 0.28rem !important;
+}
+
+#melodyTabTimelinePanel h3,
+#melodyTabTimelinePanel label,
+#melodyTabTimelinePanel span,
+#melodyTabTimelinePanel select {
+  line-height: 1.1;
+}
+
+#melodyTabTimelineMeta {
+  display: block;
+  margin: 0 0 0.12rem auto;
+  max-width: 100%;
+  text-align: right;
+}
+
+#melodyTabTimelineMinimap {
+  position: relative;
+  display: block;
+  margin: 0 0 0.18rem 0;
+}
+
+#melodyTabTimelineMinimap.hidden {
+  display: none !important;
+}
+
+.timeline-minimap-shell {
+  position: relative;
+  height: 1.8rem;
+  overflow: hidden;
+  border: 1px solid rgba(71, 85, 105, 0.75);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.72));
+  cursor: pointer;
+  user-select: none;
+}
+
+.timeline-minimap-shell[data-cursor='range'] {
+  cursor: ew-resize;
+}
+
+.timeline-minimap-shell.is-scrubbing {
+  cursor: grabbing;
+}
+
+.timeline-minimap-track {
+  position: absolute;
+  inset: 0.18rem 0.22rem;
+}
+
+.timeline-minimap-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(22, 101, 52, 0.42);
+  pointer-events: none;
+}
+
+.timeline-minimap-note {
+  position: absolute;
+  min-width: 2px;
+  background: rgba(148, 163, 184, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.timeline-minimap-note.is-study {
+  background: rgba(250, 204, 21, 0.7);
+}
+
+.timeline-minimap-outside-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.48);
+  pointer-events: none;
+}
+
+.timeline-minimap-range-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(250, 204, 21, 0.95);
+  pointer-events: none;
+}
+
+.timeline-minimap-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  margin-left: -7px;
+  cursor: ew-resize;
+}
+
+.timeline-minimap-handle::before,
+.timeline-minimap-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 5px;
+  margin-left: -4px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.timeline-minimap-handle::before {
+  top: 0;
+}
+
+.timeline-minimap-handle::after {
+  bottom: 0;
+}
+
+.timeline-minimap-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  margin-left: 0;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.95), rgba(103, 232, 249, 0.82));
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.28);
+  pointer-events: none;
+}
+
+#melodyTabTimelineMeta.hidden {
+  display: none !important;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: saturate(0.92);
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport::before,
+#melodyTabTimelinePanel #melodyTabTimelineViewport::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.72rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+  z-index: 5;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(2, 6, 23, 0.68), rgba(2, 6, 23, 0));
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(2, 6, 23, 0.68), rgba(2, 6, 23, 0));
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport[data-scroll-left='true']::before {
+  opacity: 1;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport[data-scroll-right='true']::after {
+  opacity: 1;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineGrid {
+  padding: 0 !important;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  cursor: grab;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineGrid::-webkit-scrollbar {
+  height: 0.45rem;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineGrid::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineGrid::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport:hover #melodyTabTimelineGrid,
+#melodyTabTimelinePanel #melodyTabTimelineViewport:focus-within #melodyTabTimelineGrid,
+#melodyTabTimelinePanel #melodyTabTimelineGrid.is-drag-panning {
+  scrollbar-color: rgba(103, 232, 249, 0.38) rgba(15, 23, 42, 0.06);
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport:hover #melodyTabTimelineGrid::-webkit-scrollbar-track,
+#melodyTabTimelinePanel #melodyTabTimelineViewport:focus-within #melodyTabTimelineGrid::-webkit-scrollbar-track,
+#melodyTabTimelinePanel #melodyTabTimelineGrid.is-drag-panning::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport:hover #melodyTabTimelineGrid::-webkit-scrollbar-thumb,
+#melodyTabTimelinePanel #melodyTabTimelineViewport:focus-within #melodyTabTimelineGrid::-webkit-scrollbar-thumb,
+#melodyTabTimelinePanel #melodyTabTimelineGrid.is-drag-panning::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(180deg, rgba(103, 232, 249, 0.42), rgba(34, 211, 238, 0.26));
+  border: 1px solid rgba(125, 211, 252, 0.16);
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineViewport:hover #melodyTabTimelineGrid::-webkit-scrollbar-thumb:hover,
+#melodyTabTimelinePanel #melodyTabTimelineViewport:focus-within #melodyTabTimelineGrid::-webkit-scrollbar-thumb:hover,
+#melodyTabTimelinePanel #melodyTabTimelineGrid.is-drag-panning::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(180deg, rgba(125, 211, 252, 0.62), rgba(34, 211, 238, 0.38));
+}
+
+#melodyTabTimelinePanel #melodyTabTimelineGrid.is-drag-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+#melodyTabTimelinePanel .timeline-note-drag-source {
+  opacity: 1;
+  filter: saturate(1.28) brightness(1.16) contrast(1.08);
+  position: relative;
+  z-index: 3;
+  outline: 4px solid rgba(255, 255, 255, 1);
+  outline-offset: 2px;
+  transform: scale(1.08);
+  box-shadow:
+    inset 0 0 0 999px rgba(255, 255, 255, 0.1),
+    0 0 0 4px rgba(14, 165, 233, 0.92),
+    0 0 0 8px rgba(255, 255, 255, 0.4),
+    0 10px 24px rgba(2, 6, 23, 0.52);
+}
+
+body.timeline-note-drag-active,
+body.timeline-note-drag-active * {
+  user-select: none !important;
+}
+
+#melodyTabTimelinePanel .timeline-note-drag-preview {
+  position: relative;
+  isolation: isolate;
+  box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.03);
+}
+
+#melodyTabTimelinePanel .timeline-note-drag-preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--timeline-drag-preview-color, #67e8f9) 55%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+#melodyTabTimelinePanel .timeline-note-drag-target-chip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 18px;
+  padding: 0 4px;
+  border: 2px solid rgba(255, 255, 255, 0.98);
+  border-radius: 3px;
+  color: white;
+  font-size: 10px;
+  line-height: 1.25;
+  font-weight: 700;
+  box-shadow:
+    0 0 0 2px rgba(2, 6, 23, 0.34),
+    0 4px 10px rgba(2, 6, 23, 0.28);
+  pointer-events: none;
+  z-index: 3;
+  white-space: nowrap;
+}
+
+#melodyTabTimelinePanel .timeline-event-drag-source {
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.3);
+}
+
+#melodyTabTimelinePanel .timeline-event-drag-target {
+  position: relative;
+}
+
+#melodyTabTimelinePanel .timeline-event-drag-target::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(34, 211, 238, 0.92);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@media (pointer: fine) {
+  #melodyTabTimelinePanel #melodyTabTimelineGrid {
+    scrollbar-width: none;
+  }
+
+  #melodyTabTimelinePanel #melodyTabTimelineGrid::-webkit-scrollbar {
+    display: none;
+    height: 0;
+  }
+}
+
+.fretboard-and-strings-panel {
+  padding: 0 !important;
+}
+
+.volume-section,
+.tuner-section {
+  width: 2rem;
+}
+
+.volume-section .volume-indicator {
+  width: 0.6rem;
+  background: var(--ff-surface-fill-strong) !important;
+  box-shadow: var(--ff-surface-shadow);
+}
+
+.tuner-section .tuner-display {
+  gap: 0.35rem;
+}
+
+.tuner-section .tuner-track {
+  width: 0.55rem;
+  background: var(--ff-surface-fill-strong) !important;
+  box-shadow: var(--ff-surface-shadow);
+}
+
+.tuner-section .tuner-label {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.tuner-section .tuner-cents {
+  margin-top: 0.2rem;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.session-status,
+#sessionGoalProgress,
+#curriculumPresetInfo,
+#modeHelpText,
+#audioInputInfo,
+#micNoiseGateInfo,
+#midiInputInfo,
+#midiConnectionStatus {
+  font-size: 0.68rem;
+  line-height: 1.15;
+}
+
+.session-area .session-status {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+@media (min-width: 640px) {
+  #settingsModal .modal-content,
+  #statsModal .modal-content,
+  #guideModal .modal-content,
+  #linksModal .modal-content,
+  #profileNameModal .modal-content,
+  #melodyImportModal .modal-content,
+  #confirmModal .modal-content,
+  #calibrationModal .modal-content {
+    padding: 1.15rem !important;
+  }
+
+  .fretboard-area {
+    gap: 0.35rem;
+  }
+
+  .fretboard-and-strings-panel {
+    padding: 0 !important;
+  }
+
+  .volume-section,
+  .tuner-section {
+    width: 2.25rem;
+  }
+}
+
 @media (max-width: 639px) {
+  .session-area #prompt {
+    min-height: 1.5rem;
+    font-size: 0.74rem !important;
+  }
+
+  .session-status {
+    max-width: 8.5rem;
+  }
+
+  .session-area {
+    column-gap: 0.35rem;
+    padding-right: 9.8rem !important;
+  }
+
+  .session-area #sessionToggleBtn,
+  .session-area #hintBtn,
+  .session-area #settingsBtn,
+  .session-area #melodyPlaybackControls button {
+    height: 1.8rem;
+    font-size: 0.72rem;
+  }
+
+  .session-area #sessionToggleBtn {
+    min-width: 6.15rem;
+  }
+
+  .session-area .session-status {
+    max-width: 6.35rem;
+    gap: 0.2rem;
+  }
+
+  .session-area #inputStatusBar {
+    max-width: 4.75rem;
+  }
+
+  .session-area #sessionInlineFeedback {
+    max-width: min(12rem, 27vw);
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+  }
+
+  .session-area #sessionInlineFeedback .result {
+    font-size: 0.68rem;
+  }
+
+  .panel-toggle-btn {
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
+
+  .fretboard-and-strings-panel {
+    padding: 0 !important;
+  }
+
+  .volume-section,
+  .tuner-section {
+    width: 1.8rem;
+  }
+
   .learning-controls {
     padding-left: 0.65rem;
     padding-right: 0.65rem;

@@ -65,6 +65,8 @@ export interface Prompt {
   targetChordFingering: ChordNote[];
   // Exact notes/positions for a melody event (may be >1 for ASCII-tab polyphony)
   targetMelodyEventNotes?: ChordNote[];
+  // Optional timing metadata used by continuous melody-performance playback.
+  melodyEventDurationMs?: number;
   // For modes that build on a chord structure (like arpeggios or progressions)
   baseChordName: string | null;
 }

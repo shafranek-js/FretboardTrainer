@@ -4,6 +4,7 @@ import {
   listMelodiesForInstrument,
   saveCustomAsciiTabMelody,
   saveCustomEventMelody,
+  updateCustomEventMelody,
   updateCustomAsciiTabMelody,
 } from './melody-library';
 
@@ -217,6 +218,54 @@ describe('melody-library custom editing', () => {
         expect(note.fret).not.toBeNull();
       });
       expect(new Set(notes.map((note) => note.stringName)).size).toBe(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('rejects event melodies without any notes', () => {
+    const storageMap = new Map<string, string>();
+    const localStorageStub = {
+      getItem: (key: string) => storageMap.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storageMap.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        storageMap.delete(key);
+      },
+      clear: () => {
+        storageMap.clear();
+      },
+    };
+    vi.stubGlobal('localStorage', localStorageStub);
+    try {
+      localStorage.clear();
+
+      expect(() =>
+        saveCustomEventMelody(
+          'Empty Melody',
+          [{ durationBeats: 1, notes: [] }],
+          instruments.guitar,
+          { sourceFormat: 'midi' }
+        )
+      ).toThrow('Imported melody must contain at least one note.');
+
+      const melodyId = saveCustomEventMelody(
+        'Editable Melody',
+        [{ durationBeats: 1, notes: [{ note: 'E', stringName: 'e', fret: 0 }] }],
+        instruments.guitar,
+        { sourceFormat: 'gp5' }
+      );
+
+      expect(() =>
+        updateCustomEventMelody(
+          melodyId,
+          'Editable Melody',
+          [{ durationBeats: 1, notes: [] }],
+          instruments.guitar,
+          { sourceFormat: 'gp5' }
+        )
+      ).toThrow('Edited melody must contain at least one note.');
     } finally {
       vi.unstubAllGlobals();
     }

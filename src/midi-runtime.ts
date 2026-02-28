@@ -118,7 +118,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
 
   if (!midiAccess) {
     dom.midiInputDevice.disabled = true;
-    dom.midiInputInfo.textContent = 'Web MIDI is not supported in this browser (Chrome/Edge desktop recommended).';
+    dom.midiInputInfo.textContent = 'Web MIDI is unsupported in this browser.';
     updateMidiConnectionStatusUi();
     return;
   }
@@ -133,7 +133,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
 
   dom.midiInputDevice.disabled = inputs.length === 0;
   if (inputs.length === 0) {
-    dom.midiInputInfo.textContent = 'No MIDI input devices detected. Connect a device and reopen Settings.';
+    dom.midiInputInfo.textContent = 'No MIDI devices detected. Connect one and reopen Settings.';
     dom.midiInputDevice.value = '';
     state.preferredMidiInputDeviceId = null;
     updateMidiConnectionStatusUi();
@@ -145,8 +145,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
   if (!hasCurrentValue) {
     state.preferredMidiInputDeviceId = null;
   }
-  dom.midiInputInfo.textContent =
-    'MIDI input supports single-note and chord/progression practice (Web MIDI / note-on + held notes).';
+  dom.midiInputInfo.textContent = 'Supports note and chord practice via note-on + held notes.';
   updateSessionInputStatusHud();
   updateMidiConnectionStatusUi();
 }

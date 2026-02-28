@@ -17,6 +17,8 @@ export interface SessionStopResetState {
   currentMelodyId: string | null;
   currentMelodyEventIndex: number;
   currentMelodyEventFoundNotes: Set<string>;
+  performancePromptResolved: boolean;
+  performancePromptMatched: boolean;
   pendingSessionStopResultMessage: { text: string; tone: 'neutral' | 'success' | 'error' } | null;
 }
 
@@ -38,6 +40,8 @@ export function createSessionStopResetState() {
     currentMelodyId: null,
     currentMelodyEventIndex: 0,
     currentMelodyEventFoundNotes: new Set<string>(),
+    performancePromptResolved: false,
+    performancePromptMatched: false,
     pendingSessionStopResultMessage: null,
   } satisfies SessionStopResetState & ReturnType<typeof createPromptCycleTrackingResetState>;
 }

@@ -29,6 +29,29 @@ import {
   setInputSourcePreference,
   setPreferredMidiInputDeviceId,
 } from './midi-runtime';
+import {
+  formatMelodyTransposeSemitones,
+  normalizeMelodyTransposeSemitones,
+} from './melody-transposition';
+import {
+  formatMelodyStringShift,
+  normalizeMelodyStringShift,
+} from './melody-string-shift';
+
+function normalizeStoredMelodyStudyRangeIndex(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.round(value));
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, Math.round(parsed));
+    }
+  }
+
+  return 0;
+}
 
 // --- PROFILE CONSTANTS ---
 const PROFILES_KEY = 'fretflow-profiles';
@@ -56,6 +79,9 @@ export interface ProfileSettings {
   autoPlayPromptSound?: boolean;
   difficulty?: string;
   noteNaming?: 'sharps' | 'flats';
+  melodyTimelineViewMode?: 'classic' | 'grid';
+  showTimelineSteps?: boolean;
+  showTimelineDetails?: boolean;
   inputSource?: 'microphone' | 'midi';
   audioInputDeviceId?: string | null;
   micSensitivityPreset?: 'quiet_room' | 'normal' | 'noisy_room' | 'auto';
@@ -80,6 +106,12 @@ export interface ProfileSettings {
   arpeggioPattern?: string;
   selectedMelodyId?: string;
   melodyShowNote?: boolean;
+  melodyTransposeById?: Record<string, number>;
+  melodyStringShiftById?: Record<string, number>;
+  melodyStudyRangeById?: Record<string, { startIndex: number; endIndex: number }>;
+  melodyLoopRange?: boolean;
+  melodyTransposeSemitones?: number;
+  melodyStringShift?: number;
   calibratedA4?: number;
 }
 
@@ -142,6 +174,9 @@ export function gatherCurrentSettings(): ProfileSettings {
     autoPlayPromptSound: dom.autoPlayPromptSound.checked,
     difficulty: dom.difficulty.value,
     noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
+    melodyTimelineViewMode: state.melodyTimelineViewMode,
+    showTimelineSteps: state.showMelodyTimelineSteps,
+    showTimelineDetails: state.showMelodyTimelineDetails,
     inputSource: state.inputSource,
     audioInputDeviceId: state.preferredAudioInputDeviceId,
     micSensitivityPreset: state.micSensitivityPreset,
@@ -166,6 +201,12 @@ export function gatherCurrentSettings(): ProfileSettings {
     arpeggioPattern: dom.arpeggioPatternSelector.value,
     selectedMelodyId: dom.melodySelector.value || undefined,
     melodyShowNote: dom.melodyShowNote.checked,
+    melodyTransposeById: { ...state.melodyTransposeById },
+    melodyStringShiftById: { ...state.melodyStringShiftById },
+    melodyStudyRangeById: { ...state.melodyStudyRangeById },
+    melodyLoopRange: state.melodyLoopRangeEnabled,
+    melodyTransposeSemitones: state.melodyTransposeSemitones,
+    melodyStringShift: state.melodyStringShift,
     calibratedA4: state.calibratedA4,
   };
 }
@@ -204,6 +245,13 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.difficulty.value = safeSettings.difficulty ?? 'natural';
     dom.noteNaming.value = normalizeNoteNamingPreference(safeSettings.noteNaming);
     setNoteNamingPreference(dom.noteNaming.value);
+    state.melodyTimelineViewMode =
+      safeSettings.melodyTimelineViewMode === 'grid' ? 'grid' : 'classic';
+    dom.timelineViewMode.value = state.melodyTimelineViewMode;
+    state.showMelodyTimelineSteps = safeSettings.showTimelineSteps ?? false;
+    dom.showTimelineSteps.checked = state.showMelodyTimelineSteps;
+    state.showMelodyTimelineDetails = safeSettings.showTimelineDetails ?? false;
+    dom.showTimelineDetails.checked = state.showMelodyTimelineDetails;
     setInputSourcePreference(normalizeInputSource(safeSettings.inputSource));
     setPreferredAudioInputDeviceId(normalizeAudioInputDeviceId(safeSettings.audioInputDeviceId));
     state.micSensitivityPreset = normalizeMicSensitivityPreset(safeSettings.micSensitivityPreset);
@@ -268,6 +316,63 @@ export async function applySettings(settings: ProfileSettings | null | undefined
         ? safeSettings.selectedMelodyId
         : null;
     dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
+    const melodyTransposeById: Record<string, number> = {};
+    if (
+      safeSettings.melodyTransposeById &&
+      typeof safeSettings.melodyTransposeById === 'object' &&
+      !Array.isArray(safeSettings.melodyTransposeById)
+    ) {
+      Object.entries(safeSettings.melodyTransposeById).forEach(([melodyId, transpose]) => {
+        const key = melodyId.trim();
+        if (!key) return;
+        melodyTransposeById[key] = normalizeMelodyTransposeSemitones(transpose);
+      });
+    }
+    state.melodyTransposeById = melodyTransposeById;
+    const melodyStringShiftById: Record<string, number> = {};
+    if (
+      safeSettings.melodyStringShiftById &&
+      typeof safeSettings.melodyStringShiftById === 'object' &&
+      !Array.isArray(safeSettings.melodyStringShiftById)
+    ) {
+      Object.entries(safeSettings.melodyStringShiftById).forEach(([melodyId, shift]) => {
+        const key = melodyId.trim();
+        if (!key) return;
+        melodyStringShiftById[key] = normalizeMelodyStringShift(shift, state.currentInstrument);
+      });
+    }
+    state.melodyStringShiftById = melodyStringShiftById;
+    const melodyStudyRangeById: Record<string, { startIndex: number; endIndex: number }> = {};
+    if (
+      safeSettings.melodyStudyRangeById &&
+      typeof safeSettings.melodyStudyRangeById === 'object' &&
+      !Array.isArray(safeSettings.melodyStudyRangeById)
+    ) {
+      Object.entries(safeSettings.melodyStudyRangeById).forEach(([melodyId, range]) => {
+        const key = melodyId.trim();
+        if (!key || !range || typeof range !== 'object' || Array.isArray(range)) return;
+        melodyStudyRangeById[key] = {
+          startIndex: normalizeStoredMelodyStudyRangeIndex((range as { startIndex?: unknown }).startIndex),
+          endIndex: normalizeStoredMelodyStudyRangeIndex((range as { endIndex?: unknown }).endIndex),
+        };
+      });
+    }
+    state.melodyStudyRangeById = melodyStudyRangeById;
+    state.melodyStudyRangeStartIndex = 0;
+    state.melodyStudyRangeEndIndex = 0;
+    state.melodyLoopRangeEnabled = safeSettings.melodyLoopRange ?? false;
+    dom.melodyLoopRange.checked = state.melodyLoopRangeEnabled;
+    state.melodyTransposeSemitones = normalizeMelodyTransposeSemitones(
+      safeSettings.melodyTransposeSemitones
+    );
+    dom.melodyTranspose.value = String(state.melodyTransposeSemitones);
+    dom.melodyTransposeValue.textContent = formatMelodyTransposeSemitones(state.melodyTransposeSemitones);
+    state.melodyStringShift = normalizeMelodyStringShift(
+      safeSettings.melodyStringShift,
+      state.currentInstrument
+    );
+    dom.melodyStringShift.value = String(state.melodyStringShift);
+    dom.melodyStringShiftValue.textContent = formatMelodyStringShift(state.melodyStringShift);
     dom.melodyDemoBpmValue.textContent = dom.melodyDemoBpm.value;
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;

@@ -13,7 +13,7 @@ export function computeStringLabelPositions(
 ): StringLabelPosition[] {
   if (stringCount <= 0) return [];
 
-  const horizontalPosition = nutX - fretSpacing * 0.1;
+  const horizontalPosition = nutX - fretSpacing * 0.05;
   return Array.from({ length: stringCount }, (_, index) => ({
     index,
     x: horizontalPosition,

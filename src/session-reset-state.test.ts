@@ -25,6 +25,8 @@ describe('createSessionStopResetState', () => {
       currentMelodyId: null,
       currentMelodyEventIndex: 0,
       currentMelodyEventFoundNotes: new Set<string>(),
+      performancePromptResolved: false,
+      performancePromptMatched: false,
       pendingSessionStopResultMessage: null,
     });
   });

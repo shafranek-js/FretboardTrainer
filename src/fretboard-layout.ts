@@ -26,11 +26,11 @@ interface LayoutOptions {
 
 const DEFAULT_LAYOUT_OPTIONS: Required<LayoutOptions> = {
   fretCount: 12,
-  openNoteAreaUnits: 1,
+  openNoteAreaUnits: 0.32,
   fretToStringSpacingRatio: 2.5,
-  horizontalPaddingRatio: 0.02,
-  verticalPaddingRatio: 0.05,
-  fretNumberAreaHeight: 30,
+  horizontalPaddingRatio: 0.008,
+  verticalPaddingRatio: 0.03,
+  fretNumberAreaHeight: 24,
 };
 
 export function computeFretboardLayout(

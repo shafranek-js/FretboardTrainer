@@ -8,6 +8,8 @@ export interface StabilityTrackingState {
 export interface PromptCycleTrackingState extends StabilityTrackingState {
   consecutiveSilence: number;
   lastPitches: number[];
+  performancePromptResolved: boolean;
+  performancePromptMatched: boolean;
 }
 
 export function createStabilityTrackingResetState(): StabilityTrackingState {
@@ -24,5 +26,7 @@ export function createPromptCycleTrackingResetState(): PromptCycleTrackingState 
     ...createStabilityTrackingResetState(),
     consecutiveSilence: 0,
     lastPitches: [],
+    performancePromptResolved: false,
+    performancePromptMatched: false,
   };
 }

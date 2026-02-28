@@ -72,6 +72,8 @@
 - [x] Fix melody practice completion UX so "Melody complete" feedback remains visible after session auto-stop.
 - [x] Persist selected melody in profile settings and restore it after reload/profile switch.
 - [x] Add in-session melody TAB timeline panel with active-step highlight and finger-color note chips synchronized with demo/session step progression.
+- [x] Add DAW-style melody study-range editing with draggable timeline handles and movable selected range bar.
+- [x] Add `Loop Range` toggle for melody demo playback over the selected study fragment.
 - [ ] Tighten training-mode contract so `generatePrompt()` stays side-effect free (no direct UI writes on completion/error paths).
 - [ ] Reduce `src/logic.ts` orchestration size by extracting session lifecycle/error-reporting helpers.
   - [x] Extract rhythm timing evaluation/formatting helpers into `src/rhythm-timing.ts` with unit tests.
@@ -105,6 +107,13 @@
 
 ## Future / Backlog
 
+- [ ] Port selected melody workflow upgrades from legacy `fretflow`.
+  - [x] Add per-melody `String Shift` with feasibility guardrails and synchronized TAB/fretboard/demo rendering.
+  - [x] Add `Performance Mode` for uninterrupted full-song runs with dedicated scoring.
+  - [x] Add compact melody `Minimap` / overview navigation with seek + viewport drag.
+  - [x] Add structured note-level melody editor with undo/redo.
+  - [x] Add MIDI export for edited custom melodies.
+  - [x] Add separate MIDI export for the current practice-adjusted melody (`transpose` / `string shift` / demo BPM applied).
 - [x] Add microphone polyphonic detection support for true simultaneous-note/chord verification in melody practice (separate from MIDI note events) using the existing spectrum-based detector path.
   - [x] Extract a pluggable mic polyphonic detector provider interface (`spectrum` baseline first, external engine adapters next).
   - [x] Add an experimental `Essentia.js` (`MultiPitchKlapuri` / `MultiPitchMelodia`) provider spike behind a feature flag (license/CPU review required).

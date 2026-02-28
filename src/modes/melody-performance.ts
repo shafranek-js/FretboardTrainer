@@ -9,6 +9,7 @@ import {
   normalizeMelodyStudyRange,
 } from '../melody-study-range';
 import { getMelodyWithPracticeAdjustments } from '../melody-string-shift';
+import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationMs } from '../melody-timeline-duration';
 import type { Prompt } from '../types';
 import { ITrainingMode, DetectionType } from './training-mode';
 
@@ -23,28 +24,28 @@ function formatMelodyEventHint(event: MelodyEvent) {
     .join(' + ');
 }
 
-function formatMelodyPromptText(
-  stepLabel: string,
-  event: MelodyEvent,
-  showNoteHint: boolean
-) {
+function formatPerformancePromptText(stepLabel: string, event: MelodyEvent, showNoteHint: boolean) {
   if (!showNoteHint) {
-    return `Melody ${stepLabel}: play the next note`;
+    return `Performance ${stepLabel}: keep the run going`;
   }
-  return `Melody ${stepLabel}: ${formatMelodyEventHint(event)}`;
+  return `Performance ${stepLabel}: ${formatMelodyEventHint(event)}`;
 }
 
 function toMelodyEventChordNotes(event: MelodyEvent) {
   return [...new Set(event.notes.map((note) => note.note))];
 }
 
-export class MelodyPracticeMode implements ITrainingMode {
+function getPerformanceBpmFromUi() {
+  return clampMelodyPlaybackBpm(Number.parseInt(dom.melodyDemoBpm.value, 10));
+}
+
+export class MelodyPerformanceMode implements ITrainingMode {
   detectionType: DetectionType = 'monophonic';
 
   generatePrompt(): Prompt | null {
     const selectedMelodyId = dom.melodySelector.value;
     if (!selectedMelodyId) {
-      if (state.isListening) notifyUserError('Select a melody to practice.');
+      if (state.isListening) notifyUserError('Select a melody to perform.');
       return null;
     }
 
@@ -57,6 +58,7 @@ export class MelodyPracticeMode implements ITrainingMode {
       }
       return null;
     }
+
     const melody = getMelodyWithPracticeAdjustments(
       baseMelody,
       state.melodyTransposeSemitones,
@@ -84,8 +86,8 @@ export class MelodyPracticeMode implements ITrainingMode {
 
     if (state.currentMelodyEventIndex > studyRange.endIndex) {
       const completionText = isDefaultMelodyStudyRange(studyRange, melody.events.length)
-        ? `Melody complete! (${melody.name})`
-        : `Study range complete! (${melody.name}, ${formatMelodyStudyRange(studyRange, melody.events.length)})`;
+        ? `Performance complete! (${melody.name})`
+        : `Performance range complete! (${melody.name}, ${formatMelodyStudyRange(studyRange, melody.events.length)})`;
       state.pendingSessionStopResultMessage = {
         text: completionText,
         tone: 'success',
@@ -111,7 +113,7 @@ export class MelodyPracticeMode implements ITrainingMode {
         : null;
 
     return {
-      displayText: formatMelodyPromptText(
+      displayText: formatPerformancePromptText(
         formatMelodyStudyStepLabel(
           currentEventIndexInRange,
           totalEventsInRange,
@@ -121,7 +123,6 @@ export class MelodyPracticeMode implements ITrainingMode {
         event,
         dom.melodyShowNote.checked
       ),
-      // Keep a visual fallback target even for degraded polyphonic imports that have only one playable position.
       targetNote: isPolyphonicEvent
         ? (melodyEventFingering.length <= 1 ? (fallbackSingleNoteTarget?.note ?? null) : null)
         : (fallbackSingleNoteTarget?.note ?? null),
@@ -131,6 +132,7 @@ export class MelodyPracticeMode implements ITrainingMode {
       targetChordNotes: isPolyphonicEvent ? targetPitchClasses : [],
       targetChordFingering: isPolyphonicEvent ? melodyEventFingering : [],
       targetMelodyEventNotes: melodyEventFingering,
+      melodyEventDurationMs: getMelodyEventPlaybackDurationMs(event, getPerformanceBpmFromUi()),
       baseChordName: null,
     };
   }

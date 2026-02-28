@@ -10,6 +10,14 @@ export interface TimelineDurationLayout {
   cellPixelWidths: number[];
 }
 
+export const MELODY_PLAYBACK_MIN_STEP_MS = 160;
+export const MELODY_PLAYBACK_MAX_STEP_MS = 1800;
+export const MELODY_PLAYBACK_FALLBACK_STEP_MS = 700;
+export const MELODY_PLAYBACK_COLUMN_MS = 95;
+export const MELODY_PLAYBACK_MIN_BPM = 40;
+export const MELODY_PLAYBACK_MAX_BPM = 220;
+export const MELODY_PLAYBACK_DEFAULT_BPM = 90;
+
 function normalizePositiveNumber(value: unknown) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
   return value;
@@ -17,6 +25,13 @@ function normalizePositiveNumber(value: unknown) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+export function clampMelodyPlaybackBpm(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return MELODY_PLAYBACK_DEFAULT_BPM;
+  }
+  return clamp(Math.round(value), MELODY_PLAYBACK_MIN_BPM, MELODY_PLAYBACK_MAX_BPM);
 }
 
 function getMedian(values: number[]) {
@@ -35,6 +50,29 @@ export function getEventDurationBeats(event: MelodyDefinition['events'][number])
   const countSteps = normalizePositiveNumber(event.durationCountSteps);
   if (countSteps !== null) return countSteps / 2;
   return null;
+}
+
+export function getMelodyEventPlaybackDurationMs(
+  event: MelodyDefinition['events'][number],
+  bpm: number
+) {
+  const beats = getEventDurationBeats(event);
+  if (beats !== null) {
+    const beatMs = 60000 / clampMelodyPlaybackBpm(bpm);
+    return clamp(
+      Math.round(beats * beatMs),
+      MELODY_PLAYBACK_MIN_STEP_MS,
+      MELODY_PLAYBACK_MAX_STEP_MS
+    );
+  }
+
+  const durationColumns = Math.max(1, event.durationColumns ?? 0);
+  const computed = Math.round(durationColumns * MELODY_PLAYBACK_COLUMN_MS);
+  return clamp(
+    computed || MELODY_PLAYBACK_FALLBACK_STEP_MS,
+    MELODY_PLAYBACK_MIN_STEP_MS,
+    MELODY_PLAYBACK_MAX_STEP_MS
+  );
 }
 
 export function computeTimelineDurationLayout(

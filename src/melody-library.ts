@@ -206,6 +206,10 @@ function isMelodyEvent(value: unknown): value is MelodyEvent {
   });
 }
 
+function countMelodyEventNotes(events: MelodyEvent[]) {
+  return events.reduce((sum, event) => sum + event.notes.length, 0);
+}
+
 function isStoredCustomMelodyBase(value: unknown): value is StoredCustomMelodyBase {
   return (
     !!value &&
@@ -433,6 +437,9 @@ export function saveCustomEventMelody(
   if (!events.every((event) => isMelodyEvent(event))) {
     throw new Error('Imported melody event data is invalid.');
   }
+  if (countMelodyEventNotes(events) === 0) {
+    throw new Error('Imported melody must contain at least one note.');
+  }
   const resolvedEvents = resolveMelodyEventPositions(cloneMelodyEvents(events), instrument).events;
 
   const entry: StoredCustomEventMelody = {
@@ -498,6 +505,71 @@ export function updateCustomAsciiTabMelody(
     ...target,
     name: trimmedName,
     tabText: trimmedTabText,
+  };
+
+  writeCustomMelodiesToStorage(current);
+  return melodyId;
+}
+
+export function updateCustomEventMelody(
+  melodyId: string,
+  name: string,
+  events: MelodyEvent[],
+  instrument: Pick<IInstrument, 'name' | 'STRING_ORDER' | 'getNoteWithOctave'>,
+  options?: {
+    sourceFormat?: StoredCustomEventMelody['sourceFormat'];
+    sourceFileName?: string;
+    sourceTrackName?: string;
+    sourceScoreTitle?: string;
+    sourceTempoBpm?: number;
+  }
+) {
+  if (!isCustomMelodyId(melodyId)) {
+    throw new Error('Only custom melodies can be edited.');
+  }
+
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Melody name is required.');
+  }
+  if (!Array.isArray(events) || events.length === 0) {
+    throw new Error('Edited melody must contain at least one note event.');
+  }
+  if (!events.every((event) => isMelodyEvent(event))) {
+    throw new Error('Edited melody event data is invalid.');
+  }
+  if (countMelodyEventNotes(events) === 0) {
+    throw new Error('Edited melody must contain at least one note.');
+  }
+
+  const current = readCustomMelodiesFromStorage();
+  const targetIndex = current.findIndex((entry) => entry.id === melodyId);
+  if (targetIndex < 0) {
+    throw new Error('Custom melody not found.');
+  }
+
+  const target = current[targetIndex];
+  if (target.format !== 'events') {
+    throw new Error('This melody is not stored as structured event data.');
+  }
+  if (target.instrumentName !== instrument.name) {
+    throw new Error('Selected melody does not belong to the current instrument.');
+  }
+
+  const resolvedEvents = resolveMelodyEventPositions(cloneMelodyEvents(events), instrument).events;
+
+  current[targetIndex] = {
+    ...target,
+    name: trimmedName,
+    sourceFormat: options?.sourceFormat ?? target.sourceFormat,
+    sourceFileName: options?.sourceFileName ?? target.sourceFileName,
+    sourceTrackName: options?.sourceTrackName ?? target.sourceTrackName,
+    sourceScoreTitle: options?.sourceScoreTitle ?? target.sourceScoreTitle,
+    sourceTempoBpm:
+      typeof options?.sourceTempoBpm === 'number' && Number.isFinite(options.sourceTempoBpm)
+        ? Math.round(options.sourceTempoBpm)
+        : target.sourceTempoBpm,
+    events: resolvedEvents,
   };
 
   writeCustomMelodiesToStorage(current);

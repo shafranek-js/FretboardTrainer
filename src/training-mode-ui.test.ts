@@ -10,6 +10,7 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: false,
       showArpeggioPatternSelector: false,
       showHintButton: true,
+      showFretboardMonitoring: true,
       helperText: '',
     });
   });
@@ -22,6 +23,7 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: false,
       showArpeggioPatternSelector: true,
       showHintButton: false,
+      showFretboardMonitoring: true,
       helperText: '',
     });
   });
@@ -34,6 +36,7 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: true,
       showArpeggioPatternSelector: false,
       showHintButton: false,
+      showFretboardMonitoring: true,
       helperText: '',
     });
   });
@@ -46,6 +49,7 @@ describe('getTrainingModeUiVisibility', () => {
       showProgressionSelector: false,
       showArpeggioPatternSelector: false,
       showHintButton: true,
+      showFretboardMonitoring: true,
       helperText: '',
     });
   });
@@ -71,7 +75,16 @@ describe('getTrainingModeUiVisibility', () => {
   it('shows melody selector and helper text for melody mode', () => {
     const visibility = getTrainingModeUiVisibility('melody');
     expect(visibility.showMelodySelector).toBe(true);
-    expect(visibility.showHintButton).toBe(true);
+    expect(visibility.showHintButton).toBe(false);
+    expect(visibility.showFretboardMonitoring).toBe(false);
     expect(visibility.helperText).toContain('advances one note at a time');
+  });
+
+  it('treats performance as a melody workflow mode', () => {
+    const visibility = getTrainingModeUiVisibility('performance');
+    expect(visibility.showMelodySelector).toBe(true);
+    expect(visibility.showHintButton).toBe(false);
+    expect(visibility.showFretboardMonitoring).toBe(false);
+    expect(visibility.helperText).toContain('continuously');
   });
 });

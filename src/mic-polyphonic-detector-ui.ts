@@ -12,7 +12,7 @@ export function buildMicPolyphonicDetectorAudioInfoText() {
   const runtime = getProviderLabel(state.lastMicPolyphonicDetectorProviderUsed);
   const fallbackFrom = getProviderLabel(state.lastMicPolyphonicDetectorFallbackFrom);
 
-  const parts = ['Microphone labels may appear after you allow microphone access once.'];
+  const parts = ['Mic labels appear after first permission grant.'];
   parts.push(`Poly detector: ${configured}${state.micPolyphonicDetectorProvider !== 'spectrum' ? ' (experimental)' : ''}.`);
 
   if (state.lastMicPolyphonicDetectorProviderUsed) {

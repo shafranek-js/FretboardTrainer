@@ -18,12 +18,14 @@ const { mockDom, mockState, setPromptTextMock, getMelodyByIdMock } = vi.hoisted(
     arpeggioPatternSelector: { value: 'ascending' },
     melodySelector: { value: 'builtin:test' },
     melodyShowNote: { checked: true },
+    melodyDemoBpm: { value: '90' },
   },
   mockState: {
     currentInstrument: {
       FRETBOARD: {} as Record<string, Record<string, number>>,
       STRING_ORDER: [] as string[],
       CHORD_FINGERINGS: {} as Record<string, { note: string; string: string; fret: number }[]>,
+      getNoteWithOctave: vi.fn(),
     },
     previousNote: null as string | null,
     scaleNotes: [] as { note: string; string: string }[],
@@ -39,6 +41,9 @@ const { mockDom, mockState, setPromptTextMock, getMelodyByIdMock } = vi.hoisted(
     currentMelodyId: null as string | null,
     currentMelodyEventIndex: 0,
     currentMelodyEventFoundNotes: new Set<string>(),
+    melodyTransposeSemitones: 0,
+    melodyStringShift: 0,
+    melodyStudyRangeById: {} as Record<string, { startIndex: number; endIndex: number }>,
     pendingSessionStopResultMessage: null as
       | { text: string; tone: 'neutral' | 'success' | 'error' }
       | null,
@@ -71,6 +76,7 @@ import { FreePlayMode } from './free-play';
 import { AdaptivePracticeMode } from './adaptive-practice';
 import { RhythmTrainingMode } from './rhythm-training';
 import { MelodyPracticeMode } from './melody-practice';
+import { MelodyPerformanceMode } from './melody-performance';
 
 function setEnabledStrings(strings: string[]) {
   mockDom.stringSelector.querySelectorAll.mockReturnValue(
@@ -91,6 +97,7 @@ beforeEach(() => {
   mockDom.chordSelector.options = [{ value: 'C Major' }, { value: 'G Major' }];
   mockDom.arpeggioPatternSelector.value = 'ascending';
   mockDom.melodyShowNote.checked = true;
+  mockDom.melodyDemoBpm.value = '90';
 
   mockState.currentInstrument.FRETBOARD = {
     E: { E: 0, F: 1, G: 3, A: 5 },
@@ -109,6 +116,18 @@ beforeEach(() => {
       { note: 'D', string: 'A', fret: 5 },
     ],
   };
+  mockState.currentInstrument.getNoteWithOctave.mockImplementation(
+    (stringName: string, fret: number) => {
+      const openMidiByString: Record<string, number> = { E: 40, A: 45 };
+      const openMidi = openMidiByString[stringName];
+      if (!Number.isFinite(openMidi)) return null;
+      const midi = openMidi + fret;
+      const pitchClasses = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      const note = pitchClasses[((midi % 12) + 12) % 12] ?? 'C';
+      const octave = Math.floor(midi / 12) - 1;
+      return `${note}${octave}`;
+    }
+  );
   mockState.previousNote = null;
   mockState.scaleNotes = [];
   mockState.currentScaleIndex = 0;
@@ -120,6 +139,9 @@ beforeEach(() => {
   mockState.currentMelodyId = null;
   mockState.currentMelodyEventIndex = 0;
   mockState.currentMelodyEventFoundNotes.clear();
+  mockState.melodyTransposeSemitones = 0;
+  mockState.melodyStringShift = 0;
+  mockState.melodyStudyRangeById = {};
   mockState.pendingSessionStopResultMessage = null;
   (mockState as unknown as { stats?: { noteStats: Record<string, unknown> } }).stats = {
     noteStats: {},
@@ -346,6 +368,40 @@ describe('MelodyPracticeMode', () => {
     });
   });
 
+  it('limits prompts to the selected study range', () => {
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Test Melody',
+      events: [
+        { notes: [{ note: 'C', stringName: 'A', fret: 3 }] },
+        { notes: [{ note: 'D', stringName: 'A', fret: 5 }] },
+        { notes: [{ note: 'E', stringName: 'E', fret: 0 }] },
+      ],
+    });
+    mockState.melodyStudyRangeById = {
+      'builtin:test': {
+        startIndex: 1,
+        endIndex: 2,
+      },
+    };
+
+    const mode = new MelodyPracticeMode();
+    const first = mode.generatePrompt();
+    const second = mode.generatePrompt();
+    const third = mode.generatePrompt();
+
+    expect(first?.targetNote).toBe('D');
+    expect(first?.displayText).toContain('[1/2]');
+    expect(first?.displayText).toContain('Steps 2-3');
+    expect(second?.targetNote).toBe('E');
+    expect(second?.displayText).toContain('[2/2]');
+    expect(third).toBeNull();
+    expect(mockState.pendingSessionStopResultMessage).toEqual({
+      text: 'Study range complete! (Test Melody, Steps 2-3)',
+      tone: 'success',
+    });
+  });
+
   it('hides note hint text when melodyShowNote is disabled', () => {
     mockDom.melodyShowNote.checked = false;
     getMelodyByIdMock.mockReturnValue({
@@ -418,5 +474,21 @@ describe('MelodyPracticeMode', () => {
     expect(prompt?.targetMelodyEventNotes).toEqual([{ note: 'C', string: 'A', fret: 3, finger: 1 }]);
     expect(prompt?.targetNote).toBe('C');
     expect(prompt?.targetString).toBe('A');
+  });
+
+  it('creates timed prompts for performance mode', () => {
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Performance Test',
+      events: [{ notes: [{ note: 'C', stringName: 'A', fret: 3 }], durationBeats: 1 }],
+    });
+
+    const mode = new MelodyPerformanceMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt).not.toBeNull();
+    expect(prompt?.displayText).toContain('Performance');
+    expect(prompt?.targetNote).toBe('C');
+    expect(prompt?.melodyEventDurationMs).toBe(667);
   });
 });
