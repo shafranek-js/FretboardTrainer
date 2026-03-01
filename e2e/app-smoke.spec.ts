@@ -14,7 +14,7 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
 
   await page.locator('#settingsBtn').click();
   await expect(page.locator('#settingsModal')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /Settings & Tools/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Settings & Utilities/i })).toBeVisible();
   await expect(page.locator('#audioInputDevice')).toBeVisible();
   await expect(page.locator('#inputSource')).toBeVisible();
   const midiOptionDisabled = await page.evaluate(() => {

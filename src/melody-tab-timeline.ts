@@ -37,6 +37,7 @@ const FINGER_COLORS: Record<number, string> = {
 let lastRenderKey = '';
 let timelineScrollChromeBound = false;
 let timelinePanBound = false;
+let timelineSelectionClearBound = false;
 let onMelodyStudyRangeCommit:
   | ((payload: { melodyId: string; range: MelodyStudyRange }) => void)
   | null = null;
@@ -44,7 +45,11 @@ let onMelodyTimelineSeek:
   | ((payload: { melodyId: string; eventIndex: number; commit: boolean }) => void)
   | null = null;
 let onMelodyTimelineNoteSelect:
-  | ((payload: { melodyId: string; eventIndex: number; noteIndex: number }) => void)
+  | ((payload: { melodyId: string; eventIndex: number; noteIndex: number; toggle?: boolean }) => void)
+  | null = null;
+let onMelodyTimelineSelectionClear: ((payload: { melodyId: string }) => void) | null = null;
+let onMelodyTimelineEmptyCellAdd:
+  | ((payload: { melodyId: string; eventIndex: number; stringName: string }) => void)
   | null = null;
 let onMelodyTimelineNoteDrag:
   | ((payload: { melodyId: string; eventIndex: number; noteIndex: number; stringName: string; commit: boolean }) => void)
@@ -52,7 +57,37 @@ let onMelodyTimelineNoteDrag:
 let onMelodyTimelineEventDrag:
   | ((payload: { melodyId: string; sourceEventIndex: number; targetEventIndex: number; commit: boolean }) => void)
   | null = null;
+let onMelodyTimelineContextAction:
+  | ((payload: { melodyId: string; action: MelodyTimelineContextAction }) => void)
+  | null = null;
+let onMelodyTimelineContextMenuOpen:
+  | ((payload: {
+      melodyId: string;
+      eventIndex: number;
+      noteIndex: number | null;
+      anchorX: number;
+      anchorY: number;
+    }) => void)
+  | null = null;
 let activeTimelineNoteDragSource: { eventIndex: number; noteIndex: number } | null = null;
+let activeTimelineContextMenu:
+  | { melodyId: string; eventIndex: number; noteIndex: number | null; anchorX: number; anchorY: number }
+  | null = null;
+
+type MelodyTimelineContextAction =
+  | 'fret-down'
+  | 'fret-up'
+  | 'duration-down'
+  | 'duration-up'
+  | 'add-note'
+  | 'add-event'
+  | 'duplicate-event'
+  | 'split-event'
+  | 'merge-event'
+  | 'delete-note'
+  | 'delete-event'
+  | 'undo'
+  | 'redo';
 
 function buildMelodyContentSignature(melody: Pick<MelodyDefinition, 'events'>) {
   let hash = 2166136261;
@@ -300,6 +335,22 @@ function bindTimelineDragPan() {
   });
 }
 
+function bindTimelineSelectionClear() {
+  if (timelineSelectionClearBound) return;
+  timelineSelectionClearBound = true;
+
+  dom.melodyTabTimelineGrid.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement | null;
+    const melodyId = dom.melodyTabTimelineGrid.dataset.melodyId;
+    if (!target || !melodyId) return;
+    if (target.closest('[data-note-index]')) return;
+    if (target.closest('.timeline-context-menu')) return;
+    if (target.closest('[data-timeline-range-ui="true"]')) return;
+    clearMelodyTimelineContextMenu();
+    onMelodyTimelineSelectionClear?.({ melodyId });
+  });
+}
+
 export function setMelodyTimelineStudyRangeCommitHandler(
   handler: ((payload: { melodyId: string; range: MelodyStudyRange }) => void) | null
 ) {
@@ -313,9 +364,21 @@ export function setMelodyTimelineSeekHandler(
 }
 
 export function setMelodyTimelineNoteSelectHandler(
-  handler: ((payload: { melodyId: string; eventIndex: number; noteIndex: number }) => void) | null
+  handler: ((payload: { melodyId: string; eventIndex: number; noteIndex: number; toggle?: boolean }) => void) | null
 ) {
   onMelodyTimelineNoteSelect = handler;
+}
+
+export function setMelodyTimelineSelectionClearHandler(
+  handler: ((payload: { melodyId: string }) => void) | null
+) {
+  onMelodyTimelineSelectionClear = handler;
+}
+
+export function setMelodyTimelineEmptyCellAddHandler(
+  handler: ((payload: { melodyId: string; eventIndex: number; stringName: string }) => void) | null
+) {
+  onMelodyTimelineEmptyCellAdd = handler;
 }
 
 export function setMelodyTimelineNoteDragHandler(
@@ -332,6 +395,109 @@ export function setMelodyTimelineEventDragHandler(
     | null
 ) {
   onMelodyTimelineEventDrag = handler;
+}
+
+export function setMelodyTimelineContextActionHandler(
+  handler: ((payload: { melodyId: string; action: MelodyTimelineContextAction }) => void) | null
+) {
+  onMelodyTimelineContextAction = handler;
+}
+
+export function setMelodyTimelineContextMenuOpenHandler(
+  handler:
+    | ((payload: {
+        melodyId: string;
+        eventIndex: number;
+        noteIndex: number | null;
+        anchorX: number;
+        anchorY: number;
+      }) => void)
+    | null
+) {
+  onMelodyTimelineContextMenuOpen = handler;
+}
+
+export function clearMelodyTimelineContextMenu() {
+  const hadOpenMenu = activeTimelineContextMenu !== null;
+  activeTimelineContextMenu = null;
+  dom.melodyTabTimelinePanel.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
+  return hadOpenMenu;
+}
+
+function openTimelineContextMenu(payload: {
+  melodyId: string;
+  eventIndex: number;
+  noteIndex: number | null;
+  anchorX: number;
+  anchorY: number;
+}) {
+  activeTimelineContextMenu = payload;
+  onMelodyTimelineContextMenuOpen?.(payload);
+}
+
+function bindTimelineContextMenu(
+  element: HTMLElement,
+  payload: { melodyId: string; eventIndex: number; noteIndex: number | null }
+) {
+  element.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const panelRect = dom.melodyTabTimelinePanel.getBoundingClientRect();
+    openTimelineContextMenu({
+      ...payload,
+      anchorX: event.clientX - panelRect.left,
+      anchorY: event.clientY - panelRect.top,
+    });
+  });
+}
+
+function getToolbarEventMagnitude(event: MelodyDefinition['events'][number] | null | undefined) {
+  if (!event) return 0;
+  if (typeof event.durationBeats === 'number' && Number.isFinite(event.durationBeats) && event.durationBeats > 0) {
+    return event.durationBeats;
+  }
+  if (
+    typeof event.durationCountSteps === 'number' &&
+    Number.isFinite(event.durationCountSteps) &&
+    event.durationCountSteps > 0
+  ) {
+    return event.durationCountSteps;
+  }
+  if (
+    typeof event.durationColumns === 'number' &&
+    Number.isFinite(event.durationColumns) &&
+    event.durationColumns > 0
+  ) {
+    return event.durationColumns;
+  }
+  return 1;
+}
+
+function canToolbarSplitEvent(event: MelodyDefinition['events'][number] | null | undefined) {
+  return getToolbarEventMagnitude(event) > 1;
+}
+
+function areToolbarEventNotesEquivalent(
+  left: MelodyDefinition['events'][number] | null | undefined,
+  right: MelodyDefinition['events'][number] | null | undefined
+) {
+  if (!left || !right) return false;
+  if (left.notes.length !== right.notes.length) return false;
+  const leftSignature = left.notes
+    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`)
+    .sort();
+  const rightSignature = right.notes
+    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`)
+    .sort();
+  return leftSignature.every((value, index) => value === rightSignature[index]);
+}
+
+function canToolbarMergeEvent(
+  melody: MelodyDefinition,
+  selectedEventIndex: number | null
+) {
+  if (selectedEventIndex === null || selectedEventIndex < 0 || selectedEventIndex >= melody.events.length - 1) return false;
+  return areToolbarEventNotesEquivalent(melody.events[selectedEventIndex], melody.events[selectedEventIndex + 1]);
 }
 
 function normalizeNonNegativeInteger(value: unknown) {
@@ -493,7 +659,6 @@ function bindTimelineEventDrag(
     const originalTarget = event.target as HTMLElement | null;
     if (originalTarget?.closest('[data-note-index]')) return;
     if (payload.selectedEventIndex !== payload.sourceEventIndex) return;
-    event.preventDefault();
 
     const metrics = getRenderedTimelineStepMetrics(dom.melodyTabTimelineGrid);
     if (metrics.length === 0) return;
@@ -626,7 +791,7 @@ function bindTimelineNoteDrag(noteTarget: HTMLElement, payload: {
         ? computedStyle.backgroundColor
         : computedStyle.color || '#67e8f9';
 
-    onMelodyTimelineNoteSelect?.(payload);
+    onMelodyTimelineNoteSelect?.({ ...payload, toggle: false });
     markTimelineNoteDragSource(payload.eventIndex, payload.noteIndex);
     document.body.classList.add('timeline-note-drag-active');
 
@@ -721,6 +886,7 @@ function renderGridTimeline(
   durationLayout: TimelineDurationLayout,
   root: HTMLElement,
   showStepNumbers: boolean,
+  editingEnabled: boolean,
   selectedEventIndex: number | null,
   selectedNoteIndex: number | null
 ) {
@@ -825,6 +991,18 @@ function renderGridTimeline(
         }
         empty.textContent = '.';
         td.appendChild(empty);
+        if (editingEnabled) {
+          td.title = 'Double-click to add a note on this string';
+          td.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onMelodyTimelineEmptyCellAdd?.({
+              melodyId,
+              eventIndex,
+              stringName: row.stringName,
+            });
+          });
+        }
       } else if (cell.notes.length === 1) {
         const noteChip = createCellNoteChip(cell.notes[0]);
         const isSelected = selectedEventIndex === eventIndex && selectedNoteIndex === cell.notes[0]!.noteIndex;
@@ -841,8 +1019,11 @@ function renderGridTimeline(
           noteChip.classList.add('timeline-note-drag-source');
         }
         noteChip.addEventListener('click', () => {
-          onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: cell.notes[0]!.noteIndex });
+          onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: cell.notes[0]!.noteIndex, toggle: true });
         });
+        if (editingEnabled) {
+          bindTimelineContextMenu(noteChip, { melodyId, eventIndex, noteIndex: cell.notes[0]!.noteIndex });
+        }
         bindTimelineNoteDrag(noteChip, {
           melodyId,
           eventIndex,
@@ -870,8 +1051,11 @@ function renderGridTimeline(
             noteChip.classList.add('timeline-note-drag-source');
           }
           noteChip.addEventListener('click', () => {
-            onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: note.noteIndex });
+            onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: note.noteIndex, toggle: true });
           });
+          if (editingEnabled) {
+            bindTimelineContextMenu(noteChip, { melodyId, eventIndex, noteIndex: note.noteIndex });
+          }
           bindTimelineNoteDrag(noteChip, {
             melodyId,
             eventIndex,
@@ -889,6 +1073,9 @@ function renderGridTimeline(
         sourceEventIndex: eventIndex,
         selectedEventIndex,
       });
+      if (editingEnabled) {
+        bindTimelineContextMenu(td, { melodyId, eventIndex, noteIndex: null });
+      }
 
       tr.appendChild(td);
     });
@@ -907,6 +1094,7 @@ function renderClassicTimeline(
   durationLayout: TimelineDurationLayout,
   root: HTMLElement,
   showStepNumbers: boolean,
+  editingEnabled: boolean,
   selectedEventIndex: number | null,
   selectedNoteIndex: number | null
 ) {
@@ -1002,8 +1190,11 @@ function renderClassicTimeline(
         cell.dataset.timelineNoPan = 'true';
         cell.dataset.noteIndex = String(selectedRowNote.noteIndex);
         cell.addEventListener('click', () => {
-          onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: selectedRowNote.noteIndex });
+          onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: selectedRowNote.noteIndex, toggle: true });
         });
+        if (editingEnabled) {
+          bindTimelineContextMenu(cell, { melodyId, eventIndex, noteIndex: selectedRowNote.noteIndex });
+        }
         bindTimelineNoteDrag(cell, {
           melodyId,
           eventIndex,
@@ -1013,6 +1204,21 @@ function renderClassicTimeline(
         }, instrument);
       }
       if (!isHeader) {
+        if (!selectedRowNote && editingEnabled) {
+          cell.title = 'Double-click to add a note on this string';
+          cell.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onMelodyTimelineEmptyCellAdd?.({
+              melodyId,
+              eventIndex,
+              stringName: labelText,
+            });
+          });
+        }
+        if (editingEnabled && !selectedRowNote) {
+          bindTimelineContextMenu(cell, { melodyId, eventIndex, noteIndex: null });
+        }
         bindTimelineEventDrag(cell, {
           melodyId,
           sourceEventIndex: eventIndex,
@@ -1072,6 +1278,7 @@ function renderStudyRangeBar(
 
   const wrapper = document.createElement('div');
   wrapper.className = 'mb-2 min-w-max select-none';
+  wrapper.dataset.timelineRangeUi = 'true';
 
   const lane = document.createElement('div');
   lane.className = 'relative h-8';
@@ -1175,6 +1382,115 @@ function renderStudyRangeBar(
   root.prepend(wrapper);
 }
 
+function renderTimelineContextMenu(
+  melody: MelodyDefinition,
+  selectedEventIndex: number | null,
+  options: { editingEnabled: boolean }
+) {
+  dom.melodyTabTimelinePanel.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
+  if (!options.editingEnabled || !activeTimelineContextMenu || activeTimelineContextMenu.melodyId !== melody.id) {
+    return;
+  }
+
+  const targetEventIndex = activeTimelineContextMenu.eventIndex;
+  const selectedEvent = melody.events[targetEventIndex] ?? null;
+  if (!selectedEvent || selectedEventIndex === null || selectedEventIndex !== targetEventIndex) return;
+  const hasSelectedNote = activeTimelineContextMenu.noteIndex !== null;
+
+  const menu = document.createElement('div');
+  menu.className = 'timeline-context-menu';
+  menu.dataset.timelineNoPan = 'true';
+  menu.setAttribute('role', 'menu');
+  menu.title =
+    'Change fret: ArrowUp/ArrowDown. Decrease duration: -. Increase duration: = or +. Add next event: Insert or Enter. Add note to current event: Shift+Insert. Duplicate event: Shift+D. Split event: Shift+S. Merge with next: Shift+M. Delete note: Delete/Backspace. Delete event: Shift+Delete. Undo: Ctrl/Cmd+Z. Redo: Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y.';
+  const addItem = (
+    label: string,
+    shortcut: string,
+    description: string,
+    action: MelodyTimelineContextAction,
+    disabled: boolean
+  ) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'timeline-context-menu-btn';
+    button.setAttribute('role', 'menuitem');
+    button.disabled = disabled;
+    button.dataset.timelineNoPan = 'true';
+    const text = document.createElement('span');
+    text.className = 'timeline-context-menu-text';
+    const title = document.createElement('span');
+    title.className = 'timeline-context-menu-title';
+    title.textContent = label;
+    const subtitle = document.createElement('span');
+    subtitle.className = 'timeline-context-menu-description';
+    subtitle.textContent = description;
+    text.append(title, subtitle);
+    const shortcutLabel = document.createElement('span');
+    shortcutLabel.className = 'timeline-context-menu-shortcut';
+    shortcutLabel.textContent = shortcut;
+    button.append(text, shortcutLabel);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearMelodyTimelineContextMenu();
+      onMelodyTimelineContextAction?.({ melodyId: melody.id, action });
+    });
+    menu.appendChild(button);
+  };
+  const addSeparator = () => {
+    const separator = document.createElement('div');
+    separator.className = 'timeline-context-menu-separator';
+    separator.dataset.timelineNoPan = 'true';
+    menu.appendChild(separator);
+  };
+  const addSectionLabel = (label: string) => {
+    const sectionLabel = document.createElement('div');
+    sectionLabel.className = 'timeline-context-menu-section';
+    sectionLabel.dataset.timelineNoPan = 'true';
+    sectionLabel.textContent = label;
+    menu.appendChild(sectionLabel);
+  };
+
+  addSectionLabel('Pitch');
+  addItem('Lower Fret', 'ArrowDown', 'Move the selected note one fret lower.', 'fret-down', !hasSelectedNote);
+  addItem('Raise Fret', 'ArrowUp', 'Move the selected note one fret higher.', 'fret-up', !hasSelectedNote);
+  addItem('Shorter Duration', '-', 'Shorten the selected event by one timing step.', 'duration-down', false);
+  addItem('Longer Duration', '= / +', 'Lengthen the selected event by one timing step.', 'duration-up', false);
+  addSeparator();
+
+  addSectionLabel('Timing');
+  addItem('Split Event', 'Shift+S', 'Split the current event into two equal events.', 'split-event', !canToolbarSplitEvent(selectedEvent));
+  addItem(
+    'Merge With Next',
+    'Shift+M',
+    'Merge the current event with the next matching event.',
+    'merge-event',
+    !canToolbarMergeEvent(melody, targetEventIndex)
+  );
+  addSeparator();
+
+  addSectionLabel('Structure');
+  addItem('Add Note', 'Shift+Insert', 'Add a note to the current event for polyphony.', 'add-note', false);
+  addItem('Add Next Event', 'Insert / Enter', 'Insert a new event after the current one.', 'add-event', false);
+  addItem('Duplicate Event', 'Shift+D', 'Copy the current event after itself.', 'duplicate-event', false);
+  addSeparator();
+
+  addSectionLabel('Delete');
+  addItem('Delete Note', 'Delete', 'Remove the selected note from the event.', 'delete-note', !hasSelectedNote);
+  addItem('Delete Event', 'Shift+Delete', 'Remove the current event and its duration.', 'delete-event', false);
+  addSeparator();
+
+  addSectionLabel('History');
+  addItem('Undo', 'Ctrl/Cmd+Z', 'Revert the last timeline edit.', 'undo', false);
+  addItem('Redo', 'Ctrl/Cmd+Shift+Z', 'Reapply the last reverted edit.', 'redo', false);
+  dom.melodyTabTimelinePanel.appendChild(menu);
+
+  const maxLeft = Math.max(4, dom.melodyTabTimelinePanel.clientWidth - menu.offsetWidth - 4);
+  const maxTop = Math.max(4, dom.melodyTabTimelinePanel.clientHeight - menu.offsetHeight - 4);
+  menu.style.left = `${Math.min(Math.max(4, activeTimelineContextMenu.anchorX), maxLeft)}px`;
+  menu.style.top = `${Math.min(Math.max(4, activeTimelineContextMenu.anchorY), maxTop)}px`;
+}
+
 function renderTimelineMinimap(
   melody: MelodyDefinition,
   stringOrder: string[],
@@ -1185,6 +1501,7 @@ function renderTimelineMinimap(
 ) {
   dom.melodyTabTimelineMinimap.innerHTML = '';
   if (durationLayout.weights.length === 0 || melody.events.length === 0) {
+    dom.melodyTabTimelineMinimapDock.classList.add('hidden');
     dom.melodyTabTimelineMinimap.classList.add('hidden');
     return;
   }
@@ -1383,12 +1700,14 @@ function renderTimelineMinimap(
   shell.addEventListener('pointerup', finishDrag);
   shell.addEventListener('pointercancel', finishDrag);
 
+  dom.melodyTabTimelineMinimapDock.classList.remove('hidden');
   dom.melodyTabTimelineMinimap.classList.remove('hidden');
   dom.melodyTabTimelineMinimap.appendChild(shell);
 }
 
 export function hideMelodyTabTimeline() {
   dom.melodyTabTimelinePanel.classList.add('hidden');
+  dom.melodyTabTimelineMinimapDock.classList.add('hidden');
   dom.melodyTabTimelineMinimap.classList.add('hidden');
   dom.melodyTabTimelineMinimap.innerHTML = '';
   dom.melodyTabTimelineMeta.classList.add('hidden');
@@ -1412,6 +1731,7 @@ export function renderMelodyTabTimeline(
     showStepNumbers?: boolean;
     showMetaDetails?: boolean;
     minimapRangeEditor?: boolean;
+    editingEnabled?: boolean;
     selectedEventIndex?: number | null;
     selectedNoteIndex?: number | null;
   } = {}
@@ -1421,11 +1741,13 @@ export function renderMelodyTabTimeline(
   const showStepNumbers = options.showStepNumbers ?? false;
   const showMetaDetails = options.showMetaDetails ?? false;
   const minimapRangeEditor = options.minimapRangeEditor ?? true;
+  const editingEnabled = options.editingEnabled ?? false;
   const selectedEventIndex = options.selectedEventIndex ?? null;
   const selectedNoteIndex = options.selectedNoteIndex ?? null;
   const studyRange = normalizeMelodyStudyRange(options.studyRange, melody.events.length);
   bindTimelineScrollChrome();
   bindTimelineDragPan();
+  bindTimelineSelectionClear();
   const model = buildMelodyTabTimelineViewModel(melody, instrument.STRING_ORDER, activeEventIndex, studyRange);
   const barGrouping = buildTimelineBarGrouping(melody);
   const durationLayout = computeTimelineDurationLayout(melody);
@@ -1433,6 +1755,15 @@ export function renderMelodyTabTimeline(
     .map((weight, index) => `${index}:${Math.round(weight * 100)}`)
     .join(',');
   const melodyContentSignature = buildMelodyContentSignature(melody);
+  const contextMenuSignature =
+    activeTimelineContextMenu && activeTimelineContextMenu.melodyId === melody.id
+      ? [
+          activeTimelineContextMenu.eventIndex,
+          activeTimelineContextMenu.noteIndex ?? -1,
+          Math.round(activeTimelineContextMenu.anchorX),
+          Math.round(activeTimelineContextMenu.anchorY),
+        ].join(':')
+      : 'closed';
   const renderKey = [
     melody.id,
     melody.events.length,
@@ -1453,6 +1784,7 @@ export function renderMelodyTabTimeline(
     selectedNoteIndex ?? -1,
     activeTimelineNoteDragSource?.eventIndex ?? -1,
     activeTimelineNoteDragSource?.noteIndex ?? -1,
+    contextMenuSignature,
     instrument.STRING_ORDER.join(','),
   ].join('|');
   if (renderKey === lastRenderKey && dom.melodyTabTimelineGrid.childElementCount > 0) {
@@ -1461,6 +1793,7 @@ export function renderMelodyTabTimeline(
   lastRenderKey = renderKey;
   dom.melodyTabTimelineGrid.dataset.activeEventIndex =
     model.activeEventIndex === null ? '' : String(model.activeEventIndex);
+  dom.melodyTabTimelineGrid.dataset.melodyId = melody.id;
 
   dom.melodyTabTimelinePanel.classList.remove('hidden');
   dom.melodyTabTimelineMeta.classList.toggle('hidden', !showMetaDetails);
@@ -1506,6 +1839,7 @@ export function renderMelodyTabTimeline(
       durationLayout,
       content,
       showStepNumbers,
+      editingEnabled,
       selectedEventIndex,
       selectedNoteIndex
     );
@@ -1518,12 +1852,15 @@ export function renderMelodyTabTimeline(
       durationLayout,
       content,
       showStepNumbers,
+      editingEnabled,
       selectedEventIndex,
       selectedNoteIndex
     );
   }
 
-  renderStudyRangeBar(content, melody.id, melody.events.length, getRenderedTimelineStepMetrics(content), studyRange);
+  const renderedMetrics = getRenderedTimelineStepMetrics(content);
+  renderTimelineContextMenu(melody, selectedEventIndex, { editingEnabled });
+  renderStudyRangeBar(content, melody.id, melody.events.length, renderedMetrics, studyRange);
 
   if (model.activeEventIndex !== null) {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

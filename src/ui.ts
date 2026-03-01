@@ -315,6 +315,12 @@ export function renderMelodyTabTimelineFromState() {
         );
   const inMelodyMode = isMelodyWorkflowMode(dom.trainingMode.value);
   const hasPreviewIndex = typeof state.melodyTimelinePreviewIndex === 'number';
+  const editingEnabled =
+    !!baseMelody &&
+    baseMelody.source === 'custom' &&
+    typeof baseMelody.tabText !== 'string' &&
+    state.melodyTransposeSemitones === 0 &&
+    state.melodyStringShift === 0;
 
   if (!melody || !inMelodyMode) {
     hideMelodyTabTimeline();
@@ -346,6 +352,7 @@ export function renderMelodyTabTimelineFromState() {
     showStepNumbers: state.showMelodyTimelineSteps,
     showMetaDetails: state.showMelodyTimelineDetails,
     minimapRangeEditor: dom.trainingMode.value === 'melody',
+    editingEnabled,
     selectedEventIndex: state.melodyTimelineSelectedEventIndex,
     selectedNoteIndex: state.melodyTimelineSelectedNoteIndex,
   });

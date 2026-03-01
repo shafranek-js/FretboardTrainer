@@ -92,6 +92,23 @@
   - [x] Extract post-input session activation/startup side effects from `startListening()` into `src/session-runtime-activation-executor.ts` with unit tests.
   - [x] Extract MIDI session message routing callback factory from `startListening()` into `src/midi-session-message-handler.ts` with unit tests.
   - [x] Extract timed session interval tick callback from `startListening()` into `src/timed-session-interval-handler.ts` with unit tests.
+- [ ] Continue reducing `src/controllers/session-controller.ts` into orchestration-only wiring.
+  - [x] Extract melody timeline editing model/controller/orchestrator stack with direct unit tests.
+  - [x] Extract melody demo runtime controller with direct unit tests.
+  - [x] Extract melody import preview controller with direct unit tests.
+  - [x] Extract melody event editor controller with direct unit tests.
+  - [x] Extract melody import modal controller with direct unit tests.
+  - [x] Extract melody library actions controller with direct unit tests.
+  - [x] Extract melody practice settings controller with direct unit tests.
+  - [x] Extract melody setup UI controller with direct unit tests.
+  - [x] Extract practice setup summary controller with direct unit tests.
+  - [x] Extract curriculum preset controller with direct unit tests.
+  - [x] Extract metronome / rhythm preflight controller with direct unit tests.
+  - [x] Extract mic settings / noise gate / calibration controller with direct unit tests.
+  - [x] Extract audio input / MIDI input / input-source switching controller with direct unit tests.
+  - [x] Extract melody practice action side effects (`transpose`, `string shift`, `study range`, batch transpose) with direct unit tests.
+  - [ ] Extract melody demo helper/presentation cluster (`prompt` building, BPM sync/clamp, preview rendering, audio-ready preflight).
+  - [ ] Re-evaluate remaining `session-controller` code and stop extracting once only true cross-feature orchestration remains.
 - [x] Harden DOM binding initialization (`src/state.ts`) with explicit missing-element assertions instead of unchecked casts.
   - [x] Add DOM require-helpers and convert critical session/tuner/feedback/confirm elements to explicit startup assertions.
   - [x] Expand `requireElementById` / `requireQuerySelector` usage across the full `dom` registry.

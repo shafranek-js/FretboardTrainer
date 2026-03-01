@@ -531,11 +531,6 @@
         title="TAB timeline. Inspect the active phrase and edit the study range. View mode now lives in App Settings."
         aria-label="TAB timeline"
       >
-        <div
-          id="melodyTabTimelineMinimap"
-          class="hidden"
-          aria-label="Timeline minimap"
-        ></div>
         <span id="melodyTabTimelineMeta" class="hidden text-[10px] leading-4 text-slate-300 truncate"></span>
         <div
           id="melodyTabTimelineViewport"
@@ -545,134 +540,6 @@
             id="melodyTabTimelineGrid"
             class="overflow-x-auto overflow-y-hidden"
           ></div>
-        </div>
-      </div>
-      <div
-        id="melodyTimelineEditorPanel"
-        class="hidden shrink-0 border border-cyan-500/20 bg-slate-900/55 px-1.5 py-1"
-      >
-        <div class="flex items-center gap-2 whitespace-nowrap overflow-x-auto">
-          <span id="melodyTimelineEditorStatus" class="text-[10px] leading-4 text-slate-300">Timeline note editor</span>
-          <span id="melodyTimelineEditorSelection" class="text-[10px] leading-4 text-cyan-200">Select a note on the timeline</span>
-          <span
-            id="melodyTimelineEditorShortcutHint"
-            class="text-[10px] leading-4 text-slate-400"
-            title="Shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y redo, [ ] duration, Alt+Left/Right move event, Ctrl/Cmd+D duplicate, Delete remove note, Shift+Delete remove event"
-          >
-            Z/Y Undo • [] Dur • Alt←→ Move • Del
-          </span>
-          <div class="flex items-center gap-1">
-            <button
-              id="melodyTimelineEditorDurationDownBtn"
-              type="button"
-              class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-            >
-              -
-            </button>
-            <span id="melodyTimelineEditorDuration" class="text-[10px] leading-4 text-amber-200">Duration -</span>
-            <button
-              id="melodyTimelineEditorDurationUpBtn"
-              type="button"
-              class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-            >
-              +
-            </button>
-          </div>
-          <div id="melodyTimelineEditorNoteSelector" class="flex items-center gap-1"></div>
-          <div class="field-tooltip-host min-w-[5.5rem]" data-field-hint="String">
-            <label for="melodyTimelineEditorString" class="field-tooltip-label">String</label>
-            <select
-              id="melodyTimelineEditorString"
-              class="w-full bg-slate-900 border border-slate-600 rounded-md px-2 py-1 text-[10px] focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-            ></select>
-          </div>
-          <div class="field-tooltip-host w-16" data-field-hint="Fret">
-            <label for="melodyTimelineEditorFret" class="field-tooltip-label">Fret</label>
-            <input
-              id="melodyTimelineEditorFret"
-              type="number"
-              min="0"
-              max="24"
-              class="w-full bg-slate-900 border border-slate-600 rounded-md px-2 py-1 text-[10px] focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-            />
-          </div>
-          <button
-            id="melodyTimelineEditorAddBtn"
-            type="button"
-            class="h-7 rounded-md border border-emerald-500 bg-emerald-700 px-2 text-[10px] font-semibold text-white hover:bg-emerald-600"
-          >
-            Add
-          </button>
-          <button
-            id="melodyTimelineEditorAddEventBtn"
-            type="button"
-            class="h-7 rounded-md border border-emerald-500 bg-emerald-700/80 px-2 text-[10px] font-semibold text-white hover:bg-emerald-600"
-          >
-            Event+
-          </button>
-          <button
-            id="melodyTimelineEditorDuplicateEventBtn"
-            type="button"
-            class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            Dup
-          </button>
-          <button
-            id="melodyTimelineEditorMoveEventLeftBtn"
-            type="button"
-            class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            Event&lt;
-          </button>
-          <button
-            id="melodyTimelineEditorMoveEventRightBtn"
-            type="button"
-            class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            Event&gt;
-          </button>
-          <button
-            id="melodyTimelineEditorSplitEventBtn"
-            type="button"
-            class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            Split
-          </button>
-          <button
-            id="melodyTimelineEditorMergeEventBtn"
-            type="button"
-            class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            Merge
-          </button>
-          <button
-            id="melodyTimelineEditorDeleteEventBtn"
-            type="button"
-            class="h-7 rounded-md border border-red-500 bg-red-700/80 px-2 text-[10px] font-semibold text-white hover:bg-red-600"
-          >
-            Event-
-          </button>
-          <button
-            id="melodyTimelineEditorDeleteBtn"
-            type="button"
-            class="h-7 rounded-md border border-red-500 bg-red-700 px-2 text-[10px] font-semibold text-white hover:bg-red-600"
-          >
-            Delete
-          </button>
-          <button
-            id="melodyTimelineEditorUndoBtn"
-            type="button"
-            class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            Undo
-          </button>
-          <button
-            id="melodyTimelineEditorRedoBtn"
-            type="button"
-            class="h-7 rounded-md border border-slate-500 bg-slate-700 px-2 text-[10px] font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            Redo
-          </button>
         </div>
       </div>
 
@@ -737,6 +604,18 @@
             --
           </div>
         </div>
+      </div>
+
+      <div
+        id="melodyTabTimelineMinimapDock"
+        class="hidden shrink-0 border border-cyan-500/30 bg-slate-900/70 px-1.5 py-1"
+        aria-label="Timeline minimap dock"
+      >
+        <div
+          id="melodyTabTimelineMinimap"
+          class="hidden"
+          aria-label="Timeline minimap"
+        ></div>
       </div>
 
     </div>

@@ -23,7 +23,8 @@ function getRequestMIDIAccess():
   const navigatorWithMidi = navigator as Navigator & {
     requestMIDIAccess?: (options?: MIDIOptions) => Promise<MIDIAccess>;
   };
-  return navigatorWithMidi.requestMIDIAccess ?? null;
+  if (!navigatorWithMidi.requestMIDIAccess) return null;
+  return navigatorWithMidi.requestMIDIAccess.bind(navigatorWithMidi);
 }
 
 export function supportsWebMidi() {

@@ -74,7 +74,8 @@ input[type='number'] {
 
 .session-area,
 #melodyTabTimelinePanel,
-.fretboard-area {
+.fretboard-area,
+#melodyTabTimelineMinimapDock {
   border: 1px solid var(--ff-shell-border);
   border-radius: var(--ff-shell-radius) !important;
   background: var(--ff-shell-fill) !important;
@@ -1141,6 +1142,17 @@ input[type='number'] {
 }
 
 #melodyTabTimelinePanel {
+  position: relative;
+  overflow: visible;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0.18rem !important;
+  padding-bottom: 0.18rem !important;
+  padding-left: 0.28rem !important;
+  padding-right: 0.28rem !important;
+}
+
+#melodyTabTimelineMinimapDock {
   margin-top: 0;
   margin-bottom: 0;
   padding-top: 0.18rem !important;
@@ -1152,7 +1164,8 @@ input[type='number'] {
 #melodyTabTimelinePanel h3,
 #melodyTabTimelinePanel label,
 #melodyTabTimelinePanel span,
-#melodyTabTimelinePanel select {
+#melodyTabTimelinePanel select,
+#melodyTabTimelineMinimapDock span {
   line-height: 1.1;
 }
 
@@ -1166,7 +1179,7 @@ input[type='number'] {
 #melodyTabTimelineMinimap {
   position: relative;
   display: block;
-  margin: 0 0 0.18rem 0;
+  margin: 0;
 }
 
 #melodyTabTimelineMinimap.hidden {
@@ -1445,6 +1458,88 @@ body.timeline-note-drag-active * {
   border: 1px solid rgba(34, 211, 238, 0.92);
   pointer-events: none;
   z-index: 2;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 250px;
+  padding: 0.2rem;
+  background: rgba(12, 18, 31, 0.98);
+  border: 1px solid rgba(51, 65, 85, 0.94);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.38);
+  z-index: 6;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-btn {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 32px;
+  padding: 0.35rem 0.55rem;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #e2e8f0;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-title {
+  color: #f8fafc;
+  font-size: 11px;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-description {
+  color: rgba(148, 163, 184, 0.9);
+  font-size: 10px;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-shortcut {
+  flex: 0 0 auto;
+  align-self: center;
+  color: rgba(148, 163, 184, 0.95);
+  font-size: 10px;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-section {
+  padding: 0.3rem 0.55rem 0.12rem;
+  color: rgba(148, 163, 184, 0.78);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-btn:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.88);
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-btn:disabled {
+  color: rgba(148, 163, 184, 0.5);
+  cursor: default;
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-btn:disabled .timeline-context-menu-title,
+#melodyTabTimelinePanel .timeline-context-menu-btn:disabled .timeline-context-menu-description,
+#melodyTabTimelinePanel .timeline-context-menu-btn:disabled .timeline-context-menu-shortcut {
+  color: rgba(100, 116, 139, 0.55);
+}
+
+#melodyTabTimelinePanel .timeline-context-menu-separator {
+  height: 1px;
+  margin: 0.15rem 0.35rem;
+  background: rgba(51, 65, 85, 0.9);
 }
 
 @media (pointer: fine) {
