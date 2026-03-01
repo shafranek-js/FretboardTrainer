@@ -25,3 +25,9 @@ test-results
 *.njsproj
 *.sln
 *.sw?
+
+# Local debugging artifacts
+artifacts/
+e2e/tmp-*.spec.ts
+[0-9].png
+20??-??-??_*.png
