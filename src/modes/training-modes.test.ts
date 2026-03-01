@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NATURAL_NOTES } from '../constants';
 
-const { mockDom, mockState, setPromptTextMock, getMelodyByIdMock } = vi.hoisted(() => ({
+const { mockDom, mockState, getMelodyByIdMock } = vi.hoisted(() => ({
   mockDom: {
     stringSelector: {
       querySelectorAll: vi.fn(),
@@ -49,17 +49,12 @@ const { mockDom, mockState, setPromptTextMock, getMelodyByIdMock } = vi.hoisted(
       | null,
     isListening: false,
   },
-  setPromptTextMock: vi.fn(),
   getMelodyByIdMock: vi.fn(),
 }));
 
 vi.mock('../state', () => ({
   dom: mockDom,
   state: mockState,
-}));
-
-vi.mock('../ui-signals', () => ({
-  setPromptText: setPromptTextMock,
 }));
 
 vi.mock('../melody-library', () => ({
@@ -204,7 +199,10 @@ describe('ScalePracticeMode', () => {
     const prompt = mode.generatePrompt();
 
     expect(prompt).toBeNull();
-    expect(setPromptTextMock).toHaveBeenCalledWith('Scale complete!');
+    expect(mockState.pendingSessionStopResultMessage).toEqual({
+      text: 'Scale complete!',
+      tone: 'success',
+    });
   });
 });
 

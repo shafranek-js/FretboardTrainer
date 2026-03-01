@@ -6,7 +6,6 @@ import { ITrainingMode, DetectionType } from './training-mode';
 import { Prompt } from '../types';
 import { dom, state } from '../state';
 import { SCALES } from '../constants';
-import { setPromptText } from '../ui-signals';
 import { getEnabledStrings, getSelectedFretRange } from '../fretboard-ui-state';
 import { notifyUserError } from '../user-feedback-port';
 
@@ -82,11 +81,10 @@ export class ScalePracticeMode implements ITrainingMode {
     }
 
     if (state.currentScaleIndex >= state.scaleNotes.length) {
-      setPromptText('Scale complete!');
-      setTimeout(() => {
-        // Since we can't call stopListening directly from here, we return null,
-        // and the main logic loop will handle the session stop.
-      }, 2000);
+      state.pendingSessionStopResultMessage = {
+        text: 'Scale complete!',
+        tone: 'success',
+      };
       return null; // Indicate completion
     }
 

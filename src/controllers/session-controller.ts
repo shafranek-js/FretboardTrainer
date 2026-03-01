@@ -30,7 +30,6 @@ import {
   togglePracticeSetupCollapsed,
 } from '../ui-signals';
 import { getEnabledStrings } from '../fretboard-ui-state';
-import { buildPromptAudioPlan } from '../prompt-audio-plan';
 import { type CurriculumPresetKey } from '../curriculum-presets';
 import {
   clampMetronomeBpm,
@@ -66,11 +65,9 @@ import {
   updateCustomEventMelody,
   updateCustomAsciiTabMelody,
 } from '../melody-library';
-import { getMelodyFingeredEvent } from '../melody-fingering';
 import { confirmUserAction } from '../user-feedback-port';
 import { normalizeSessionPace } from '../session-pace';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from '../mic-polyphonic-detector-ui';
-import type { ChordNote, Prompt } from '../types';
 import { parseAsciiTabToMelodyEvents } from '../ascii-tab-melody-parser';
 import {
   convertLoadedGpScoreTrackToImportedMelody,
@@ -120,59 +117,20 @@ import { createMetronomeController } from './metronome-controller';
 import { createMicSettingsController } from './mic-settings-controller';
 import { createInputDeviceController } from './input-device-controller';
 import { createMelodyPracticeActionsController } from './melody-practice-actions-controller';
+import { createMelodyDemoPresentationController } from './melody-demo-presentation-controller';
 import { DEFAULT_TABLATURE_MAX_FRET } from '../tablature-optimizer';
 import {
   buildDefaultMelodyStudyRange,
   formatMelodyStudyRange,
-  formatMelodyStudyStepLabel,
   getMelodyStudyRangeLength,
   isDefaultMelodyStudyRange,
   type MelodyStudyRange,
 } from '../melody-study-range';
 import { isMelodyWorkflowMode } from '../training-mode-groups';
 
-const MELODY_DEMO_FALLBACK_STEP_MS = 700;
-const MELODY_DEMO_MIN_STEP_MS = 160;
-const MELODY_DEMO_MAX_STEP_MS = 1800;
-const MELODY_DEMO_COLUMN_MS = 95;
-const MELODY_DEMO_MIN_BPM = 40;
-const MELODY_DEMO_MAX_BPM = 220;
-const MELODY_DEMO_DEFAULT_BPM = 90;
-
-function syncMelodyDemoBpmDisplay() {
-  dom.melodyDemoBpmValue.textContent = dom.melodyDemoBpm.value;
-}
-
 function getSelectedMelodyId() {
   const selectedMelodyId = dom.melodySelector.value.trim();
   return selectedMelodyId.length > 0 ? selectedMelodyId : null;
-}
-
-function renderMelodyDemoButtonState() {
-  const isMelodyDemoActive = melodyDemoController.isActive();
-  dom.melodyDemoBtn.textContent = isMelodyDemoActive ? 'Stop Demo' : 'Play Demo';
-  dom.melodyDemoBtn.classList.toggle('bg-emerald-700', !isMelodyDemoActive);
-  dom.melodyDemoBtn.classList.toggle('hover:bg-emerald-600', !isMelodyDemoActive);
-  dom.melodyDemoBtn.classList.toggle('border-emerald-500', !isMelodyDemoActive);
-  dom.melodyDemoBtn.classList.toggle('bg-red-700', isMelodyDemoActive);
-  dom.melodyDemoBtn.classList.toggle('hover:bg-red-600', isMelodyDemoActive);
-  dom.melodyDemoBtn.classList.toggle('border-red-500', isMelodyDemoActive);
-  dom.melodyPauseDemoBtn.textContent = melodyDemoController.isPaused() ? 'Resume' : 'Pause';
-  dom.melodyPauseDemoBtn.disabled = !isMelodyDemoActive;
-  dom.melodyPauseDemoBtn.classList.toggle('bg-amber-700', !melodyDemoController.isPaused());
-  dom.melodyPauseDemoBtn.classList.toggle('hover:bg-amber-600', !melodyDemoController.isPaused());
-  dom.melodyPauseDemoBtn.classList.toggle('border-amber-500', !melodyDemoController.isPaused());
-  dom.melodyPauseDemoBtn.classList.toggle('bg-cyan-700', melodyDemoController.isPaused());
-  dom.melodyPauseDemoBtn.classList.toggle('hover:bg-cyan-600', melodyDemoController.isPaused());
-  dom.melodyPauseDemoBtn.classList.toggle('border-cyan-500', melodyDemoController.isPaused());
-  const selectedMelodyId = dom.melodySelector.value;
-  const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
-  dom.melodyPlaybackControls.classList.toggle('hidden', !isMelodyWorkflowMode(dom.trainingMode.value));
-  const canStep = Boolean(melody) && !isMelodyDemoActive;
-  dom.melodyStepBackBtn.disabled = !canStep;
-  dom.melodyStepForwardBtn.disabled = !canStep;
-  dom.melodyLoopRange.disabled = !melody;
-  syncMelodyLoopRangeDisplay();
 }
 
 function cloneMelodyEventsDraft(events: MelodyEvent[]) {
@@ -391,91 +349,6 @@ const mergeSelectedMelodyTimelineEventWithNext = () => melodyTimelineEditingOrch
 const undoMelodyTimelineEditingMutation = () => melodyTimelineEditingOrchestrator.undo();
 const redoMelodyTimelineEditingMutation = () => melodyTimelineEditingOrchestrator.redo();
 
-function formatMelodyDemoEventHint(event: MelodyEvent) {
-  return event.notes
-    .map((note) => {
-      if (note.stringName !== null && typeof note.fret === 'number') {
-        return `${note.note} (${note.stringName}, fret ${note.fret})`;
-      }
-      return note.note;
-    })
-    .join(' + ');
-}
-
-function buildMelodyDemoPrompt(
-  melodyName: string,
-  event: MelodyEvent,
-  eventIndexInRange: number,
-  totalEventsInRange: number,
-  studyRange: MelodyStudyRange,
-  totalMelodyEvents: number,
-  fingering: ChordNote[],
-  options?: { label?: string }
-): Prompt {
-  const isPolyphonic = event.notes.length > 1;
-  const first = event.notes[0] ?? null;
-  const stepLabel = formatMelodyStudyStepLabel(
-    eventIndexInRange,
-    totalEventsInRange,
-    studyRange,
-    totalMelodyEvents
-  );
-  const prefixLabel = options?.label ?? 'Demo';
-
-  return {
-    displayText: `${prefixLabel} ${stepLabel}: ${formatMelodyDemoEventHint(event)} (${melodyName})`,
-    targetNote: isPolyphonic ? null : (first?.note ?? null),
-    targetString: isPolyphonic ? null : (first?.stringName ?? null),
-    targetChordNotes: isPolyphonic ? [...new Set(event.notes.map((note) => note.note))] : [],
-    targetChordFingering: isPolyphonic ? fingering : [],
-    targetMelodyEventNotes: fingering,
-    baseChordName: null,
-  };
-}
-
-function getClampedMelodyDemoBpmFromInput() {
-  const parsed = Number.parseInt(dom.melodyDemoBpm.value, 10);
-  const clamped = Number.isFinite(parsed)
-    ? Math.max(MELODY_DEMO_MIN_BPM, Math.min(MELODY_DEMO_MAX_BPM, parsed))
-    : MELODY_DEMO_DEFAULT_BPM;
-  dom.melodyDemoBpm.value = String(clamped);
-  syncMelodyDemoBpmDisplay();
-  return clamped;
-}
-
-function getMelodyDemoStepDelayMs(event: MelodyEvent) {
-  if (typeof event.durationBeats === 'number' && Number.isFinite(event.durationBeats) && event.durationBeats > 0) {
-    const bpm = getClampedMelodyDemoBpmFromInput();
-    const beatMs = 60000 / bpm;
-    const computedFromBeats = Math.round(event.durationBeats * beatMs);
-    return Math.max(MELODY_DEMO_MIN_STEP_MS, Math.min(MELODY_DEMO_MAX_STEP_MS, computedFromBeats));
-  }
-
-  const durationColumns = Math.max(1, event.durationColumns ?? 0);
-  const computed = Math.round(durationColumns * MELODY_DEMO_COLUMN_MS);
-  return Math.max(
-    MELODY_DEMO_MIN_STEP_MS,
-    Math.min(MELODY_DEMO_MAX_STEP_MS, computed || MELODY_DEMO_FALLBACK_STEP_MS)
-  );
-}
-
-function playPromptAudioFromPrompt(prompt: Prompt) {
-  const audioPlan = buildPromptAudioPlan({
-    prompt,
-    trainingMode: 'melody',
-    autoPlayPromptSoundEnabled: true,
-    instrument: state.currentInstrument,
-    calibratedA4: state.calibratedA4,
-    enabledStrings: getEnabledStrings(dom.stringSelector),
-  });
-
-  if (audioPlan.notesToPlay.length === 1) {
-    playSound(audioPlan.notesToPlay[0]);
-  } else if (audioPlan.notesToPlay.length > 1) {
-    playSound(audioPlan.notesToPlay);
-  }
-}
-
 function getSelectedMelodyForDemoControls() {
   const selectedMelodyId = dom.melodySelector.value;
   if (!selectedMelodyId) {
@@ -503,59 +376,43 @@ function getSelectedMelodyForDemoControls() {
   };
 }
 
-async function ensureMelodyDemoAudioReady() {
-  try {
-    await loadInstrumentSoundfont(state.currentInstrument.name);
-    if (state.audioContext?.state === 'suspended') {
-      await state.audioContext.resume();
-    }
-  } catch (error) {
-    showNonBlockingError(formatUserFacingError('Failed to initialize sound for melody playback', error));
-  }
-}
+let melodyDemoController: ReturnType<typeof createMelodyDemoController> | null = null;
 
-function previewMelodyDemoEvent(
-  melodyEvents: MelodyEvent[],
-  melodyName: string,
-  event: MelodyEvent,
-  eventIndex: number,
-  totalEventsInRange: number,
-  studyRange: MelodyStudyRange,
-  options?: { label?: string; autoplaySound?: boolean }
-) {
-  state.melodyTimelinePreviewIndex = eventIndex;
-  state.melodyTimelinePreviewLabel = options?.label ?? 'Demo';
-  const fingering = getMelodyFingeredEvent(melodyEvents, eventIndex);
-  const prompt = buildMelodyDemoPrompt(
-    melodyName,
-    event,
-    eventIndex - studyRange.startIndex,
-    totalEventsInRange,
-    studyRange,
-    melodyEvents.length,
-    fingering,
-    {
-    label: options?.label,
-    }
-  );
-  setPromptText(prompt.displayText);
+const melodyDemoPresentationController = createMelodyDemoPresentationController({
+  dom: {
+    melodyDemoBpm: dom.melodyDemoBpm,
+    melodyDemoBpmValue: dom.melodyDemoBpmValue,
+    melodyDemoBtn: dom.melodyDemoBtn,
+    melodyPauseDemoBtn: dom.melodyPauseDemoBtn,
+    melodyStepBackBtn: dom.melodyStepBackBtn,
+    melodyStepForwardBtn: dom.melodyStepForwardBtn,
+    melodyLoopRange: dom.melodyLoopRange,
+    melodyPlaybackControls: dom.melodyPlaybackControls,
+    trainingMode: dom.trainingMode,
+    stringSelector: dom.stringSelector,
+  },
+  state,
+  getSelectedMelody: () => {
+    const selectedMelodyId = getSelectedMelodyId();
+    return selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+  },
+  isMelodyWorkflowMode,
+  isDemoActive: () => melodyDemoController?.isActive() ?? false,
+  isDemoPaused: () => melodyDemoController?.isPaused() ?? false,
+  syncLoopRangeDisplay: () => syncMelodyLoopRangeDisplay(),
+  loadInstrumentSoundfont,
+  showNonBlockingError,
+  formatUserFacingError,
+  getEnabledStrings,
+  playSound,
+  setPromptText,
+  drawFretboard,
+  redrawFretboard,
+  renderTimeline: renderMelodyTabTimelineFromState,
+  findPlayableStringForNote,
+});
 
-  if ((prompt.targetMelodyEventNotes?.length ?? 0) >= 1) {
-    drawFretboard(false, null, null, prompt.targetMelodyEventNotes ?? []);
-  } else if (prompt.targetNote) {
-    drawFretboard(false, prompt.targetNote, prompt.targetString || findPlayableStringForNote(prompt.targetNote));
-  } else {
-    redrawFretboard();
-  }
-
-  if (options?.autoplaySound !== false) {
-    playPromptAudioFromPrompt(prompt);
-  }
-
-  renderMelodyTabTimelineFromState();
-}
-
-const melodyDemoController = createMelodyDemoController({
+melodyDemoController = createMelodyDemoController({
   getSelection: getSelectedMelodyForDemoControls,
   getLoopRangeEnabled: () => state.melodyLoopRangeEnabled,
   isListening: () => state.isListening,
@@ -568,9 +425,9 @@ const melodyDemoController = createMelodyDemoController({
     state.currentMelodyId = selection.melody.id;
     return seekActiveMelodySessionToEvent(eventIndex);
   },
-  ensureAudioReady: ensureMelodyDemoAudioReady,
-  previewEvent: previewMelodyDemoEvent,
-  getStepDelayMs: getMelodyDemoStepDelayMs,
+  ensureAudioReady: melodyDemoPresentationController.ensureAudioReady,
+  previewEvent: melodyDemoPresentationController.previewEvent,
+  getStepDelayMs: melodyDemoPresentationController.getStepDelayMs,
   getStudyRangeLength: getMelodyStudyRangeLength,
   formatStudyRange: formatMelodyStudyRange,
   clearUiPreview: () => {
@@ -579,7 +436,7 @@ const melodyDemoController = createMelodyDemoController({
     setPromptText('');
   },
   redrawFretboard,
-  onStateChange: renderMelodyDemoButtonState,
+  onStateChange: melodyDemoPresentationController.renderButtonState,
   setResultMessage,
 });
 
@@ -1012,7 +869,7 @@ async function ensureRhythmModeMetronome() {
 export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
-  dom.melodyDemoBpm.value = String(getClampedMelodyDemoBpmFromInput());
+  dom.melodyDemoBpm.value = String(melodyDemoPresentationController.getClampedBpmFromInput());
   state.melodyTransposeById = state.melodyTransposeById ?? {};
   state.melodyStringShiftById = state.melodyStringShiftById ?? {};
   state.melodyStudyRangeById = state.melodyStudyRangeById ?? {};
@@ -1021,7 +878,7 @@ export function registerSessionControls() {
   dom.showTimelineSteps.checked = state.showMelodyTimelineSteps;
   dom.showTimelineDetails.checked = state.showMelodyTimelineDetails;
   syncMetronomeBpmDisplay();
-  syncMelodyDemoBpmDisplay();
+  melodyDemoPresentationController.syncBpmDisplay();
   refreshMelodyOptionsForCurrentInstrument();
   setMelodyTimelineStudyRangeCommitHandler(({ melodyId, range }) => {
     if (melodyId !== getSelectedMelodyId()) return;
@@ -1036,7 +893,7 @@ export function registerSessionControls() {
   });
   melodyImportModalController.resetDraft();
   melodyImportModalController.syncUi();
-  renderMelodyDemoButtonState();
+  melodyDemoPresentationController.renderButtonState();
   resetMetronomeVisualIndicator();
   updateMicNoiseGateInfo();
   refreshMicPolyphonicDetectorAudioInfoUi();
@@ -1375,7 +1232,7 @@ export function registerSessionControls() {
     }
   });
   dom.melodyDemoBpm.addEventListener('input', () => {
-    getClampedMelodyDemoBpmFromInput();
+    melodyDemoPresentationController.getClampedBpmFromInput();
   });
   dom.openMelodyImportBtn.addEventListener('click', () => {
     stopMelodyDemoPlayback({ clearUi: true });

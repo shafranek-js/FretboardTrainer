@@ -74,8 +74,8 @@
 - [x] Add in-session melody TAB timeline panel with active-step highlight and finger-color note chips synchronized with demo/session step progression.
 - [x] Add DAW-style melody study-range editing with draggable timeline handles and movable selected range bar.
 - [x] Add `Loop Range` toggle for melody demo playback over the selected study fragment.
-- [ ] Tighten training-mode contract so `generatePrompt()` stays side-effect free (no direct UI writes on completion/error paths).
-- [ ] Reduce `src/logic.ts` orchestration size by extracting session lifecycle/error-reporting helpers.
+- [x] Tighten training-mode contract so `generatePrompt()` stays side-effect free (no direct UI writes on completion/error paths).
+- [x] Reduce `src/logic.ts` orchestration size by extracting session lifecycle/error-reporting helpers.
   - [x] Extract rhythm timing evaluation/formatting helpers into `src/rhythm-timing.ts` with unit tests.
   - [x] Extract session goal mapping/formatting helpers into `src/session-goal.ts` with unit tests.
   - [x] Extract timeout/cooldown registry helpers into `src/session-timeouts.ts` with unit tests.
@@ -92,7 +92,13 @@
   - [x] Extract post-input session activation/startup side effects from `startListening()` into `src/session-runtime-activation-executor.ts` with unit tests.
   - [x] Extract MIDI session message routing callback factory from `startListening()` into `src/midi-session-message-handler.ts` with unit tests.
   - [x] Extract timed session interval tick callback from `startListening()` into `src/timed-session-interval-handler.ts` with unit tests.
-- [ ] Continue reducing `src/controllers/session-controller.ts` into orchestration-only wiring.
+  - [x] Extract performance prompt lifecycle (`resolve success`, scheduled miss/advance, run-token invalidation) into `src/performance-prompt-controller.ts` with unit tests.
+  - [x] Extract wrong-note highlight / octave-mismatch helpers into `src/detected-note-feedback.ts` with unit tests.
+  - [x] Extract polyphonic melody mismatch feedback/cooldown handling into `src/melody-polyphonic-feedback-controller.ts` with unit tests.
+  - [x] Extract stable monophonic note handling (free/rhythm/performance/polyphonic-melody branches) into `src/stable-monophonic-detection-controller.ts` with unit tests.
+  - [x] Extract polyphonic melody runtime detection (`mic` + `MIDI` branches) into `src/melody-runtime-detection-controller.ts` with unit tests.
+  - [x] Extract polyphonic chord runtime detection (`audio` + `MIDI` chord branches) into `src/polyphonic-chord-detection-controller.ts` with unit tests.
+- [x] Continue reducing `src/controllers/session-controller.ts` into orchestration-only wiring.
   - [x] Extract melody timeline editing model/controller/orchestrator stack with direct unit tests.
   - [x] Extract melody demo runtime controller with direct unit tests.
   - [x] Extract melody import preview controller with direct unit tests.
@@ -107,8 +113,8 @@
   - [x] Extract mic settings / noise gate / calibration controller with direct unit tests.
   - [x] Extract audio input / MIDI input / input-source switching controller with direct unit tests.
   - [x] Extract melody practice action side effects (`transpose`, `string shift`, `study range`, batch transpose) with direct unit tests.
-  - [ ] Extract melody demo helper/presentation cluster (`prompt` building, BPM sync/clamp, preview rendering, audio-ready preflight).
-  - [ ] Re-evaluate remaining `session-controller` code and stop extracting once only true cross-feature orchestration remains.
+  - [x] Extract melody demo helper/presentation cluster (`prompt` building, BPM sync/clamp, preview rendering, audio-ready preflight).
+  - [x] Re-evaluate remaining `session-controller` code and stop extracting once only true cross-feature orchestration remains.
 - [x] Harden DOM binding initialization (`src/state.ts`) with explicit missing-element assertions instead of unchecked casts.
   - [x] Add DOM require-helpers and convert critical session/tuner/feedback/confirm elements to explicit startup assertions.
   - [x] Expand `requireElementById` / `requireQuerySelector` usage across the full `dom` registry.

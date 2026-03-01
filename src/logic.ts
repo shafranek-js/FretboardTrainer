@@ -40,7 +40,6 @@ import {
 } from './constants';
 import { getEnabledStrings, getSelectedFretRange } from './fretboard-ui-state';
 import { buildPromptAudioPlan } from './prompt-audio-plan';
-import { resolvePromptTargetPosition } from './prompt-audio';
 import {
   createPromptCycleTrackingResetState,
   createStabilityTrackingResetState,
@@ -50,10 +49,6 @@ import { buildSessionStartPlan } from './session-start-preflight';
 import { ensureAudioRuntime, teardownAudioRuntime } from './audio-runtime';
 import { refreshAudioInputDeviceOptions } from './audio-input-devices';
 import { startMidiInput, stopMidiInput, type MidiNoteEvent } from './midi-runtime';
-import {
-  areMidiHeldNotesMatchingTargetChord,
-  formatDetectedMidiChordNotes,
-} from './midi-chord-evaluation';
 import { buildSessionNextPromptPlan } from './session-next-prompt-plan';
 import {
   computeCalibratedA4FromSamples,
@@ -68,7 +63,6 @@ import {
 import { getMetronomeTimingSnapshot } from './metronome';
 import { formatUserFacingError, showNonBlockingError } from './app-feedback';
 import { evaluateRhythmTiming, formatRhythmFeedback } from './rhythm-timing';
-import { buildSuccessInfoSlots } from './session-result';
 import {
   formatSessionGoalProgress,
   getSessionGoalTargetCorrect,
@@ -80,13 +74,7 @@ import {
 } from './session-timeouts';
 import { clearLiveDetectedHighlight, updateLiveDetectedHighlight } from './live-detected-highlight';
 import { createSessionRuntimeErrorHandler } from './session-runtime-error-handler';
-import {
-  buildAudioPolyphonicReactionPlan,
-  buildAudioMonophonicReactionPlan,
-  buildCalibrationFrameReactionPlan,
-  buildMidiPolyphonicReactionPlan,
-  buildStableMonophonicReactionPlan,
-} from './session-detection-reactions';
+import { buildAudioMonophonicReactionPlan, buildCalibrationFrameReactionPlan } from './session-detection-reactions';
 import { executeSessionNextPromptPlan } from './session-next-prompt-executor';
 import {
   buildFinishCalibrationOutcome,
@@ -96,7 +84,6 @@ import { executePromptAudioPlan } from './prompt-audio-executor';
 import { executeSessionTimeUpPlan } from './session-timeup-executor';
 import {
   executeAudioMonophonicReaction,
-  executeAudioPolyphonicReaction,
   executeCalibrationFrameReaction,
 } from './process-audio-reaction-executors';
 import { executeDisplayResultSuccessFlow } from './display-result-success-flow-executor';
@@ -111,6 +98,15 @@ import { shouldAcceptMicNoteByHoldDuration } from './mic-note-hold-filter';
 import { detectMicPolyphonicFrame } from './mic-polyphonic-detector';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from './mic-polyphonic-detector-ui';
 import { isMelodyWorkflowMode } from './training-mode-groups';
+import { createPerformancePromptController } from './performance-prompt-controller';
+import {
+  detectMonophonicOctaveMismatch as detectMonophonicOctaveMismatchHelper,
+  resolveWrongDetectedHighlight,
+} from './detected-note-feedback';
+import { createMelodyPolyphonicFeedbackController } from './melody-polyphonic-feedback-controller';
+import { createStableMonophonicDetectionController } from './stable-monophonic-detection-controller';
+import { createMelodyRuntimeDetectionController } from './melody-runtime-detection-controller';
+import { createPolyphonicChordDetectionController } from './polyphonic-chord-detection-controller';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -119,7 +115,6 @@ const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   setStatusText,
   setResultMessage,
 });
-let performancePromptRunToken = 0;
 
 function resetMicPolyphonicDetectorTelemetry() {
   state.lastMicPolyphonicDetectorProviderUsed = null;
@@ -192,102 +187,25 @@ function updateSessionGoalProgressFromActiveStats() {
   );
 }
 
-function recordPerformancePromptOutcome(correct: boolean, elapsedSeconds: number) {
-  const prompt = state.currentPrompt;
-  if (!prompt) return;
-
-  recordSessionAttempt(state.activeSessionStats, prompt, correct, elapsedSeconds, state.currentInstrument);
-  updateStats(correct, elapsedSeconds);
-  updateSessionGoalProgressFromActiveStats();
-
-  if (!correct) return;
-
-  const infoSlots = buildSuccessInfoSlots(prompt);
-  if (infoSlots.slot1 || infoSlots.slot2 || infoSlots.slot3) {
-    setInfoSlots(infoSlots.slot1, infoSlots.slot2, infoSlots.slot3);
-  }
-
-  if (state.showingAllNotes) {
-    redrawFretboard();
-    return;
-  }
-
-  const melodyFingering = prompt.targetMelodyEventNotes ?? [];
-  if (melodyFingering.length > 0) {
-    drawFretboard(false, null, null, melodyFingering, new Set(melodyFingering.map((note) => note.note)));
-    return;
-  }
-
-  if (prompt.targetChordNotes.length > 0) {
-    drawFretboard(false, null, null, prompt.targetChordFingering, new Set(prompt.targetChordNotes));
-    return;
-  }
-
-  drawFretboard(false, prompt.targetNote, prompt.targetString);
-}
-
-function resolvePerformancePromptSuccess(elapsedSeconds: number) {
-  if (dom.trainingMode.value !== 'performance' || !state.currentPrompt || state.performancePromptResolved) {
-    return;
-  }
-
-  clearWrongDetectedHighlight();
-  state.performancePromptResolved = true;
-  state.performancePromptMatched = true;
-  recordPerformancePromptOutcome(true, elapsedSeconds);
-  setResultMessage(`Hit: ${elapsedSeconds.toFixed(2)}s`, 'success');
-}
-
-function schedulePerformancePromptAdvance(prompt: Prompt) {
-  if (dom.trainingMode.value !== 'performance') return;
-
-  const durationMs =
-    typeof prompt.melodyEventDurationMs === 'number' && Number.isFinite(prompt.melodyEventDurationMs)
-      ? Math.max(1, Math.round(prompt.melodyEventDurationMs))
-      : 700;
-  const runToken = ++performancePromptRunToken;
-
-  state.performancePromptResolved = false;
-  state.performancePromptMatched = false;
-
-  scheduleSessionTimeout(
-    durationMs,
-    () => {
-      if (!state.isListening || dom.trainingMode.value !== 'performance') return;
-      if (runToken !== performancePromptRunToken) return;
-      if (state.currentPrompt !== prompt) return;
-
-      if (!state.performancePromptResolved) {
-        state.performancePromptResolved = true;
-        state.performancePromptMatched = false;
-        recordPerformancePromptOutcome(false, 0);
-        setResultMessage('Missed event.', 'error');
-        redrawFretboard();
-      }
-
-      nextPrompt();
-    },
-    'performance nextPrompt'
-  );
-}
+const performancePromptController = createPerformancePromptController({
+  state,
+  getTrainingMode: () => dom.trainingMode.value,
+  clearWrongDetectedHighlight: () => clearWrongDetectedHighlight(),
+  recordSessionAttempt,
+  updateStats,
+  updateSessionGoalProgress: updateSessionGoalProgressFromActiveStats,
+  setInfoSlots,
+  redrawFretboard,
+  drawFretboard,
+  setResultMessage,
+  scheduleSessionTimeout,
+  nextPrompt,
+});
 
 function isPolyphonicMelodyPrompt(prompt: Prompt | null): prompt is Prompt & {
   targetMelodyEventNotes: NonNullable<Prompt['targetMelodyEventNotes']>;
 } {
   return Boolean(prompt && (prompt.targetMelodyEventNotes?.length ?? 0) > 1);
-}
-
-function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
-  if (prompt.targetChordNotes.length > 0) return [...new Set(prompt.targetChordNotes)];
-  return [...new Set((prompt.targetMelodyEventNotes ?? []).map((note) => note.note))];
-}
-
-function setsEqual<T>(a: Set<T>, b: Set<T>) {
-  if (a.size !== b.size) return false;
-  for (const value of a) {
-    if (!b.has(value)) return false;
-  }
-  return true;
 }
 
 function updateMicPolyphonicDetectorRuntimeStatusFromResult(
@@ -340,344 +258,63 @@ function clearWrongDetectedHighlight(redraw = false) {
   }
 }
 
-function resolveDetectedScientificPosition(
-  detectedScientificNote: string,
-  enabledStrings: Set<string>,
-  maxFret = 24
-) {
-  for (const stringName of state.currentInstrument.STRING_ORDER) {
-    if (!enabledStrings.has(stringName)) continue;
-    for (let fret = 0; fret <= maxFret; fret++) {
-      const noteWithOctave = state.currentInstrument.getNoteWithOctave(stringName, fret);
-      if (noteWithOctave === detectedScientificNote) {
-        return { stringName, fret };
-      }
-    }
-  }
-  return null;
-}
-
 function setWrongDetectedHighlight(detectedNote: string, detectedFrequency?: number | null) {
   const enabledStrings = getEnabledStrings(dom.stringSelector);
-  const detectedScientific =
-    typeof detectedFrequency === 'number' && detectedFrequency > 0
-      ? freqToScientificNoteName(detectedFrequency)
-      : null;
-  const exactResolved = detectedScientific
-    ? resolveDetectedScientificPosition(detectedScientific, enabledStrings)
-    : null;
-  const resolved = resolvePromptTargetPosition({
-    targetNote: detectedNote,
-    preferredString: null,
+  const highlight = resolveWrongDetectedHighlight({
+    detectedNote,
+    detectedFrequency,
     enabledStrings,
     instrument: state.currentInstrument,
+    freqToScientificNoteName,
   });
 
-  state.wrongDetectedNote = detectedNote;
-  state.wrongDetectedString = exactResolved?.stringName ?? resolved?.stringName ?? null;
-  state.wrongDetectedFret = exactResolved?.fret ?? resolved?.fret ?? null;
-}
-
-function stripScientificOctave(noteWithOctave: string) {
-  return noteWithOctave.replace(/-?\d+$/, '');
+  state.wrongDetectedNote = highlight.wrongDetectedNote;
+  state.wrongDetectedString = highlight.wrongDetectedString;
+  state.wrongDetectedFret = highlight.wrongDetectedFret;
 }
 
 function detectMonophonicOctaveMismatch(
   detectedNote: string,
   detectedFrequency?: number | null
-): { detectedScientific: string; targetScientific: string } | null {
-  const prompt = state.currentPrompt;
-  if (!prompt?.targetNote || !prompt.targetString) return null;
-  if (typeof detectedFrequency !== 'number' || !Number.isFinite(detectedFrequency) || detectedFrequency <= 0) {
-    return null;
-  }
-  if (!Number.isFinite(state.targetFrequency) || !state.targetFrequency || state.targetFrequency <= 0) {
-    return null;
-  }
-
-  const detectedScientific = freqToScientificNoteName(detectedFrequency);
-  const targetScientific = freqToScientificNoteName(state.targetFrequency);
-  if (!detectedScientific || !targetScientific) return null;
-  if (stripScientificOctave(detectedScientific) !== detectedNote) return null;
-  if (stripScientificOctave(targetScientific) !== prompt.targetNote) return null;
-  if (detectedScientific === targetScientific) return null;
-  return { detectedScientific, targetScientific };
-}
-
-function handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, context: string) {
-  state.currentMelodyEventFoundNotes.clear();
-  redrawFretboard();
-  recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
-  setResultMessage(`Heard: ${detectedText} [wrong]`, 'error');
-  if (state.showingAllNotes) return;
-
-  const fingering = prompt.targetMelodyEventNotes ?? prompt.targetChordFingering;
-  drawFretboard(false, null, null, fingering, new Set());
-  scheduleSessionCooldown(context, 1200, () => {
-    redrawFretboard();
-  });
-}
-
-function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
-  const prompt = state.currentPrompt;
-  if (!isPolyphonicMelodyPrompt(prompt) || !state.analyser || !state.audioContext) return false;
-  const trainingMode = dom.trainingMode.value;
-
-  state.analyser.getFloatFrequencyData(state.frequencyDataArray!);
-  const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
-  const polyphonicDetectorStartedAt = performance.now();
-  const polyphonicResult = detectMicPolyphonicFrame({
-    spectrum: state.frequencyDataArray!,
-    timeDomainData: state.dataArray ?? undefined,
-    frameVolumeRms,
-    timestampMs: Date.now(),
-    sampleRate: state.audioContext.sampleRate,
-    fftSize: state.analyser.fftSize,
-    calibratedA4: state.calibratedA4,
-    lastDetectedChord: state.lastDetectedChord,
-    stableChordCounter: state.stableChordCounter,
-    requiredStableFrames: REQUIRED_STABLE_FRAMES,
-    targetChordNotes: targetPitchClasses,
-    provider: state.micPolyphonicDetectorProvider,
-  });
-  state.lastDetectedChord = polyphonicResult.detectedNotesText;
-  state.stableChordCounter = polyphonicResult.nextStableChordCounter;
-  updateMicPolyphonicDetectorRuntimeStatusFromResult(
-    polyphonicResult,
-    performance.now() - polyphonicDetectorStartedAt
-  );
-
-  const detectedNotes = polyphonicResult.detectedNoteNames;
-  const matchedTargetNotes = detectedNotes.filter((note) => targetPitchClasses.includes(note));
-  const nextFoundNotes = new Set(matchedTargetNotes);
-  if (!setsEqual(state.currentMelodyEventFoundNotes, nextFoundNotes)) {
-    state.currentMelodyEventFoundNotes = nextFoundNotes;
-    redrawFretboard();
-  }
-
-  if (trainingMode === 'performance') {
-    if (state.performancePromptResolved) return true;
-
-    if (polyphonicResult.isStableMatch) {
-      const elapsed = (Date.now() - state.startTime) / 1000;
-      resolvePerformancePromptSuccess(elapsed);
-      return true;
-    }
-
-    if (detectedNotes.length > 0) {
-      const hasOutOfTargetNotes = detectedNotes.some((note) => !targetPitchClasses.includes(note));
-      if (!hasOutOfTargetNotes && matchedTargetNotes.length < targetPitchClasses.length) {
-        setResultMessage(`Heard: ${polyphonicResult.detectedNotesText} [${matchedTargetNotes.length}/${targetPitchClasses.length}]`);
-        return true;
-      }
-      if (hasOutOfTargetNotes) {
-        setResultMessage(`Heard: ${polyphonicResult.detectedNotesText || '...'} [off target]`, 'error');
-      }
-    }
-
-    return true;
-  }
-
-  if (polyphonicResult.isStableMatch) {
-    const elapsed = (Date.now() - state.startTime) / 1000;
-    displayResult(true, elapsed);
-    return true;
-  }
-
-  if (detectedNotes.length > 0) {
-    const hasOutOfTargetNotes = detectedNotes.some((note) => !targetPitchClasses.includes(note));
-    if (!hasOutOfTargetNotes && matchedTargetNotes.length < targetPitchClasses.length) {
-      setResultMessage(`Heard: ${polyphonicResult.detectedNotesText} [${matchedTargetNotes.length}/${targetPitchClasses.length}]`);
-      return true;
-    }
-  }
-
-  if (polyphonicResult.isStableMismatch) {
-    handleMelodyPolyphonicMismatch(
-      prompt,
-      polyphonicResult.detectedNotesText || '...',
-      'mic melody polyphonic mismatch redraw'
-    );
-    return true;
-  }
-
-  return true;
-}
-
-function handleMidiMelodyUpdate(event: MidiNoteEvent) {
-  const prompt = state.currentPrompt;
-  if (!prompt) return;
-  const trainingMode = dom.trainingMode.value;
-
-  if (!isPolyphonicMelodyPrompt(prompt)) {
-    if (event.kind === 'noteoff') return;
-    handleStableMonophonicDetectedNote(event.noteName);
-    return;
-  }
-
-  const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
-  const heldNoteNames = event.heldNoteNames;
-  const detectedNotesText = formatDetectedMidiChordNotes(heldNoteNames);
-  const matchedHeldTargetNotes = heldNoteNames.filter((note) => targetPitchClasses.includes(note));
-  state.currentMelodyEventFoundNotes = new Set(matchedHeldTargetNotes);
-  redrawFretboard();
-
-  if (event.kind === 'noteoff' && heldNoteNames.length === 0) {
-    return;
-  }
-
-  if (trainingMode === 'performance') {
-    if (state.performancePromptResolved) return;
-
-    if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetPitchClasses)) {
-      const elapsed = (Date.now() - state.startTime) / 1000;
-      resolvePerformancePromptSuccess(elapsed);
-      return;
-    }
-
-    const heldUniqueCount = new Set(heldNoteNames).size;
-    if (heldUniqueCount < targetPitchClasses.length) {
-      setResultMessage(`Heard: ${detectedNotesText} [${state.currentMelodyEventFoundNotes.size}/${targetPitchClasses.length}]`);
-      return;
-    }
-
-    setResultMessage(`Heard: ${detectedNotesText} [off target]`, 'error');
-    return;
-  }
-
-  if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetPitchClasses)) {
-    const elapsed = (Date.now() - state.startTime) / 1000;
-    displayResult(true, elapsed);
-    return;
-  }
-
-  const heldUniqueCount = new Set(heldNoteNames).size;
-  if (heldUniqueCount < targetPitchClasses.length) {
-    setResultMessage(`Heard: ${detectedNotesText} [${state.currentMelodyEventFoundNotes.size}/${targetPitchClasses.length}]`);
-    return;
-  }
-
-  handleMelodyPolyphonicMismatch(prompt, detectedNotesText, 'midi melody polyphonic mismatch redraw');
-}
-
-function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
-  const prompt = state.currentPrompt;
-  const heldNoteNames = event.heldNoteNames;
-  const targetChordNotes = prompt?.targetChordNotes ?? [];
-
-  const detectedNotesText = formatDetectedMidiChordNotes(heldNoteNames);
-  state.lastDetectedChord = detectedNotesText;
-
-  const reactionPlan = buildMidiPolyphonicReactionPlan({
-    hasPrompt: Boolean(prompt),
-    targetChordNotes,
-    eventKind: event.kind,
-    heldNoteNames,
-    matchesTargetChord: areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetChordNotes),
-  });
-
-  if (reactionPlan.kind === 'ignore' || reactionPlan.kind === 'wait_for_more_notes') {
-    return;
-  }
-
-  if (reactionPlan.kind === 'success') {
-    const elapsed = (Date.now() - state.startTime) / 1000;
-    displayResult(true, elapsed);
-    return;
-  }
-  if (!prompt) return;
-
-  recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
-  setResultMessage(`Heard: ${detectedNotesText} [wrong]`, 'error');
-  if (!state.showingAllNotes) {
-    drawFretboard(false, null, null, prompt.targetChordFingering, new Set());
-    scheduleSessionCooldown('midi polyphonic mismatch redraw', reactionPlan.cooldownDelayMs, () => {
-      redrawFretboard();
-    });
-  }
-}
-
-function handleStableMonophonicDetectedNote(detectedNote: string, detectedFrequency?: number | null) {
-  const trainingMode = dom.trainingMode.value;
-  const prompt = state.currentPrompt;
-  if (isMelodyWorkflowMode(trainingMode) && prompt && isPolyphonicMelodyPrompt(prompt)) {
-    const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
-    if (trainingMode === 'performance' && state.performancePromptResolved) {
-      return;
-    }
-    if (!targetPitchClasses.includes(detectedNote)) {
-      if (trainingMode === 'performance') {
-        setResultMessage(`Heard: ${detectedNote} [off target]`, 'error');
-        return;
-      }
-      handleMelodyPolyphonicMismatch(prompt, detectedNote, 'melody polyphonic mismatch redraw');
-      return;
-    }
-
-    const wasAlreadyFound = state.currentMelodyEventFoundNotes.has(detectedNote);
-    state.currentMelodyEventFoundNotes.add(detectedNote);
-    redrawFretboard();
-
-    const foundCount = state.currentMelodyEventFoundNotes.size;
-    if (foundCount < targetPitchClasses.length) {
-      if (!wasAlreadyFound) {
-        setResultMessage(
-          `Heard: ${detectedNote} [${foundCount}/${targetPitchClasses.length}] (mic poly mode: play remaining notes one by one)`
-        );
-      }
-      return;
-    }
-
-    const elapsed = (Date.now() - state.startTime) / 1000;
-    if (trainingMode === 'performance') {
-      resolvePerformancePromptSuccess(elapsed);
-    } else {
-      displayResult(true, elapsed);
-    }
-    return;
-  }
-
-  if (trainingMode === 'performance') {
-    if (state.performancePromptResolved || !prompt) return;
-
-    const octaveMismatch = detectMonophonicOctaveMismatch(detectedNote, detectedFrequency);
-    if (octaveMismatch) {
-      setResultMessage(
-        `Heard: ${octaveMismatch.detectedScientific} [wrong octave, expected ${octaveMismatch.targetScientific}]`,
-        'error'
-      );
-      setWrongDetectedHighlight(detectedNote, detectedFrequency);
-      redrawFretboard();
-      return;
-    }
-
-    if (prompt.targetNote && detectedNote === prompt.targetNote) {
-      const elapsed = (Date.now() - state.startTime) / 1000;
-      resolvePerformancePromptSuccess(elapsed);
-      return;
-    }
-
-    const detectedScientific =
-      typeof detectedFrequency === 'number' && detectedFrequency > 0
-        ? freqToScientificNoteName(detectedFrequency)
-        : null;
-    setResultMessage(`Heard: ${detectedScientific ?? detectedNote} [off target]`, 'error');
-    setWrongDetectedHighlight(detectedNote, detectedFrequency);
-    redrawFretboard();
-    return;
-  }
-
-  const reactionPlan = buildStableMonophonicReactionPlan({
-    trainingMode,
+) {
+  return detectMonophonicOctaveMismatchHelper({
+    prompt: state.currentPrompt,
+    targetFrequency: state.targetFrequency,
     detectedNote,
-    hasCurrentPrompt: Boolean(prompt),
-    promptTargetNote: prompt?.targetNote ?? null,
-    promptTargetString: prompt?.targetString ?? null,
-    showingAllNotes: state.showingAllNotes,
+    detectedFrequency,
+    freqToScientificNoteName,
   });
+}
 
-  if (reactionPlan.kind === 'free_highlight') {
-    clearWrongDetectedHighlight();
+const melodyPolyphonicFeedbackController = createMelodyPolyphonicFeedbackController({
+  state,
+  recordSessionAttempt,
+  redrawFretboard,
+  drawFretboard,
+  setResultMessage,
+  scheduleSessionCooldown,
+});
+
+const stableMonophonicDetectionController = createStableMonophonicDetectionController({
+  state,
+  getTrainingMode: () => dom.trainingMode.value,
+  clearWrongDetectedHighlight,
+  setWrongDetectedHighlight,
+  detectMonophonicOctaveMismatch,
+  performanceResolveSuccess: (elapsedSeconds) => {
+    performancePromptController.resolveSuccess(elapsedSeconds);
+  },
+  handleMelodyPolyphonicMismatch: (prompt, detectedText, context) => {
+    melodyPolyphonicFeedbackController.handleMismatch(prompt, detectedText, context);
+  },
+  displayResult,
+  setResultMessage,
+  redrawFretboard,
+  drawFretboard,
+  scheduleSessionCooldown,
+  recordSessionAttempt,
+  handleRhythmModeStableNote,
+  updateFreePlayLiveHighlight: (detectedNote) => {
     updateLiveDetectedHighlight({
       note: detectedNote,
       stateRef: state,
@@ -685,90 +322,59 @@ function handleStableMonophonicDetectedNote(detectedNote: string, detectedFreque
       instrument: state.currentInstrument,
       redraw: redrawFretboard,
     });
-    return;
-  }
+  },
+  freqToScientificNoteName,
+});
 
-  if (reactionPlan.kind === 'rhythm_feedback') {
-    clearWrongDetectedHighlight();
-    handleRhythmModeStableNote(detectedNote);
-    return;
-  }
+const melodyRuntimeDetectionController = createMelodyRuntimeDetectionController({
+  state,
+  requiredStableFrames: REQUIRED_STABLE_FRAMES,
+  getTrainingMode: () => dom.trainingMode.value,
+  detectMicPolyphonicFrame,
+  updateMicPolyphonicDetectorRuntimeStatus: updateMicPolyphonicDetectorRuntimeStatusFromResult,
+  now: () => Date.now(),
+  performanceNow: () => performance.now(),
+  redrawFretboard,
+  setResultMessage,
+  performanceResolveSuccess: (elapsedSeconds) => {
+    performancePromptController.resolveSuccess(elapsedSeconds);
+  },
+  displayResult,
+  handleMelodyPolyphonicMismatch: (prompt, detectedText, context) => {
+    melodyPolyphonicFeedbackController.handleMismatch(prompt, detectedText, context);
+  },
+  handleStableMonophonicDetectedNote,
+});
 
-  const octaveMismatch = detectMonophonicOctaveMismatch(detectedNote, detectedFrequency);
-  if (octaveMismatch && prompt) {
-    recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
-    setResultMessage(
-      `Heard: ${octaveMismatch.detectedScientific} [wrong octave, expected ${octaveMismatch.targetScientific}]`,
-      'error'
-    );
-    setWrongDetectedHighlight(detectedNote, detectedFrequency);
-    if (!state.showingAllNotes && prompt.targetNote) {
-      drawFretboard(
-        false,
-        prompt.targetNote,
-        prompt.targetString,
-        [],
-        new Set(),
-        null,
-        state.wrongDetectedNote,
-        state.wrongDetectedString,
-        state.wrongDetectedFret
-      );
-      scheduleSessionCooldown('monophonic octave mismatch redraw', 1500, () => {
-        clearWrongDetectedHighlight();
-        redrawFretboard();
-      });
-      return;
-    }
+const polyphonicChordDetectionController = createPolyphonicChordDetectionController({
+  state,
+  requiredStableFrames: REQUIRED_STABLE_FRAMES,
+  detectMicPolyphonicFrame,
+  updateMicPolyphonicDetectorRuntimeStatus: updateMicPolyphonicDetectorRuntimeStatusFromResult,
+  performanceNow: () => performance.now(),
+  now: () => Date.now(),
+  displayResult,
+  recordSessionAttempt,
+  setResultMessage,
+  drawFretboard,
+  scheduleSessionCooldown,
+  redrawFretboard,
+});
 
-    redrawFretboard();
-    scheduleSessionCooldown('monophonic octave mismatch clear wrong highlight', 1500, () => {
-      clearWrongDetectedHighlight();
-      redrawFretboard();
-    });
-    return;
-  }
+function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
+  return melodyRuntimeDetectionController.handleMicrophonePolyphonicMelodyFrame(frameVolumeRms);
+}
 
-  if (reactionPlan.kind === 'success') {
-    clearWrongDetectedHighlight();
-    const elapsed = (Date.now() - state.startTime) / 1000;
-    displayResult(true, elapsed);
-    return;
-  }
+function handleMidiMelodyUpdate(event: MidiNoteEvent) {
+  melodyRuntimeDetectionController.handleMidiMelodyUpdate(event);
+}
 
-  if (reactionPlan.kind === 'ignore_no_prompt' || !prompt) return;
+function handleMidiPolyphonicChordUpdate(event: MidiNoteEvent) {
+  polyphonicChordDetectionController.handleMidiChordUpdate(event);
+}
 
-  recordSessionAttempt(state.activeSessionStats, prompt, false, 0, state.currentInstrument);
-  const detectedScientific =
-    typeof detectedFrequency === 'number' && detectedFrequency > 0
-      ? freqToScientificNoteName(detectedFrequency)
-      : null;
-  setResultMessage(`Heard: ${detectedScientific ?? detectedNote} [wrong]`, 'error');
-  setWrongDetectedHighlight(detectedNote, detectedFrequency);
-  if (reactionPlan.shouldDrawTargetFretboard) {
-    drawFretboard(
-      false,
-      reactionPlan.targetNote,
-      reactionPlan.targetString,
-      [],
-      new Set(),
-      null,
-      state.wrongDetectedNote,
-      state.wrongDetectedString,
-      state.wrongDetectedFret
-    );
-    scheduleSessionCooldown('monophonic mismatch redraw', reactionPlan.cooldownDelayMs, () => {
-      clearWrongDetectedHighlight();
-      redrawFretboard();
-    });
-    return;
-  }
-
-  redrawFretboard();
-  scheduleSessionCooldown('monophonic mismatch clear wrong highlight', reactionPlan.cooldownDelayMs, () => {
-    clearWrongDetectedHighlight();
-    redrawFretboard();
-  });
+function handleStableMonophonicDetectedNote(detectedNote: string, detectedFrequency?: number | null) {
+  stableMonophonicDetectionController.handleDetectedNote(detectedNote, detectedFrequency);
 }
 
 export function scheduleSessionTimeout(delayMs: number, callback: () => void, context: string) {
@@ -865,59 +471,7 @@ function processAudio() {
       handleMicrophonePolyphonicMelodyFrame(volume);
     } else if (mode.detectionType === 'polyphonic') {
       // --- Polyphonic (Chord Strum) Detection ---
-      state.analyser.getFloatFrequencyData(state.frequencyDataArray!);
-      const polyphonicDetectorStartedAt = performance.now();
-      const polyphonicResult = detectMicPolyphonicFrame({
-        spectrum: state.frequencyDataArray!,
-        timeDomainData: state.dataArray ?? undefined,
-        frameVolumeRms: volume,
-        timestampMs: Date.now(),
-        sampleRate: state.audioContext.sampleRate,
-        fftSize: state.analyser.fftSize,
-        calibratedA4: state.calibratedA4,
-        lastDetectedChord: state.lastDetectedChord,
-        stableChordCounter: state.stableChordCounter,
-        requiredStableFrames: REQUIRED_STABLE_FRAMES,
-        targetChordNotes: state.currentPrompt.targetChordNotes,
-        provider: state.micPolyphonicDetectorProvider,
-      });
-      state.lastDetectedChord = polyphonicResult.detectedNotesText;
-      state.stableChordCounter = polyphonicResult.nextStableChordCounter;
-      updateMicPolyphonicDetectorRuntimeStatusFromResult(
-        polyphonicResult,
-        performance.now() - polyphonicDetectorStartedAt
-      );
-      const polyphonicReactionPlan = buildAudioPolyphonicReactionPlan({
-        isStableMatch: polyphonicResult.isStableMatch,
-        isStableMismatch: polyphonicResult.isStableMismatch,
-        showingAllNotes: state.showingAllNotes,
-      });
-      executeAudioPolyphonicReaction({
-        reactionPlan: polyphonicReactionPlan,
-        detectedNotesText: polyphonicResult.detectedNotesText,
-        onSuccess: () => {
-          const elapsed = (Date.now() - state.startTime) / 1000;
-          displayResult(true, elapsed);
-        },
-        onMismatchRecordAttempt: () => {
-          recordSessionAttempt(
-            state.activeSessionStats,
-            state.currentPrompt,
-            false,
-            0,
-            state.currentInstrument
-          );
-        },
-        setResultMessage,
-        drawHintFretboard: () => {
-          drawFretboard(false, null, null, state.currentPrompt.targetChordFingering, new Set());
-        },
-        scheduleCooldownRedraw: (delayMs) => {
-          scheduleSessionCooldown('polyphonic mismatch redraw', delayMs, () => {
-            redrawFretboard();
-          });
-        },
-      });
+      polyphonicChordDetectionController.handleAudioChordFrame(volume);
     } else {
       // --- Monophonic (Single Note) Detection ---
       const frequency = detectPitch(state.dataArray!, state.audioContext.sampleRate, micVolumeThreshold);
@@ -1157,7 +711,7 @@ export function stopListening(keepStreamOpen = false) {
   state.isListening = false;
   if (state.animationId) cancelAnimationFrame(state.animationId);
   clearTrackedTimeouts(state.pendingTimeoutIds);
-  performancePromptRunToken++;
+  performancePromptController.invalidatePendingAdvance();
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
@@ -1192,11 +746,10 @@ export function seekActiveMelodySessionToEvent(eventIndex: number) {
   if (!isMelodyWorkflowMode(dom.trainingMode.value)) return false;
 
   clearTrackedTimeouts(state.pendingTimeoutIds);
-  performancePromptRunToken++;
+  performancePromptController.invalidatePendingAdvance();
   state.currentMelodyEventIndex = Math.max(0, Math.round(eventIndex));
   state.currentMelodyEventFoundNotes.clear();
-  state.performancePromptResolved = false;
-  state.performancePromptMatched = false;
+  performancePromptController.resetPromptResolution();
   state.pendingSessionStopResultMessage = null;
   clearWrongDetectedHighlight();
   nextPrompt();
@@ -1300,7 +853,7 @@ function nextPrompt() {
         redrawFretboard();
         configurePromptAudio();
         state.startTime = Date.now();
-        schedulePerformancePromptAdvance(nextPrompt);
+        performancePromptController.scheduleAdvance(nextPrompt);
       },
     });
     if (executionResult === 'stopped' && pendingStopResultMessage) {

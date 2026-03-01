@@ -13,6 +13,11 @@ export interface ITrainingMode {
   /** Specifies the type of audio detection required for this mode. */
   detectionType: DetectionType;
 
-  /** Generates the next challenge for the user. Returns null if a prompt cannot be generated. */
+  /**
+   * Generates the next challenge for the user.
+   * Returns `null` if a prompt cannot be generated.
+   * The implementation must not write directly to UI rendering state; completion/error
+   * signaling should go through shared session state/result channels instead.
+   */
   generatePrompt(): Prompt | null;
 }
