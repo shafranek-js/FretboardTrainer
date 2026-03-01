@@ -82,26 +82,6 @@ export function buildExportMidiFileName(melodyName: string) {
   return `${safeStem || 'melody'}.mid`;
 }
 
-export function buildPracticeAdjustedMidiFileName(
-  melodyName: string,
-  options?: { transposeSemitones?: number; stringShift?: number; bpm?: number }
-) {
-  const suffixParts: string[] = [];
-  const transpose = options?.transposeSemitones ?? 0;
-  const stringShift = options?.stringShift ?? 0;
-  const bpm = sanitizeBpm(options?.bpm);
-
-  if (transpose !== 0) {
-    suffixParts.push(`T${transpose > 0 ? '+' : ''}${transpose}`);
-  }
-  if (stringShift !== 0) {
-    suffixParts.push(`S${stringShift > 0 ? '+' : ''}${stringShift}`);
-  }
-  suffixParts.push(`${bpm}bpm`);
-
-  return buildExportMidiFileName(`${melodyName} [${suffixParts.join(' ')}]`);
-}
-
 export async function exportMelodyToMidiBytes(
   melody: Pick<MelodyDefinition, 'name' | 'events' | 'sourceTempoBpm' | 'sourceTrackName' | 'sourceScoreTitle'>,
   instrument: Pick<IInstrument, 'getNoteWithOctave'>,

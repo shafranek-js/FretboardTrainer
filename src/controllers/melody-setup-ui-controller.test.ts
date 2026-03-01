@@ -48,7 +48,7 @@ function createDeps(overrides?: {
     melodyPlaybackControls: { classList: new FakeClassList() } as unknown as HTMLElement,
     editMelodyBtn: createButton(),
     exportMelodyMidiBtn: createButton(),
-    exportPracticeMelodyMidiBtn: createButton(),
+    bakePracticeMelodyBtn: createButton(),
     melodyDemoBtn: createButton(),
     melodyStepBackBtn: createButton(),
     melodyStepForwardBtn: createButton(),
@@ -98,6 +98,7 @@ describe('melody-setup-ui-controller', () => {
 
     expect(dom.editMelodyBtn.disabled).toBe(true);
     expect(dom.exportMelodyMidiBtn.disabled).toBe(true);
+    expect(dom.bakePracticeMelodyBtn.disabled).toBe(true);
     expect(dom.melodyDemoBtn.disabled).toBe(true);
     expect(dom.deleteMelodyBtn.disabled).toBe(true);
     expect(deps.renderTimeline).toHaveBeenCalledTimes(1);
@@ -118,9 +119,26 @@ describe('melody-setup-ui-controller', () => {
 
     expect(dom.editMelodyBtn.disabled).toBe(false);
     expect(dom.exportMelodyMidiBtn.disabled).toBe(false);
-    expect(dom.exportPracticeMelodyMidiBtn.disabled).toBe(false);
+    expect(dom.bakePracticeMelodyBtn.disabled).toBe(true);
     expect(dom.melodyStepBackBtn.disabled).toBe(true);
     expect(dom.melodyStepForwardBtn.disabled).toBe(true);
     expect(dom.deleteMelodyBtn.disabled).toBe(false);
+  });
+
+  it('enables bake when practice adjustments are active', () => {
+    const selectedMelody = {
+      id: 'builtin:romanza',
+      name: 'Romanza',
+      source: 'builtin' as const,
+      tabText: 'E|--0--|',
+      events: [{ notes: [{ note: 'C' }] }],
+    };
+    const { deps, dom } = createDeps({ selectedMelody });
+    deps.state.melodyTransposeSemitones = 2;
+    const controller = createMelodySetupUiController(deps);
+
+    controller.updateActionButtons();
+
+    expect(dom.bakePracticeMelodyBtn.disabled).toBe(false);
   });
 });

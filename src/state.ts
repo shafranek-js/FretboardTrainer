@@ -86,7 +86,7 @@ export const dom = {
   openMelodyImportBtn: requireElementById<HTMLButtonElement>('openMelodyImportBtn'),
   editMelodyBtn: requireElementById<HTMLButtonElement>('editMelodyBtn'),
   exportMelodyMidiBtn: requireElementById<HTMLButtonElement>('exportMelodyMidiBtn'),
-  exportPracticeMelodyMidiBtn: requireElementById<HTMLButtonElement>('exportPracticeMelodyMidiBtn'),
+  bakePracticeMelodyBtn: requireElementById<HTMLButtonElement>('bakePracticeMelodyBtn'),
   melodyDemoBtn: requireElementById<HTMLButtonElement>('melodyDemoBtn'),
   melodyPauseDemoBtn: requireElementById<HTMLButtonElement>('melodyPauseDemoBtn'),
   melodyStepBackBtn: requireElementById<HTMLButtonElement>('melodyStepBackBtn'),

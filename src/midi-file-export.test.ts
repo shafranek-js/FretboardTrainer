@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { instruments } from './instruments';
-import {
-  buildExportMidiFileName,
-  buildPracticeAdjustedMidiFileName,
-  exportMelodyToMidiBytes,
-} from './midi-file-export';
+import { buildExportMidiFileName, exportMelodyToMidiBytes } from './midi-file-export';
 
 describe('midi-file-export', () => {
   it('exports positioned melody events as a MIDI track with tempo', async () => {
@@ -70,15 +66,5 @@ describe('midi-file-export', () => {
 
   it('builds a safe file name for downloaded MIDI files', () => {
     expect(buildExportMidiFileName(' Godfather: Main/Theme ')).toBe('Godfather Main Theme.mid');
-  });
-
-  it('builds a practice-adjusted file name with current shift and tempo context', () => {
-    expect(
-      buildPracticeAdjustedMidiFileName(' Godfather: Main/Theme ', {
-        transposeSemitones: -2,
-        stringShift: 1,
-        bpm: 72,
-      })
-    ).toBe('Godfather Main Theme [T-2 S+1 72bpm].mid');
   });
 });

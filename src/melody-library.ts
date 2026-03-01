@@ -32,6 +32,8 @@ export interface MelodyDefinition {
   sourceTempoBpm?: number;
 }
 
+export type MelodySourceFormat = NonNullable<MelodyDefinition['sourceFormat']>;
+
 interface StoredCustomMelodyBase {
   id: string;
   name: string;
@@ -46,7 +48,7 @@ interface StoredCustomAsciiMelody extends StoredCustomMelodyBase {
 
 interface StoredCustomEventMelody extends StoredCustomMelodyBase {
   format: 'events';
-  sourceFormat: 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'midi';
+  sourceFormat: MelodySourceFormat;
   sourceFileName?: string;
   sourceTrackName?: string;
   sourceScoreTitle?: string;
@@ -230,6 +232,7 @@ function isStoredCustomMelody(value: unknown): value is StoredCustomMelody {
     const sourceFormat = (value as { sourceFormat?: unknown }).sourceFormat;
     const events = (value as { events?: unknown }).events;
     const isSupportedSourceFormat =
+      sourceFormat === 'ascii' ||
       sourceFormat === 'gp' ||
       sourceFormat === 'gp3' ||
       sourceFormat === 'gp4' ||

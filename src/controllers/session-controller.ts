@@ -81,7 +81,6 @@ import {
 } from '../midi-file-import';
 import {
   buildExportMidiFileName,
-  buildPracticeAdjustedMidiFileName,
   exportMelodyToMidiBytes,
 } from '../midi-file-export';
 import { cloneMelodyEventsDraft as cloneMelodyEventsDraftModel } from '../melody-timeline-editing';
@@ -271,7 +270,7 @@ const melodyLibraryActionsController = createMelodyLibraryActionsController({
       state.melodyStringShift,
       state.currentInstrument
     ),
-  getPracticeAdjustedExportBpm: (melody) => {
+  getPracticeAdjustedBakeBpm: (melody) => {
     const parsed = Number.parseInt(dom.melodyDemoBpm.value, 10);
     return Number.isFinite(parsed) ? parsed : melody.sourceTempoBpm ?? undefined;
   },
@@ -281,7 +280,6 @@ const melodyLibraryActionsController = createMelodyLibraryActionsController({
   updateCustomAsciiTabMelody,
   exportMelodyToMidiBytes,
   buildExportMidiFileName,
-  buildPracticeAdjustedMidiFileName,
   downloadBytesAsFile,
   getPracticeAdjustmentSummary: () => ({
     transposeSemitones: state.melodyTransposeSemitones,
@@ -601,7 +599,7 @@ const melodySetupUiController = createMelodySetupUiController({
     melodyPlaybackControls: dom.melodyPlaybackControls,
     editMelodyBtn: dom.editMelodyBtn,
     exportMelodyMidiBtn: dom.exportMelodyMidiBtn,
-    exportPracticeMelodyMidiBtn: dom.exportPracticeMelodyMidiBtn,
+    bakePracticeMelodyBtn: dom.bakePracticeMelodyBtn,
     melodyDemoBtn: dom.melodyDemoBtn,
     melodyStepBackBtn: dom.melodyStepBackBtn,
     melodyStepForwardBtn: dom.melodyStepForwardBtn,
@@ -1387,16 +1385,15 @@ export function registerSessionControls() {
       showNonBlockingError(formatUserFacingError('Failed to export MIDI file', error));
     }
   });
-  dom.exportPracticeMelodyMidiBtn.addEventListener('click', async () => {
+  dom.bakePracticeMelodyBtn.addEventListener('click', () => {
     try {
       stopMelodyDemoPlayback({ clearUi: true });
       if (state.isListening && isMelodyWorkflowMode(dom.trainingMode.value)) {
         stopListening();
       }
-      await melodyLibraryActionsController.exportSelectedPracticeAdjustedMelodyAsMidi();
-      setResultMessage('Adjusted practice MIDI exported.', 'success');
+      melodyLibraryActionsController.bakeSelectedPracticeAdjustedMelodyAsCustom();
     } catch (error) {
-      showNonBlockingError(formatUserFacingError('Failed to export adjusted practice MIDI', error));
+      showNonBlockingError(formatUserFacingError('Failed to bake adjusted melody', error));
     }
   });
   dom.melodyDemoBtn.addEventListener('click', async () => {

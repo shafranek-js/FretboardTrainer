@@ -1,5 +1,5 @@
 import type { IInstrument } from '../instruments/instrument';
-import type { MelodyDefinition, MelodyEvent } from '../melody-library';
+import type { MelodyDefinition, MelodyEvent, MelodySourceFormat } from '../melody-library';
 
 type MelodyEditorMode = 'create' | 'edit-custom' | 'duplicate-builtin';
 
@@ -49,7 +49,6 @@ interface MelodyLibraryActionsControllerDeps {
   resolvePendingGpImportedPreview(): GpLikeImportedMelody;
   resolvePendingMidiImportedPreview(): MidiLikeImportedMelody;
   getPracticeAdjustedMelody(melody: MelodyDefinition): MelodyDefinition;
-  getPracticeAdjustedExportBpm(melody: MelodyDefinition): number | undefined;
   saveCustomEventMelody(
     name: string,
     events: MelodyEvent[],
@@ -71,12 +70,9 @@ interface MelodyLibraryActionsControllerDeps {
     options?: { bpm?: number }
   ): Promise<Uint8Array>;
   buildExportMidiFileName(name: string): string;
-  buildPracticeAdjustedMidiFileName(
-    name: string,
-    options: { transposeSemitones: number; stringShift: number; bpm?: number }
-  ): string;
   downloadBytesAsFile(bytes: Uint8Array, fileName: string, mimeType: string): void;
   getPracticeAdjustmentSummary(): { transposeSemitones: number; stringShift: number };
+  getPracticeAdjustedBakeBpm(melody: MelodyDefinition): number | undefined;
   finalizeImportSelection(melodyId: string, successMessage: string): void;
 }
 
@@ -87,6 +83,14 @@ function buildWarningSuffix(warnings: string[]) {
 }
 
 export function createMelodyLibraryActionsController(deps: MelodyLibraryActionsControllerDeps) {
+  function resolveBakedMelodyName(melody: MelodyDefinition) {
+    return melody.name.includes('(Adjusted)') ? melody.name : `${melody.name} (Adjusted)`;
+  }
+
+  function resolveBakedSourceFormat(melody: MelodyDefinition): MelodySourceFormat {
+    return melody.sourceFormat ?? 'ascii';
+  }
+
   function savePendingGpImportedTrack() {
     const imported = deps.resolvePendingGpImportedPreview();
     const eventEditorDraft = deps.getEventEditorDraft();
@@ -200,10 +204,15 @@ export function createMelodyLibraryActionsController(deps: MelodyLibraryActionsC
     deps.downloadBytesAsFile(bytes, deps.buildExportMidiFileName(melody.name), 'audio/midi');
   }
 
-  async function exportSelectedPracticeAdjustedMelodyAsMidi() {
+  function bakeSelectedPracticeAdjustedMelodyAsCustom() {
     const melody = deps.getSelectedMelody();
     if (!melody) {
-      throw new Error('Select a melody to export adjusted practice MIDI.');
+      throw new Error('Select a melody to bake current adjustments into a custom copy.');
+    }
+
+    const practiceAdjustment = deps.getPracticeAdjustmentSummary();
+    if (practiceAdjustment.transposeSemitones === 0 && practiceAdjustment.stringShift === 0) {
+      throw new Error('There are no transpose or string-shift adjustments to bake.');
     }
 
     const adjustedMelody = deps.getPracticeAdjustedMelody(melody);
@@ -211,19 +220,22 @@ export function createMelodyLibraryActionsController(deps: MelodyLibraryActionsC
       throw new Error('Selected melody has no playable notes after practice adjustments.');
     }
 
-    const exportBpm = deps.getPracticeAdjustedExportBpm(adjustedMelody);
-    const bytes = await deps.exportMelodyToMidiBytes(adjustedMelody, deps.getCurrentInstrument(), {
-      bpm: exportBpm,
-    });
-    const practiceAdjustment = deps.getPracticeAdjustmentSummary();
-    deps.downloadBytesAsFile(
-      bytes,
-      deps.buildPracticeAdjustedMidiFileName(melody.name, {
-        transposeSemitones: practiceAdjustment.transposeSemitones,
-        stringShift: practiceAdjustment.stringShift,
-        bpm: exportBpm,
-      }),
-      'audio/midi'
+    const bakedMelodyId = deps.saveCustomEventMelody(
+      resolveBakedMelodyName(melody),
+      adjustedMelody.events,
+      deps.getCurrentInstrument(),
+      {
+        sourceFormat: resolveBakedSourceFormat(melody),
+        sourceFileName: melody.sourceFileName,
+        sourceTrackName: melody.sourceTrackName,
+        sourceScoreTitle: melody.sourceScoreTitle,
+        sourceTempoBpm: deps.getPracticeAdjustedBakeBpm(adjustedMelody),
+      }
+    );
+
+    deps.finalizeImportSelection(
+      bakedMelodyId,
+      'Adjusted melody baked into a new custom copy.'
     );
   }
 
@@ -232,6 +244,6 @@ export function createMelodyLibraryActionsController(deps: MelodyLibraryActionsC
     savePendingMidiImportedTrack,
     saveFromModal,
     exportSelectedMelodyAsMidi,
-    exportSelectedPracticeAdjustedMelodyAsMidi,
+    bakeSelectedPracticeAdjustedMelodyAsCustom,
   };
 }

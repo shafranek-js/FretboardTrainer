@@ -69,16 +69,15 @@ function createDeps(overrides?: {
       ...melody,
       name: `${melody.name} Adjusted`,
     })),
-    getPracticeAdjustedExportBpm: vi.fn(() => 76),
     saveCustomEventMelody: vi.fn(() => 'saved-event-id'),
     updateCustomEventMelody: vi.fn(() => 'updated-event-id'),
     saveCustomAsciiTabMelody: vi.fn(() => 'saved-ascii-id'),
     updateCustomAsciiTabMelody: vi.fn(() => 'updated-ascii-id'),
     exportMelodyToMidiBytes: vi.fn(async () => new Uint8Array([1, 2, 3])),
     buildExportMidiFileName: vi.fn((name: string) => `${name}.mid`),
-    buildPracticeAdjustedMidiFileName: vi.fn((name: string) => `${name}.adjusted.mid`),
     downloadBytesAsFile: vi.fn(),
     getPracticeAdjustmentSummary: vi.fn(() => ({ transposeSemitones: -2, stringShift: 1 })),
+    getPracticeAdjustedBakeBpm: vi.fn(() => 76),
     finalizeImportSelection: vi.fn(),
   };
 }
@@ -126,28 +125,30 @@ describe('melody-library-actions-controller', () => {
     expect(deps.finalizeImportSelection).toHaveBeenCalledWith('updated-event-id', 'Custom melody updated.');
   });
 
-  it('exports adjusted practice melody MIDI with practice-specific file name', async () => {
+  it('bakes adjusted practice melody into a new custom copy', () => {
     const deps = createDeps({
-      selectedMelody: createMelody({ source: 'builtin', name: 'Demo Tune' }),
+      selectedMelody: createMelody({
+        source: 'builtin',
+        name: 'Demo Tune',
+        sourceFormat: 'ascii',
+      }),
     });
     const controller = createMelodyLibraryActionsController(deps);
 
-    await controller.exportSelectedPracticeAdjustedMelodyAsMidi();
+    controller.bakeSelectedPracticeAdjustedMelodyAsCustom();
 
-    expect(deps.exportMelodyToMidiBytes).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Demo Tune Adjusted' }),
+    expect(deps.saveCustomEventMelody).toHaveBeenCalledWith(
+      'Demo Tune (Adjusted)',
+      [createEvent()],
       expect.any(Object),
-      { bpm: 76 }
+      expect.objectContaining({
+        sourceFormat: 'ascii',
+        sourceTempoBpm: 76,
+      })
     );
-    expect(deps.buildPracticeAdjustedMidiFileName).toHaveBeenCalledWith('Demo Tune', {
-      transposeSemitones: -2,
-      stringShift: 1,
-      bpm: 76,
-    });
-    expect(deps.downloadBytesAsFile).toHaveBeenCalledWith(
-      new Uint8Array([1, 2, 3]),
-      'Demo Tune.adjusted.mid',
-      'audio/midi'
+    expect(deps.finalizeImportSelection).toHaveBeenCalledWith(
+      'saved-event-id',
+      'Adjusted melody baked into a new custom copy.'
     );
   });
 });

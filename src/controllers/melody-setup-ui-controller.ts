@@ -14,7 +14,7 @@ interface MelodySetupUiDom {
   melodyPlaybackControls: HTMLElement;
   editMelodyBtn: HTMLButtonElement;
   exportMelodyMidiBtn: HTMLButtonElement;
-  exportPracticeMelodyMidiBtn: HTMLButtonElement;
+  bakePracticeMelodyBtn: HTMLButtonElement;
   melodyDemoBtn: HTMLButtonElement;
   melodyStepBackBtn: HTMLButtonElement;
   melodyStepForwardBtn: HTMLButtonElement;
@@ -59,7 +59,10 @@ export function createMelodySetupUiController(deps: MelodySetupUiControllerDeps)
     );
     deps.dom.editMelodyBtn.disabled = !melody || (melody.source !== 'custom' && typeof melody.tabText !== 'string');
     deps.dom.exportMelodyMidiBtn.disabled = !melody || melody.source !== 'custom';
-    deps.dom.exportPracticeMelodyMidiBtn.disabled = !adjustedMelody || adjustedMelody.events.length === 0;
+    deps.dom.bakePracticeMelodyBtn.disabled =
+      !adjustedMelody ||
+      adjustedMelody.events.length === 0 ||
+      (deps.state.melodyTransposeSemitones === 0 && deps.state.melodyStringShift === 0);
     deps.dom.melodyDemoBtn.disabled = !melody;
     const canStep = Boolean(melody) && !deps.isDemoActive();
     deps.dom.melodyStepBackBtn.disabled = !canStep;
