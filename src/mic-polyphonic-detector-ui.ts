@@ -50,4 +50,7 @@ export function buildMicPolyphonicDetectorAudioInfoText() {
 
 export function refreshMicPolyphonicDetectorAudioInfoUi() {
   dom.audioInputInfo.textContent = buildMicPolyphonicDetectorAudioInfoText();
+  const hasTelemetry = state.micPolyphonicDetectorTelemetryFrames > 0;
+  dom.exportMicPolyphonicTelemetryBtn.disabled = !hasTelemetry;
+  dom.resetMicPolyphonicTelemetryBtn.disabled = !hasTelemetry;
 }

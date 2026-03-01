@@ -101,6 +101,30 @@ describe('polyphonic-chord-detection-controller', () => {
     expect(deps.updateMicPolyphonicDetectorRuntimeStatus).toHaveBeenCalled();
   });
 
+  it('uses low-confidence fallback messaging instead of chord mismatch handling', () => {
+    const deps = createDeps({
+      detectMicPolyphonicFrame: vi.fn(() => ({
+        detectedNotesText: 'C,G',
+        nextStableChordCounter: 2,
+        isStableMatch: false,
+        isStableMismatch: true,
+        fallbackFrom: 'essentia_experimental',
+        warnings: ['fallback'],
+      })),
+      now: vi.fn(() => 2500),
+    });
+    const controller = createPolyphonicChordDetectionController(deps);
+
+    controller.handleAudioChordFrame(0.4);
+
+    expect(deps.setResultMessage).toHaveBeenCalledWith(
+      'Low mic confidence. Reduce room noise, mute ringing strings, or switch detector provider.'
+    );
+    expect(deps.recordSessionAttempt).not.toHaveBeenCalled();
+    expect(deps.drawFretboard).not.toHaveBeenCalled();
+    expect(deps.scheduleSessionCooldown).not.toHaveBeenCalled();
+  });
+
   it('records and hints on audio chord mismatches when fretboard hinting is enabled', () => {
     const deps = createDeps({
       detectMicPolyphonicFrame: vi.fn(() => ({

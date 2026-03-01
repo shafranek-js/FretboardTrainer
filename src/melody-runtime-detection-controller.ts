@@ -1,6 +1,10 @@
 import type { MidiNoteEvent } from './midi-runtime';
 import { formatDetectedMidiChordNotes, areMidiHeldNotesMatchingTargetChord } from './midi-chord-evaluation';
 import type { Prompt } from './types';
+import {
+  buildLowConfidenceMicPolyphonicMessage,
+  isLowConfidenceMicPolyphonicResult,
+} from './mic-polyphonic-low-confidence';
 
 interface MicPolyphonicResult {
   detectedNotesText: string;
@@ -8,6 +12,8 @@ interface MicPolyphonicResult {
   nextStableChordCounter: number;
   isStableMatch: boolean;
   isStableMismatch: boolean;
+  fallbackFrom?: string | null;
+  warnings?: string[];
 }
 
 interface MelodyRuntimeDetectionControllerDeps {
@@ -75,6 +81,8 @@ function setsEqual<T>(a: Set<T>, b: Set<T>) {
 }
 
 export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetectionControllerDeps) {
+  let lastLowConfidenceMessageAtMs = 0;
+
   function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
     const prompt = deps.state.currentPrompt;
     if (
@@ -112,6 +120,20 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
     );
 
     const detectedNotes = polyphonicResult.detectedNoteNames;
+    const shouldUseLowConfidenceFallback =
+      isLowConfidenceMicPolyphonicResult(polyphonicResult) &&
+      !polyphonicResult.isStableMatch &&
+      (detectedNotes.length > 0 || polyphonicResult.isStableMismatch);
+
+    if (shouldUseLowConfidenceFallback) {
+      const nowMs = deps.now();
+      if (nowMs - lastLowConfidenceMessageAtMs >= 1500) {
+        lastLowConfidenceMessageAtMs = nowMs;
+        deps.setResultMessage(buildLowConfidenceMicPolyphonicMessage());
+      }
+      return true;
+    }
+
     const matchedTargetNotes = detectedNotes.filter((note) => targetPitchClasses.includes(note));
     const nextFoundNotes = new Set(matchedTargetNotes);
     if (!setsEqual(deps.state.currentMelodyEventFoundNotes, nextFoundNotes)) {

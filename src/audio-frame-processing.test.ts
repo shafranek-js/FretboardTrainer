@@ -79,6 +79,22 @@ describe('analyzePolyphonicFrame', () => {
     expect(result.isStableMatch).toBe(false);
     expect(result.isStableMismatch).toBe(true);
   });
+
+  it('produces stable mismatch when a non-target peak dominates a near-match chord', () => {
+    const noteEnergies = { C: 1.0, E: 0.92, G: 0.88, F: 0.97, A: 0.65 };
+    const result = analyzePolyphonicFrame({
+      noteEnergies,
+      lastDetectedChord: 'A,C,E,F,G',
+      stableChordCounter: 2,
+      requiredStableFrames: 3,
+      targetChordNotes: ['C', 'E', 'G'],
+    });
+
+    expect(result.detectedNotesText).toBe('A,C,E,F,G');
+    expect(result.nextStableChordCounter).toBe(3);
+    expect(result.isStableMatch).toBe(false);
+    expect(result.isStableMismatch).toBe(true);
+  });
 });
 
 describe('analyzeMonophonicFrame', () => {

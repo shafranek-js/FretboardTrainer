@@ -3,12 +3,18 @@ import { buildAudioPolyphonicReactionPlan, buildMidiPolyphonicReactionPlan } fro
 import { areMidiHeldNotesMatchingTargetChord, formatDetectedMidiChordNotes } from './midi-chord-evaluation';
 import type { MidiNoteEvent } from './midi-runtime';
 import type { Prompt } from './types';
+import {
+  buildLowConfidenceMicPolyphonicMessage,
+  isLowConfidenceMicPolyphonicResult,
+} from './mic-polyphonic-low-confidence';
 
 interface MicPolyphonicResult {
   detectedNotesText: string;
   nextStableChordCounter: number;
   isStableMatch: boolean;
   isStableMismatch: boolean;
+  fallbackFrom?: string | null;
+  warnings?: string[];
 }
 
 interface PolyphonicChordDetectionControllerDeps {
@@ -71,6 +77,8 @@ interface PolyphonicChordDetectionControllerDeps {
 export function createPolyphonicChordDetectionController(
   deps: PolyphonicChordDetectionControllerDeps
 ) {
+  let lastLowConfidenceMessageAtMs = 0;
+
   function handleAudioChordFrame(frameVolumeRms: number) {
     const prompt = deps.state.currentPrompt;
     if (
@@ -101,6 +109,20 @@ export function createPolyphonicChordDetectionController(
     deps.state.lastDetectedChord = polyphonicResult.detectedNotesText;
     deps.state.stableChordCounter = polyphonicResult.nextStableChordCounter;
     deps.updateMicPolyphonicDetectorRuntimeStatus(polyphonicResult, deps.performanceNow() - startedAt);
+
+    const shouldUseLowConfidenceFallback =
+      isLowConfidenceMicPolyphonicResult(polyphonicResult) &&
+      !polyphonicResult.isStableMatch &&
+      (polyphonicResult.detectedNotesText.length > 0 || polyphonicResult.isStableMismatch);
+
+    if (shouldUseLowConfidenceFallback) {
+      const nowMs = deps.now();
+      if (nowMs - lastLowConfidenceMessageAtMs >= 1500) {
+        lastLowConfidenceMessageAtMs = nowMs;
+        deps.setResultMessage(buildLowConfidenceMicPolyphonicMessage());
+      }
+      return;
+    }
 
     const reactionPlan = buildAudioPolyphonicReactionPlan({
       isStableMatch: polyphonicResult.isStableMatch,

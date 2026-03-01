@@ -11,6 +11,7 @@ import { playSound, loadInstrumentSoundfont } from '../audio';
 import {
   scheduleSessionTimeout,
   seekActiveMelodySessionToEvent,
+  resetMicPolyphonicDetectorTelemetry,
   startListening,
   stopListening,
 } from '../logic';
@@ -68,6 +69,7 @@ import {
 import { confirmUserAction } from '../user-feedback-port';
 import { normalizeSessionPace } from '../session-pace';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from '../mic-polyphonic-detector-ui';
+import { detectMicPolyphonicFrame } from '../mic-polyphonic-detector';
 import { parseAsciiTabToMelodyEvents } from '../ascii-tab-melody-parser';
 import {
   convertLoadedGpScoreTrackToImportedMelody,
@@ -117,6 +119,8 @@ import { createMicSettingsController } from './mic-settings-controller';
 import { createInputDeviceController } from './input-device-controller';
 import { createMelodyPracticeActionsController } from './melody-practice-actions-controller';
 import { createMelodyDemoPresentationController } from './melody-demo-presentation-controller';
+import { createMicPolyphonicBenchmarkController } from './mic-polyphonic-benchmark-controller';
+import { createMicPolyphonicTelemetryController } from './mic-polyphonic-telemetry-controller';
 import { DEFAULT_TABLATURE_MAX_FRET } from '../tablature-optimizer';
 import {
   buildDefaultMelodyStudyRange,
@@ -771,6 +775,43 @@ const inputDeviceController = createInputDeviceController({
 });
 
 const updateMicNoiseGateInfo = () => micSettingsController.updateNoiseGateInfo();
+const micPolyphonicBenchmarkController = createMicPolyphonicBenchmarkController({
+  dom: {
+    runMicPolyphonicBenchmarkBtn: dom.runMicPolyphonicBenchmarkBtn,
+    micPolyphonicBenchmarkInfo: dom.micPolyphonicBenchmarkInfo,
+  },
+  state,
+  detectMicPolyphonicFrame,
+  now: () => performance.now(),
+  setResultMessage,
+  showNonBlockingError,
+  formatUserFacingError,
+});
+
+const micPolyphonicTelemetryController = createMicPolyphonicTelemetryController({
+  dom: {
+    exportMicPolyphonicTelemetryBtn: dom.exportMicPolyphonicTelemetryBtn,
+    resetMicPolyphonicTelemetryBtn: dom.resetMicPolyphonicTelemetryBtn,
+  },
+  state,
+  now: () => Date.now(),
+  getUserAgent: () => navigator.userAgent,
+  getHardwareConcurrency: () => navigator.hardwareConcurrency ?? null,
+  downloadTextFile: (fileName, text, mimeType) => {
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+  resetTelemetry: () => resetMicPolyphonicDetectorTelemetry(),
+  refreshTelemetryUi: () => refreshMicPolyphonicDetectorAudioInfoUi(),
+  setResultMessage,
+  showNonBlockingError,
+  formatUserFacingError,
+});
 
 const melodyPracticeActionsController = createMelodyPracticeActionsController({
   dom: {
@@ -895,6 +936,7 @@ export function registerSessionControls() {
   resetMetronomeVisualIndicator();
   updateMicNoiseGateInfo();
   refreshMicPolyphonicDetectorAudioInfoUi();
+  micPolyphonicTelemetryController.syncButtonState();
   updatePracticeSetupSummary();
   syncMelodyTimelineEditingState();
   refreshInputSourceAvailabilityUi();
@@ -1046,6 +1088,15 @@ export function registerSessionControls() {
 
   dom.calibrateNoiseFloorBtn.addEventListener('click', async () => {
     await micSettingsController.calibrateNoiseFloor();
+  });
+  dom.runMicPolyphonicBenchmarkBtn.addEventListener('click', async () => {
+    await micPolyphonicBenchmarkController.runBenchmark();
+  });
+  dom.exportMicPolyphonicTelemetryBtn.addEventListener('click', () => {
+    micPolyphonicTelemetryController.exportTelemetry();
+  });
+  dom.resetMicPolyphonicTelemetryBtn.addEventListener('click', () => {
+    micPolyphonicTelemetryController.resetTelemetry();
   });
 
   dom.inputSource.addEventListener('change', () => {

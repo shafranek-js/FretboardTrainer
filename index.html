@@ -836,6 +836,39 @@
               >
                 MIDI Connection: -
               </div>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  id="runMicPolyphonicBenchmarkBtn"
+                  type="button"
+                  title="Run a synthetic benchmark for the selected mic polyphonic detector provider."
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Benchmark Poly Detector
+                </button>
+                <button
+                  id="exportMicPolyphonicTelemetryBtn"
+                  type="button"
+                  title="Export the current live mic polyphonic detector telemetry as JSON for cross-device comparison."
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Export Poly Telemetry
+                </button>
+                <button
+                  id="resetMicPolyphonicTelemetryBtn"
+                  type="button"
+                  title="Clear the current live poly detector telemetry window so you can capture a clean measurement."
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Reset Poly Telemetry
+                </button>
+              </div>
+              <div
+                id="micPolyphonicBenchmarkInfo"
+                class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+                role="status"
+              >
+                Poly benchmark: -
+              </div>
             </section>
             <section
               class="settings-card settings-card-balanced compact-section xl:col-span-1 rounded-lg border border-slate-600 bg-slate-800/40 p-4"

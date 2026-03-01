@@ -145,6 +145,31 @@ describe('melody-runtime-detection-controller', () => {
     expect(deps.handleStableMonophonicDetectedNote).toHaveBeenCalledWith('A');
   });
 
+  it('uses low-confidence fallback messaging instead of mismatch or partial feedback', () => {
+    const deps = createDeps({
+      detectMicPolyphonicFrame: vi.fn(() => ({
+        detectedNotesText: 'C',
+        detectedNoteNames: ['C'],
+        nextStableChordCounter: 1,
+        isStableMatch: false,
+        isStableMismatch: false,
+        fallbackFrom: 'essentia_experimental',
+        warnings: ['fallback'],
+      })),
+      now: vi.fn(() => 2500),
+    });
+    const controller = createMelodyRuntimeDetectionController(deps);
+
+    const handled = controller.handleMicrophonePolyphonicMelodyFrame(0.2);
+
+    expect(handled).toBe(true);
+    expect(deps.setResultMessage).toHaveBeenCalledWith(
+      'Low mic confidence. Reduce room noise, mute ringing strings, or switch detector provider.'
+    );
+    expect(deps.redrawFretboard).not.toHaveBeenCalled();
+    expect(deps.handleMelodyPolyphonicMismatch).not.toHaveBeenCalled();
+  });
+
   it('handles MIDI polyphonic mismatch through melody mismatch feedback', () => {
     const deps = createDeps();
     const controller = createMelodyRuntimeDetectionController(deps);

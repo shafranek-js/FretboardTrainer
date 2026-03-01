@@ -140,9 +140,18 @@
 - [x] Add microphone polyphonic detection support for true simultaneous-note/chord verification in melody practice (separate from MIDI note events) using the existing spectrum-based detector path.
   - [x] Extract a pluggable mic polyphonic detector provider interface (`spectrum` baseline first, external engine adapters next).
   - [x] Add an experimental `Essentia.js` (`MultiPitchKlapuri` / `MultiPitchMelodia`) provider spike behind a feature flag (license/CPU review required).
-  - [ ] Evaluate `Basic Pitch` (`basic-pitch-ts`) as an offline/analysis import path (likely not low-latency enough for live session verification).
-  - [ ] Evaluate `ONNX Runtime Web` (`wasm` / `webgpu`) runtime path for custom multi-pitch models if `Essentia.js` quality is insufficient.
+  - [x] Evaluate `Basic Pitch` (`basic-pitch-ts`) as an offline/analysis import path (not suitable for low-latency live session verification). See `docs/basic-pitch-evaluation.md`.
+  - [x] Evaluate `ONNX Runtime Web` (`wasm` / `webgpu`) runtime path for custom multi-pitch models. Keep it as a future experimental provider, not the default live path. See `docs/onnx-runtime-web-evaluation.md`.
   - [ ] Improve algorithm quality/tradeoffs (e.g., harmonic product spectrum, spectral peak clustering, multi-pitch estimation) for browser/WebAudio constraints.
-  - [ ] Define UX fallback when confidence is low (avoid false chord matches from noise/room echo).
+    - [x] Add local-peak filtering in `spectrumToNoteEnergies()` so shoulder bins do not smear energy into adjacent note classes.
+    - [x] Add local peak-prominence filtering so tiny noisy wiggles are ignored instead of becoming fake note candidates.
+    - [x] Add a harmonic-clustering layer that reinforces a fundamental note class when multiple aligned harmonics are stronger than the direct fundamental peak.
+    - [x] Add spectral peak clustering so a smeared partial is consolidated before note mapping instead of splitting energy across adjacent note classes.
+    - [x] Add harmonic-product-style candidate scoring so coherent harmonic stacks contribute an extra fundamental-confidence layer beyond direct peak energy.
+    - [x] Reject near-match chords when dominant non-target peaks remain too strong relative to target-note energy.
+  - [x] Define UX fallback when confidence is low (avoid false chord matches from noise/room echo) by suppressing noisy mismatch feedback on warning/fallback frames and showing a neutral in-app hint instead.
   - [ ] Benchmark latency/CPU on typical devices and tune thresholds for stability.
+    - [x] Add an in-app synthetic benchmark harness for the selected mic polyphonic detector provider.
     - [x] Add runtime telemetry UI for mic poly detector (frames / avg/last/max latency / fallback count / warning count).
+    - [x] Add JSON export for runtime telemetry snapshots so real-device measurements can be compared outside the app.
+    - [x] Add a `Reset Poly Telemetry` action so live detector measurements can be captured in clean per-run windows before export.

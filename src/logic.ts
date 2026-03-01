@@ -116,7 +116,7 @@ const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   setResultMessage,
 });
 
-function resetMicPolyphonicDetectorTelemetry() {
+export function resetMicPolyphonicDetectorTelemetry() {
   state.lastMicPolyphonicDetectorProviderUsed = null;
   state.lastMicPolyphonicDetectorFallbackFrom = null;
   state.lastMicPolyphonicDetectorWarning = null;
