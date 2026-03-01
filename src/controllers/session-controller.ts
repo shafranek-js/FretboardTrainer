@@ -976,7 +976,7 @@ export function registerSessionControls() {
   // --- Main Session Controls ---
   dom.sessionToggleBtn.addEventListener('click', async () => {
     if (melodyDemoController.isActive()) {
-      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody demo stopped.' });
+      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody playback stopped.' });
       return;
     }
     if (!dom.stopBtn.disabled) {
@@ -1449,7 +1449,7 @@ export function registerSessionControls() {
   });
   dom.melodyDemoBtn.addEventListener('click', async () => {
     if (melodyDemoController.isActive()) {
-      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody demo stopped.' });
+      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody playback stopped.' });
       return;
     }
     setPracticeSetupCollapsed(true);
@@ -1479,7 +1479,7 @@ export function registerSessionControls() {
 
     if (event.key === 'Escape') {
       event.preventDefault();
-      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody demo stopped.' });
+      stopMelodyDemoPlayback({ clearUi: true, message: 'Melody playback stopped.' });
     }
   });
   document.addEventListener('keydown', (event) => {

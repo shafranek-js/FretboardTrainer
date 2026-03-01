@@ -69,7 +69,7 @@ describe('melody-demo-controller', () => {
       0,
       2,
       { startIndex: 0, endIndex: 1 },
-      { label: 'Demo', autoplaySound: true }
+      { label: 'Playback', autoplaySound: true }
     );
     expect(controller.isPlaying()).toBe(true);
   });
@@ -114,7 +114,7 @@ describe('melody-demo-controller', () => {
       2,
       3,
       { startIndex: 0, endIndex: 2 },
-      { label: 'Demo', autoplaySound: false }
+      { label: 'Playback', autoplaySound: false }
     );
   });
 

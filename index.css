@@ -1403,7 +1403,9 @@ input[type='number'] {
 }
 
 body.timeline-note-drag-active,
-body.timeline-note-drag-active * {
+body.timeline-note-drag-active *,
+body.timeline-pan-active,
+body.timeline-pan-active * {
   user-select: none !important;
 }
 

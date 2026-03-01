@@ -269,14 +269,16 @@ function bindTimelineDragPan() {
     pointerId = null;
     isDragging = false;
     scroller.classList.remove('is-drag-panning');
+    document.body.classList.remove('timeline-pan-active');
   };
 
   scroller.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') return;
     if (event.button !== 0) return;
     const target = event.target as HTMLElement | null;
-    if (target?.closest('[data-timeline-no-pan="true"]')) return;
-    if (target?.closest('button, input, select, textarea, a')) return;
+    const forcePan = event.ctrlKey || event.metaKey;
+    if (!forcePan && target?.closest('[data-timeline-no-pan="true"]')) return;
+    if (!forcePan && target?.closest('button, input, select, textarea, a')) return;
     if (scroller.scrollWidth <= scroller.clientWidth + 4) return;
 
     cancelInertia();
@@ -287,7 +289,9 @@ function bindTimelineDragPan() {
     lastTimestamp = event.timeStamp;
     velocityPxPerMs = 0;
     isDragging = false;
+    document.body.classList.add('timeline-pan-active');
     scroller.setPointerCapture(event.pointerId);
+    event.preventDefault();
   });
 
   scroller.addEventListener('pointermove', (event) => {
@@ -655,6 +659,7 @@ function bindTimelineEventDrag(
   dragTarget.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') return;
     if (event.button !== 0) return;
+    if (event.ctrlKey || event.metaKey) return;
     const pointerId = event.pointerId;
     const originalTarget = event.target as HTMLElement | null;
     if (originalTarget?.closest('[data-note-index]')) return;
@@ -780,6 +785,7 @@ function bindTimelineNoteDrag(noteTarget: HTMLElement, payload: {
   noteTarget.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') return;
     if (event.button !== 0) return;
+    if (event.ctrlKey || event.metaKey) return;
     event.preventDefault();
 
     const pointerId = event.pointerId;

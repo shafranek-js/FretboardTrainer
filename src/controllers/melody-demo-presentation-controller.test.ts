@@ -122,7 +122,7 @@ describe('melody-demo-presentation-controller', () => {
 
     expect(dom.melodyDemoBpm.value).toBe('220');
     expect(dom.melodyDemoBpmValue.textContent).toBe('220');
-    expect(dom.melodyDemoBtn.textContent).toBe('Stop Demo');
+    expect(dom.melodyDemoBtn.textContent).toBe('Stop');
     expect(dom.melodyPauseDemoBtn.textContent).toBe('Resume');
     expect(dom.melodyPauseDemoBtn.disabled).toBe(false);
     expect(dom.melodyStepBackBtn.disabled).toBe(true);
@@ -138,8 +138,8 @@ describe('melody-demo-presentation-controller', () => {
     controller.previewEvent(events, 'Romanza', events[0]!, 0, 1, { startIndex: 0, endIndex: 0 });
 
     expect(state.melodyTimelinePreviewIndex).toBe(0);
-    expect(state.melodyTimelinePreviewLabel).toBe('Demo');
-    expect(deps.setPromptText).toHaveBeenCalledWith('Demo [1/1]: C (A, fret 3) (Romanza)');
+    expect(state.melodyTimelinePreviewLabel).toBe('Playback');
+    expect(deps.setPromptText).toHaveBeenCalledWith('Playback [1/1]: C (A, fret 3) (Romanza)');
     expect(deps.drawFretboard).toHaveBeenCalledWith(
       false,
       null,

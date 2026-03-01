@@ -77,7 +77,7 @@ function buildMelodyDemoPrompt(
     studyRange,
     totalMelodyEvents
   );
-  const prefixLabel = options?.label ?? 'Demo';
+  const prefixLabel = options?.label ?? 'Playback';
 
   return {
     displayText: `${prefixLabel} ${stepLabel}: ${formatMelodyDemoEventHint(event)} (${melodyName})`,
@@ -104,7 +104,7 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
 
   function renderButtonState() {
     const isMelodyDemoActive = deps.isDemoActive();
-    deps.dom.melodyDemoBtn.textContent = isMelodyDemoActive ? 'Stop Demo' : 'Play Demo';
+    deps.dom.melodyDemoBtn.textContent = isMelodyDemoActive ? 'Stop' : 'Play Melody';
     deps.dom.melodyDemoBtn.classList.toggle('bg-emerald-700', !isMelodyDemoActive);
     deps.dom.melodyDemoBtn.classList.toggle('hover:bg-emerald-600', !isMelodyDemoActive);
     deps.dom.melodyDemoBtn.classList.toggle('border-emerald-500', !isMelodyDemoActive);
@@ -172,7 +172,7 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
     options?: { label?: string; autoplaySound?: boolean }
   ) {
     deps.state.melodyTimelinePreviewIndex = eventIndex;
-    deps.state.melodyTimelinePreviewLabel = options?.label ?? 'Demo';
+    deps.state.melodyTimelinePreviewLabel = options?.label ?? 'Playback';
     const fingering = getMelodyFingeredEvent(melodyEvents, eventIndex);
     const prompt = buildMelodyDemoPrompt(
       melodyName,

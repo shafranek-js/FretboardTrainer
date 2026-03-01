@@ -88,7 +88,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     isPlaying = false;
     isPaused = true;
     deps.onStateChange();
-    deps.setResultMessage('Melody demo paused.');
+    deps.setResultMessage('Melody playback paused.');
   }
 
   async function resumePlayback() {
@@ -100,7 +100,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     isPaused = false;
     isPlaying = true;
     deps.onStateChange();
-    deps.setResultMessage(`Resumed demo: ${selection.melody.name}`);
+    deps.setResultMessage(`Resumed playback: ${selection.melody.name}`);
     startPlaybackFromIndex(selection, nextEventIndex);
   }
 
@@ -131,7 +131,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
       nextEventIndex = clampedIndex;
       stepPreviewIndex = clampedIndex;
       deps.previewEvent(melody.events, melody.name, event, clampedIndex, totalEventsInRange, studyRange, {
-        label: wasPlaying ? 'Demo' : 'Pause',
+        label: wasPlaying ? 'Playback' : 'Pause',
         autoplaySound: false,
       });
 
@@ -152,7 +152,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
 
       if (isCommit) {
         deps.setResultMessage(
-          `${wasPaused ? 'Demo paused at' : 'Demo repositioned to'} step ${
+          `${wasPaused ? 'Playback paused at' : 'Playback repositioned to'} step ${
             clampedIndex - studyRange.startIndex + 1
           }/${totalEventsInRange}.`
         );
@@ -189,7 +189,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     const totalEventsInRange = deps.getStudyRangeLength(studyRange, melody.events.length);
 
     if (isPlaying) {
-      deps.setResultMessage('Stop demo playback before manual stepping.', 'error');
+      deps.setResultMessage('Stop melody playback before manual stepping.', 'error');
       return;
     }
 
@@ -237,7 +237,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     nextEventIndex = studyRange.startIndex;
     deps.onStateChange();
     deps.setResultMessage(
-      `Playing demo: ${melody.name} (${deps.formatStudyRange(studyRange, melody.events.length)}${
+      `Playing melody: ${melody.name} (${deps.formatStudyRange(studyRange, melody.events.length)}${
         deps.getLoopRangeEnabled() ? ', loop' : ''
       })`
     );
@@ -267,7 +267,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         deps.clearUiPreview();
         deps.redrawFretboard();
         deps.setResultMessage(
-          `Demo complete: ${melody.name} (${deps.formatStudyRange(studyRange, melody.events.length)})`,
+          `Playback complete: ${melody.name} (${deps.formatStudyRange(studyRange, melody.events.length)})`,
           'success'
         );
         return;
@@ -276,7 +276,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
       nextEventIndex = index + 1;
       const event = melody.events[index];
       deps.previewEvent(melody.events, melody.name, event, index, totalEventsInRange, studyRange, {
-        label: 'Demo',
+        label: 'Playback',
         autoplaySound: true,
       });
 
