@@ -1396,13 +1396,14 @@ function renderTimelineContextMenu(
   const selectedEvent = melody.events[targetEventIndex] ?? null;
   if (!selectedEvent || selectedEventIndex === null || selectedEventIndex !== targetEventIndex) return;
   const hasSelectedNote = activeTimelineContextMenu.noteIndex !== null;
+  const stepNoun = selectedEvent.notes.length > 1 ? 'Chord' : 'Note';
 
   const menu = document.createElement('div');
   menu.className = 'timeline-context-menu';
   menu.dataset.timelineNoPan = 'true';
   menu.setAttribute('role', 'menu');
   menu.title =
-    'Change fret: ArrowUp/ArrowDown. Decrease duration: -. Increase duration: = or +. Add next event: Insert or Enter. Add note to current event: Shift+Insert. Duplicate event: Shift+D. Split event: Shift+S. Merge with next: Shift+M. Delete note: Delete/Backspace. Delete event: Shift+Delete. Undo: Ctrl/Cmd+Z. Redo: Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y.';
+    `Change fret: ArrowUp/ArrowDown. Decrease duration: -. Increase duration: = or +. Add next ${stepNoun.toLowerCase()}: Insert or Enter. Add note to current step: Shift+Insert. Duplicate ${stepNoun.toLowerCase()}: Shift+D. Split ${stepNoun.toLowerCase()}: Shift+S. Merge with next ${stepNoun.toLowerCase()}: Shift+M. Delete selected note: Delete/Backspace. Delete ${stepNoun.toLowerCase()}: Shift+Delete. Undo: Ctrl/Cmd+Z. Redo: Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y.`;
   const addItem = (
     label: string,
     shortcut: string,
@@ -1454,30 +1455,30 @@ function renderTimelineContextMenu(
   addSectionLabel('Pitch');
   addItem('Lower Fret', 'ArrowDown', 'Move the selected note one fret lower.', 'fret-down', !hasSelectedNote);
   addItem('Raise Fret', 'ArrowUp', 'Move the selected note one fret higher.', 'fret-up', !hasSelectedNote);
-  addItem('Shorter Duration', '-', 'Shorten the selected event by one timing step.', 'duration-down', false);
-  addItem('Longer Duration', '= / +', 'Lengthen the selected event by one timing step.', 'duration-up', false);
+  addItem('Shorter Duration', '-', `Shorten the selected ${stepNoun.toLowerCase()} by one timing unit.`, 'duration-down', false);
+  addItem('Longer Duration', '= / +', `Lengthen the selected ${stepNoun.toLowerCase()} by one timing unit.`, 'duration-up', false);
   addSeparator();
 
   addSectionLabel('Timing');
-  addItem('Split Event', 'Shift+S', 'Split the current event into two equal events.', 'split-event', !canToolbarSplitEvent(selectedEvent));
+  addItem(`Split ${stepNoun}`, 'Shift+S', `Split the current ${stepNoun.toLowerCase()} into two equal steps.`, 'split-event', !canToolbarSplitEvent(selectedEvent));
   addItem(
-    'Merge With Next',
+    `Merge With Next ${stepNoun}`,
     'Shift+M',
-    'Merge the current event with the next matching event.',
+    `Merge the current ${stepNoun.toLowerCase()} with the next matching step.`,
     'merge-event',
     !canToolbarMergeEvent(melody, targetEventIndex)
   );
   addSeparator();
 
   addSectionLabel('Structure');
-  addItem('Add Note', 'Shift+Insert', 'Add a note to the current event for polyphony.', 'add-note', false);
-  addItem('Add Next Event', 'Insert / Enter', 'Insert a new event after the current one.', 'add-event', false);
-  addItem('Duplicate Event', 'Shift+D', 'Copy the current event after itself.', 'duplicate-event', false);
+  addItem('Add Note', 'Shift+Insert', 'Add a note to the current step for polyphony.', 'add-note', false);
+  addItem(`Add Next ${stepNoun}`, 'Insert / Enter', `Insert a new ${stepNoun.toLowerCase()} after the current one.`, 'add-event', false);
+  addItem(`Duplicate ${stepNoun}`, 'Shift+D', `Copy the current ${stepNoun.toLowerCase()} after itself.`, 'duplicate-event', false);
   addSeparator();
 
   addSectionLabel('Delete');
-  addItem('Delete Note', 'Delete', 'Remove the selected note from the event.', 'delete-note', !hasSelectedNote);
-  addItem('Delete Event', 'Shift+Delete', 'Remove the current event and its duration.', 'delete-event', false);
+  addItem('Delete Selected Note', 'Delete', 'Remove the selected note from the current step.', 'delete-note', !hasSelectedNote);
+  addItem(`Delete ${stepNoun}`, 'Shift+Delete', `Remove the current ${stepNoun.toLowerCase()} and its duration.`, 'delete-event', false);
   addSeparator();
 
   addSectionLabel('History');
