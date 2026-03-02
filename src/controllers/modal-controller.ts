@@ -1,12 +1,28 @@
 import { dom, state } from '../state';
 import { startListening, cancelCalibration } from '../logic';
 import { displayStats, handleModeChange, redrawFretboard, updateInstrumentUI } from '../ui';
-import { resetStats, saveSettings } from '../storage';
+import { loadSettings, resetSavedSettings, resetStats, saveSettings } from '../storage';
 import { setModalVisible, setResultMessage, showCalibrationModal } from '../ui-signals';
 import { instruments } from '../instruments';
 import { refreshAudioInputDeviceOptions } from '../audio-input-devices';
 import { refreshInputSourceAvailabilityUi, refreshMidiInputDevices } from '../midi-runtime';
 import { confirmUserAction } from '../user-feedback-port';
+import {
+  applyAppUserDataSnapshot,
+  buildAppUserDataSnapshot,
+  formatAppUserDataSnapshotFileName,
+  parseAppUserDataSnapshot,
+} from '../user-data-transfer';
+
+function downloadTextFile(fileName: string, text: string, mimeType: string) {
+  const blob = new Blob([text], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export function registerModalControls() {
   // --- Settings Modal and its Children ---
@@ -119,5 +135,62 @@ export function registerModalControls() {
   dom.closeLinksBtn.addEventListener('click', () => setModalVisible('links', false));
   dom.linksModal.addEventListener('click', (e) => {
     if (e.target === dom.linksModal) setModalVisible('links', false);
+  });
+
+  dom.resetSavedSettingsBtn.addEventListener('click', async () => {
+    if (state.isListening) {
+      setResultMessage('Stop the current session before resetting saved settings.', 'error');
+      return;
+    }
+
+    const shouldReset = await confirmUserAction(
+      'Reset saved settings and profiles to defaults? Statistics and custom melodies will be kept.'
+    );
+    if (!shouldReset) return;
+
+    resetSavedSettings();
+    await loadSettings();
+    setResultMessage('Saved settings were reset to defaults.', 'success');
+  });
+
+  dom.exportUserDataBtn.addEventListener('click', () => {
+    const exportedAtMs = Date.now();
+    const snapshot = buildAppUserDataSnapshot(localStorage, exportedAtMs);
+    downloadTextFile(
+      formatAppUserDataSnapshotFileName(exportedAtMs),
+      `${JSON.stringify(snapshot, null, 2)}\n`,
+      'application/json'
+    );
+    setResultMessage('User data exported.', 'success');
+  });
+
+  dom.importUserDataBtn.addEventListener('click', () => {
+    dom.importUserDataFileInput.click();
+  });
+
+  dom.importUserDataFileInput.addEventListener('change', async () => {
+    const file = dom.importUserDataFileInput.files?.[0];
+    dom.importUserDataFileInput.value = '';
+    if (!file) return;
+    if (state.isListening) {
+      setResultMessage('Stop the current session before importing user data.', 'error');
+      return;
+    }
+
+    const shouldImport = await confirmUserAction(
+      'Importing user data will overwrite current saved settings, profiles, stats, and custom melodies. Continue?'
+    );
+    if (!shouldImport) return;
+
+    try {
+      const text = await file.text();
+      const snapshot = parseAppUserDataSnapshot(text);
+      applyAppUserDataSnapshot(snapshot, localStorage);
+      setResultMessage('User data imported. Reloading app...', 'success');
+      window.location.reload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to import user data.';
+      setResultMessage(message, 'error');
+    }
   });
 }

@@ -2,6 +2,10 @@ import {
   buildMicPolyphonicTelemetrySnapshot,
   formatMicPolyphonicTelemetryFileName,
 } from '../mic-polyphonic-telemetry';
+import { REQUIRED_STABLE_FRAMES } from '../constants';
+import { getMicNoteAttackPeakMultiplier } from '../mic-note-attack-filter';
+import { resolveMicVolumeThreshold } from '../mic-input-sensitivity';
+import { getMicNoteHoldDurationMs } from '../mic-note-hold-filter';
 
 interface MicPolyphonicTelemetryControllerDom {
   exportMicPolyphonicTelemetryBtn: HTMLButtonElement;
@@ -9,6 +13,10 @@ interface MicPolyphonicTelemetryControllerDom {
 }
 
 interface MicPolyphonicTelemetryControllerState {
+  micSensitivityPreset: string;
+  micAutoNoiseFloorRms: number | null;
+  micNoteAttackFilterPreset: string;
+  micNoteHoldFilterPreset: string;
   micPolyphonicDetectorProvider: string;
   lastMicPolyphonicDetectorProviderUsed: string | null;
   lastMicPolyphonicDetectorFallbackFrom: string | null;
@@ -28,6 +36,8 @@ interface MicPolyphonicTelemetryControllerDeps {
   now(): number;
   getUserAgent(): string | undefined;
   getHardwareConcurrency(): number | null;
+  getAnalyserSampleRate(): number | null;
+  getAnalyserFftSize(): number | null;
   downloadTextFile(fileName: string, text: string, mimeType: string): void;
   resetTelemetry(): void;
   refreshTelemetryUi(): void;
@@ -62,6 +72,19 @@ export function createMicPolyphonicTelemetryController(
         capturedAtMs,
         userAgent: deps.getUserAgent(),
         hardwareConcurrency: deps.getHardwareConcurrency(),
+        sensitivityPreset: deps.state.micSensitivityPreset,
+        resolvedVolumeThreshold: resolveMicVolumeThreshold(
+          deps.state.micSensitivityPreset as never,
+          deps.state.micAutoNoiseFloorRms
+        ),
+        autoNoiseFloorRms: deps.state.micAutoNoiseFloorRms,
+        attackFilterPreset: deps.state.micNoteAttackFilterPreset,
+        attackPeakMultiplier: getMicNoteAttackPeakMultiplier(deps.state.micNoteAttackFilterPreset as never),
+        holdFilterPreset: deps.state.micNoteHoldFilterPreset,
+        holdDurationMs: getMicNoteHoldDurationMs(deps.state.micNoteHoldFilterPreset as never),
+        requiredStableFrames: REQUIRED_STABLE_FRAMES,
+        analyserSampleRate: deps.getAnalyserSampleRate(),
+        analyserFftSize: deps.getAnalyserFftSize(),
       });
 
       deps.downloadTextFile(

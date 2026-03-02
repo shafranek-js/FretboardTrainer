@@ -935,6 +935,41 @@
                   Useful Links
                 </button>
                 <button
+                  id="resetSavedSettingsBtn"
+                  type="button"
+                  aria-label="Reset saved settings and profiles"
+                  class="settings-menu-btn w-full p-4 text-base bg-red-700 hover:bg-red-600 text-white rounded-md transition-colors"
+                  title="Clear saved settings and profiles from localStorage and return to default app state"
+                >
+                  Reset Saved Settings
+                </button>
+                <button
+                  id="exportUserDataBtn"
+                  type="button"
+                  aria-label="Export all saved app data"
+                  class="settings-menu-btn w-full p-4 text-base bg-cyan-700 hover:bg-cyan-600 text-white rounded-md transition-colors"
+                  title="Export profiles, settings, stats, and custom melodies to a JSON file"
+                >
+                  Export User Data
+                </button>
+                <button
+                  id="importUserDataBtn"
+                  type="button"
+                  aria-label="Import saved app data"
+                  class="settings-menu-btn w-full p-4 text-base bg-amber-700 hover:bg-amber-600 text-white rounded-md transition-colors"
+                  title="Import profiles, settings, stats, and custom melodies from a JSON file"
+                >
+                  Import User Data
+                </button>
+                <input
+                  id="importUserDataFileInput"
+                  type="file"
+                  accept="application/json,.json"
+                  class="hidden"
+                  aria-hidden="true"
+                  tabindex="-1"
+                />
+                <button
                   id="melodyTransposeBatchCustomBtn"
                   type="button"
                   aria-label="Apply the current transpose value to all custom melodies"

@@ -8,6 +8,10 @@ function createDeps() {
       resetMicPolyphonicTelemetryBtn: { disabled: false } as HTMLButtonElement,
     },
     state: {
+      micSensitivityPreset: 'auto',
+      micAutoNoiseFloorRms: 0.009,
+      micNoteAttackFilterPreset: 'balanced',
+      micNoteHoldFilterPreset: '80ms',
       micPolyphonicDetectorProvider: 'spectrum',
       lastMicPolyphonicDetectorProviderUsed: 'spectrum',
       lastMicPolyphonicDetectorFallbackFrom: null,
@@ -23,6 +27,8 @@ function createDeps() {
     now: vi.fn(() => 3_000),
     getUserAgent: vi.fn(() => 'Test UA'),
     getHardwareConcurrency: vi.fn(() => 8),
+    getAnalyserSampleRate: vi.fn(() => 48_000),
+    getAnalyserFftSize: vi.fn(() => 4096),
     downloadTextFile: vi.fn(),
     resetTelemetry: vi.fn(),
     refreshTelemetryUi: vi.fn(),
@@ -53,6 +59,14 @@ describe('mic-polyphonic-telemetry-controller', () => {
     expect(deps.downloadTextFile).toHaveBeenCalledTimes(1);
     expect(deps.downloadTextFile.mock.calls[0]?.[0]).toContain('mic-poly-telemetry-');
     expect(deps.downloadTextFile.mock.calls[0]?.[2]).toBe('application/json');
+    const exportedJson = deps.downloadTextFile.mock.calls[0]?.[1] as string;
+    const snapshot = JSON.parse(exportedJson);
+    expect(snapshot.version).toBe(2);
+    expect(snapshot.configuration.resolvedVolumeThreshold).toBeGreaterThan(0);
+    expect(snapshot.configuration.attackFilterPreset).toBe('balanced');
+    expect(snapshot.configuration.holdDurationMs).toBe(80);
+    expect(snapshot.configuration.analyserSampleRate).toBe(48000);
+    expect(snapshot.framesPerSecond).toBeGreaterThan(0);
     expect(deps.setResultMessage).toHaveBeenCalledWith('Poly detector telemetry exported.', 'success');
   });
 

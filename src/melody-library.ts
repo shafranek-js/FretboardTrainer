@@ -1,6 +1,7 @@
 import type { IInstrument } from './instruments/instrument';
 import { parseAsciiTabToMelodyEvents } from './ascii-tab-melody-parser';
 import { resolveMelodyEventPositions } from './melody-position-resolver';
+import { CUSTOM_MELODY_STORAGE_KEY } from './app-storage-keys';
 
 export interface MelodyEventNote {
   note: string;
@@ -57,8 +58,6 @@ interface StoredCustomEventMelody extends StoredCustomMelodyBase {
 }
 
 type StoredCustomMelody = StoredCustomAsciiMelody | StoredCustomEventMelody;
-
-const CUSTOM_MELODY_STORAGE_KEY = 'fretboardTrainer.customMelodies.v1';
 
 interface BuiltinAsciiTabMelodySpec {
   id: string;

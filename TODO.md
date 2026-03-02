@@ -133,7 +133,7 @@
 
 ## Future / Backlog
 
-- [ ] Port selected melody workflow upgrades from legacy `fretflow`.
+- [x] Port selected melody workflow upgrades from legacy `fretflow`.
   - [x] Add per-melody `String Shift` with feasibility guardrails and synchronized TAB/fretboard/demo rendering.
   - [x] Add `Performance Mode` for uninterrupted full-song runs with dedicated scoring.
   - [x] Add compact melody `Minimap` / overview navigation with seek + viewport drag.
@@ -145,7 +145,7 @@
   - [x] Add an experimental `Essentia.js` (`MultiPitchKlapuri` / `MultiPitchMelodia`) provider spike behind a feature flag (license/CPU review required).
   - [x] Evaluate `Basic Pitch` (`basic-pitch-ts`) as an offline/analysis import path (not suitable for low-latency live session verification). See `docs/basic-pitch-evaluation.md`.
   - [x] Evaluate `ONNX Runtime Web` (`wasm` / `webgpu`) runtime path for custom multi-pitch models. Keep it as a future experimental provider, not the default live path. See `docs/onnx-runtime-web-evaluation.md`.
-  - [ ] Improve algorithm quality/tradeoffs (e.g., harmonic product spectrum, spectral peak clustering, multi-pitch estimation) for browser/WebAudio constraints.
+  - [x] Improve algorithm quality/tradeoffs (e.g., harmonic product spectrum, spectral peak clustering, multi-pitch estimation) for browser/WebAudio constraints.
     - [x] Add local-peak filtering in `spectrumToNoteEnergies()` so shoulder bins do not smear energy into adjacent note classes.
     - [x] Add local peak-prominence filtering so tiny noisy wiggles are ignored instead of becoming fake note candidates.
     - [x] Add a harmonic-clustering layer that reinforces a fundamental note class when multiple aligned harmonics are stronger than the direct fundamental peak.
@@ -158,3 +158,5 @@
     - [x] Add runtime telemetry UI for mic poly detector (frames / avg/last/max latency / fallback count / warning count).
     - [x] Add JSON export for runtime telemetry snapshots so real-device measurements can be compared outside the app.
     - [x] Add a `Reset Poly Telemetry` action so live detector measurements can be captured in clean per-run windows before export.
+    - [x] Include detector configuration and derived rates in telemetry exports so real-device snapshots are reproducible for threshold tuning.
+    - [ ] Collect representative desktop/laptop/mobile telemetry snapshots and tune detector thresholds from measured data.

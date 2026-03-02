@@ -37,6 +37,12 @@ import {
   formatMelodyStringShift,
   normalizeMelodyStringShift,
 } from './melody-string-shift';
+import {
+  ACTIVE_PROFILE_KEY,
+  PROFILES_KEY,
+  STATS_KEY,
+  LAST_SESSION_STATS_KEY,
+} from './app-storage-keys';
 
 function normalizeStoredMelodyStudyRangeIndex(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -54,10 +60,6 @@ function normalizeStoredMelodyStudyRangeIndex(value: unknown) {
 }
 
 // --- PROFILE CONSTANTS ---
-const PROFILES_KEY = 'fretflow-profiles';
-const ACTIVE_PROFILE_KEY = 'fretflow-active-profile';
-const STATS_KEY = 'fretflow-stats';
-const LAST_SESSION_STATS_KEY = 'fretflow-last-session-stats';
 type InstrumentName = IInstrument['name'];
 
 function createDefaultRhythmSessionStats(): RhythmSessionStats {
@@ -218,6 +220,12 @@ export function saveSettings() {
   const profiles = getProfiles();
   profiles[activeProfileName] = gatherCurrentSettings();
   saveProfiles(profiles);
+}
+
+/** Clears saved profiles/settings and returns the app to the implicit default profile. */
+export function resetSavedSettings() {
+  localStorage.removeItem(PROFILES_KEY);
+  localStorage.removeItem(ACTIVE_PROFILE_KEY);
 }
 
 /** Applies a settings object to the DOM and application state. */
