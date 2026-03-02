@@ -15,6 +15,7 @@ import { registerConfirmControls } from './src/controllers/confirm-controller';
 import { showNonBlockingError } from './src/app-feedback';
 import { setUserErrorReporter } from './src/user-feedback-port';
 import { registerOptionalMicPolyphonicDetectorAdapters } from './src/mic-polyphonic-detector-bootstrap';
+import { registerPwaUpdater } from './src/pwa-updater';
 
 let globalErrorHandlersBound = false;
 
@@ -65,6 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await clearDevServiceWorkerState();
 
     bindUiSignals();
+    registerPwaUpdater();
     setUserErrorReporter(showNonBlockingError);
     await loadSettings(); // This now loads profiles, applies settings, and pre-loads audio
     await registerOptionalMicPolyphonicDetectorAdapters();
