@@ -33,7 +33,6 @@ import {
 import { getEnabledStrings } from '../fretboard-ui-state';
 import { type CurriculumPresetKey } from '../curriculum-presets';
 import {
-  clampMetronomeBpm,
   setMetronomeTempo,
   startMetronome,
   stopMetronome,
@@ -969,13 +968,6 @@ function syncHiddenMetronomeTempoFromSharedTempo() {
   melodyDemoPresentationController.syncBpmDisplay();
   dom.metronomeBpm.value = String(metronomeBpm);
   dom.metronomeBpmValue.textContent = String(metronomeBpm);
-}
-
-function syncSharedTempoFromHiddenMetronome() {
-  const { melodyBpm } = resolveSharedMelodyTempoBpm(Number.parseInt(dom.metronomeBpm.value, 10));
-  dom.melodyDemoBpm.value = String(melodyBpm);
-  melodyDemoPresentationController.syncBpmDisplay();
-  syncHiddenMetronomeTempoFromSharedTempo();
 }
 
 async function syncMetronomeTempoFromMelodyIfLinked() {

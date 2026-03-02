@@ -27,6 +27,9 @@ describe('createSessionStopResetState', () => {
       currentMelodyEventFoundNotes: new Set<string>(),
       performancePromptResolved: false,
       performancePromptMatched: false,
+      performancePromptHadAttempt: false,
+      performancePrerollLeadInVisible: false,
+      performancePrerollStepIndex: null,
       showSessionSummaryOnStop: false,
       pendingSessionStopResultMessage: null,
     });

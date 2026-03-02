@@ -26,6 +26,7 @@ describe('createPromptCycleTrackingResetState', () => {
       lastPitches: [],
       performancePromptResolved: false,
       performancePromptMatched: false,
+      performancePromptHadAttempt: false,
     });
   });
 
