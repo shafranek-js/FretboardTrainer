@@ -506,6 +506,8 @@ function isElementWithin(target: EventTarget | null, container: HTMLElement | nu
 function isAnyBlockingModalOpen() {
   return [
     dom.settingsModal,
+    dom.userDataModal,
+    dom.helpModal,
     dom.statsModal,
     dom.guideModal,
     dom.linksModal,

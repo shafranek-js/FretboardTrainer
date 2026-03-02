@@ -26,6 +26,14 @@ function downloadTextFile(fileName: string, text: string, mimeType: string) {
 
 export function registerModalControls() {
   // --- Settings Modal and its Children ---
+  dom.helpBtn.addEventListener('click', () => {
+    setModalVisible('help', true);
+  });
+  dom.closeHelpBtn.addEventListener('click', () => setModalVisible('help', false));
+  dom.helpModal.addEventListener('click', (e) => {
+    if (e.target === dom.helpModal) setModalVisible('help', false);
+  });
+
   dom.settingsBtn.addEventListener('click', () => {
     refreshInputSourceAvailabilityUi();
     void refreshAudioInputDeviceOptions();
@@ -37,6 +45,14 @@ export function registerModalControls() {
 
   dom.settingsModal.addEventListener('click', (e) => {
     if (e.target === dom.settingsModal) setModalVisible('settings', false);
+  });
+  dom.openUserDataBtn.addEventListener('click', () => {
+    setModalVisible('settings', false);
+    setModalVisible('userData', true);
+  });
+  dom.closeUserDataBtn.addEventListener('click', () => setModalVisible('userData', false));
+  dom.userDataModal.addEventListener('click', (e) => {
+    if (e.target === dom.userDataModal) setModalVisible('userData', false);
   });
 
   dom.openCalibrateBtn.addEventListener('click', async () => {
@@ -120,7 +136,7 @@ export function registerModalControls() {
   });
 
   dom.openGuideBtn.addEventListener('click', () => {
-    setModalVisible('settings', false);
+    setModalVisible('help', false);
     setModalVisible('guide', true);
   });
   dom.closeGuideBtn.addEventListener('click', () => setModalVisible('guide', false));
@@ -129,7 +145,7 @@ export function registerModalControls() {
   });
 
   dom.openLinksBtn.addEventListener('click', () => {
-    setModalVisible('settings', false);
+    setModalVisible('help', false);
     setModalVisible('links', true);
   });
   dom.closeLinksBtn.addEventListener('click', () => setModalVisible('links', false));

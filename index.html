@@ -37,9 +37,18 @@
             </div>
           </div>
           <button
+            id="helpBtn"
+            class="bg-slate-600 hover:bg-slate-500 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
+            aria-label="Open help"
+            title="Help"
+          >
+            ?
+          </button>
+          <button
             id="settingsBtn"
             class="bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
             aria-label="Open app settings"
+            title="App Settings"
           >
             &#9881;&#65039;
           </button>
@@ -649,7 +658,7 @@
         >
           &times;
         </button>
-        <h2 class="text-2xl font-bold mb-5 text-white text-center">Settings & Utilities</h2>
+        <h2 class="text-2xl font-bold mb-5 text-white text-center">App Settings</h2>
         <div class="settings-menu grid grid-cols-1 xl:grid-cols-3 gap-4 items-start text-left">
             <section
               class="settings-card settings-card-balanced compact-section xl:col-span-1 rounded-lg border border-slate-600 bg-slate-800/40 p-4"
@@ -905,79 +914,62 @@
             </section>
             <div
               class="settings-card compact-section xl:col-span-1 rounded-lg border border-slate-600 bg-slate-800/40 p-4"
-              data-section-hint="Utilities. Open calibration, stats, guide, links, and library-wide melody actions."
-              title="Utilities. Open calibration, stats, guide, links, and library-wide melody actions."
+              data-section-hint="Utilities. Open tools, help, user-data actions, and melody-library actions without mixing them into one flat button list."
+              title="Utilities. Open tools, help, user-data actions, and melody-library actions without mixing them into one flat button list."
               aria-label="Utilities"
             >
-              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
-                <button
-                  id="openCalibrateBtn"
-                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                >
-                  Calibrate Tuning
-                </button>
-                <button
-                  id="openStatsBtn"
-                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                >
-                  My Stats
-                </button>
-                <button
-                  id="openGuideBtn"
-                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                >
-                  User Guide
-                </button>
-                <button
-                  id="openLinksBtn"
-                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                >
-                  Useful Links
-                </button>
-                <button
-                  id="resetSavedSettingsBtn"
-                  type="button"
-                  aria-label="Reset saved settings and profiles"
-                  class="settings-menu-btn w-full p-4 text-base bg-red-700 hover:bg-red-600 text-white rounded-md transition-colors"
-                  title="Clear saved settings and profiles from localStorage and return to default app state"
-                >
-                  Reset Saved Settings
-                </button>
-                <button
-                  id="exportUserDataBtn"
-                  type="button"
-                  aria-label="Export all saved app data"
-                  class="settings-menu-btn w-full p-4 text-base bg-cyan-700 hover:bg-cyan-600 text-white rounded-md transition-colors"
-                  title="Export profiles, settings, stats, and custom melodies to a JSON file"
-                >
-                  Export User Data
-                </button>
-                <button
-                  id="importUserDataBtn"
-                  type="button"
-                  aria-label="Import saved app data"
-                  class="settings-menu-btn w-full p-4 text-base bg-amber-700 hover:bg-amber-600 text-white rounded-md transition-colors"
-                  title="Import profiles, settings, stats, and custom melodies from a JSON file"
-                >
-                  Import User Data
-                </button>
-                <input
-                  id="importUserDataFileInput"
-                  type="file"
-                  accept="application/json,.json"
-                  class="hidden"
-                  aria-hidden="true"
-                  tabindex="-1"
-                />
-                <button
-                  id="melodyTransposeBatchCustomBtn"
-                  type="button"
-                  aria-label="Apply the current transpose value to all custom melodies"
-                  class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                  title="Set the current transpose value for all custom melodies"
-                >
-                  Apply to All
-                </button>
+              <div class="space-y-3">
+                <div class="rounded-md border border-slate-600/70 bg-slate-900/30 p-3">
+                  <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                    Tools
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+                    <button
+                      id="openCalibrateBtn"
+                      class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                    >
+                      Calibrate Tuning
+                    </button>
+                    <button
+                      id="openStatsBtn"
+                      class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                    >
+                      My Stats
+                    </button>
+                  </div>
+                </div>
+                <div class="rounded-md border border-slate-600/70 bg-slate-900/30 p-3">
+                  <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                    User Data
+                  </div>
+                  <div class="grid grid-cols-1 gap-3">
+                    <button
+                      id="openUserDataBtn"
+                      type="button"
+                      aria-label="Open user data tools"
+                      class="settings-menu-btn w-full p-4 text-base bg-cyan-700 hover:bg-cyan-600 text-white rounded-md transition-colors"
+                      title="Open export, import, and reset actions for saved local data"
+                    >
+                      Manage User Data
+                    </button>
+                  </div>
+                </div>
+                <div class="rounded-md border border-slate-600/70 bg-slate-900/30 p-3">
+                  <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                    Melody Library
+                  </div>
+                  <div class="grid grid-cols-1 gap-3">
+                    <button
+                      id="melodyTransposeBatchCustomBtn"
+                      type="button"
+                      aria-label="Apply the current transpose value to all custom melodies"
+                      class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                      title="Set the current transpose value for all custom melodies"
+                    >
+                      Apply to All
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1022,6 +1014,95 @@
                 </div>
               </div>
             </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="userDataModal"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    >
+      <div class="modal-content relative bg-slate-700 p-5 sm:p-6 rounded-lg shadow-xl w-full max-w-xl">
+        <button
+          id="closeUserDataBtn"
+          class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
+          aria-label="Close user data tools"
+        >
+          &times;
+        </button>
+        <h2 class="text-2xl font-bold mb-3 text-white text-center">User Data</h2>
+        <p class="mb-4 text-sm text-slate-300 text-center">
+          Export, import, or reset the local data you want to carry between devices or test as a new user.
+        </p>
+        <div class="grid grid-cols-1 gap-3">
+          <button
+            id="exportUserDataBtn"
+            type="button"
+            aria-label="Export all saved app data"
+            class="settings-menu-btn w-full p-4 text-base bg-cyan-700 hover:bg-cyan-600 text-white rounded-md transition-colors"
+            title="Export profiles, settings, stats, and custom melodies to a JSON file"
+          >
+            Export User Data
+          </button>
+          <button
+            id="importUserDataBtn"
+            type="button"
+            aria-label="Import saved app data"
+            class="settings-menu-btn w-full p-4 text-base bg-amber-700 hover:bg-amber-600 text-white rounded-md transition-colors"
+            title="Import profiles, settings, stats, and custom melodies from a JSON file"
+          >
+            Import User Data
+          </button>
+          <button
+            id="resetSavedSettingsBtn"
+            type="button"
+            aria-label="Reset saved settings and profiles"
+            class="settings-menu-btn w-full p-4 text-base bg-red-700 hover:bg-red-600 text-white rounded-md transition-colors"
+            title="Clear saved settings and profiles from localStorage and return to default app state"
+          >
+            Reset Saved Settings
+          </button>
+          <input
+            id="importUserDataFileInput"
+            type="file"
+            accept="application/json,.json"
+            class="hidden"
+            aria-hidden="true"
+            tabindex="-1"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="helpModal"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    >
+      <div class="modal-content relative bg-slate-700 p-5 sm:p-6 rounded-lg shadow-xl w-full max-w-xl">
+        <button
+          id="closeHelpBtn"
+          class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
+          aria-label="Close help"
+        >
+          &times;
+        </button>
+        <h2 class="text-2xl font-bold mb-3 text-white text-center">Help</h2>
+        <p class="mb-4 text-sm text-slate-300 text-center">
+          Open the guide for workflow instructions or the links collection for external learning resources.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            id="openGuideBtn"
+            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+          >
+            User Guide
+          </button>
+          <button
+            id="openLinksBtn"
+            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+          >
+            Useful Links
+          </button>
         </div>
       </div>
     </div>

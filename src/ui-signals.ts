@@ -64,10 +64,20 @@ const loadingViewSignal = createSignal<LoadingViewState>({
   isLoading: false,
   message: '',
 });
-type ModalKey = 'settings' | 'stats' | 'guide' | 'links' | 'profileName' | 'melodyImport';
+type ModalKey =
+  | 'settings'
+  | 'userData'
+  | 'help'
+  | 'stats'
+  | 'guide'
+  | 'links'
+  | 'profileName'
+  | 'melodyImport';
 type ModalVisibilityState = Record<ModalKey, boolean>;
 const modalVisibilitySignal = createSignal<ModalVisibilityState>({
   settings: false,
+  userData: false,
+  help: false,
   stats: false,
   guide: false,
   links: false,
@@ -556,6 +566,7 @@ export function bindUiSignals() {
     dom.startBtn.disabled = sessionButtonsSignal.get().startDisabled || isLoading;
     dom.instrumentSelector.disabled = isLoading;
     dom.settingsBtn.disabled = isLoading;
+    dom.helpBtn.disabled = isLoading;
     syncSessionToggleButton();
 
     if (isLoading) {
@@ -577,6 +588,18 @@ export function bindUiSignals() {
       dom.settingsModal.classList.remove('hidden');
     } else {
       dom.settingsModal.classList.add('hidden');
+    }
+
+    if (visibility.userData) {
+      dom.userDataModal.classList.remove('hidden');
+    } else {
+      dom.userDataModal.classList.add('hidden');
+    }
+
+    if (visibility.help) {
+      dom.helpModal.classList.remove('hidden');
+    } else {
+      dom.helpModal.classList.add('hidden');
     }
 
     if (visibility.stats) {

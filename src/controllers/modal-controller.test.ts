@@ -17,9 +17,13 @@ const mockLocation = { reload: locationReload };
 
 const harness = vi.hoisted(() => {
   const dom = {
+    helpBtn: createEventTargetStub(),
     settingsBtn: createEventTargetStub(),
     closeSettingsBtn: createEventTargetStub(),
     settingsModal: createEventTargetStub(),
+    openUserDataBtn: createEventTargetStub(),
+    userDataModal: createEventTargetStub(),
+    closeUserDataBtn: createEventTargetStub(),
     openCalibrateBtn: createEventTargetStub(),
     cancelCalibrationBtn: createEventTargetStub(),
     openStatsBtn: createEventTargetStub(),
@@ -28,6 +32,8 @@ const harness = vi.hoisted(() => {
     resetStatsBtn: createEventTargetStub(),
     repeatLastSessionBtn: createEventTargetStub(),
     practiceWeakSpotsBtn: createEventTargetStub(),
+    helpModal: createEventTargetStub(),
+    closeHelpBtn: createEventTargetStub(),
     openGuideBtn: createEventTargetStub(),
     closeGuideBtn: createEventTargetStub(),
     guideModal: createEventTargetStub(),
@@ -210,6 +216,26 @@ describe('modal-controller', () => {
     );
     expect(harness.resetSavedSettings).not.toHaveBeenCalled();
     expect(harness.loadSettings).not.toHaveBeenCalled();
+  });
+
+  it('opens user data tools from app settings', async () => {
+    registerModalControls();
+
+    await harness.dom.openUserDataBtn.listeners.click?.();
+
+    expect(harness.setModalVisible).toHaveBeenCalledWith('settings', false);
+    expect(harness.setModalVisible).toHaveBeenCalledWith('userData', true);
+  });
+
+  it('opens help from the toolbar and routes into the guide modal', async () => {
+    registerModalControls();
+
+    await harness.dom.helpBtn.listeners.click?.();
+    await harness.dom.openGuideBtn.listeners.click?.();
+
+    expect(harness.setModalVisible).toHaveBeenCalledWith('help', true);
+    expect(harness.setModalVisible).toHaveBeenCalledWith('help', false);
+    expect(harness.setModalVisible).toHaveBeenCalledWith('guide', true);
   });
 
   it('clears saved settings and reloads defaults after confirmation', async () => {
