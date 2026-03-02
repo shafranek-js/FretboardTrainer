@@ -10,6 +10,7 @@ export interface PromptCycleTrackingState extends StabilityTrackingState {
   lastPitches: number[];
   performancePromptResolved: boolean;
   performancePromptMatched: boolean;
+  performancePromptHadAttempt: boolean;
 }
 
 export function createStabilityTrackingResetState(): StabilityTrackingState {
@@ -28,5 +29,6 @@ export function createPromptCycleTrackingResetState(): PromptCycleTrackingState 
     lastPitches: [],
     performancePromptResolved: false,
     performancePromptMatched: false,
+    performancePromptHadAttempt: false,
   };
 }

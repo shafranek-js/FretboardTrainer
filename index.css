@@ -7,10 +7,14 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
 body {
+  width: 100%;
+  height: 100%;
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #2b3e50 0%, #1a252f 100%);
+  overflow: hidden;
 }
 
 :root {
@@ -69,7 +73,11 @@ input[type='number'] {
 }
 
 .app-shell {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   gap: 0;
+  overflow: hidden;
 }
 
 .session-area,
@@ -80,6 +88,12 @@ input[type='number'] {
   border-radius: var(--ff-shell-radius) !important;
   background: var(--ff-shell-fill) !important;
   box-shadow: var(--ff-shell-shadow);
+}
+
+.learning-controls {
+  padding-top: 0.28rem !important;
+  padding-bottom: 0.28rem !important;
+  overflow: hidden;
 }
 
 .learning-controls,
@@ -145,6 +159,8 @@ input[type='number'] {
   align-items: center;
   column-gap: 0.35rem;
   row-gap: 0.18rem;
+  padding-top: 0.18rem !important;
+  padding-bottom: 0.12rem !important;
   padding-right: clamp(11.4rem, 22vw, 15.5rem) !important;
 }
 
@@ -267,6 +283,7 @@ input[type='number'] {
 }
 
 .session-area #melodyPlaybackControls button,
+.session-area #metronomeToggleBtn,
 .session-area #sessionToggleBtn,
 .session-area #hintBtn {
   height: var(--ff-control-h-md);
@@ -276,6 +293,10 @@ input[type='number'] {
   padding-right: 0.56rem;
   font-size: 0.74rem;
   white-space: nowrap;
+}
+
+.session-area #metronomeToggleBtn {
+  min-width: 5.2rem;
 }
 
 .session-area #sessionToggleBtn {
@@ -615,6 +636,154 @@ input[type='number'] {
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
+}
+
+/* Session Settings should stay on one row without a dedicated scroll area. */
+#sessionToolsPanel,
+#sessionToolsPanel > div,
+#sessionToolsPrimaryControls,
+#sessionToolsDisplaySection,
+#sessionToolsActiveStringsSection,
+#sessionToolsPlanSection > .grid > div {
+  min-width: 0;
+}
+
+#sessionToolsPanel {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.22rem !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+
+#sessionToolsPlanSection {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#sessionToolsPlanSection > .grid {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.18rem !important;
+  min-width: 0 !important;
+}
+
+#sessionToolsPlanSection > .grid > :nth-child(1) {
+  flex: 1 1 12rem;
+}
+
+#sessionToolsPlanSection > .grid > :nth-child(2),
+#sessionToolsPlanSection > .grid > :nth-child(3) {
+  flex: 0 1 4.25rem;
+}
+
+#sessionToolsPlanSection > .grid > :nth-child(4) {
+  flex: 0 1 5.6rem;
+}
+
+#sessionToolsPrimaryControls {
+  display: flex !important;
+  flex: 0 1 auto;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.18rem !important;
+}
+
+#sessionToolsDisplaySection > .flex {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 0.16rem !important;
+}
+
+#sessionToolsPanel select,
+#sessionToolsPanel input[type='number'] {
+  font-size: 0.6rem !important;
+  height: 1.56rem !important;
+  padding-top: 0.06rem !important;
+  padding-bottom: 0.06rem !important;
+  padding-left: 0.26rem !important;
+  padding-right: 0.26rem !important;
+}
+
+#sessionToolsPanel .text-\[10px\],
+#sessionToolsPanel .text-\[11px\],
+#sessionToolsPanel .text-slate-400,
+#sessionToolsPanel .field-tooltip-host,
+#sessionToolsPanel .field-tooltip-host span {
+  font-size: 0.56rem !important;
+  line-height: 1.02 !important;
+}
+
+#sessionToolsPanel .session-setting-chip {
+  min-height: 1.42rem;
+  padding: 0.08rem 0.22rem;
+  font-size: 0.56rem;
+  line-height: 1;
+  gap: 0.18rem !important;
+}
+
+#sessionToolsPanel .session-setting-chip input[type='checkbox'] {
+  width: 0.72rem;
+  height: 0.72rem;
+}
+
+#sessionToolsPanel .session-setting-chip select {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 5.2rem;
+}
+
+#sessionToolsPanel #sessionToolsStringSelector {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 0.12rem !important;
+  min-width: 0 !important;
+}
+
+#sessionToolsPanel .session-string-chip {
+  min-height: 1.28rem !important;
+  padding: 0.04rem 0.18rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+}
+
+#sessionToolsPanel #metronomeQuickControls {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+#sessionToolsPanel #metronomeQuickControls > div {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.12rem;
+}
+
+#sessionToolsPanel #metronomeQuickControls .session-setting-chip {
+  background: rgba(120, 53, 15, 0.24);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+#sessionToolsPanel #metronomeBpm {
+  width: 4.3rem !important;
+}
+
+#sessionToolsPanel #metronomeBpmValue {
+  min-width: 1.75rem !important;
+  color: rgba(253, 224, 71, 0.92) !important;
+}
+
+#sessionToolsPanel #metronomeBeatLabel {
+  display: inline-block !important;
+}
+
+#sessionToolsPanel #startFret,
+#sessionToolsPanel #endFret {
+  width: 2.2rem !important;
 }
 
 #practiceSetupPanel.hidden,
@@ -1120,7 +1289,9 @@ input[type='number'] {
 
 .fretboard-area {
   gap: 0.3rem;
+  min-height: 0;
   padding: 0 !important;
+  overflow: hidden;
 }
 
 .fretboard-area .rounded-lg,
@@ -1131,34 +1302,42 @@ input[type='number'] {
 .fretboard-area .fretboard-and-strings-panel {
   background: transparent !important;
   box-shadow: none !important;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 0 !important;
 }
 
 .fretboard-area .fretboard {
   border-radius: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(34, 211, 238, 0.05), transparent 58%);
   padding: 0 !important;
 }
 
 #melodyTabTimelinePanel {
+  --melody-timeline-zoom-scale: 1;
   position: relative;
   overflow: visible;
   margin-top: 0;
   margin-bottom: 0;
-  padding-top: 0.18rem !important;
-  padding-bottom: 0.18rem !important;
-  padding-left: 0.28rem !important;
-  padding-right: 0.28rem !important;
+  padding-top: calc(0.18rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-bottom: calc(0.18rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-left: calc(0.28rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-right: calc(0.28rem * var(--melody-timeline-zoom-scale)) !important;
 }
 
 #melodyTabTimelineMinimapDock {
+  --melody-timeline-zoom-scale: 1;
   margin-top: 0;
   margin-bottom: 0;
-  padding-top: 0.18rem !important;
-  padding-bottom: 0.18rem !important;
-  padding-left: 0.28rem !important;
-  padding-right: 0.28rem !important;
+  padding-top: calc(0.18rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-bottom: calc(0.18rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-left: calc(0.28rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-right: calc(0.28rem * var(--melody-timeline-zoom-scale)) !important;
 }
 
 #melodyTabTimelinePanel h3,

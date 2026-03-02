@@ -21,6 +21,9 @@ export interface LastSessionViewModel {
   inputText: string;
   durationText: string;
   attemptsText: string;
+  correctAttemptsText: string;
+  wrongAttemptsText: string;
+  totalAttemptsText: string;
   accuracyText: string;
   avgTimeText: string;
   bestStreakText: string;
@@ -217,7 +220,7 @@ function buildLastSessionCoachTip(
   return 'Balanced session. Keep consistency and repeat this setup before increasing difficulty.';
 }
 
-function buildLastSessionViewModel(
+export function buildLastSessionViewModel(
   sessionStats: SessionStats | null | undefined,
   weakSpotsLimit: number
 ): LastSessionViewModel | null {
@@ -245,6 +248,9 @@ function buildLastSessionViewModel(
     inputText: `${sessionStats.inputSource === 'midi' ? 'MIDI' : 'Mic'}: ${sessionStats.inputDeviceLabel || 'Default'}`,
     durationText: formatDurationMs(durationMs),
     attemptsText: `${sessionStats.correctAttempts}/${sessionStats.totalAttempts} correct`,
+    correctAttemptsText: String(sessionStats.correctAttempts),
+    wrongAttemptsText: String(Math.max(0, sessionStats.totalAttempts - sessionStats.correctAttempts)),
+    totalAttemptsText: String(sessionStats.totalAttempts),
     accuracyText: `${accuracy.toFixed(1)}%`,
     avgTimeText: `${avgTime.toFixed(2)}s`,
     bestStreakText: String(Math.max(0, sessionStats.bestCorrectStreak ?? 0)),

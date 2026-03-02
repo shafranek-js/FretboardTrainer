@@ -1,7 +1,9 @@
 import { dom } from './state';
+import { setResultMessage } from './ui-signals';
 import type { MelodyDefinition } from './melody-library';
 import type { IInstrument } from './instruments/instrument';
 import { buildMelodyTabTimelineViewModel, type TimelineNoteChip } from './melody-tab-timeline-model';
+import type { PerformanceTimelineFeedbackByEvent, PerformanceTimelineAttempt } from './performance-timeline-feedback';
 import {
   computeDraggedMelodyStudyRange,
   resolveTimelineStepIndexFromX,
@@ -73,6 +75,8 @@ let activeTimelineNoteDragSource: { eventIndex: number; noteIndex: number } | nu
 let activeTimelineContextMenu:
   | { melodyId: string; eventIndex: number; noteIndex: number | null; anchorX: number; anchorY: number }
   | null = null;
+let timelineBackgroundCopyBound = false;
+let activeTimelineBackgroundCopyPayload: { text: string; melodyName: string } | null = null;
 
 type MelodyTimelineContextAction =
   | 'fret-down'
@@ -137,17 +141,63 @@ function withAlpha(hexColor: string, alpha: number) {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-function createCellNoteChip(note: TimelineNoteChip) {
+function scaleTimelinePixels(base: number, zoomScale: number, minimum: number) {
+  return Math.max(minimum, Math.round(base * zoomScale));
+}
+
+function createCellNoteChip(note: TimelineNoteChip, zoomScale: number) {
   const chip = document.createElement('button');
   chip.type = 'button';
   chip.className =
     'inline-flex items-center justify-center min-w-[18px] px-1 py-0 rounded-sm text-[10px] leading-4 font-semibold text-slate-50';
-  chip.style.backgroundColor = getFingerColor(note.finger);
-  chip.title = `${note.note} | fret ${note.fret} | finger ${note.finger}`;
+  chip.style.minWidth = `${scaleTimelinePixels(18, zoomScale, 14)}px`;
+  chip.style.paddingLeft = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
+  chip.style.paddingRight = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
+  chip.style.fontSize = `${scaleTimelinePixels(10, zoomScale, 8)}px`;
+  chip.style.lineHeight = `${scaleTimelinePixels(16, zoomScale, 12)}px`;
+  const fingerColor = getFingerColor(note.finger);
+  chip.style.backgroundColor =
+    note.performanceStatus === 'correct'
+      ? '#16a34a'
+      : note.performanceStatus === 'wrong'
+        ? '#dc2626'
+        : note.performanceStatus === 'missed'
+          ? '#991b1b'
+        : fingerColor;
+  if (note.performanceStatus) {
+    chip.style.boxShadow = `inset 0 0 0 1px ${withAlpha(fingerColor, 0.92)}`;
+  }
+  chip.title = `${note.note} | fret ${note.fret} | finger ${note.finger}${
+    note.performanceStatus ? ` | ${note.performanceStatus}` : ''
+  }`;
   chip.textContent = String(note.fret);
   chip.dataset.timelineNoPan = 'true';
   chip.dataset.noteIndex = String(note.noteIndex);
   chip.dataset.eventIndex = '';
+  return chip;
+}
+
+function createPlayedFeedbackChip(attempt: PerformanceTimelineAttempt, zoomScale: number) {
+  const chip = document.createElement('span');
+  chip.className =
+    'inline-flex items-center justify-center min-w-[14px] px-1 py-[1px] rounded text-[9px] leading-3 font-semibold text-white';
+  chip.style.minWidth = `${scaleTimelinePixels(14, zoomScale, 11)}px`;
+  chip.style.paddingLeft = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
+  chip.style.paddingRight = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
+  chip.style.paddingTop = `${scaleTimelinePixels(1, zoomScale, 1)}px`;
+  chip.style.paddingBottom = `${scaleTimelinePixels(1, zoomScale, 1)}px`;
+  chip.style.fontSize = `${scaleTimelinePixels(9, zoomScale, 8)}px`;
+  chip.style.lineHeight = `${scaleTimelinePixels(12, zoomScale, 10)}px`;
+  chip.style.backgroundColor =
+    attempt.status === 'correct'
+      ? '#16a34a'
+      : attempt.status === 'missed'
+        ? '#991b1b'
+        : '#dc2626';
+  chip.title = `${attempt.status === 'correct' ? 'Correct' : attempt.status === 'missed' ? 'Missed' : 'Wrong'}: ${attempt.note}${
+    typeof attempt.fret === 'number' ? ` | fret ${attempt.fret}` : ''
+  }`;
+  chip.textContent = typeof attempt.fret === 'number' ? String(attempt.fret) : attempt.note;
   return chip;
 }
 
@@ -158,6 +208,110 @@ function getPrimaryCellFingerColor(notes: TimelineNoteChip[]) {
 
 function clearGrid() {
   dom.melodyTabTimelineGrid.innerHTML = '';
+}
+
+async function writeTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const success = document.execCommand('copy');
+  textarea.remove();
+  if (!success) {
+    throw new Error('Clipboard API unavailable.');
+  }
+}
+
+function bindTimelineBackgroundCopy() {
+  if (timelineBackgroundCopyBound) return;
+  timelineBackgroundCopyBound = true;
+
+  dom.melodyTabTimelineViewport.addEventListener('contextmenu', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (!activeTimelineBackgroundCopyPayload) return;
+    if (
+      target.closest(
+        '.timeline-context-menu, td, th, button, [role="menuitem"], [data-event-index], [data-note-index], [data-timeline-step-anchor="true"]'
+      )
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    void writeTextToClipboard(activeTimelineBackgroundCopyPayload.text)
+      .then(() => {
+        setResultMessage(`Copied tab text for ${activeTimelineBackgroundCopyPayload?.melodyName}.`, 'success');
+      })
+      .catch((error) => {
+        console.error('Failed to copy melody tab text:', error);
+        setResultMessage('Failed to copy tab text.', 'error');
+      });
+  });
+}
+
+export function setMelodyTimelineBackgroundCopyPayload(payload: { text: string; melodyName: string } | null) {
+  activeTimelineBackgroundCopyPayload = payload;
+}
+
+function getClassicPlayedCellTextRaw(attempts: PerformanceTimelineAttempt[]) {
+  if (attempts.length === 0) return '';
+  return attempts.map((attempt) => (typeof attempt.fret === 'number' ? String(attempt.fret) : attempt.note)).join('/');
+}
+
+function resolveClassicCellFeedbackTone(cell: ReturnType<typeof buildMelodyTabTimelineViewModel>['rows'][number]['cells'][number]) {
+  if (cell.notes.some((note) => note.performanceStatus === 'correct')) return 'correct';
+  if (cell.notes.some((note) => note.performanceStatus === 'wrong')) return 'wrong';
+  if (cell.notes.some((note) => note.performanceStatus === 'missed')) return 'missed';
+  if (cell.unmatchedPlayedNotes.some((attempt) => attempt.status === 'correct')) return 'correct';
+  if (cell.unmatchedPlayedNotes.some((attempt) => attempt.status === 'wrong')) return 'wrong';
+  if (cell.unmatchedPlayedNotes.some((attempt) => attempt.status === 'missed')) return 'missed';
+  return null;
+}
+
+function applyClassicCellFeedbackStyles(
+  cellElement: HTMLElement,
+  tone: 'correct' | 'wrong' | 'missed' | null,
+  accentColor: string
+) {
+  if (tone === 'correct') {
+    cellElement.style.backgroundColor = '#16a34a';
+    cellElement.style.color = '#f0fdf4';
+    cellElement.style.boxShadow = cellElement.style.boxShadow
+      ? `${cellElement.style.boxShadow}, inset 0 0 0 1px #166534`
+      : 'inset 0 0 0 1px #166534';
+    return;
+  }
+  if (tone === 'wrong') {
+    cellElement.style.backgroundColor = '#dc2626';
+    cellElement.style.color = '#fef2f2';
+    cellElement.style.boxShadow = cellElement.style.boxShadow
+      ? `${cellElement.style.boxShadow}, inset 0 0 0 1px #991b1b`
+      : 'inset 0 0 0 1px #991b1b';
+    return;
+  }
+  if (tone === 'missed') {
+    cellElement.style.backgroundColor = '#991b1b';
+    cellElement.style.color = '#fef2f2';
+    cellElement.style.boxShadow = cellElement.style.boxShadow
+      ? `${cellElement.style.boxShadow}, inset 0 0 0 1px #7f1d1d`
+      : 'inset 0 0 0 1px #7f1d1d';
+    return;
+  }
+  if (cellElement.dataset.activeEvent === 'true') {
+    cellElement.style.backgroundColor = withAlpha(accentColor, 0.28);
+    cellElement.style.color = '#f8fafc';
+  }
 }
 
 function centerTimelineEvent(eventIndex: number, behavior: ScrollBehavior = 'smooth') {
@@ -892,12 +1046,15 @@ function renderGridTimeline(
   durationLayout: TimelineDurationLayout,
   root: HTMLElement,
   showStepNumbers: boolean,
+  zoomScale: number,
   editingEnabled: boolean,
   selectedEventIndex: number | null,
   selectedNoteIndex: number | null
 ) {
   const table = document.createElement('table');
   table.className = 'min-w-max border-separate border-spacing-px text-[10px] font-mono text-slate-200';
+  table.style.fontSize = `${scaleTimelinePixels(10, zoomScale, 8)}px`;
+  table.style.lineHeight = '1.2';
 
   if (showStepNumbers) {
     const thead = document.createElement('thead');
@@ -909,7 +1066,7 @@ function renderGridTimeline(
     headerRow.appendChild(corner);
 
     for (let eventIndex = 0; eventIndex < model.totalEvents; eventIndex++) {
-      const widthPx = durationLayout.cellPixelWidths[eventIndex] ?? 28;
+      const widthPx = scaleTimelinePixels(durationLayout.cellPixelWidths[eventIndex] ?? 28, zoomScale, 18);
       const step = document.createElement('th');
       step.dataset.eventIndex = String(eventIndex);
       const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
@@ -924,6 +1081,7 @@ function renderGridTimeline(
             : 'border-slate-600 bg-slate-800/55 text-slate-500');
       step.style.minWidth = `${widthPx}px`;
       step.style.width = `${widthPx}px`;
+      step.style.padding = `${scaleTimelinePixels(2, zoomScale, 1)}px ${scaleTimelinePixels(6, zoomScale, 3)}px`;
       if (model.activeEventIndex === eventIndex) {
         step.style.borderColor = withAlpha(accentColor, 0.88);
         step.style.backgroundColor = withAlpha(accentColor, 0.26);
@@ -948,10 +1106,11 @@ function renderGridTimeline(
     label.className =
       'sticky left-0 z-[2] bg-slate-900/95 text-cyan-200 px-1.5 py-0.5 border border-slate-600 rounded text-left';
     label.textContent = row.stringName;
+    label.style.padding = `${scaleTimelinePixels(2, zoomScale, 1)}px ${scaleTimelinePixels(6, zoomScale, 3)}px`;
     tr.appendChild(label);
 
     row.cells.forEach((cell, eventIndex) => {
-      const widthPx = durationLayout.cellPixelWidths[eventIndex] ?? 28;
+      const widthPx = scaleTimelinePixels(durationLayout.cellPixelWidths[eventIndex] ?? 28, zoomScale, 18);
       const accentColor = getPrimaryCellFingerColor(cell.notes);
       const td = document.createElement('td');
       td.dataset.eventIndex = String(eventIndex);
@@ -967,6 +1126,7 @@ function renderGridTimeline(
             : 'border-slate-700/70 bg-slate-900/25 opacity-70');
       td.style.minWidth = `${widthPx}px`;
       td.style.width = `${widthPx}px`;
+      td.style.height = `${scaleTimelinePixels(24, zoomScale, 18)}px`;
       if (cell.isActive) {
         td.style.borderColor = withAlpha(accentColor, 0.88);
         td.style.backgroundColor = withAlpha(accentColor, 0.16);
@@ -985,7 +1145,7 @@ function renderGridTimeline(
           : 'inset -2px 0 0 rgba(251, 191, 36, 0.9)';
       }
 
-      if (cell.notes.length === 0) {
+      if (cell.notes.length === 0 && cell.unmatchedPlayedNotes.length === 0) {
         const empty = document.createElement('span');
         empty.className = cell.isActive
           ? ''
@@ -1009,8 +1169,8 @@ function renderGridTimeline(
             });
           });
         }
-      } else if (cell.notes.length === 1) {
-        const noteChip = createCellNoteChip(cell.notes[0]);
+      } else if (cell.notes.length === 1 && cell.unmatchedPlayedNotes.length === 0) {
+        const noteChip = createCellNoteChip(cell.notes[0], zoomScale);
         const isSelected = selectedEventIndex === eventIndex && selectedNoteIndex === cell.notes[0]!.noteIndex;
         const isDragSource =
           activeTimelineNoteDragSource?.eventIndex === eventIndex &&
@@ -1041,8 +1201,9 @@ function renderGridTimeline(
       } else {
         const stack = document.createElement('div');
         stack.className = 'flex flex-col items-center justify-center gap-px py-0';
+        stack.style.gap = `${scaleTimelinePixels(1, zoomScale, 1)}px`;
         cell.notes.forEach((note) => {
-          const noteChip = createCellNoteChip(note);
+          const noteChip = createCellNoteChip(note, zoomScale);
           const isSelected = selectedEventIndex === eventIndex && selectedNoteIndex === note.noteIndex;
           const isDragSource =
             activeTimelineNoteDragSource?.eventIndex === eventIndex &&
@@ -1070,6 +1231,9 @@ function renderGridTimeline(
             fret: note.fret,
           }, instrument);
           stack.appendChild(noteChip);
+        });
+        cell.unmatchedPlayedNotes.forEach((attempt) => {
+          stack.appendChild(createPlayedFeedbackChip(attempt, zoomScale));
         });
         td.appendChild(stack);
       }
@@ -1100,21 +1264,42 @@ function renderClassicTimeline(
   durationLayout: TimelineDurationLayout,
   root: HTMLElement,
   showStepNumbers: boolean,
+  showPrerollLeadIn: boolean,
+  activePrerollStepIndex: number | null,
+  zoomScale: number,
   editingEnabled: boolean,
   selectedEventIndex: number | null,
   selectedNoteIndex: number | null
 ) {
   const wrapper = document.createElement('div');
   wrapper.className = 'min-w-max text-[11px] leading-5 font-mono text-slate-200';
+  wrapper.style.fontSize = `${scaleTimelinePixels(11, zoomScale, 8)}px`;
+  wrapper.style.lineHeight = `${scaleTimelinePixels(20, zoomScale, 14)}px`;
 
   const eventWidths = Array.from({ length: model.totalEvents }, (_, eventIndex) => {
     const durationWidth = durationLayout.cellCharWidths[eventIndex] ?? 3;
     const widestRaw = Math.max(
       0,
-      ...model.rows.map((row) => getClassicCellTextRaw(row.cells[eventIndex]?.notes ?? []).length)
+      ...model.rows.map((row) =>
+        Math.max(
+          getClassicCellTextRaw(row.cells[eventIndex]?.notes ?? []).length,
+          getClassicPlayedCellTextRaw(row.cells[eventIndex]?.unmatchedPlayedNotes ?? []).length
+        )
+      )
     );
     return Math.max(3, widestRaw, durationWidth);
   });
+  const prerollLeadInChars = showPrerollLeadIn
+    ? Math.max(
+        8,
+        Math.min(
+          16,
+          eventWidths.slice(0, Math.min(4, eventWidths.length)).reduce((sum, width) => sum + width, 0)
+        )
+      )
+    : 0;
+  const prerollStepCount = showPrerollLeadIn ? 4 : 0;
+  const prerollStepWidth = prerollStepCount > 0 ? Math.max(2, Math.round(prerollLeadInChars / prerollStepCount)) : 0;
 
   const buildLine = (labelText: string, segments: string[], options?: { isHeader?: boolean; isAnchorRow?: boolean }) => {
     const isHeader = options?.isHeader ?? false;
@@ -1127,6 +1312,7 @@ function renderClassicTimeline(
 
     const label = document.createElement('span');
     label.className = `inline-block w-7 shrink-0 ${isHeader ? 'text-slate-400' : 'text-cyan-200'}`;
+    label.style.width = `${scaleTimelinePixels(28, zoomScale, 22)}px`;
     label.textContent = labelText;
     line.appendChild(label);
 
@@ -1134,6 +1320,31 @@ function renderClassicTimeline(
     startPipe.className = 'text-slate-500';
     startPipe.textContent = '|';
     line.appendChild(startPipe);
+
+    if (prerollLeadInChars > 0) {
+      for (let prerollStep = 0; prerollStep < prerollStepCount; prerollStep += 1) {
+        const prerollCell = document.createElement('span');
+        const isActivePrerollStep = activePrerollStepIndex === prerollStep;
+        prerollCell.className =
+          `inline-block px-[1px] rounded-sm ${isHeader ? 'text-slate-600' : 'text-slate-600/80'}` +
+          (isActivePrerollStep ? ' text-slate-50' : '');
+        prerollCell.style.minWidth = `${prerollStepWidth}ch`;
+        prerollCell.style.width = `${prerollStepWidth}ch`;
+        if (isActivePrerollStep) {
+          prerollCell.style.backgroundColor = 'rgba(34, 211, 238, 0.24)';
+          prerollCell.style.boxShadow = 'inset 0 0 0 1px rgba(34, 211, 238, 0.4)';
+          prerollCell.style.color = '#ecfeff';
+        }
+        prerollCell.textContent = isHeader
+          ? String(prerollStep + 1).padEnd(prerollStepWidth, ' ')
+          : '-'.repeat(prerollStepWidth);
+        line.appendChild(prerollCell);
+      }
+      const prerollEndPipe = document.createElement('span');
+      prerollEndPipe.className = 'text-slate-500';
+      prerollEndPipe.textContent = '|';
+      line.appendChild(prerollEndPipe);
+    }
 
     segments.forEach((segment, eventIndex) => {
       if (barGrouping.barStartEventIndexes.has(eventIndex)) {
@@ -1161,11 +1372,13 @@ function renderClassicTimeline(
             : 'text-slate-500');
       cell.style.minWidth = `${eventWidths[eventIndex]}ch`;
       cell.style.width = `${eventWidths[eventIndex]}ch`;
+      cell.dataset.activeEvent = model.activeEventIndex === eventIndex ? 'true' : 'false';
       if (model.activeEventIndex === eventIndex) {
         cell.style.backgroundColor = withAlpha(accentColor, 0.28);
         cell.style.color = '#f8fafc';
       }
-      const selectedRowNote = model.rows.find((row) => row.stringName === labelText)?.cells[eventIndex]?.notes[0] ?? null;
+      const rowCell = model.rows.find((row) => row.stringName === labelText)?.cells[eventIndex] ?? null;
+      const selectedRowNote = rowCell?.notes[0] ?? null;
       const isDragSource =
         !isHeader &&
         selectedRowNote &&
@@ -1191,7 +1404,22 @@ function renderClassicTimeline(
       if (isDragSource) {
         cell.classList.add('timeline-note-drag-source');
       }
-      cell.textContent = segment;
+      const displaySegment =
+        rowCell && rowCell.unmatchedPlayedNotes.length > 0
+          ? getClassicCellText(
+              rowCell.unmatchedPlayedNotes.map((attempt, attemptIndex) => ({
+                note: attempt.note,
+                stringName: labelText,
+                fret: typeof attempt.fret === 'number' ? attempt.fret : attemptIndex,
+                finger: 0,
+                noteIndex: -1 - attemptIndex,
+                performanceStatus: attempt.status,
+              })),
+              eventWidths[eventIndex]
+            )
+          : segment;
+      cell.textContent = displaySegment;
+      applyClassicCellFeedbackStyles(cell, rowCell ? resolveClassicCellFeedbackTone(rowCell) : null, accentColor);
       if (!isHeader && selectedRowNote) {
         cell.dataset.timelineNoPan = 'true';
         cell.dataset.noteIndex = String(selectedRowNote.noteIndex);
@@ -1272,7 +1500,8 @@ function renderStudyRangeBar(
   melodyId: string,
   totalEvents: number,
   metrics: TimelineStepMetric[],
-  studyRange: MelodyStudyRange
+  studyRange: MelodyStudyRange,
+  zoomScale: number
 ) {
   if (metrics.length === 0 || totalEvents <= 0) return;
 
@@ -1288,11 +1517,13 @@ function renderStudyRangeBar(
 
   const lane = document.createElement('div');
   lane.className = 'relative h-8';
+  lane.style.height = `${scaleTimelinePixels(32, zoomScale, 24)}px`;
   lane.style.width = `${totalWidth}px`;
   wrapper.appendChild(lane);
 
   const track = document.createElement('div');
   track.className = 'absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-800 border border-slate-700/80';
+  track.style.height = `${scaleTimelinePixels(8, zoomScale, 6)}px`;
   track.style.left = `${trackStart}px`;
   track.style.width = `${trackWidth}px`;
   lane.appendChild(track);
@@ -1300,6 +1531,7 @@ function renderStudyRangeBar(
   const selection = document.createElement('div');
   selection.className =
     'absolute top-1/2 h-4 -translate-y-1/2 rounded-full border border-amber-400/80 bg-amber-500/20 shadow-[0_0_0_1px_rgba(251,191,36,0.15)] cursor-grab';
+  selection.style.height = `${scaleTimelinePixels(16, zoomScale, 12)}px`;
   selection.style.touchAction = 'none';
   selection.dataset.timelineNoPan = 'true';
   lane.appendChild(selection);
@@ -1309,6 +1541,8 @@ function renderStudyRangeBar(
     handle.type = 'button';
     handle.className =
       'absolute top-1/2 h-6 w-3 -translate-y-1/2 rounded-sm border border-amber-300/80 bg-amber-200 text-[0] shadow-sm cursor-ew-resize';
+    handle.style.height = `${scaleTimelinePixels(24, zoomScale, 18)}px`;
+    handle.style.width = `${scaleTimelinePixels(12, zoomScale, 9)}px`;
     handle.style.touchAction = 'none';
     handle.dataset.timelineNoPan = 'true';
     handle.setAttribute('aria-label', side === 'left' ? 'Adjust study range start' : 'Adjust study range end');
@@ -1324,10 +1558,11 @@ function renderStudyRangeBar(
     const endMetric = metrics[range.endIndex] ?? metrics[metrics.length - 1]!;
     const left = startMetric.left;
     const width = Math.max(12, endMetric.right - startMetric.left);
+    const handleOffset = scaleTimelinePixels(6, zoomScale, 4);
     selection.style.left = `${left}px`;
-    selection.style.width = `${width}px`;
-    leftHandle.style.left = `${startMetric.left - 6}px`;
-    rightHandle.style.left = `${endMetric.right - 6}px`;
+    selection.style.width = `${Math.max(scaleTimelinePixels(12, zoomScale, 8), width)}px`;
+    leftHandle.style.left = `${startMetric.left - handleOffset}px`;
+    rightHandle.style.left = `${endMetric.right - handleOffset}px`;
   };
 
   applyVisualRange(normalizedRange);
@@ -1504,7 +1739,7 @@ function renderTimelineMinimap(
   activeEventIndex: number | null,
   durationLayout: TimelineDurationLayout,
   studyRange: MelodyStudyRange,
-  options: { showRangeEditor: boolean }
+  options: { showRangeEditor: boolean; zoomScale: number }
 ) {
   dom.melodyTabTimelineMinimap.innerHTML = '';
   if (durationLayout.weights.length === 0 || melody.events.length === 0) {
@@ -1524,6 +1759,7 @@ function renderTimelineMinimap(
 
   const shell = document.createElement('div');
   shell.className = 'timeline-minimap-shell';
+  shell.style.height = `${scaleTimelinePixels(29, options.zoomScale, 22)}px`;
   shell.dataset.cursor = options.showRangeEditor ? 'range' : 'seek';
   shell.title = options.showRangeEditor
     ? 'Timeline minimap. Click or drag to seek. Drag the yellow handles to set the study range.'
@@ -1532,6 +1768,7 @@ function renderTimelineMinimap(
 
   const track = document.createElement('div');
   track.className = 'timeline-minimap-track';
+  track.style.inset = `${scaleTimelinePixels(3, options.zoomScale, 2)}px ${scaleTimelinePixels(4, options.zoomScale, 3)}px`;
   shell.appendChild(track);
 
   if (layout.activeRatio !== null) {
@@ -1578,6 +1815,11 @@ function renderTimelineMinimap(
     rangeEndLine.className = 'timeline-minimap-range-line';
     startHandle.className = 'timeline-minimap-handle';
     endHandle.className = 'timeline-minimap-handle';
+    const handleWidth = scaleTimelinePixels(14, options.zoomScale, 10);
+    startHandle.style.width = `${handleWidth}px`;
+    startHandle.style.marginLeft = `${-Math.round(handleWidth / 2)}px`;
+    endHandle.style.width = `${handleWidth}px`;
+    endHandle.style.marginLeft = `${-Math.round(handleWidth / 2)}px`;
     startHandle.dataset.dragMode = 'start';
     endHandle.dataset.dragMode = 'end';
     track.append(
@@ -1713,6 +1955,7 @@ function renderTimelineMinimap(
 }
 
 export function hideMelodyTabTimeline() {
+  setMelodyTimelineBackgroundCopyPayload(null);
   dom.melodyTabTimelinePanel.classList.add('hidden');
   dom.melodyTabTimelineMinimapDock.classList.add('hidden');
   dom.melodyTabTimelineMinimap.classList.add('hidden');
@@ -1734,28 +1977,43 @@ export function renderMelodyTabTimeline(
   options: {
     modeLabel?: string | null;
     viewMode?: 'classic' | 'grid';
+    zoomScale?: number;
     studyRange?: MelodyStudyRange | null;
     showStepNumbers?: boolean;
     showMetaDetails?: boolean;
     minimapRangeEditor?: boolean;
+    showPrerollLeadIn?: boolean;
+    activePrerollStepIndex?: number | null;
     editingEnabled?: boolean;
     selectedEventIndex?: number | null;
     selectedNoteIndex?: number | null;
+    performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null;
   } = {}
 ) {
+  bindTimelineBackgroundCopy();
   const modeLabel = options.modeLabel?.trim() ?? '';
   const viewMode = options.viewMode ?? 'classic';
+  const zoomScale = Math.max(0.7, Math.min(1.7, options.zoomScale ?? 1));
   const showStepNumbers = options.showStepNumbers ?? false;
   const showMetaDetails = options.showMetaDetails ?? false;
   const minimapRangeEditor = options.minimapRangeEditor ?? true;
+  const showPrerollLeadIn = options.showPrerollLeadIn ?? false;
+  const activePrerollStepIndex = options.activePrerollStepIndex ?? null;
   const editingEnabled = options.editingEnabled ?? false;
   const selectedEventIndex = options.selectedEventIndex ?? null;
   const selectedNoteIndex = options.selectedNoteIndex ?? null;
+  const performanceFeedbackByEvent = options.performanceFeedbackByEvent ?? null;
   const studyRange = normalizeMelodyStudyRange(options.studyRange, melody.events.length);
   bindTimelineScrollChrome();
   bindTimelineDragPan();
   bindTimelineSelectionClear();
-  const model = buildMelodyTabTimelineViewModel(melody, instrument.STRING_ORDER, activeEventIndex, studyRange);
+  const model = buildMelodyTabTimelineViewModel(
+    melody,
+    instrument.STRING_ORDER,
+    activeEventIndex,
+    studyRange,
+    performanceFeedbackByEvent
+  );
   const barGrouping = buildTimelineBarGrouping(melody);
   const durationLayout = computeTimelineDurationLayout(melody);
   const durationSignature = durationLayout.weights
@@ -1786,9 +2044,19 @@ export function renderMelodyTabTimeline(
     studyRange.startIndex,
     studyRange.endIndex,
     showStepNumbers ? 1 : 0,
+    Math.round(zoomScale * 100),
     minimapRangeEditor ? 1 : 0,
+    showPrerollLeadIn ? 1 : 0,
+    activePrerollStepIndex ?? -1,
     selectedEventIndex ?? -1,
     selectedNoteIndex ?? -1,
+    Object.entries(performanceFeedbackByEvent ?? {})
+      .map(([eventIndex, attempts]) =>
+        `${eventIndex}:${attempts
+          .map((attempt) => `${attempt.status}-${attempt.note}-${attempt.stringName ?? '-'}-${attempt.fret ?? '-'}`)
+          .join(',')}`
+      )
+      .join(';'),
     activeTimelineNoteDragSource?.eventIndex ?? -1,
     activeTimelineNoteDragSource?.noteIndex ?? -1,
     contextMenuSignature,
@@ -1803,6 +2071,8 @@ export function renderMelodyTabTimeline(
   dom.melodyTabTimelineGrid.dataset.melodyId = melody.id;
 
   dom.melodyTabTimelinePanel.classList.remove('hidden');
+  dom.melodyTabTimelinePanel.style.setProperty('--melody-timeline-zoom-scale', String(zoomScale));
+  dom.melodyTabTimelineMinimapDock.style.setProperty('--melody-timeline-zoom-scale', String(zoomScale));
   dom.melodyTabTimelineMeta.classList.toggle('hidden', !showMetaDetails);
   const stepText =
     model.activeEventIndex === null
@@ -1833,6 +2103,7 @@ export function renderMelodyTabTimeline(
   clearGrid();
   renderTimelineMinimap(melody, instrument.STRING_ORDER, model.activeEventIndex, durationLayout, studyRange, {
     showRangeEditor: minimapRangeEditor,
+    zoomScale,
   });
   const content = document.createElement('div');
   content.className = 'relative min-w-max';
@@ -1846,28 +2117,32 @@ export function renderMelodyTabTimeline(
       durationLayout,
       content,
       showStepNumbers,
+      zoomScale,
       editingEnabled,
       selectedEventIndex,
       selectedNoteIndex
     );
   } else {
-    renderClassicTimeline(
-      melody.id,
-      instrument,
-      model,
-      barGrouping,
-      durationLayout,
-      content,
-      showStepNumbers,
-      editingEnabled,
-      selectedEventIndex,
-      selectedNoteIndex
-    );
+      renderClassicTimeline(
+        melody.id,
+        instrument,
+        model,
+        barGrouping,
+        durationLayout,
+        content,
+        showStepNumbers,
+        showPrerollLeadIn,
+        activePrerollStepIndex,
+        zoomScale,
+        editingEnabled,
+        selectedEventIndex,
+        selectedNoteIndex
+      );
   }
 
   const renderedMetrics = getRenderedTimelineStepMetrics(content);
   renderTimelineContextMenu(melody, selectedEventIndex, { editingEnabled });
-  renderStudyRangeBar(content, melody.id, melody.events.length, renderedMetrics, studyRange);
+  renderStudyRangeBar(content, melody.id, melody.events.length, renderedMetrics, studyRange, zoomScale);
 
   if (model.activeEventIndex !== null) {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

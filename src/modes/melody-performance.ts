@@ -132,7 +132,7 @@ export class MelodyPerformanceMode implements ITrainingMode {
       targetChordNotes: isPolyphonicEvent ? targetPitchClasses : [],
       targetChordFingering: isPolyphonicEvent ? melodyEventFingering : [],
       targetMelodyEventNotes: melodyEventFingering,
-      melodyEventDurationMs: getMelodyEventPlaybackDurationMs(event, getPerformanceBpmFromUi()),
+      melodyEventDurationMs: getMelodyEventPlaybackDurationMs(event, getPerformanceBpmFromUi(), melody),
       baseChordName: null,
     };
   }

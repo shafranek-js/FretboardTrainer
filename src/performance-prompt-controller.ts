@@ -1,11 +1,16 @@
 import { buildSuccessInfoSlots } from './session-result';
 import type { Prompt } from './types';
 
+export const PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN = 250;
+export const PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MAX = 450;
+export const PERFORMANCE_PROMPT_GRACE_WINDOW_RATIO = 0.35;
+
 interface PerformancePromptControllerDeps {
   state: {
     currentPrompt: Prompt | null;
     performancePromptResolved: boolean;
     performancePromptMatched: boolean;
+    performancePromptHadAttempt: boolean;
     pendingTimeoutIds: Set<number>;
     isListening: boolean;
     showingAllNotes: boolean;
@@ -15,6 +20,8 @@ interface PerformancePromptControllerDeps {
   };
   getTrainingMode(): string;
   clearWrongDetectedHighlight(): void;
+  recordPerformanceTimelineSuccess(prompt: Prompt): void;
+  recordPerformanceTimelineMissed(prompt: Prompt): void;
   recordSessionAttempt(
     activeSessionStats: unknown,
     prompt: Prompt,
@@ -41,6 +48,21 @@ interface PerformancePromptControllerDeps {
 export function createPerformancePromptController(deps: PerformancePromptControllerDeps) {
   let runToken = 0;
 
+  function getPerformancePromptDeadlineMs(prompt: Prompt) {
+    const durationMs =
+      typeof prompt.melodyEventDurationMs === 'number' && Number.isFinite(prompt.melodyEventDurationMs)
+        ? Math.max(1, Math.round(prompt.melodyEventDurationMs))
+        : 700;
+    const graceWindowMs = Math.max(
+      PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN,
+      Math.min(
+        PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MAX,
+        Math.round(durationMs * PERFORMANCE_PROMPT_GRACE_WINDOW_RATIO)
+      )
+    );
+    return durationMs + graceWindowMs;
+  }
+
   function invalidatePendingAdvance() {
     runToken += 1;
   }
@@ -48,6 +70,14 @@ export function createPerformancePromptController(deps: PerformancePromptControl
   function resetPromptResolution() {
     deps.state.performancePromptResolved = false;
     deps.state.performancePromptMatched = false;
+    deps.state.performancePromptHadAttempt = false;
+  }
+
+  function markPromptAttempt() {
+    if (deps.getTrainingMode() !== 'performance' || deps.state.performancePromptResolved || !deps.state.currentPrompt) {
+      return;
+    }
+    deps.state.performancePromptHadAttempt = true;
   }
 
   function recordOutcome(correct: boolean, elapsedSeconds: number) {
@@ -98,8 +128,11 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     deps.clearWrongDetectedHighlight();
     deps.state.performancePromptResolved = true;
     deps.state.performancePromptMatched = true;
+    deps.recordPerformanceTimelineSuccess(deps.state.currentPrompt);
     recordOutcome(true, elapsedSeconds);
     deps.setResultMessage(`Hit: ${elapsedSeconds.toFixed(2)}s`, 'success');
+    invalidatePendingAdvance();
+    deps.nextPrompt();
   }
 
   function scheduleAdvance(prompt: Prompt) {
@@ -109,6 +142,8 @@ export function createPerformancePromptController(deps: PerformancePromptControl
       typeof prompt.melodyEventDurationMs === 'number' && Number.isFinite(prompt.melodyEventDurationMs)
         ? Math.max(1, Math.round(prompt.melodyEventDurationMs))
         : 700;
+    const deadlineMs = getPerformancePromptDeadlineMs(prompt);
+    const graceWindowMs = Math.max(0, deadlineMs - durationMs);
     const promptRunToken = ++runToken;
 
     resetPromptResolution();
@@ -119,16 +154,41 @@ export function createPerformancePromptController(deps: PerformancePromptControl
         if (!deps.state.isListening || deps.getTrainingMode() !== 'performance') return;
         if (promptRunToken !== runToken) return;
         if (deps.state.currentPrompt !== prompt) return;
+        if (deps.state.performancePromptResolved) {
+          deps.nextPrompt();
+          return;
+        }
 
-        if (!deps.state.performancePromptResolved) {
+        if (!deps.state.performancePromptHadAttempt || graceWindowMs <= 0) {
           deps.state.performancePromptResolved = true;
           deps.state.performancePromptMatched = false;
+          deps.recordPerformanceTimelineMissed(prompt);
           recordOutcome(false, 0);
           deps.setResultMessage('Missed event.', 'error');
           deps.redrawFretboard();
+          deps.nextPrompt();
+          return;
         }
 
-        deps.nextPrompt();
+        deps.scheduleSessionTimeout(
+          graceWindowMs,
+          () => {
+            if (!deps.state.isListening || deps.getTrainingMode() !== 'performance') return;
+            if (promptRunToken !== runToken) return;
+            if (deps.state.currentPrompt !== prompt) return;
+            if (!deps.state.performancePromptResolved) {
+              deps.state.performancePromptResolved = true;
+              deps.state.performancePromptMatched = false;
+              deps.recordPerformanceTimelineMissed(prompt);
+              recordOutcome(false, 0);
+              deps.setResultMessage('Missed event.', 'error');
+              deps.redrawFretboard();
+            }
+
+            deps.nextPrompt();
+          },
+          'performance nextPrompt grace'
+        );
       },
       'performance nextPrompt'
     );
@@ -136,6 +196,7 @@ export function createPerformancePromptController(deps: PerformancePromptControl
 
   return {
     invalidatePendingAdvance,
+    markPromptAttempt,
     resetPromptResolution,
     resolveSuccess,
     scheduleAdvance,

@@ -43,6 +43,20 @@ const harness = vi.hoisted(() => {
     closeUserDataBtn: createEventTargetStub(),
     openCalibrateBtn: createEventTargetStub(),
     cancelCalibrationBtn: createEventTargetStub(),
+    sessionSummaryModal: createEventTargetStub(),
+    closeSessionSummaryBtn: createEventTargetStub(),
+    sessionSummaryMode: { textContent: '' } as HTMLElement,
+    sessionSummaryInput: { textContent: '', title: '' } as unknown as HTMLElement,
+    sessionSummaryDuration: { textContent: '' } as HTMLElement,
+    sessionSummaryAccuracy: { textContent: '' } as HTMLElement,
+    sessionSummaryCorrect: { textContent: '' } as HTMLElement,
+    sessionSummaryWrong: { textContent: '' } as HTMLElement,
+    sessionSummaryAvgTime: { textContent: '' } as HTMLElement,
+    sessionSummaryBestStreak: { textContent: '' } as HTMLElement,
+    sessionSummaryCoachTip: { textContent: '' } as HTMLElement,
+    sessionSummaryWeakSpots: { innerHTML: '', appendChild: vi.fn() } as unknown as HTMLElement,
+    openSummaryStatsBtn: createEventTargetStub(),
+    closeSummaryFooterBtn: createEventTargetStub(),
     openStatsBtn: createEventTargetStub(),
     closeStatsBtn: createEventTargetStub(),
     statsModal: createEventTargetStub(),
@@ -281,6 +295,16 @@ describe('modal-controller', () => {
     expect(harness.setModalVisible).toHaveBeenCalledWith('help', true);
     expect(harness.setModalVisible).toHaveBeenCalledWith('help', false);
     expect(harness.setModalVisible).toHaveBeenCalledWith('guide', true);
+  });
+
+  it('opens full stats from the session summary modal', async () => {
+    registerModalControls();
+
+    await harness.dom.openSummaryStatsBtn.listeners.click?.();
+
+    expect(harness.setModalVisible).toHaveBeenCalledWith('sessionSummary', false);
+    expect(harness.displayStats).toHaveBeenCalledTimes(1);
+    expect(harness.setModalVisible).toHaveBeenCalledWith('stats', true);
   });
 
   it('clears saved settings and reloads defaults after confirmation', async () => {

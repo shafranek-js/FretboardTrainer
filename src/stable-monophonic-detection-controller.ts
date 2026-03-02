@@ -1,6 +1,7 @@
 import { buildStableMonophonicReactionPlan } from './session-detection-reactions';
 import { isMelodyWorkflowMode } from './training-mode-groups';
 import type { Prompt } from './types';
+import { shouldForgivePerformanceTimingBoundaryAttempt } from './performance-timing-forgiveness';
 
 type ResultTone = 'neutral' | 'success' | 'error';
 
@@ -14,6 +15,7 @@ interface StableMonophonicDetectionControllerDeps {
     currentPrompt: Prompt | null;
     currentMelodyEventFoundNotes: Set<string>;
     performancePromptResolved: boolean;
+    performanceTimingLeniencyPreset?: 'strict' | 'normal' | 'forgiving';
     startTime: number;
     showingAllNotes: boolean;
     wrongDetectedNote: string | null;
@@ -25,6 +27,9 @@ interface StableMonophonicDetectionControllerDeps {
   getTrainingMode(): string;
   clearWrongDetectedHighlight(): void;
   setWrongDetectedHighlight(detectedNote: string, detectedFrequency?: number | null): void;
+  recordPerformanceTimelineWrongAttempt(detectedNote: string): void;
+  markPerformancePromptAttempt(): void;
+  isPerformancePitchWithinTolerance(detectedFrequency?: number | null): boolean;
   detectMonophonicOctaveMismatch(
     detectedNote: string,
     detectedFrequency?: number | null
@@ -75,14 +80,27 @@ export function createStableMonophonicDetectionController(
   function handleDetectedNote(detectedNote: string, detectedFrequency?: number | null) {
     const trainingMode = deps.getTrainingMode();
     const prompt = deps.state.currentPrompt;
+    const nowMs = Date.now();
+    const shouldForgivePerformanceTiming = shouldForgivePerformanceTimingBoundaryAttempt({
+      prompt,
+      promptStartedAtMs: deps.state.startTime,
+      nowMs,
+      preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
+    });
 
     if (isMelodyWorkflowMode(trainingMode) && prompt && isPolyphonicMelodyPrompt(prompt)) {
       const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
       if (trainingMode === 'performance' && deps.state.performancePromptResolved) {
         return;
       }
+      if (trainingMode === 'performance') {
+        deps.markPerformancePromptAttempt();
+      }
       if (!targetPitchClasses.includes(detectedNote)) {
         if (trainingMode === 'performance') {
+          if (shouldForgivePerformanceTiming) {
+            return;
+          }
           deps.setResultMessage(`Heard: ${detectedNote} [off target]`, 'error');
           return;
         }
@@ -115,21 +133,36 @@ export function createStableMonophonicDetectionController(
 
     if (trainingMode === 'performance') {
       if (deps.state.performancePromptResolved || !prompt) return;
+      deps.markPerformancePromptAttempt();
+
+      if (deps.isPerformancePitchWithinTolerance(detectedFrequency)) {
+        const elapsed = (nowMs - deps.state.startTime) / 1000;
+        deps.performanceResolveSuccess(elapsed);
+        return;
+      }
 
       const octaveMismatch = deps.detectMonophonicOctaveMismatch(detectedNote, detectedFrequency);
       if (octaveMismatch) {
+        if (shouldForgivePerformanceTiming) {
+          return;
+        }
         deps.setResultMessage(
           `Heard: ${octaveMismatch.detectedScientific} [wrong octave, expected ${octaveMismatch.targetScientific}]`,
           'error'
         );
         deps.setWrongDetectedHighlight(detectedNote, detectedFrequency);
+        deps.recordPerformanceTimelineWrongAttempt(detectedNote);
         deps.redrawFretboard();
         return;
       }
 
       if (prompt.targetNote && detectedNote === prompt.targetNote) {
-        const elapsed = (Date.now() - deps.state.startTime) / 1000;
+        const elapsed = (nowMs - deps.state.startTime) / 1000;
         deps.performanceResolveSuccess(elapsed);
+        return;
+      }
+
+      if (shouldForgivePerformanceTiming) {
         return;
       }
 
@@ -139,6 +172,7 @@ export function createStableMonophonicDetectionController(
           : null;
       deps.setResultMessage(`Heard: ${detectedScientific ?? detectedNote} [off target]`, 'error');
       deps.setWrongDetectedHighlight(detectedNote, detectedFrequency);
+      deps.recordPerformanceTimelineWrongAttempt(detectedNote);
       deps.redrawFretboard();
       return;
     }

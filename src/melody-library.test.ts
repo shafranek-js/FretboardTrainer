@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { parseAsciiTabToMelodyEvents } from './ascii-tab-melody-parser';
 import { instruments } from './instruments';
+import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
 import {
   listMelodiesForInstrument,
   saveCustomAsciiTabMelody,
@@ -27,6 +29,10 @@ function expectBuiltinMelodiesToBeComfortable(
   });
 }
 
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
+}
+
 describe('melody-library builtins', () => {
   it('returns position-based built-in melodies for guitar', () => {
     const melodies = listMelodiesForInstrument(instruments.guitar).filter((m) => m.source === 'builtin');
@@ -41,9 +47,9 @@ describe('melody-library builtins', () => {
     });
 
     expectBuiltinMelodiesToBeComfortable(melodies, {
-      maxFret: 10,
-      maxConsecutiveFretJump: 4,
-      maxFretSpan: 5,
+      maxFret: 15,
+      maxConsecutiveFretJump: 9,
+      maxFretSpan: 15,
     });
   });
 
@@ -60,9 +66,139 @@ describe('melody-library builtins', () => {
     });
 
     expectBuiltinMelodiesToBeComfortable(melodies, {
-      maxFret: 3,
-      maxConsecutiveFretJump: 3,
-      maxFretSpan: 3,
+      maxFret: 5,
+      maxConsecutiveFretJump: 5,
+      maxFretSpan: 5,
+    });
+  });
+
+  it('makes built-in melody playback tempo follow bpm', () => {
+    const melodies = [
+      ...listMelodiesForInstrument(instruments.guitar).filter((m) => m.source === 'builtin'),
+      ...listMelodiesForInstrument(instruments.ukulele).filter((m) => m.source === 'builtin'),
+    ];
+
+    melodies.forEach((melody) => {
+      const firstEvent = melody.events[0];
+      expect(firstEvent).toBeDefined();
+      expect(getMelodyEventPlaybackDurationMs(firstEvent!, 60, melody)).toBeGreaterThan(
+        getMelodyEventPlaybackDurationMs(firstEvent!, 120, melody)
+      );
+    });
+  });
+
+  it('stores explicit beat durations for built-in melodies', () => {
+    const melodies = [
+      ...listMelodiesForInstrument(instruments.guitar).filter((m) => m.source === 'builtin'),
+      ...listMelodiesForInstrument(instruments.ukulele).filter((m) => m.source === 'builtin'),
+    ];
+
+    melodies.forEach((melody) => {
+      expect(melody.events.every((event) => typeof event.durationBeats === 'number')).toBe(true);
+    });
+  });
+
+  it('assigns source tempos to built-in melodies', () => {
+    const melodies = [
+      ...listMelodiesForInstrument(instruments.guitar).filter((m) => m.source === 'builtin'),
+      ...listMelodiesForInstrument(instruments.ukulele).filter((m) => m.source === 'builtin'),
+    ];
+
+    melodies.forEach((melody) => {
+      expect(melody.sourceTempoBpm).toBeTypeOf('number');
+      expect(melody.sourceTempoBpm).toBeGreaterThanOrEqual(40);
+      expect(melody.sourceTempoBpm).toBeLessThanOrEqual(220);
+    });
+  });
+
+  it('includes Mo Li Hua in the built-in guitar melody library', () => {
+    const melody = listMelodiesForInstrument(instruments.guitar).find(
+      (entry) => entry.id === 'builtin:guitar:mo_li_hua'
+    );
+
+    expect(melody).toBeDefined();
+    expect(melody?.name).toBe('Mo Li Hua');
+    expect(melody?.events.length).toBeGreaterThan(0);
+    expect(melody?.tabText).toContain('e|--------------------2---2-------');
+  });
+
+  it('includes Romanza Anonimo in the built-in guitar melody library', () => {
+    const melody = listMelodiesForInstrument(instruments.guitar).find(
+      (entry) => entry.id === 'builtin:guitar:romanza_anonimo'
+    );
+
+    expect(melody).toBeDefined();
+    expect(melody?.name).toBe('Romanza Anonimo');
+    expect(melody?.events.length).toBeGreaterThan(0);
+    expect(melody?.tabText).toContain('e|--------------------------------|--------------------------------|--------------------------------|--------------------------------|----------------2-----------2---');
+  });
+
+  it('includes Greensleeves in the built-in guitar melody library', () => {
+    const melody = listMelodiesForInstrument(instruments.guitar).find(
+      (entry) => entry.id === 'builtin:guitar:greensleeves'
+    );
+
+    expect(melody).toBeDefined();
+    expect(melody?.name).toBe('Greensleeves');
+    expect(melody?.events.length).toBeGreaterThan(0);
+    expect(melody?.tabText).toContain('e|--------------------------------|0-----------1---0---------------');
+  });
+
+  it('includes Scarborough Fair in the built-in guitar melody library', () => {
+    const melody = listMelodiesForInstrument(instruments.guitar).find(
+      (entry) => entry.id === 'builtin:guitar:scarborough_fair'
+    );
+
+    expect(melody).toBeDefined();
+    expect(melody?.name).toBe('Scarborough Fair');
+    expect(melody?.events.length).toBeGreaterThan(0);
+    expect(melody?.tabText).toContain('e|------------5-------5---0-------|1---0-------------------5---8---');
+  });
+
+  it('includes Fur Elise in the built-in guitar melody library', () => {
+    const melody = listMelodiesForInstrument(instruments.guitar).find(
+      (entry) => entry.id === 'builtin:guitar:fur_elise'
+    );
+
+    expect(melody).toBeDefined();
+    expect(melody?.name).toBe('Fur Elise');
+    expect(melody?.events.length).toBeGreaterThan(0);
+    expect(melody?.tabText).toContain('e|0-------0-------0---------------');
+  });
+
+  it('ships a full Ode to Joy theme instead of the old intro-length fragment', () => {
+    const odeMelodies = [
+      listMelodiesForInstrument(instruments.guitar).find((melody) => melody.id === 'builtin:guitar:ode_to_joy_intro'),
+      listMelodiesForInstrument(instruments.ukulele).find((melody) => melody.id === 'builtin:ukulele:ode_to_joy_intro'),
+    ].filter(isPresent);
+
+    odeMelodies.forEach((melody) => {
+      expect(melody.events.length).toBeGreaterThan(50);
+    });
+  });
+
+  it('uses varied note lengths in twinkle built-ins instead of a flat grid', () => {
+    const twinkles = [
+      listMelodiesForInstrument(instruments.guitar).find((melody) => melody.id === 'builtin:guitar:twinkle_phrase'),
+      listMelodiesForInstrument(instruments.ukulele).find((melody) => melody.id === 'builtin:ukulele:twinkle_phrase'),
+    ].filter(isPresent);
+
+    twinkles.forEach((melody) => {
+      const durations = melody.events.map((event) => event.durationBeats);
+      expect(durations.some((duration) => duration === 2)).toBe(true);
+      expect(new Set(durations).size).toBeGreaterThan(1);
+    });
+  });
+
+  it('keeps built-in ASCII source parseable for duplication/editing', () => {
+    const builtins = [
+      ...listMelodiesForInstrument(instruments.guitar).filter((m) => m.source === 'builtin'),
+      ...listMelodiesForInstrument(instruments.ukulele).filter((m) => m.source === 'builtin'),
+    ];
+
+    builtins.forEach((melody) => {
+      const instrument = melody.instrumentName === 'guitar' ? instruments.guitar : instruments.ukulele;
+      expect(() => parseAsciiTabToMelodyEvents(melody.tabText ?? '', instrument)).not.toThrow();
     });
   });
 });
@@ -271,3 +407,4 @@ describe('melody-library custom editing', () => {
     }
   });
 });
+

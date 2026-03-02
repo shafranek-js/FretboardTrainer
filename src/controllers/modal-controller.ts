@@ -90,6 +90,17 @@ export function registerModalControls() {
   dom.userDataModal.addEventListener('click', (e) => {
     if (e.target === dom.userDataModal) setModalVisible('userData', false);
   });
+  const closeSessionSummaryModal = () => setModalVisible('sessionSummary', false);
+  dom.closeSessionSummaryBtn.addEventListener('click', closeSessionSummaryModal);
+  dom.closeSummaryFooterBtn.addEventListener('click', closeSessionSummaryModal);
+  dom.sessionSummaryModal.addEventListener('click', (e) => {
+    if (e.target === dom.sessionSummaryModal) closeSessionSummaryModal();
+  });
+  dom.openSummaryStatsBtn.addEventListener('click', () => {
+    closeSessionSummaryModal();
+    displayStats();
+    setModalVisible('stats', true);
+  });
 
   dom.openCalibrateBtn.addEventListener('click', async () => {
     closeSettingsModal();

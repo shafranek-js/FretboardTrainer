@@ -13,6 +13,7 @@ const prompt: Prompt = {
 
 function createDeps() {
   return {
+    requestSessionSummaryOnStop: vi.fn(),
     stopListening: vi.fn(),
     showError: vi.fn(),
     updateTuner: vi.fn(),
@@ -38,6 +39,7 @@ describe('executeSessionNextPromptPlan', () => {
     );
 
     expect(result).toBe('stopped');
+    expect(deps.requestSessionSummaryOnStop).not.toHaveBeenCalled();
     expect(deps.stopListening).toHaveBeenCalledTimes(1);
     expect(deps.showError).toHaveBeenCalledWith('Selected training mode is not available.');
     expect(deps.setTunerVisible).not.toHaveBeenCalled();
@@ -60,9 +62,30 @@ describe('executeSessionNextPromptPlan', () => {
 
     expect(result).toBe('no_prompt');
     expect(deps.showError).toHaveBeenCalledWith('Soft warning');
+    expect(deps.requestSessionSummaryOnStop).not.toHaveBeenCalled();
     expect(deps.updateTuner).toHaveBeenCalledWith(null);
     expect(deps.setTunerVisible).toHaveBeenCalledWith(true);
     expect(deps.applyPrompt).not.toHaveBeenCalled();
+  });
+
+  it('requests session summary when the prompt stream is exhausted', () => {
+    const deps = createDeps();
+
+    const result = executeSessionNextPromptPlan(
+      {
+        shouldStopListening: true,
+        stopReason: 'missing_prompt',
+        errorMessage: null,
+        tunerVisible: true,
+        shouldResetTuner: true,
+      },
+      null,
+      deps
+    );
+
+    expect(result).toBe('stopped');
+    expect(deps.requestSessionSummaryOnStop).toHaveBeenCalledTimes(1);
+    expect(deps.stopListening).toHaveBeenCalledTimes(1);
   });
 
   it('applies prompt when plan allows continuing', () => {
@@ -81,6 +104,7 @@ describe('executeSessionNextPromptPlan', () => {
     );
 
     expect(result).toBe('prompt_applied');
+    expect(deps.requestSessionSummaryOnStop).not.toHaveBeenCalled();
     expect(deps.setTunerVisible).toHaveBeenCalledWith(true);
     expect(deps.applyPrompt).toHaveBeenCalledWith(prompt);
   });

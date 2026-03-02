@@ -20,6 +20,7 @@ function createDeps() {
     deps: {
       setInfoSlots: vi.fn(),
       setSessionGoalProgress: vi.fn(),
+      requestSessionSummaryOnStop: vi.fn(),
       stopListening: vi.fn(),
       setCurrentArpeggioIndex: vi.fn(),
       setResultMessage: vi.fn(),
@@ -60,6 +61,7 @@ describe('executeDisplayResultSuccessFlow', () => {
     expect(outcome).toBe('success_plan_executed');
     expect(ctx.deps.setInfoSlots).toHaveBeenCalledWith('Note: E on B', 'Maj 3rd: G#', 'Perf 5th: B');
     expect(ctx.deps.setSessionGoalProgress).toHaveBeenCalledWith('Goal progress: 3 / 10 correct');
+    expect(ctx.deps.requestSessionSummaryOnStop).not.toHaveBeenCalled();
     expect(ctx.deps.setCurrentArpeggioIndex).toHaveBeenCalledWith(0);
     expect(ctx.deps.setResultMessage).toHaveBeenCalledWith('Correct! Time: 1.23s', 'success');
     expect(ctx.deps.scheduleSessionCooldown).toHaveBeenCalledWith(
@@ -87,6 +89,7 @@ describe('executeDisplayResultSuccessFlow', () => {
     );
 
     expect(outcome).toBe('goal_reached');
+    expect(ctx.deps.requestSessionSummaryOnStop).toHaveBeenCalledTimes(1);
     expect(ctx.deps.stopListening).toHaveBeenCalledTimes(1);
     expect(ctx.deps.setResultMessage).toHaveBeenCalledWith('Goal reached: 3 correct answers.', 'success');
     expect(ctx.deps.setCurrentArpeggioIndex).not.toHaveBeenCalled();
@@ -112,6 +115,7 @@ describe('executeDisplayResultSuccessFlow', () => {
     );
 
     expect(outcome).toBe('success_plan_executed');
+    expect(ctx.deps.requestSessionSummaryOnStop).not.toHaveBeenCalled();
     expect(ctx.deps.stopListening).not.toHaveBeenCalled();
     expect(ctx.deps.setSessionGoalProgress).toHaveBeenCalledWith('Goal progress: 3 / 3 correct');
     expect(ctx.deps.setScoreValue).toHaveBeenCalledWith(expect.any(Number));
@@ -147,6 +151,7 @@ describe('executeDisplayResultSuccessFlow', () => {
     );
 
     expect(outcome).toBe('success_plan_executed');
+    expect(ctx.deps.requestSessionSummaryOnStop).not.toHaveBeenCalled();
     expect(ctx.deps.setInfoSlots).toHaveBeenCalledWith('B', 'B - D# - F#', '');
     expect(ctx.deps.setCurrentArpeggioIndex).toHaveBeenCalledWith(1);
     expect(ctx.deps.redrawFretboard).toHaveBeenCalledTimes(1);

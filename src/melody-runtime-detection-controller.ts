@@ -5,6 +5,7 @@ import {
   buildLowConfidenceMicPolyphonicMessage,
   isLowConfidenceMicPolyphonicResult,
 } from './mic-polyphonic-low-confidence';
+import { shouldForgivePerformanceTimingBoundaryAttempt } from './performance-timing-forgiveness';
 
 interface MicPolyphonicResult {
   detectedNotesText: string;
@@ -31,6 +32,7 @@ interface MelodyRuntimeDetectionControllerDeps {
     stableChordCounter: number;
     currentMelodyEventFoundNotes: Set<string>;
     performancePromptResolved: boolean;
+    performanceTimingLeniencyPreset?: 'strict' | 'normal' | 'forgiving';
     startTime: number;
     micPolyphonicDetectorProvider: string;
   };
@@ -55,6 +57,8 @@ interface MelodyRuntimeDetectionControllerDeps {
   performanceNow(): number;
   redrawFretboard(): void;
   setResultMessage(message: string, tone?: 'neutral' | 'success' | 'error'): void;
+  recordPerformanceTimelineWrongAttempt(detectedNote: string): void;
+  markPerformancePromptAttempt(): void;
   performanceResolveSuccess(elapsedSeconds: number): void;
   displayResult(correct: boolean, elapsedSeconds: number): void;
   handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, context: string): void;
@@ -125,6 +129,13 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
       !polyphonicResult.isStableMatch &&
       (detectedNotes.length > 0 || polyphonicResult.isStableMismatch);
 
+    if (
+      trainingMode === 'performance' &&
+      (detectedNotes.length > 0 || polyphonicResult.isStableMismatch || polyphonicResult.isStableMatch)
+    ) {
+      deps.markPerformancePromptAttempt();
+    }
+
     if (shouldUseLowConfidenceFallback) {
       const nowMs = deps.now();
       if (nowMs - lastLowConfidenceMessageAtMs >= 1500) {
@@ -143,7 +154,12 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
 
     if (trainingMode === 'performance') {
       if (deps.state.performancePromptResolved) return true;
-
+      const shouldForgivePerformanceTiming = shouldForgivePerformanceTimingBoundaryAttempt({
+        prompt,
+        promptStartedAtMs: deps.state.startTime,
+        nowMs: deps.now(),
+        preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
+      });
       if (polyphonicResult.isStableMatch) {
         const elapsed = (deps.now() - deps.state.startTime) / 1000;
         deps.performanceResolveSuccess(elapsed);
@@ -159,6 +175,12 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
           return true;
         }
         if (hasOutOfTargetNotes) {
+          if (shouldForgivePerformanceTiming) {
+            return true;
+          }
+          deps.recordPerformanceTimelineWrongAttempt(
+            detectedNotes[0] ?? polyphonicResult.detectedNotesText ?? '...'
+          );
           deps.setResultMessage(
             `Heard: ${polyphonicResult.detectedNotesText || '...'} [off target]`,
             'error'
@@ -220,6 +242,16 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
 
     if (trainingMode === 'performance') {
       if (deps.state.performancePromptResolved) return;
+      const shouldForgivePerformanceTiming = shouldForgivePerformanceTimingBoundaryAttempt({
+        prompt,
+        promptStartedAtMs: deps.state.startTime,
+        nowMs: deps.now(),
+        preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
+      });
+
+      if (!(event.kind === 'noteoff' && heldNoteNames.length === 0)) {
+        deps.markPerformancePromptAttempt();
+      }
 
       if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetPitchClasses)) {
         const elapsed = (deps.now() - deps.state.startTime) / 1000;
@@ -235,7 +267,12 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
         return;
       }
 
+      if (shouldForgivePerformanceTiming) {
+        return;
+      }
+
       deps.setResultMessage(`Heard: ${detectedNotesText} [off target]`, 'error');
+      deps.recordPerformanceTimelineWrongAttempt(heldNoteNames[0] ?? detectedNotesText);
       return;
     }
 

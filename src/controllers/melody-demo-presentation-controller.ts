@@ -158,8 +158,8 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
     }
   }
 
-  function getStepDelayMs(event: MelodyEvent) {
-    return getMelodyEventPlaybackDurationMs(event, getClampedBpmFromInput());
+  function getStepDelayMs(event: MelodyEvent, melodyEvents: MelodyEvent[]) {
+    return getMelodyEventPlaybackDurationMs(event, getClampedBpmFromInput(), melodyEvents);
   }
 
   function previewEvent(

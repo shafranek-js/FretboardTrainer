@@ -33,6 +33,9 @@ function createDeps(overrides: Partial<Parameters<typeof createStableMonophonicD
     getTrainingMode: vi.fn(() => 'melody'),
     clearWrongDetectedHighlight: vi.fn(),
     setWrongDetectedHighlight: vi.fn(),
+    recordPerformanceTimelineWrongAttempt: vi.fn(),
+    markPerformancePromptAttempt: vi.fn(),
+    isPerformancePitchWithinTolerance: vi.fn(() => false),
     detectMonophonicOctaveMismatch: vi.fn(() => null),
     performanceResolveSuccess: vi.fn(),
     handleMelodyPolyphonicMismatch: vi.fn(),
@@ -122,6 +125,62 @@ describe('stable-monophonic-detection-controller', () => {
 
     expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(2);
     expect(deps.displayResult).not.toHaveBeenCalled();
+  });
+
+  it('uses performance success flow when microphone pitch is within tolerance', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1600);
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      isPerformancePitchWithinTolerance: vi.fn(() => true),
+      state: {
+        ...createDeps().state,
+        startTime: 600,
+        currentPrompt: createPrompt({ targetNote: 'A' }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('G#', 432);
+
+    expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(1);
+    expect(deps.recordPerformanceTimelineWrongAttempt).not.toHaveBeenCalled();
+  });
+
+  it('records performance wrong-note attempts for off-target notes', () => {
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        currentPrompt: createPrompt({ targetNote: 'A' }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('G', 196);
+
+    expect(deps.recordPerformanceTimelineWrongAttempt).toHaveBeenCalledWith('G');
+  });
+
+  it('forgives performance off-target notes near prompt boundaries', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1050);
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        startTime: 1000,
+        currentPrompt: createPrompt({
+          targetNote: 'A',
+          melodyEventDurationMs: 500,
+        }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('G', 196);
+
+    expect(deps.recordPerformanceTimelineWrongAttempt).not.toHaveBeenCalled();
+    expect(deps.setResultMessage).not.toHaveBeenCalledWith(expect.stringContaining('[off target]'), 'error');
+    expect(deps.redrawFretboard).not.toHaveBeenCalled();
   });
 
   it('clears wrong-highlight state and updates free-play live highlight', () => {

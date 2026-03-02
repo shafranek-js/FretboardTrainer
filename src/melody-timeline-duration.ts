@@ -28,10 +28,16 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function clampMelodyPlaybackBpm(value: unknown) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) {
     return MELODY_PLAYBACK_DEFAULT_BPM;
   }
-  return clamp(Math.round(value), MELODY_PLAYBACK_MIN_BPM, MELODY_PLAYBACK_MAX_BPM);
+  return clamp(Math.round(parsed), MELODY_PLAYBACK_MIN_BPM, MELODY_PLAYBACK_MAX_BPM);
 }
 
 function getMedian(values: number[]) {
@@ -44,6 +50,29 @@ function getMedian(values: number[]) {
   return sorted[mid];
 }
 
+function getValidDurationColumns(events: Pick<MelodyDefinition, 'events'>['events']) {
+  return events
+    .map((event) => normalizePositiveNumber(event.durationColumns))
+    .filter((value): value is number => value !== null);
+}
+
+function getColumnReference(events: Pick<MelodyDefinition, 'events'>['events']) {
+  return getMedian(getValidDurationColumns(events));
+}
+
+function getColumnDerivedBeats(
+  event: MelodyDefinition['events'][number],
+  melody?: Pick<MelodyDefinition, 'events'> | MelodyDefinition['events']
+) {
+  const durationColumns = normalizePositiveNumber(event.durationColumns);
+  if (durationColumns === null) return null;
+  const events = Array.isArray(melody) ? melody : melody?.events;
+  if (!events || events.length === 0) return null;
+  const columnReference = getColumnReference(events);
+  if (columnReference === null || columnReference <= 0) return null;
+  return clamp(durationColumns / columnReference, 0.25, 8);
+}
+
 export function getEventDurationBeats(event: MelodyDefinition['events'][number]) {
   const fromBeats = normalizePositiveNumber(event.durationBeats);
   if (fromBeats !== null) return fromBeats;
@@ -54,13 +83,24 @@ export function getEventDurationBeats(event: MelodyDefinition['events'][number])
 
 export function getMelodyEventPlaybackDurationMs(
   event: MelodyDefinition['events'][number],
-  bpm: number
+  bpm: number,
+  melody?: Pick<MelodyDefinition, 'events'> | MelodyDefinition['events']
 ) {
   const beats = getEventDurationBeats(event);
   if (beats !== null) {
     const beatMs = 60000 / clampMelodyPlaybackBpm(bpm);
     return clamp(
       Math.round(beats * beatMs),
+      MELODY_PLAYBACK_MIN_STEP_MS,
+      MELODY_PLAYBACK_MAX_STEP_MS
+    );
+  }
+
+  const derivedBeats = getColumnDerivedBeats(event, melody);
+  if (derivedBeats !== null) {
+    const beatMs = 60000 / clampMelodyPlaybackBpm(bpm);
+    return clamp(
+      Math.round(derivedBeats * beatMs),
       MELODY_PLAYBACK_MIN_STEP_MS,
       MELODY_PLAYBACK_MAX_STEP_MS
     );
@@ -79,24 +119,23 @@ export function computeTimelineDurationLayout(
   melody: Pick<MelodyDefinition, 'events'>
 ): TimelineDurationLayout {
   const beats = melody.events.map((event) => getEventDurationBeats(event));
-  const columns = melody.events.map((event) => normalizePositiveNumber(event.durationColumns));
+  const columns = getValidDurationColumns(melody.events);
   const hasAnyBeats = beats.some((value) => value !== null);
   const hasAllBeats = beats.length > 0 && beats.every((value) => value !== null);
-  const validColumns = columns.filter((value): value is number => value !== null);
-  const columnReference = getMedian(validColumns) ?? 1;
+  const columnReference = getMedian(columns) ?? 1;
 
   const source: TimelineDurationSource = hasAllBeats
     ? 'beats'
     : hasAnyBeats
       ? 'mixed'
-      : validColumns.length > 0
+      : columns.length > 0
         ? 'columns'
         : 'none';
 
   const weights = melody.events.map((_, index) => {
     const beat = beats[index];
     if (beat !== null) return clamp(beat, 0.25, 8);
-    const column = columns[index];
+    const column = normalizePositiveNumber(melody.events[index]?.durationColumns);
     if (column !== null && columnReference > 0) {
       return clamp(column / columnReference, 0.25, 8);
     }

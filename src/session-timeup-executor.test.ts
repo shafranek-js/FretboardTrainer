@@ -6,6 +6,7 @@ describe('executeSessionTimeUpPlan', () => {
     const deps = {
       clearTimer: vi.fn(),
       persistHighScore: vi.fn(),
+      requestSessionSummaryOnStop: vi.fn(),
       stopListening: vi.fn(),
       setResultMessage: vi.fn(),
     };
@@ -21,6 +22,7 @@ describe('executeSessionTimeUpPlan', () => {
 
     expect(deps.clearTimer).toHaveBeenCalledTimes(1);
     expect(deps.persistHighScore).toHaveBeenCalledWith(42);
+    expect(deps.requestSessionSummaryOnStop).toHaveBeenCalledTimes(1);
     expect(deps.stopListening).toHaveBeenCalledTimes(1);
     expect(deps.setResultMessage).toHaveBeenCalledWith("Time's Up! Final Score: 42");
   });
@@ -29,6 +31,7 @@ describe('executeSessionTimeUpPlan', () => {
     const deps = {
       clearTimer: vi.fn(),
       persistHighScore: vi.fn(),
+      requestSessionSummaryOnStop: vi.fn(),
       stopListening: vi.fn(),
       setResultMessage: vi.fn(),
     };
@@ -43,6 +46,7 @@ describe('executeSessionTimeUpPlan', () => {
     );
 
     expect(deps.persistHighScore).not.toHaveBeenCalled();
+    expect(deps.requestSessionSummaryOnStop).toHaveBeenCalledTimes(1);
     expect(deps.stopListening).toHaveBeenCalledTimes(1);
   });
 });

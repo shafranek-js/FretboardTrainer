@@ -28,7 +28,7 @@ interface MelodyDemoControllerDeps {
     studyRange: MelodyStudyRange,
     options?: { label?: string; autoplaySound?: boolean }
   ): void;
-  getStepDelayMs(event: MelodyEvent): number;
+  getStepDelayMs(event: MelodyEvent, melodyEvents: MelodyEvent[]): number;
   getStudyRangeLength(studyRange: MelodyStudyRange, totalEvents: number): number;
   formatStudyRange(studyRange: MelodyStudyRange, totalEvents: number): string;
   clearUiPreview(): void;
@@ -280,7 +280,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         autoplaySound: true,
       });
 
-      const stepDelayMs = deps.getStepDelayMs(event);
+      const stepDelayMs = deps.getStepDelayMs(event, melody.events);
       timeoutId = setTimeout(() => {
         playStep(index + 1);
       }, stepDelayMs);

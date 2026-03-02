@@ -4,7 +4,7 @@ import { CENTS_TOLERANCE, CENTS_VISUAL_RANGE } from './constants';
 import { computeTunerView } from './tuner-view';
 import { getTrainingModeUiVisibility } from './training-mode-ui';
 import { isMelodyWorkflowMode } from './training-mode-groups';
-import type { LastSessionHeatmapView, StatsViewModel } from './stats-view';
+import type { LastSessionHeatmapView, LastSessionViewModel, StatsViewModel } from './stats-view';
 import { formatMusicText } from './note-display';
 
 const statusTextSignal = createSignal('Ready');
@@ -23,6 +23,7 @@ const statsViewSignal = createSignal<StatsViewModel>({
   problemNotes: [],
   lastSession: null,
 });
+const sessionSummaryViewSignal = createSignal<LastSessionViewModel | null>(null);
 const timerValueSignal = createSignal('60');
 const scoreValueSignal = createSignal('0');
 const timedInfoVisibleSignal = createSignal(false);
@@ -68,6 +69,7 @@ type ModalKey =
   | 'settings'
   | 'userData'
   | 'help'
+  | 'sessionSummary'
   | 'stats'
   | 'guide'
   | 'links'
@@ -78,6 +80,7 @@ const modalVisibilitySignal = createSignal<ModalVisibilityState>({
   settings: false,
   userData: false,
   help: false,
+  sessionSummary: false,
   stats: false,
   guide: false,
   links: false,
@@ -212,6 +215,8 @@ function renderSessionToolsModeVisibility(mode: string) {
     dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'false');
     dom.sessionToolsChevron.textContent = '>';
     setPanelToggleVisualState(dom.sessionToolsToggleBtn, false);
+  } else {
+    renderSessionToolsCollapsed(sessionToolsCollapsedSignal.get());
   }
 
   dom.sessionToolsShowAllNotesRow.classList.toggle('hidden', hideShowAllNotes);
@@ -230,6 +235,8 @@ function renderMelodySetupModeVisibility(mode: string) {
     dom.melodySetupToggleBtn.setAttribute('aria-expanded', 'false');
     dom.melodySetupChevron.textContent = '>';
     setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
+  } else {
+    renderMelodySetupCollapsed(melodySetupCollapsedSignal.get());
   }
 }
 
@@ -405,6 +412,49 @@ function renderStatsView(statsView: StatsViewModel) {
   }
 }
 
+function renderSessionSummaryView(sessionSummary: LastSessionViewModel | null) {
+  if (!sessionSummary) {
+    dom.sessionSummaryMode.textContent = '-';
+    dom.sessionSummaryInput.textContent = '-';
+    dom.sessionSummaryDuration.textContent = '-';
+    dom.sessionSummaryAccuracy.textContent = '-';
+    dom.sessionSummaryCorrect.textContent = '-';
+    dom.sessionSummaryWrong.textContent = '-';
+    dom.sessionSummaryAvgTime.textContent = '-';
+    dom.sessionSummaryBestStreak.textContent = '-';
+    dom.sessionSummaryCoachTip.textContent = '-';
+    dom.sessionSummaryWeakSpots.innerHTML =
+      '<li class="bg-slate-600 p-2 rounded">No graded note attempts in the last session.</li>';
+    return;
+  }
+
+  dom.sessionSummaryMode.textContent = formatMusicText(sessionSummary.modeLabel);
+  dom.sessionSummaryInput.textContent = sessionSummary.inputText;
+  dom.sessionSummaryInput.title = sessionSummary.inputText;
+  dom.sessionSummaryDuration.textContent = sessionSummary.durationText;
+  dom.sessionSummaryAccuracy.textContent = sessionSummary.accuracyText;
+  dom.sessionSummaryCorrect.textContent = `${sessionSummary.correctAttemptsText} / ${sessionSummary.totalAttemptsText}`;
+  dom.sessionSummaryWrong.textContent = sessionSummary.wrongAttemptsText;
+  dom.sessionSummaryAvgTime.textContent = sessionSummary.avgTimeText;
+  dom.sessionSummaryBestStreak.textContent = sessionSummary.bestStreakText;
+  dom.sessionSummaryCoachTip.textContent = formatMusicText(sessionSummary.coachTipText ?? '');
+
+  dom.sessionSummaryWeakSpots.innerHTML = '';
+  if (sessionSummary.weakSpots.length > 0) {
+    sessionSummary.weakSpots.forEach((note) => {
+      const li = document.createElement('li');
+      li.className = 'bg-slate-600 p-2 rounded';
+      li.textContent = formatMusicText(
+        `${note.label} (Acc: ${(note.accuracy * 100).toFixed(0)}%, Time: ${note.avgTime.toFixed(2)}s)`
+      );
+      dom.sessionSummaryWeakSpots.appendChild(li);
+    });
+  } else {
+    dom.sessionSummaryWeakSpots.innerHTML =
+      '<li class="bg-slate-600 p-2 rounded">No graded note attempts in the last session.</li>';
+  }
+}
+
 function syncSessionToggleButton() {
   const { startDisabled, stopDisabled } = sessionButtonsSignal.get();
   const { isLoading } = loadingViewSignal.get();
@@ -445,6 +495,9 @@ export function bindUiSignals() {
 
   statsViewSignal.subscribe((statsView) => {
     renderStatsView(statsView);
+  });
+  sessionSummaryViewSignal.subscribe((sessionSummary) => {
+    renderSessionSummaryView(sessionSummary);
   });
 
   timerValueSignal.subscribe((timerValue) => {
@@ -541,7 +594,7 @@ export function bindUiSignals() {
     dom.melodySelectorContainer.classList.toggle('hidden', !visibility.showMelodySelector);
     dom.melodySelectorContainer.style.display = visibility.showMelodySelector ? 'flex' : 'none';
     dom.melodyPlaybackControls.classList.toggle('hidden', !visibility.showMelodySelector);
-    dom.melodyDemoQuickControls.classList.toggle('hidden', !visibility.showMelodySelector);
+    dom.melodyDemoQuickControls.classList.remove('hidden');
     dom.scaleSelectorContainer.classList.toggle('hidden', !visibility.showScaleSelector);
     dom.chordSelectorContainer.classList.toggle('hidden', !visibility.showChordSelector);
     dom.progressionSelectorContainer.classList.toggle('hidden', !visibility.showProgressionSelector);
@@ -552,7 +605,7 @@ export function bindUiSignals() {
     dom.hintBtn.style.display = visibility.showHintButton ? 'inline-block' : 'none';
     dom.volumeSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
     dom.tunerSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
-    dom.metronomeQuickControls.classList.toggle('hidden', mode !== 'rhythm');
+    dom.metronomeQuickControls.classList.add('hidden');
     renderMelodySetupModeVisibility(mode);
     renderSessionToolsModeVisibility(mode);
     dom.trainingModeField.dataset.fieldHint =
@@ -600,6 +653,12 @@ export function bindUiSignals() {
       dom.helpModal.classList.remove('hidden');
     } else {
       dom.helpModal.classList.add('hidden');
+    }
+
+    if (visibility.sessionSummary) {
+      dom.sessionSummaryModal.classList.remove('hidden');
+    } else {
+      dom.sessionSummaryModal.classList.add('hidden');
     }
 
     if (visibility.stats) {
@@ -724,6 +783,10 @@ export function setStatsView(statsView: StatsViewModel) {
   statsViewSignal.set(statsView);
 }
 
+export function setSessionSummaryView(sessionSummary: LastSessionViewModel | null) {
+  sessionSummaryViewSignal.set(sessionSummary);
+}
+
 export function setTimerValue(timerValue: number | string) {
   timerValueSignal.set(String(timerValue));
 }
@@ -748,6 +811,10 @@ export function setPracticeSetupCollapsed(collapsed: boolean) {
   practiceSetupCollapsedSignal.set(collapsed);
 }
 
+export function getPracticeSetupCollapsed() {
+  return practiceSetupCollapsedSignal.get();
+}
+
 export function togglePracticeSetupCollapsed() {
   practiceSetupCollapsedSignal.set(!practiceSetupCollapsedSignal.get());
 }
@@ -756,12 +823,20 @@ export function setMelodySetupCollapsed(collapsed: boolean) {
   melodySetupCollapsedSignal.set(collapsed);
 }
 
+export function getMelodySetupCollapsed() {
+  return melodySetupCollapsedSignal.get();
+}
+
 export function toggleMelodySetupCollapsed() {
   melodySetupCollapsedSignal.set(!melodySetupCollapsedSignal.get());
 }
 
 export function setSessionToolsCollapsed(collapsed: boolean) {
   sessionToolsCollapsedSignal.set(collapsed);
+}
+
+export function getSessionToolsCollapsed() {
+  return sessionToolsCollapsedSignal.get();
 }
 
 export function toggleSessionToolsCollapsed() {
@@ -876,6 +951,7 @@ export function refreshDisplayFormatting() {
   renderResultView(resultViewSignal.get());
   renderInfoSlots(infoSlotsSignal.get());
   renderStatsView(statsViewSignal.get());
+  renderSessionSummaryView(sessionSummaryViewSignal.get());
   renderPracticeSetupSummary(practiceSetupSummarySignal.get());
   renderMelodySetupSummary(melodySetupSummarySignal.get());
   renderSessionToolsSummary(sessionToolsSummarySignal.get());

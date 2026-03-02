@@ -98,6 +98,21 @@ describe('buildPromptAudioPlan', () => {
     expect(result.targetFrequency).not.toBeNull();
   });
 
+  it('enables auto-play for performance mode single-note prompts when audio prompt is enabled', () => {
+    const result = buildPromptAudioPlan({
+      prompt: basePrompt,
+      trainingMode: 'performance',
+      instrument,
+      calibratedA4: 440,
+      enabledStrings: new Set(['A', 'D']),
+    });
+
+    expect(result.notesToPlay).toEqual(['C5']);
+    expect(result.playSoundEnabled).toBe(true);
+    expect(result.autoPlaySound).toBe(true);
+    expect(result.targetFrequency).not.toBeNull();
+  });
+
   it('uses exact melody event fret for monophonic melody playback (no octave fallback)', () => {
     const prompt: Prompt = {
       ...basePrompt,
@@ -116,6 +131,27 @@ describe('buildPromptAudioPlan', () => {
     expect(result.notesToPlay).toEqual(['C6']);
     expect(result.playSoundEnabled).toBe(true);
     expect(result.autoPlaySound).toBe(false);
+    expect(result.targetFrequency).not.toBeNull();
+  });
+
+  it('enables auto-play for performance melody-event prompts', () => {
+    const prompt: Prompt = {
+      ...basePrompt,
+      targetString: 'D',
+      targetMelodyEventNotes: [{ note: 'C', string: 'A', fret: 15 }],
+    };
+
+    const result = buildPromptAudioPlan({
+      prompt,
+      trainingMode: 'performance',
+      instrument,
+      calibratedA4: 440,
+      enabledStrings: new Set(['A', 'D']),
+    });
+
+    expect(result.notesToPlay).toEqual(['C6']);
+    expect(result.playSoundEnabled).toBe(true);
+    expect(result.autoPlaySound).toBe(true);
     expect(result.targetFrequency).not.toBeNull();
   });
 

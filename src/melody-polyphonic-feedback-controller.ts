@@ -14,6 +14,7 @@ interface MelodyPolyphonicFeedbackControllerDeps {
     elapsedSeconds: number,
     instrument: unknown
   ): void;
+  recordPerformanceTimelineWrongAttempt(detectedNote: string): void;
   redrawFretboard(): void;
   drawFretboard(
     showAllNotes?: boolean,
@@ -33,6 +34,7 @@ export function createMelodyPolyphonicFeedbackController(
     deps.state.currentMelodyEventFoundNotes.clear();
     deps.redrawFretboard();
     deps.recordSessionAttempt(deps.state.activeSessionStats, prompt, false, 0, deps.state.currentInstrument);
+    deps.recordPerformanceTimelineWrongAttempt(detectedText);
     deps.setResultMessage(`Heard: ${detectedText} [wrong]`, 'error');
     if (deps.state.showingAllNotes) return;
 

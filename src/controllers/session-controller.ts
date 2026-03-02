@@ -130,10 +130,24 @@ import {
   type MelodyStudyRange,
 } from '../melody-study-range';
 import { isMelodyWorkflowMode } from '../training-mode-groups';
+import { normalizePerformanceMicTolerancePreset } from '../performance-mic-tolerance';
+import { normalizePerformanceTimingLeniencyPreset } from '../performance-timing-forgiveness';
+import { resolveSharedMelodyTempoBpm, shouldLinkMelodyTempoControls } from '../shared-melody-tempo';
+import { resolveMelodyPlaybackTempoBpm, storeMelodyPlaybackTempoBpm } from '../melody-playback-tempo';
+import { clampMelodyPlaybackBpm } from '../melody-timeline-duration';
+import {
+  formatMelodyTimelineZoomPercent,
+  normalizeMelodyTimelineZoomPercent,
+} from '../melody-timeline-zoom';
 
 function getSelectedMelodyId() {
   const selectedMelodyId = dom.melodySelector.value.trim();
   return selectedMelodyId.length > 0 ? selectedMelodyId : null;
+}
+
+function getSelectedBaseMelody() {
+  const selectedMelodyId = getSelectedMelodyId();
+  return selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
 }
 
 function cloneMelodyEventsDraft(events: MelodyEvent[]) {
@@ -444,6 +458,7 @@ melodyDemoController = createMelodyDemoController({
 
 function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
   melodyDemoController.stopPlayback(options);
+  dom.melodyTabTimelineGrid.scrollLeft = 0;
 }
 
 function pauseMelodyDemoPlayback() {
@@ -508,6 +523,7 @@ function isAnyBlockingModalOpen() {
     dom.settingsModal,
     dom.userDataModal,
     dom.helpModal,
+    dom.sessionSummaryModal,
     dom.statsModal,
     dom.guideModal,
     dom.linksModal,
@@ -527,6 +543,7 @@ function shouldHandleMelodyDemoHotkeys(event: KeyboardEvent) {
 
 export function refreshMelodyOptionsForCurrentInstrument() {
   melodyPracticeSettingsController.refreshMelodyOptionsForCurrentInstrument();
+  hydrateMelodyTempoForSelectedMelody();
   updateMelodyActionButtonsForSelection();
 }
 
@@ -538,6 +555,7 @@ function finalizeMelodyImportSelection(melodyId: string, successMessage: string)
   hydrateMelodyTransposeForSelectedMelody();
   hydrateMelodyStringShiftForSelectedMelody();
   hydrateMelodyStudyRangeForSelectedMelody();
+  hydrateMelodyTempoForSelectedMelody();
   melodyDemoController.clearPreviewState();
   updateMelodyActionButtonsForSelection();
   dom.melodyNameInput.value = '';
@@ -687,12 +705,12 @@ const metronomeController = createMetronomeController({
   dom: {
     trainingMode: dom.trainingMode,
     metronomeEnabled: dom.metronomeEnabled,
-    metronomeBpm: dom.metronomeBpm,
-    metronomeBpmValue: dom.metronomeBpmValue,
+    metronomeBpm: dom.melodyDemoBpm,
+    metronomeBpmValue: dom.melodyDemoBpmValue,
     metronomeBeatLabel: dom.metronomeBeatLabel,
     metronomePulse: dom.metronomePulse,
   },
-  clampMetronomeBpm,
+  clampMetronomeBpm: clampMelodyPlaybackBpm,
   startMetronome,
   stopMetronome,
   setMetronomeTempo,
@@ -717,7 +735,7 @@ const curriculumPresetController = createCurriculumPresetController({
     arpeggioPatternSelector: dom.arpeggioPatternSelector,
     rhythmTimingWindow: dom.rhythmTimingWindow,
     metronomeEnabled: dom.metronomeEnabled,
-    metronomeBpm: dom.metronomeBpm,
+    metronomeBpm: dom.melodyDemoBpm,
     showAllNotes: dom.showAllNotes,
     trainingMode: dom.trainingMode,
     difficulty: dom.difficulty,
@@ -909,17 +927,99 @@ async function ensureRhythmModeMetronome() {
   return metronomeController.ensureRhythmModeMetronome();
 }
 
+function syncMelodyTempoFromMetronomeIfLinked() {
+  syncHiddenMetronomeTempoFromSharedTempo();
+  if (!shouldLinkMelodyTempoControls(dom.trainingMode.value, dom.metronomeEnabled.checked)) {
+    return;
+  }
+  const { melodyBpm } = resolveSharedMelodyTempoBpm(Number.parseInt(dom.melodyDemoBpm.value, 10));
+  dom.melodyDemoBpm.value = String(melodyBpm);
+  melodyDemoPresentationController.syncBpmDisplay();
+}
+
+function hydrateMelodyTempoForSelectedMelody() {
+  const melody = getSelectedBaseMelody();
+  const bpm = resolveMelodyPlaybackTempoBpm(
+    melody,
+    state.melodyPlaybackBpmById,
+    dom.melodyDemoBpm.value
+  );
+  dom.melodyDemoBpm.value = String(bpm);
+  melodyDemoPresentationController.syncBpmDisplay();
+  syncHiddenMetronomeTempoFromSharedTempo();
+  void syncMetronomeTempoFromMelodyIfLinked();
+}
+
+function persistSelectedMelodyTempoOverride() {
+  const melody = getSelectedBaseMelody();
+  const { bpm, byId } = storeMelodyPlaybackTempoBpm(
+    state.melodyPlaybackBpmById,
+    melody,
+    dom.melodyDemoBpm.value
+  );
+  state.melodyPlaybackBpmById = byId;
+  dom.melodyDemoBpm.value = String(bpm);
+  melodyDemoPresentationController.syncBpmDisplay();
+  syncHiddenMetronomeTempoFromSharedTempo();
+}
+
+function syncHiddenMetronomeTempoFromSharedTempo() {
+  const { melodyBpm, metronomeBpm } = resolveSharedMelodyTempoBpm(Number.parseInt(dom.melodyDemoBpm.value, 10));
+  dom.melodyDemoBpm.value = String(melodyBpm);
+  melodyDemoPresentationController.syncBpmDisplay();
+  dom.metronomeBpm.value = String(metronomeBpm);
+  dom.metronomeBpmValue.textContent = String(metronomeBpm);
+}
+
+function syncSharedTempoFromHiddenMetronome() {
+  const { melodyBpm } = resolveSharedMelodyTempoBpm(Number.parseInt(dom.metronomeBpm.value, 10));
+  dom.melodyDemoBpm.value = String(melodyBpm);
+  melodyDemoPresentationController.syncBpmDisplay();
+  syncHiddenMetronomeTempoFromSharedTempo();
+}
+
+async function syncMetronomeTempoFromMelodyIfLinked() {
+  syncHiddenMetronomeTempoFromSharedTempo();
+  if (!dom.metronomeEnabled.checked) {
+    return;
+  }
+  await metronomeController.handleBpmInput();
+}
+
+function renderMetronomeToggleButton() {
+  const enabled = dom.metronomeEnabled.checked;
+  dom.metronomeToggleBtn.textContent = enabled ? 'Click On' : 'Click Off';
+  dom.metronomeToggleBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  dom.metronomeToggleBtn.classList.toggle('bg-amber-700', enabled);
+  dom.metronomeToggleBtn.classList.toggle('border-amber-400', enabled);
+  dom.metronomeToggleBtn.classList.toggle('text-white', enabled);
+  dom.metronomeToggleBtn.classList.toggle('bg-slate-700', !enabled);
+  dom.metronomeToggleBtn.classList.toggle('border-amber-500/60', !enabled);
+  dom.metronomeToggleBtn.classList.toggle('text-amber-100', !enabled);
+}
+
+function syncMelodyTimelineZoomDisplay() {
+  state.melodyTimelineZoomPercent = normalizeMelodyTimelineZoomPercent(dom.melodyTimelineZoom.value);
+  dom.melodyTimelineZoom.value = String(state.melodyTimelineZoomPercent);
+  dom.melodyTimelineZoomValue.textContent = formatMelodyTimelineZoomPercent(
+    state.melodyTimelineZoomPercent
+  );
+}
+
 export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
   dom.melodyDemoBpm.value = String(melodyDemoPresentationController.getClampedBpmFromInput());
   state.melodyTransposeById = state.melodyTransposeById ?? {};
+  state.melodyPlaybackBpmById = state.melodyPlaybackBpmById ?? {};
   state.melodyStringShiftById = state.melodyStringShiftById ?? {};
   state.melodyStudyRangeById = state.melodyStudyRangeById ?? {};
   syncMelodyLoopRangeDisplay();
   dom.timelineViewMode.value = state.melodyTimelineViewMode;
   dom.showTimelineSteps.checked = state.showMelodyTimelineSteps;
   dom.showTimelineDetails.checked = state.showMelodyTimelineDetails;
+  syncMelodyTimelineZoomDisplay();
+  syncHiddenMetronomeTempoFromSharedTempo();
   syncMetronomeBpmDisplay();
   melodyDemoPresentationController.syncBpmDisplay();
   refreshMelodyOptionsForCurrentInstrument();
@@ -938,13 +1038,13 @@ export function registerSessionControls() {
   melodyImportModalController.syncUi();
   melodyDemoPresentationController.renderButtonState();
   resetMetronomeVisualIndicator();
+  renderMetronomeToggleButton();
   updateMicNoiseGateInfo();
   refreshMicPolyphonicDetectorAudioInfoUi();
   micPolyphonicTelemetryController.syncButtonState();
   updatePracticeSetupSummary();
   syncMelodyTimelineEditingState();
   refreshInputSourceAvailabilityUi();
-  setPracticeSetupCollapsed(window.innerWidth < 900);
   void refreshAudioInputDeviceOptions();
   void refreshMidiInputDevices(false);
   dom.closeMelodyImportBtn.addEventListener('click', () => {
@@ -967,12 +1067,15 @@ export function registerSessionControls() {
 
   dom.practiceSetupToggleBtn.addEventListener('click', () => {
     togglePracticeSetupCollapsed();
+    saveSettings();
   });
   dom.melodySetupToggleBtn.addEventListener('click', () => {
     toggleMelodySetupCollapsed();
+    saveSettings();
   });
   dom.sessionToolsToggleBtn.addEventListener('click', () => {
     toggleSessionToolsCollapsed();
+    saveSettings();
   });
 
   metronomeController.registerBeatIndicator();
@@ -1046,8 +1149,28 @@ export function registerSessionControls() {
     state.autoPlayPromptSound = dom.autoPlayPromptSound.checked;
     saveSettings();
   });
+  dom.relaxPerformanceOctaveCheck.addEventListener('change', () => {
+    state.relaxPerformanceOctaveCheck = dom.relaxPerformanceOctaveCheck.checked;
+    saveSettings();
+  });
+  dom.performanceMicTolerancePreset.addEventListener('change', () => {
+    state.performanceMicTolerancePreset = normalizePerformanceMicTolerancePreset(
+      dom.performanceMicTolerancePreset.value
+    );
+    dom.performanceMicTolerancePreset.value = state.performanceMicTolerancePreset;
+    saveSettings();
+  });
+  dom.performanceTimingLeniencyPreset.addEventListener('change', () => {
+    state.performanceTimingLeniencyPreset = normalizePerformanceTimingLeniencyPreset(
+      dom.performanceTimingLeniencyPreset.value
+    );
+    dom.performanceTimingLeniencyPreset.value = state.performanceTimingLeniencyPreset;
+    saveSettings();
+  });
   dom.stringSelector.addEventListener('change', () => {
+    markCurriculumPresetAsCustom();
     updatePracticeSetupSummary();
+    saveSettings();
   });
 
   dom.noteNaming.addEventListener('change', () => {
@@ -1115,6 +1238,7 @@ export function registerSessionControls() {
     stopMelodyDemoPlayback({ clearUi: true });
     markCurriculumPresetAsCustom();
     handleModeChange();
+    syncHiddenMetronomeTempoFromSharedTempo();
     updatePracticeSetupSummary();
     saveSettings();
     syncMelodyTimelineEditingState();
@@ -1137,9 +1261,13 @@ export function registerSessionControls() {
     if (key === 'custom') {
       setCurriculumPresetInfo('');
       updatePracticeSetupSummary();
+      saveSettings();
       return;
     }
     applyCurriculumPreset(key);
+    persistSelectedMelodyTempoOverride();
+    syncHiddenMetronomeTempoFromSharedTempo();
+    renderMetronomeToggleButton();
     updatePracticeSetupSummary();
   });
 
@@ -1155,11 +1283,28 @@ export function registerSessionControls() {
     saveSettings();
     redrawFretboard();
   });
-  dom.metronomeEnabled.addEventListener('change', async () => {
+  dom.metronomeToggleBtn.addEventListener('click', async () => {
+    dom.metronomeEnabled.checked = !dom.metronomeEnabled.checked;
+    syncHiddenMetronomeTempoFromSharedTempo();
     await metronomeController.handleEnabledChange();
+    renderMetronomeToggleButton();
+    saveSettings();
+  });
+  dom.metronomeEnabled.addEventListener('change', async () => {
+    syncHiddenMetronomeTempoFromSharedTempo();
+    await metronomeController.handleEnabledChange();
+    renderMetronomeToggleButton();
+    saveSettings();
   });
   dom.metronomeBpm.addEventListener('input', async () => {
     await metronomeController.handleBpmInput();
+    syncMelodyTempoFromMetronomeIfLinked();
+    saveSettings();
+  });
+  dom.metronomeBpm.addEventListener('change', async () => {
+    await metronomeController.handleBpmInput();
+    syncMelodyTempoFromMetronomeIfLinked();
+    saveSettings();
   });
   dom.rhythmTimingWindow.addEventListener('change', () => {
     saveSettings();
@@ -1182,6 +1327,7 @@ export function registerSessionControls() {
     hydrateMelodyTransposeForSelectedMelody();
     hydrateMelodyStringShiftForSelectedMelody();
     hydrateMelodyStudyRangeForSelectedMelody();
+    hydrateMelodyTempoForSelectedMelody();
     melodyDemoController.clearPreviewState();
     updateMelodyActionButtonsForSelection();
     if (state.isListening && isMelodyWorkflowMode(dom.trainingMode.value)) {
@@ -1270,6 +1416,16 @@ export function registerSessionControls() {
     updatePracticeSetupSummary();
     saveSettings();
   });
+  dom.melodyTimelineZoom.addEventListener('input', () => {
+    syncMelodyTimelineZoomDisplay();
+    saveSettings();
+    refreshMelodyTimelineUi();
+  });
+  dom.melodyTimelineZoom.addEventListener('change', () => {
+    syncMelodyTimelineZoomDisplay();
+    saveSettings();
+    refreshMelodyTimelineUi();
+  });
   dom.melodyLoopRange.addEventListener('change', () => {
     state.melodyLoopRangeEnabled = dom.melodyLoopRange.checked;
     syncMelodyLoopRangeDisplay();
@@ -1286,6 +1442,15 @@ export function registerSessionControls() {
   });
   dom.melodyDemoBpm.addEventListener('input', () => {
     melodyDemoPresentationController.getClampedBpmFromInput();
+    persistSelectedMelodyTempoOverride();
+    void syncMetronomeTempoFromMelodyIfLinked();
+    saveSettings();
+  });
+  dom.melodyDemoBpm.addEventListener('change', () => {
+    melodyDemoPresentationController.getClampedBpmFromInput();
+    persistSelectedMelodyTempoOverride();
+    void syncMetronomeTempoFromMelodyIfLinked();
+    saveSettings();
   });
   dom.openMelodyImportBtn.addEventListener('click', () => {
     stopMelodyDemoPlayback({ clearUi: true });

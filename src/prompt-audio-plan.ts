@@ -41,6 +41,8 @@ export function buildPromptAudioPlan({
     return EMPTY_AUDIO_PLAN;
   }
 
+  const autoPlayMelodyWorkflowSound = autoPlayPromptSoundEnabled && trainingMode === 'performance';
+
   if (isChordAudioReferenceMode(trainingMode)) {
     const notesToPlay = prompt.targetChordFingering
       .map((noteInfo) => instrument.getNoteWithOctave(noteInfo.string, noteInfo.fret))
@@ -74,7 +76,7 @@ export function buildPromptAudioPlan({
       notesToPlay,
       targetFrequency,
       playSoundEnabled: notesToPlay.length > 0,
-      autoPlaySound: false,
+      autoPlaySound: autoPlayMelodyWorkflowSound,
     };
   }
 
@@ -102,6 +104,8 @@ export function buildPromptAudioPlan({
     notesToPlay: noteWithOctave ? [noteWithOctave] : [],
     targetFrequency,
     playSoundEnabled: Boolean(noteWithOctave && targetFrequency !== null),
-    autoPlaySound: autoPlayPromptSoundEnabled && !isMelodyWorkflowMode(trainingMode),
+    autoPlaySound:
+      autoPlayPromptSoundEnabled &&
+      (!isMelodyWorkflowMode(trainingMode) || trainingMode === 'performance'),
   };
 }

@@ -69,6 +69,8 @@ function createDeps(
     performanceNow: vi.fn(() => 10),
     redrawFretboard: vi.fn(),
     setResultMessage: vi.fn(),
+    recordPerformanceTimelineWrongAttempt: vi.fn(),
+    markPerformancePromptAttempt: vi.fn(),
     performanceResolveSuccess: vi.fn(),
     displayResult: vi.fn(),
     handleMelodyPolyphonicMismatch: vi.fn(),
@@ -188,5 +190,49 @@ describe('melody-runtime-detection-controller', () => {
       'C,G',
       'midi melody polyphonic mismatch redraw'
     );
+  });
+
+  it('records performance polyphonic off-target attempts', () => {
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      detectMicPolyphonicFrame: vi.fn(() => ({
+        detectedNotesText: 'C G',
+        detectedNoteNames: ['C', 'G'],
+        nextStableChordCounter: 2,
+        isStableMatch: false,
+        isStableMismatch: false,
+      })),
+    });
+    const controller = createMelodyRuntimeDetectionController(deps);
+
+    controller.handleMicrophonePolyphonicMelodyFrame(0.2);
+
+    expect(deps.recordPerformanceTimelineWrongAttempt).toHaveBeenCalledWith('C');
+    expect(deps.setResultMessage).toHaveBeenCalledWith('Heard: C G [off target]', 'error');
+  });
+
+  it('forgives performance polyphonic off-target attempts near prompt boundaries', () => {
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        startTime: 1000,
+        currentPrompt: createPrompt({ melodyEventDurationMs: 500 }),
+      },
+      detectMicPolyphonicFrame: vi.fn(() => ({
+        detectedNotesText: 'C G',
+        detectedNoteNames: ['C', 'G'],
+        nextStableChordCounter: 2,
+        isStableMatch: false,
+        isStableMismatch: false,
+      })),
+      now: vi.fn(() => 1050),
+    });
+    const controller = createMelodyRuntimeDetectionController(deps);
+
+    controller.handleMicrophonePolyphonicMelodyFrame(0.2);
+
+    expect(deps.recordPerformanceTimelineWrongAttempt).not.toHaveBeenCalled();
+    expect(deps.setResultMessage).not.toHaveBeenCalledWith('Heard: C G [off target]', 'error');
   });
 });

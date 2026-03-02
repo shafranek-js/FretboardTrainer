@@ -24,6 +24,7 @@ function createDeps(options?: { showingAllNotes?: boolean }) {
   const deps = {
     state,
     recordSessionAttempt: vi.fn(),
+    recordPerformanceTimelineWrongAttempt: vi.fn(),
     redrawFretboard: vi.fn(),
     drawFretboard: vi.fn(),
     setResultMessage: vi.fn(),
@@ -42,6 +43,7 @@ describe('melody-polyphonic-feedback-controller', () => {
 
     expect(state.currentMelodyEventFoundNotes.size).toBe(0);
     expect(deps.recordSessionAttempt).toHaveBeenCalledWith({}, prompt, false, 0, {});
+    expect(deps.recordPerformanceTimelineWrongAttempt).toHaveBeenCalledWith('C + F');
     expect(deps.setResultMessage).toHaveBeenCalledWith('Heard: C + F [wrong]', 'error');
     expect(deps.drawFretboard).toHaveBeenCalledWith(false, null, null, prompt.targetMelodyEventNotes, new Set());
     expect(deps.scheduleSessionCooldown).toHaveBeenCalledWith('poly mismatch', 1200, expect.any(Function));

@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPerformancePromptController } from './performance-prompt-controller';
+import {
+  createPerformancePromptController,
+  PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN,
+} from './performance-prompt-controller';
 import type { Prompt } from './types';
 
 function createPrompt(overrides?: Partial<Prompt>): Prompt {
@@ -21,6 +24,7 @@ function createDeps(options?: { prompt?: Prompt | null; mode?: string; showingAl
     currentPrompt: options?.prompt ?? null,
     performancePromptResolved: false,
     performancePromptMatched: false,
+    performancePromptHadAttempt: false,
     pendingTimeoutIds: new Set<number>(),
     isListening: true,
     showingAllNotes: options?.showingAllNotes ?? false,
@@ -33,6 +37,8 @@ function createDeps(options?: { prompt?: Prompt | null; mode?: string; showingAl
     state,
     getTrainingMode: vi.fn(() => options?.mode ?? 'performance'),
     clearWrongDetectedHighlight: vi.fn(),
+    recordPerformanceTimelineSuccess: vi.fn(),
+    recordPerformanceTimelineMissed: vi.fn(),
     recordSessionAttempt: vi.fn(),
     updateStats: vi.fn(),
     updateSessionGoalProgress: vi.fn(),
@@ -68,30 +74,87 @@ describe('performance-prompt-controller', () => {
     expect(state.performancePromptResolved).toBe(true);
     expect(state.performancePromptMatched).toBe(true);
     expect(deps.clearWrongDetectedHighlight).toHaveBeenCalledTimes(1);
+    expect(deps.recordPerformanceTimelineSuccess).toHaveBeenCalledWith(prompt);
     expect(deps.recordSessionAttempt).toHaveBeenCalledWith({}, prompt, true, 1.25, {});
     expect(deps.updateStats).toHaveBeenCalledWith(true, 1.25);
     expect(deps.updateSessionGoalProgress).toHaveBeenCalledTimes(1);
     expect(deps.drawFretboard).toHaveBeenCalledWith(false, 'C', 'A');
     expect(deps.setResultMessage).toHaveBeenCalledWith('Hit: 1.25s', 'success');
+    expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
 
     deps.recordSessionAttempt.mockClear();
+    deps.nextPrompt.mockClear();
     controller.resolveSuccess(2);
     expect(deps.recordSessionAttempt).not.toHaveBeenCalled();
+    expect(deps.nextPrompt).not.toHaveBeenCalled();
   });
 
-  it('schedules a miss and advances to the next prompt when unresolved', () => {
+  it('invalidates the pending deadline when success resolves immediately', () => {
+    const prompt = createPrompt();
+    const { deps } = createDeps({ prompt });
+    const controller = createPerformancePromptController(deps);
+
+    controller.scheduleAdvance(prompt);
+    controller.resolveSuccess(0.42);
+    vi.runAllTimers();
+
+    expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
+    expect(deps.recordPerformanceTimelineMissed).not.toHaveBeenCalled();
+  });
+
+  it('advances on the nominal duration when there was no attempt', () => {
     const prompt = createPrompt({ targetMelodyEventNotes: [{ note: 'C', string: 'A', fret: 3, finger: 1 }] });
     const { deps, state } = createDeps({ prompt });
     const controller = createPerformancePromptController(deps);
 
     controller.scheduleAdvance(prompt);
-    vi.runAllTimers();
+    expect(deps.scheduleSessionTimeout).toHaveBeenCalledWith(
+      240,
+      expect.any(Function),
+      'performance nextPrompt'
+    );
+    const nominalCallback = deps.scheduleSessionTimeout.mock.calls[0]?.[1] as (() => void) | undefined;
+    expect(nominalCallback).toBeTypeOf('function');
+    nominalCallback?.();
 
     expect(state.performancePromptResolved).toBe(true);
     expect(state.performancePromptMatched).toBe(false);
+    expect(state.performancePromptHadAttempt).toBe(false);
+    expect(deps.recordPerformanceTimelineMissed).toHaveBeenCalledWith(prompt);
     expect(deps.recordSessionAttempt).toHaveBeenCalledWith({}, prompt, false, 0, {});
     expect(deps.setResultMessage).toHaveBeenCalledWith('Missed event.', 'error');
     expect(deps.redrawFretboard).toHaveBeenCalledTimes(1);
+    expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  it('extends the prompt by grace only after a real attempt', () => {
+    const prompt = createPrompt();
+    const { deps, state } = createDeps({ prompt });
+    const controller = createPerformancePromptController(deps);
+
+    controller.scheduleAdvance(prompt);
+    controller.markPromptAttempt();
+
+    const nominalCallback = deps.scheduleSessionTimeout.mock.calls[0]?.[1] as (() => void) | undefined;
+    nominalCallback?.();
+
+    expect(state.performancePromptResolved).toBe(false);
+    expect(state.performancePromptHadAttempt).toBe(true);
+    expect(deps.recordPerformanceTimelineMissed).not.toHaveBeenCalled();
+    expect(deps.nextPrompt).not.toHaveBeenCalled();
+    expect(deps.scheduleSessionTimeout).toHaveBeenNthCalledWith(
+      2,
+      PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN,
+      expect.any(Function),
+      'performance nextPrompt grace'
+    );
+
+    const graceCallback = deps.scheduleSessionTimeout.mock.calls[1]?.[1] as (() => void) | undefined;
+    graceCallback?.();
+
+    expect(state.performancePromptResolved).toBe(true);
+    expect(state.performancePromptMatched).toBe(false);
+    expect(deps.recordPerformanceTimelineMissed).toHaveBeenCalledWith(prompt);
     expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
   });
 
@@ -114,10 +177,12 @@ describe('performance-prompt-controller', () => {
     const controller = createPerformancePromptController(deps);
     state.performancePromptResolved = true;
     state.performancePromptMatched = true;
+    state.performancePromptHadAttempt = true;
 
     controller.resetPromptResolution();
 
     expect(state.performancePromptResolved).toBe(false);
     expect(state.performancePromptMatched).toBe(false);
+    expect(state.performancePromptHadAttempt).toBe(false);
   });
 });

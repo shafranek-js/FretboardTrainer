@@ -148,6 +148,20 @@ describe('ascii-tab-melody-parser', () => {
     expect(groupedEvents.every((event) => typeof event.durationBeats === 'number')).toBe(true);
   });
 
+  it('derives beat durations correctly when count rows include bar separators', () => {
+    const groupedEvents = parseAsciiTabToMelodyEvents(
+      [
+        'e|0-------5-------|8-------10------|',
+        'B|----------------|----------------|',
+        'count 1   &   2   &   |1   &   2   &',
+      ].join('\n'),
+      guitarLikeInstrument
+    );
+
+    expect(groupedEvents.map((event) => event.durationCountSteps)).toEqual([2, 2, 2, 1]);
+    expect(groupedEvents.map((event) => event.durationBeats)).toEqual([1, 1, 1, 0.5]);
+  });
+
   it('derives bar indexes from explicit tab separators and continues bar numbering across blocks', () => {
     const groupedEvents = parseAsciiTabToMelodyEvents(
       [

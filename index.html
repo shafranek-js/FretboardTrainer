@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="index.css" />
   </head>
   <body class="text-slate-100 font-sans">
-    <div class="app-shell w-screen h-screen bg-slate-800 flex flex-col gap-y-3">
+    <div class="app-shell w-full h-full overflow-hidden bg-slate-800 flex flex-col gap-y-3">
       <div
         class="session-area text-center relative shrink-0 flex flex-row flex-wrap justify-center items-center gap-x-2.5 sm:gap-x-4 gap-y-1 px-2 sm:px-3 pr-20 sm:pr-32 pt-1 pb-0.5 bg-slate-700 rounded-lg"
       >
@@ -113,29 +113,51 @@
               >
                 &gt;
               </button>
-              <div
-                id="melodyDemoQuickControls"
-                class="hidden field-tooltip-host flex items-center gap-1.5 sm:gap-2"
-                data-field-hint="Playback BPM"
-                title="Playback BPM"
+            </div>
+            <div
+              id="melodyDemoQuickControls"
+              class="field-tooltip-host flex items-center gap-1.5 sm:gap-2"
+              data-field-hint="Tempo and click"
+              title="Tempo and click"
+            >
+              <button
+                id="metronomeToggleBtn"
+                type="button"
+                class="h-9 rounded-md border border-amber-500/60 bg-slate-700 px-2.5 text-[11px] font-semibold text-amber-100 transition-colors hover:bg-slate-600"
+                aria-pressed="false"
+                aria-label="Toggle metronome click"
               >
-                <label for="melodyDemoBpm" class="field-tooltip-label">Playback BPM</label>
-                <input
-                  type="range"
-                  id="melodyDemoBpm"
-                  min="40"
-                  max="220"
-                  step="1"
-                  value="90"
-                  class="w-24 sm:w-32 accent-cyan-400"
-                  aria-label="Melody playback BPM"
-                />
+                Click Off
+              </button>
+              <label for="melodyDemoBpm" class="field-tooltip-label">Tempo</label>
+              <input
+                type="range"
+                id="melodyDemoBpm"
+                min="40"
+                max="220"
+                step="1"
+                value="90"
+                class="w-24 sm:w-32 accent-cyan-400"
+                aria-label="Tempo BPM"
+              />
+              <span
+                id="melodyDemoBpmValue"
+                class="min-w-[2.4rem] text-center text-[11px] sm:text-[10px] font-semibold text-cyan-200 px-1 py-0.5"
+                >90</span
+              >
+              <div
+                class="session-setting-chip inline-flex items-center gap-1"
+                aria-label="Metronome beat indicator"
+              >
                 <span
-                  id="melodyDemoBpmValue"
-                  class="min-w-[2.4rem] text-center text-[11px] sm:text-[10px] font-semibold text-cyan-200 px-1 py-0.5"
-                  >90</span
-                >
+                  id="metronomePulse"
+                  class="block h-2.5 w-2.5 rounded-full bg-slate-500 transition-all duration-100"
+                ></span>
+                <span id="metronomeBeatLabel" class="text-[10px] text-slate-300 min-w-[1.25em] text-center">-</span>
               </div>
+              <input type="checkbox" id="metronomeEnabled" class="hidden" />
+              <input type="range" id="metronomeBpm" min="40" max="220" step="1" value="80" class="hidden" aria-hidden="true" tabindex="-1" />
+              <span id="metronomeBpmValue" class="hidden" aria-hidden="true">80</span>
             </div>
             <button
               id="sessionToggleBtn"
@@ -242,42 +264,6 @@
             </div>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
-            <div id="metronomeQuickControls" class="metronome-controls flex items-center gap-1.5 sm:gap-2">
-              <label class="flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[11px] sm:text-[10px]">
-                <input type="checkbox" id="metronomeEnabled" class="w-4 h-4 accent-amber-500" />
-                Click
-              </label>
-              <label for="metronomeBpm" class="hidden sm:inline">BPM:</label>
-              <div class="flex items-center gap-1.5 sm:gap-2">
-                <input
-                  type="range"
-                  id="metronomeBpm"
-                  min="40"
-                  max="240"
-                  step="1"
-                  value="80"
-                  class="w-24 sm:w-32 accent-amber-400"
-                  aria-label="Metronome BPM"
-                />
-                <span
-                  id="metronomeBpmValue"
-                  class="min-w-[2.8rem] text-center text-[11px] sm:text-[10px] font-semibold text-amber-200 rounded-md border border-amber-400/30 bg-amber-900/20 px-1.5 py-1"
-                  >80</span
-                >
-              </div>
-              <div
-                class="flex items-center gap-1 sm:gap-2 rounded-md border border-slate-500 bg-slate-800/70 px-1.5 sm:px-2 py-1"
-                aria-label="Metronome beat indicator"
-              >
-                <span
-                  id="metronomePulse"
-                  class="block h-2.5 w-2.5 rounded-full bg-slate-500 transition-all duration-100"
-                ></span>
-                <span id="metronomeBeatLabel" class="hidden sm:inline-block text-[10px] text-slate-300 min-w-[1.5em] text-center"
-                  >-</span
-                >
-              </div>
-            </div>
             <button
               id="hintBtn"
               class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
@@ -414,6 +400,24 @@
                     <span id="melodyStringShiftValue" class="ml-auto min-w-[4.8rem] rounded-md border border-emerald-400/30 bg-emerald-900/20 px-2 py-1 text-center text-[11px] font-semibold text-emerald-100">0 str</span>
                   </div>
                 </div>
+                <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="TAB Zoom">
+                  <label for="melodyTimelineZoom" class="field-tooltip-label">TAB Zoom</label>
+                  <div class="flex h-9 items-center gap-2 rounded-md border border-slate-500 bg-slate-700 px-2">
+                    <span class="text-[10px] text-slate-400">-</span>
+                    <input
+                      id="melodyTimelineZoom"
+                      type="range"
+                      min="70"
+                      max="170"
+                      step="5"
+                      value="100"
+                      class="flex-1 accent-cyan-500"
+                      aria-label="TAB Timeline zoom percent"
+                    />
+                    <span class="text-[10px] text-slate-400">+</span>
+                    <span id="melodyTimelineZoomValue" class="min-w-[4.2rem] rounded-md border border-violet-400/30 bg-violet-900/20 px-2 py-1 text-center text-[11px] font-semibold text-violet-100">100%</span>
+                  </div>
+                </div>
                 <div class="field-tooltip-host hidden flex min-w-0 flex-col" data-field-hint="Study Range" aria-hidden="true">
                   <label for="melodyStudyStart" class="field-tooltip-label">Study Range</label>
                   <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1.5">
@@ -514,6 +518,37 @@
                   <input type="checkbox" id="autoPlayPromptSound" class="h-3.5 w-3.5 accent-cyan-500" checked />
                   Auto-play Prompt Sound
                 </label>
+                <label class="session-setting-chip inline-flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="relaxPerformanceOctaveCheck"
+                    class="h-3.5 w-3.5 accent-cyan-500"
+                    checked
+                  />
+                  Relax Octave Check (Performance Mic)
+                </label>
+                <label class="session-setting-chip inline-flex items-center gap-1">
+                  <span>Performance Mic Tolerance</span>
+                  <select
+                    id="performanceMicTolerancePreset"
+                    class="rounded border border-slate-500 bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-100"
+                  >
+                    <option value="strict">Strict (25c)</option>
+                    <option value="normal" selected>Normal (40c)</option>
+                    <option value="forgiving">Forgiving (60c)</option>
+                  </select>
+                </label>
+                <label class="session-setting-chip inline-flex items-center gap-1">
+                  <span>Performance Timing</span>
+                  <select
+                    id="performanceTimingLeniencyPreset"
+                    class="rounded border border-slate-500 bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-100"
+                  >
+                    <option value="strict">Strict</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="forgiving">Forgiving</option>
+                  </select>
+                </label>
               </div>
             </div>
             <div
@@ -529,6 +564,7 @@
                 aria-label="Active strings"
               ></div>
             </div>
+            <div id="metronomeQuickControls" class="hidden" aria-hidden="true"></div>
           </div>
         </div>
       </div>
@@ -649,7 +685,7 @@
       class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     >
       <div
-        class="modal-content relative bg-slate-700 p-5 sm:p-7 rounded-lg shadow-xl w-full max-w-7xl"
+        class="modal-content relative bg-slate-700 p-5 sm:p-7 rounded-lg shadow-xl w-full max-w-5xl"
       >
         <button
           id="closeSettingsBtn"
@@ -662,7 +698,7 @@
         <p class="mb-5 text-sm text-slate-300 text-center">
           Choose a section first. This keeps settings readable instead of dumping every control into one screen.
         </p>
-        <div id="settingsHubView" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 text-left">
+        <div id="settingsHubView" class="mx-auto grid w-full max-w-4xl grid-cols-1 gap-4 text-left sm:grid-cols-2 xl:grid-cols-3">
           <button
             id="settingsOpenAppDefaultsBtn"
             type="button"
@@ -720,7 +756,7 @@
             <div class="mt-1 text-sm text-slate-300">Library-wide melody maintenance actions.</div>
           </button>
         </div>
-        <div id="settingsSectionView" class="hidden text-left">
+        <div id="settingsSectionView" class="mx-auto hidden w-full max-w-4xl text-left">
           <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 id="settingsSectionTitle" class="text-xl font-semibold text-white"></h3>
@@ -1086,7 +1122,7 @@
       id="userDataModal"
       class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     >
-      <div class="modal-content relative bg-slate-700 p-5 sm:p-6 rounded-lg shadow-xl w-full max-w-xl">
+      <div class="modal-content relative bg-slate-700 p-5 sm:p-6 rounded-lg shadow-xl w-full max-w-lg">
         <button
           id="closeUserDataBtn"
           class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
@@ -1142,7 +1178,7 @@
       id="helpModal"
       class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     >
-      <div class="modal-content relative bg-slate-700 p-5 sm:p-6 rounded-lg shadow-xl w-full max-w-xl">
+      <div class="modal-content relative bg-slate-700 p-5 sm:p-6 rounded-lg shadow-xl w-full max-w-lg">
         <button
           id="closeHelpBtn"
           class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
@@ -1197,6 +1233,83 @@
         >
           Cancel
         </button>
+      </div>
+    </div>
+
+    <div
+      id="sessionSummaryModal"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-start sm:items-center justify-center z-[52] p-3 sm:p-4"
+    >
+      <div class="modal-content relative bg-slate-700 p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-3xl">
+        <button
+          id="closeSessionSummaryBtn"
+          class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
+          aria-label="Close session summary"
+        >
+          &times;
+        </button>
+        <h2 class="text-xl sm:text-2xl font-bold mb-3 text-white text-center">Session Summary</h2>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3 text-xs">
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Mode</div>
+            <div id="sessionSummaryMode" class="text-white font-medium truncate">-</div>
+          </div>
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Input</div>
+            <div id="sessionSummaryInput" class="text-white font-medium truncate">-</div>
+          </div>
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Duration</div>
+            <div id="sessionSummaryDuration" class="text-white font-medium">-</div>
+          </div>
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Accuracy</div>
+            <div id="sessionSummaryAccuracy" class="text-white font-medium">-</div>
+          </div>
+          <div class="rounded-md bg-emerald-900/25 border border-emerald-700/35 px-3 py-2">
+            <div class="text-emerald-200/70">Correct</div>
+            <div id="sessionSummaryCorrect" class="text-emerald-100 font-semibold">-</div>
+          </div>
+          <div class="rounded-md bg-red-900/25 border border-red-700/35 px-3 py-2">
+            <div class="text-red-200/70">Wrong</div>
+            <div id="sessionSummaryWrong" class="text-red-100 font-semibold">-</div>
+          </div>
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Avg. Time / Correct</div>
+            <div id="sessionSummaryAvgTime" class="text-white font-medium">-</div>
+          </div>
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Best Streak</div>
+            <div id="sessionSummaryBestStreak" class="text-white font-medium">-</div>
+          </div>
+        </div>
+        <div
+          id="sessionSummaryCoachTip"
+          class="mb-3 text-xs leading-4 text-amber-100 bg-amber-900/20 border border-amber-700/35 rounded-md px-3 py-2"
+          role="note"
+        >
+          -
+        </div>
+        <div class="rounded-lg border border-slate-600 bg-slate-800/35 p-3">
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-300">Weak Spots</div>
+          <ul id="sessionSummaryWeakSpots" class="list-none p-0 text-center space-y-1 text-sm">
+            <li class="bg-slate-600 p-2 rounded">No graded note attempts in the last session.</li>
+          </ul>
+        </div>
+        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button
+            id="openSummaryStatsBtn"
+            class="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+          >
+            Open Full Stats
+          </button>
+          <button
+            id="closeSummaryFooterBtn"
+            class="h-9 px-4 bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors text-sm"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
 

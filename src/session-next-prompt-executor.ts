@@ -2,6 +2,7 @@ import type { Prompt } from './types';
 import type { SessionNextPromptPlan } from './session-next-prompt-plan';
 
 export interface SessionNextPromptExecutorDeps {
+  requestSessionSummaryOnStop: () => void;
   stopListening: () => void;
   showError: (message: string) => void;
   updateTuner: (frequency: number | null) => void;
@@ -18,6 +19,9 @@ export function executeSessionNextPromptPlan(
 ): SessionNextPromptExecutionResult {
   if (nextPromptPlan.shouldStopListening) {
     const errorMessage = nextPromptPlan.errorMessage;
+    if (nextPromptPlan.stopReason === 'missing_prompt') {
+      deps.requestSessionSummaryOnStop();
+    }
     deps.stopListening();
     if (errorMessage) {
       deps.showError(errorMessage);

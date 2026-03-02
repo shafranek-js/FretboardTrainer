@@ -9,6 +9,14 @@ import {
   populateProfileSelector,
   redrawFretboard,
 } from './ui';
+import {
+  getMelodySetupCollapsed,
+  getPracticeSetupCollapsed,
+  getSessionToolsCollapsed,
+  setMelodySetupCollapsed,
+  setPracticeSetupCollapsed,
+  setSessionToolsCollapsed,
+} from './ui-signals';
 import { DEFAULT_A4_FREQUENCY } from './constants';
 import { loadInstrumentSoundfont } from './audio';
 import { instruments } from './instruments';
@@ -23,6 +31,12 @@ import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from './mic-note-hold-filter';
 import { normalizeMicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
+import { normalizePerformanceMicTolerancePreset, type PerformanceMicTolerancePreset } from './performance-mic-tolerance';
+import {
+  normalizePerformanceTimingLeniencyPreset,
+  type PerformanceTimingLeniencyPreset,
+} from './performance-timing-forgiveness';
+import { getCurriculumPresetDefinitions, type CurriculumPresetKey } from './curriculum-presets';
 import {
   normalizeInputSource,
   normalizeMidiInputDeviceId,
@@ -37,6 +51,11 @@ import {
   formatMelodyStringShift,
   normalizeMelodyStringShift,
 } from './melody-string-shift';
+import { clampMelodyPlaybackBpm } from './melody-timeline-duration';
+import {
+  formatMelodyTimelineZoomPercent,
+  normalizeMelodyTimelineZoomPercent,
+} from './melody-timeline-zoom';
 import {
   ACTIVE_PROFILE_KEY,
   PROFILES_KEY,
@@ -79,6 +98,9 @@ export interface ProfileSettings {
   showAllNotes?: boolean;
   showStringToggles?: boolean;
   autoPlayPromptSound?: boolean;
+  relaxPerformanceOctaveCheck?: boolean;
+  performanceMicTolerancePreset?: PerformanceMicTolerancePreset;
+  performanceTimingLeniencyPreset?: PerformanceTimingLeniencyPreset;
   difficulty?: string;
   noteNaming?: 'sharps' | 'flats';
   melodyTimelineViewMode?: 'classic' | 'grid';
@@ -98,6 +120,9 @@ export interface ProfileSettings {
   trainingMode?: string;
   sessionGoal?: string;
   sessionPace?: 'slow' | 'normal' | 'fast' | 'ultra';
+  practiceSetupCollapsed?: boolean;
+  melodySetupCollapsed?: boolean;
+  sessionToolsCollapsed?: boolean;
   metronomeEnabled?: boolean;
   metronomeBpm?: string;
   rhythmTimingWindow?: string;
@@ -106,8 +131,12 @@ export interface ProfileSettings {
   randomizeChords?: boolean;
   selectedProgression?: string;
   arpeggioPattern?: string;
+  curriculumPreset?: CurriculumPresetKey;
   selectedMelodyId?: string;
   melodyShowNote?: boolean;
+  melodyTimelineZoomPercent?: number;
+  melodyDemoBpm?: string;
+  melodyPlaybackBpmById?: Record<string, number>;
   melodyTransposeById?: Record<string, number>;
   melodyStringShiftById?: Record<string, number>;
   melodyStudyRangeById?: Record<string, { startIndex: number; endIndex: number }>;
@@ -174,6 +203,11 @@ export function gatherCurrentSettings(): ProfileSettings {
     showAllNotes: dom.showAllNotes.checked,
     showStringToggles: dom.showStringToggles.checked,
     autoPlayPromptSound: dom.autoPlayPromptSound.checked,
+    relaxPerformanceOctaveCheck: dom.relaxPerformanceOctaveCheck.checked,
+    performanceMicTolerancePreset: normalizePerformanceMicTolerancePreset(dom.performanceMicTolerancePreset.value),
+    performanceTimingLeniencyPreset: normalizePerformanceTimingLeniencyPreset(
+      dom.performanceTimingLeniencyPreset.value
+    ),
     difficulty: dom.difficulty.value,
     noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
     melodyTimelineViewMode: state.melodyTimelineViewMode,
@@ -193,6 +227,9 @@ export function gatherCurrentSettings(): ProfileSettings {
     trainingMode: dom.trainingMode.value,
     sessionGoal: dom.sessionGoal.value,
     sessionPace: state.sessionPace,
+    practiceSetupCollapsed: getPracticeSetupCollapsed(),
+    melodySetupCollapsed: getMelodySetupCollapsed(),
+    sessionToolsCollapsed: getSessionToolsCollapsed(),
     metronomeEnabled: dom.metronomeEnabled.checked,
     metronomeBpm: dom.metronomeBpm.value,
     rhythmTimingWindow: dom.rhythmTimingWindow.value,
@@ -201,8 +238,12 @@ export function gatherCurrentSettings(): ProfileSettings {
     randomizeChords: dom.randomizeChords.checked,
     selectedProgression: dom.progressionSelector.value,
     arpeggioPattern: dom.arpeggioPatternSelector.value,
+    curriculumPreset: dom.curriculumPreset.value as CurriculumPresetKey,
     selectedMelodyId: dom.melodySelector.value || undefined,
     melodyShowNote: dom.melodyShowNote.checked,
+    melodyTimelineZoomPercent: normalizeMelodyTimelineZoomPercent(dom.melodyTimelineZoom.value),
+    melodyDemoBpm: dom.melodyDemoBpm.value,
+    melodyPlaybackBpmById: { ...state.melodyPlaybackBpmById },
     melodyTransposeById: { ...state.melodyTransposeById },
     melodyStringShiftById: { ...state.melodyStringShiftById },
     melodyStudyRangeById: { ...state.melodyStudyRangeById },
@@ -216,7 +257,6 @@ export function gatherCurrentSettings(): ProfileSettings {
 /** Saves the current UI state to the active profile. Called on any UI change. */
 export function saveSettings() {
   const activeProfileName = getActiveProfileName();
-  if (activeProfileName === '__default__') return; // Do not save changes to the default placeholder
   const profiles = getProfiles();
   profiles[activeProfileName] = gatherCurrentSettings();
   saveProfiles(profiles);
@@ -250,6 +290,15 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.showAllNotes.checked = safeSettings.showAllNotes ?? false;
     dom.showStringToggles.checked = safeSettings.showStringToggles ?? false;
     dom.autoPlayPromptSound.checked = safeSettings.autoPlayPromptSound ?? true;
+    dom.relaxPerformanceOctaveCheck.checked = safeSettings.relaxPerformanceOctaveCheck ?? true;
+    state.performanceMicTolerancePreset = normalizePerformanceMicTolerancePreset(
+      safeSettings.performanceMicTolerancePreset
+    );
+    dom.performanceMicTolerancePreset.value = state.performanceMicTolerancePreset;
+    state.performanceTimingLeniencyPreset = normalizePerformanceTimingLeniencyPreset(
+      safeSettings.performanceTimingLeniencyPreset
+    );
+    dom.performanceTimingLeniencyPreset.value = state.performanceTimingLeniencyPreset;
     dom.difficulty.value = safeSettings.difficulty ?? 'natural';
     dom.noteNaming.value = normalizeNoteNamingPreference(safeSettings.noteNaming);
     setNoteNamingPreference(dom.noteNaming.value);
@@ -285,6 +334,9 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.sessionGoal.value = safeSettings.sessionGoal ?? 'none';
     state.sessionPace = normalizeSessionPace(safeSettings.sessionPace);
     dom.sessionPace.value = state.sessionPace;
+    setPracticeSetupCollapsed(safeSettings.practiceSetupCollapsed ?? window.innerWidth < 900);
+    setMelodySetupCollapsed(safeSettings.melodySetupCollapsed ?? false);
+    setSessionToolsCollapsed(safeSettings.sessionToolsCollapsed ?? true);
     dom.metronomeEnabled.checked = safeSettings.metronomeEnabled ?? false;
     dom.metronomeBpm.value = safeSettings.metronomeBpm ?? '80';
     dom.metronomeBpmValue.textContent = dom.metronomeBpm.value;
@@ -319,11 +371,42 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     }
 
     dom.arpeggioPatternSelector.value = safeSettings.arpeggioPattern ?? 'ascending';
+    const curriculumPreset = safeSettings.curriculumPreset ?? 'custom';
+    const hasCurriculumPresetOption = [...dom.curriculumPreset.options].some(
+      (option) => option.value === curriculumPreset
+    );
+    dom.curriculumPreset.value = hasCurriculumPresetOption ? curriculumPreset : 'custom';
+    const curriculumPresetDescription =
+      getCurriculumPresetDefinitions().find((preset) => preset.key === dom.curriculumPreset.value)?.description ??
+      '';
+    dom.curriculumPresetInfo.textContent = curriculumPresetDescription;
+    dom.curriculumPresetInfo.classList.toggle('hidden', curriculumPresetDescription.length === 0);
     state.preferredMelodyId =
       typeof safeSettings.selectedMelodyId === 'string' && safeSettings.selectedMelodyId.trim().length > 0
         ? safeSettings.selectedMelodyId
         : null;
     dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
+    state.melodyTimelineZoomPercent = normalizeMelodyTimelineZoomPercent(
+      safeSettings.melodyTimelineZoomPercent
+    );
+    dom.melodyTimelineZoom.value = String(state.melodyTimelineZoomPercent);
+    dom.melodyTimelineZoomValue.textContent = formatMelodyTimelineZoomPercent(
+      state.melodyTimelineZoomPercent
+    );
+    dom.melodyDemoBpm.value = String(clampMelodyPlaybackBpm(safeSettings.melodyDemoBpm));
+    const melodyPlaybackBpmById: Record<string, number> = {};
+    if (
+      safeSettings.melodyPlaybackBpmById &&
+      typeof safeSettings.melodyPlaybackBpmById === 'object' &&
+      !Array.isArray(safeSettings.melodyPlaybackBpmById)
+    ) {
+      Object.entries(safeSettings.melodyPlaybackBpmById).forEach(([melodyId, bpm]) => {
+        const key = melodyId.trim();
+        if (!key) return;
+        melodyPlaybackBpmById[key] = clampMelodyPlaybackBpm(bpm);
+      });
+    }
+    state.melodyPlaybackBpmById = melodyPlaybackBpmById;
     const melodyTransposeById: Record<string, number> = {};
     if (
       safeSettings.melodyTransposeById &&
@@ -385,6 +468,13 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;
     state.autoPlayPromptSound = dom.autoPlayPromptSound.checked;
+    state.relaxPerformanceOctaveCheck = dom.relaxPerformanceOctaveCheck.checked;
+    state.performanceMicTolerancePreset = normalizePerformanceMicTolerancePreset(
+      dom.performanceMicTolerancePreset.value
+    );
+    state.performanceTimingLeniencyPreset = normalizePerformanceTimingLeniencyPreset(
+      dom.performanceTimingLeniencyPreset.value
+    );
     dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
 
     // If instrument changed, load new sounds. Otherwise, this is very fast.

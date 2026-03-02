@@ -4,7 +4,7 @@
  */
 import { dom, state } from './state';
 import { updateStats, saveLastSessionStats, saveSettings, saveStats } from './storage';
-import { updateTuner, redrawFretboard, drawFretboard, displayStats } from './ui';
+import { updateTuner, redrawFretboard, drawFretboard, displaySessionSummary, displayStats } from './ui';
 import { freqToNoteName, freqToScientificNoteName, detectPitch, playSound } from './audio';
 import { modes } from './modes';
 import {
@@ -107,6 +107,18 @@ import { createMelodyPolyphonicFeedbackController } from './melody-polyphonic-fe
 import { createStableMonophonicDetectionController } from './stable-monophonic-detection-controller';
 import { createMelodyRuntimeDetectionController } from './melody-runtime-detection-controller';
 import { createPolyphonicChordDetectionController } from './polyphonic-chord-detection-controller';
+import {
+  appendPerformanceTimelineAttempts,
+  buildPerformanceTimelineMissedAttempts,
+  buildPerformanceTimelineFeedbackKey,
+  buildPerformanceTimelineSuccessAttempts,
+  buildPerformanceTimelineWrongAttempt,
+  clearPerformanceTimelineFeedbackState,
+} from './performance-timeline-feedback';
+import { buildSessionInitialPromptPlan } from './session-initial-prompt-plan';
+import { buildSessionInitialTimelinePreview } from './session-initial-timeline-preview';
+import { shouldIgnorePerformanceOctaveMismatch } from './performance-octave-policy';
+import { isPerformancePitchWithinTolerance as isPerformancePitchWithinToleranceHelper } from './performance-pitch-tolerance';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -187,10 +199,56 @@ function updateSessionGoalProgressFromActiveStats() {
   );
 }
 
+function applySessionInitialTimelinePreview(previewLabel: string) {
+  const preview = buildSessionInitialTimelinePreview({
+    trainingMode: dom.trainingMode.value,
+    selectedMelodyId: dom.melodySelector.value,
+    currentInstrument: state.currentInstrument,
+    melodyTransposeSemitones: state.melodyTransposeSemitones,
+    melodyStringShift: state.melodyStringShift,
+    melodyStudyRangeStartIndex: state.melodyStudyRangeStartIndex,
+    melodyStudyRangeEndIndex: state.melodyStudyRangeEndIndex,
+  });
+
+  state.melodyTimelinePreviewIndex = preview?.eventIndex ?? null;
+  state.melodyTimelinePreviewLabel = preview ? previewLabel : null;
+  redrawFretboard();
+}
+
+function clearSessionInitialTimelinePreview() {
+  if (state.melodyTimelinePreviewIndex === null && state.melodyTimelinePreviewLabel === null) {
+    return;
+  }
+
+  state.melodyTimelinePreviewIndex = null;
+  state.melodyTimelinePreviewLabel = null;
+  redrawFretboard();
+}
+
+function beginPerformancePrerollTimeline(pulseCount: number) {
+  state.performancePrerollLeadInVisible = pulseCount > 0;
+  state.performancePrerollStepIndex = pulseCount > 0 ? 0 : null;
+  redrawFretboard();
+}
+
+function advancePerformancePrerollTimeline(stepIndex: number, pulseCount: number) {
+  if (!state.isListening) return;
+  if (!state.performancePrerollLeadInVisible || pulseCount <= 0) return;
+  state.performancePrerollStepIndex = Math.max(0, Math.min(pulseCount - 1, stepIndex));
+  redrawFretboard();
+}
+
+function finishPerformancePrerollTimeline() {
+  state.performancePrerollStepIndex = null;
+  redrawFretboard();
+}
+
 const performancePromptController = createPerformancePromptController({
   state,
   getTrainingMode: () => dom.trainingMode.value,
   clearWrongDetectedHighlight: () => clearWrongDetectedHighlight(),
+  recordPerformanceTimelineSuccess,
+  recordPerformanceTimelineMissed,
   recordSessionAttempt,
   updateStats,
   updateSessionGoalProgress: updateSessionGoalProgressFromActiveStats,
@@ -273,10 +331,92 @@ function setWrongDetectedHighlight(detectedNote: string, detectedFrequency?: num
   state.wrongDetectedFret = highlight.wrongDetectedFret;
 }
 
+function getCurrentPerformanceTimelineEventIndex() {
+  if (dom.trainingMode.value !== 'performance') return null;
+  if (!state.currentPrompt) return null;
+  const eventIndex = state.currentMelodyEventIndex - 1;
+  return Number.isInteger(eventIndex) && eventIndex >= 0 ? eventIndex : null;
+}
+
+function getCurrentPerformanceTimelineFeedbackKey() {
+  return buildPerformanceTimelineFeedbackKey({
+    melodyId: state.currentMelodyId,
+    instrumentName: state.currentInstrument.name,
+    melodyTransposeSemitones: state.melodyTransposeSemitones,
+    melodyStringShift: state.melodyStringShift,
+  });
+}
+
+function clearPerformanceTimelineFeedback() {
+  clearPerformanceTimelineFeedbackState(state);
+}
+
+function ensureCurrentPerformanceTimelineFeedbackBucket() {
+  const feedbackKey = getCurrentPerformanceTimelineFeedbackKey();
+  if (!feedbackKey) return false;
+  if (state.performanceTimelineFeedbackKey !== feedbackKey) {
+    state.performanceTimelineFeedbackKey = feedbackKey;
+    state.performanceTimelineFeedbackByEvent = {};
+  }
+  return true;
+}
+
+function recordPerformanceTimelineSuccess(prompt: Prompt) {
+  const eventIndex = getCurrentPerformanceTimelineEventIndex();
+  if (eventIndex === null) return;
+  if (!ensureCurrentPerformanceTimelineFeedbackBucket()) return;
+  appendPerformanceTimelineAttempts(
+    state.performanceTimelineFeedbackByEvent,
+    eventIndex,
+    buildPerformanceTimelineSuccessAttempts(prompt)
+  );
+  redrawFretboard();
+}
+
+function recordPerformanceTimelineWrongAttempt(note: string) {
+  const eventIndex = getCurrentPerformanceTimelineEventIndex();
+  if (eventIndex === null) return;
+  if (!ensureCurrentPerformanceTimelineFeedbackBucket()) return;
+  appendPerformanceTimelineAttempts(
+    state.performanceTimelineFeedbackByEvent,
+    eventIndex,
+    buildPerformanceTimelineWrongAttempt({
+      note,
+      stringName: state.wrongDetectedString,
+      fret: state.wrongDetectedFret,
+    })
+  );
+  redrawFretboard();
+}
+
+function recordPerformanceTimelineMissed(prompt: Prompt) {
+  const eventIndex = getCurrentPerformanceTimelineEventIndex();
+  if (eventIndex === null) return;
+  if (!ensureCurrentPerformanceTimelineFeedbackBucket()) return;
+  appendPerformanceTimelineAttempts(
+    state.performanceTimelineFeedbackByEvent,
+    eventIndex,
+    buildPerformanceTimelineMissedAttempts(prompt)
+  );
+  redrawFretboard();
+}
+
 function detectMonophonicOctaveMismatch(
   detectedNote: string,
   detectedFrequency?: number | null
 ) {
+  if (
+    shouldIgnorePerformanceOctaveMismatch({
+      trainingMode: dom.trainingMode.value,
+      inputSource: state.inputSource,
+      relaxOctaveCheckEnabled: state.relaxPerformanceOctaveCheck,
+      promptTargetNote: state.currentPrompt?.targetNote,
+      detectedNote,
+    })
+  ) {
+    return null;
+  }
+
   return detectMonophonicOctaveMismatchHelper({
     prompt: state.currentPrompt,
     targetFrequency: state.targetFrequency,
@@ -289,6 +429,7 @@ function detectMonophonicOctaveMismatch(
 const melodyPolyphonicFeedbackController = createMelodyPolyphonicFeedbackController({
   state,
   recordSessionAttempt,
+  recordPerformanceTimelineWrongAttempt,
   redrawFretboard,
   drawFretboard,
   setResultMessage,
@@ -300,6 +441,17 @@ const stableMonophonicDetectionController = createStableMonophonicDetectionContr
   getTrainingMode: () => dom.trainingMode.value,
   clearWrongDetectedHighlight,
   setWrongDetectedHighlight,
+  recordPerformanceTimelineWrongAttempt,
+  markPerformancePromptAttempt: () => {
+    performancePromptController.markPromptAttempt();
+  },
+  isPerformancePitchWithinTolerance: (detectedFrequency) =>
+    state.inputSource === 'microphone' &&
+    isPerformancePitchWithinToleranceHelper(
+      detectedFrequency,
+      state.targetFrequency,
+      state.performanceMicTolerancePreset
+    ),
   detectMonophonicOctaveMismatch,
   performanceResolveSuccess: (elapsedSeconds) => {
     performancePromptController.resolveSuccess(elapsedSeconds);
@@ -336,6 +488,10 @@ const melodyRuntimeDetectionController = createMelodyRuntimeDetectionController(
   performanceNow: () => performance.now(),
   redrawFretboard,
   setResultMessage,
+  recordPerformanceTimelineWrongAttempt,
+  markPerformancePromptAttempt: () => {
+    performancePromptController.markPromptAttempt();
+  },
   performanceResolveSuccess: (elapsedSeconds) => {
     performancePromptController.resolveSuccess(elapsedSeconds);
   },
@@ -623,8 +779,12 @@ export async function startListening(forCalibration = false) {
   }
 
   try {
+    const initialPromptPlan = !forCalibration
+      ? buildSessionInitialPromptPlan(dom.trainingMode.value)
+      : { delayMs: 0, prepMessage: '' };
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
     if (!forCalibration) {
+      clearPerformanceTimelineFeedback();
       resetMicPolyphonicDetectorTelemetry();
       if (selectedInputSource === 'microphone') {
         refreshMicPolyphonicDetectorAudioInfoUi();
@@ -687,7 +847,41 @@ export async function startListening(forCalibration = false) {
           Object.assign(state, createPromptCycleTrackingResetState());
         },
         setStatusText,
-        nextPrompt,
+        nextPrompt: () => {
+          if (initialPromptPlan.delayMs <= 0) {
+            nextPrompt();
+            return;
+          }
+
+          setPromptText('');
+          if (initialPromptPlan.prepMessage) {
+            setResultMessage(initialPromptPlan.prepMessage);
+          }
+          applySessionInitialTimelinePreview(initialPromptPlan.prepMessage);
+          beginPerformancePrerollTimeline(initialPromptPlan.pulseCount);
+          const pulseIntervalMs =
+            initialPromptPlan.pulseCount > 0 ? initialPromptPlan.delayMs / initialPromptPlan.pulseCount : 0;
+          for (let pulseIndex = 1; pulseIndex < initialPromptPlan.pulseCount; pulseIndex += 1) {
+            scheduleSessionTimeout(
+              Math.round(pulseIntervalMs * pulseIndex),
+              () => {
+                advancePerformancePrerollTimeline(pulseIndex, initialPromptPlan.pulseCount);
+              },
+              `session initial prompt preroll pulse ${pulseIndex + 1}`
+            );
+          }
+          scheduleSessionTimeout(
+            initialPromptPlan.delayMs,
+            () => {
+              if (!state.isListening) return;
+              finishPerformancePrerollTimeline();
+              clearSessionInitialTimelinePreview();
+              clearResultMessage();
+              nextPrompt();
+            },
+            'session initial prompt preroll'
+          );
+        },
         processAudio,
       }
     );
@@ -702,10 +896,14 @@ export async function startListening(forCalibration = false) {
 /** Stops listening to the microphone and cleans up audio resources. */
 export function stopListening(keepStreamOpen = false) {
   if (state.isLoadingSamples) return;
+  const shouldShowSessionSummary = state.showSessionSummaryOnStop;
   if (state.activeSessionStats && !state.isCalibrating) {
     state.lastSessionStats = finalizeSessionStats(state.activeSessionStats);
     saveLastSessionStats();
     displayStats();
+    if (shouldShowSessionSummary) {
+      displaySessionSummary();
+    }
   }
   state.activeSessionStats = null;
   state.isListening = false;
@@ -734,6 +932,7 @@ export function stopListening(keepStreamOpen = false) {
   clearSessionGoalProgress();
   setInfoSlots();
   Object.assign(state, createSessionStopResetState());
+  dom.melodyTabTimelineGrid.scrollLeft = 0;
   setTimedInfoVisible(false);
   if (state.inputSource === 'microphone') {
     refreshMicPolyphonicDetectorAudioInfoUi();
@@ -747,6 +946,7 @@ export function seekActiveMelodySessionToEvent(eventIndex: number) {
 
   clearTrackedTimeouts(state.pendingTimeoutIds);
   performancePromptController.invalidatePendingAdvance();
+  clearPerformanceTimelineFeedback();
   state.currentMelodyEventIndex = Math.max(0, Math.round(eventIndex));
   state.currentMelodyEventFoundNotes.clear();
   performancePromptController.resetPromptResolution();
@@ -789,6 +989,9 @@ function displayResult(correct: boolean, elapsed: number) {
         {
           setInfoSlots,
           setSessionGoalProgress,
+          requestSessionSummaryOnStop: () => {
+            state.showSessionSummaryOnStop = true;
+          },
           stopListening,
           setCurrentArpeggioIndex: (index) => {
             state.currentArpeggioIndex = index;
@@ -842,6 +1045,9 @@ function nextPrompt() {
     const pendingStopResultMessage = state.pendingSessionStopResultMessage;
     state.pendingSessionStopResultMessage = null;
     const executionResult = executeSessionNextPromptPlan(nextPromptPlan, prompt, {
+      requestSessionSummaryOnStop: () => {
+        state.showSessionSummaryOnStop = true;
+      },
       stopListening,
       showError: showNonBlockingError,
       updateTuner,
@@ -937,6 +1143,9 @@ function handleTimeUp() {
       persistHighScore: (nextHighScore) => {
         state.stats.highScore = nextHighScore;
         saveStats();
+      },
+      requestSessionSummaryOnStop: () => {
+        state.showSessionSummaryOnStop = true;
       },
       stopListening,
       setResultMessage,

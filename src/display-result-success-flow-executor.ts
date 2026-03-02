@@ -26,6 +26,7 @@ export interface DisplayResultSuccessFlowInput {
 export interface DisplayResultSuccessFlowDeps extends SessionSuccessExecutorDeps {
   setInfoSlots: (slot1?: string, slot2?: string, slot3?: string) => void;
   setSessionGoalProgress: (text: string) => void;
+  requestSessionSummaryOnStop: () => void;
   stopListening: () => void;
   setCurrentArpeggioIndex: (index: number) => void;
   setResultMessage: (message: string, tone: ResultTone) => void;
@@ -54,6 +55,7 @@ export function executeDisplayResultSuccessFlow(
     input.correctAttempts !== null &&
     input.correctAttempts >= input.goalTargetCorrect
   ) {
+    deps.requestSessionSummaryOnStop();
     deps.stopListening();
     deps.setResultMessage(formatSessionGoalReached(input.goalTargetCorrect), 'success');
     return 'goal_reached';

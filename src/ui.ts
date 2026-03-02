@@ -6,6 +6,8 @@ import { dom, state } from './state';
 import { saveSettings, getProfiles, getActiveProfileName } from './storage';
 import {
   setLoadingUi,
+  setModalVisible,
+  setSessionSummaryView,
   setStatsView,
   setStatusText,
   setTrainingModeUi,
@@ -14,7 +16,7 @@ import {
 } from './ui-signals';
 import { computeFretboardRenderPlan } from './fretboard-render-plan';
 import { drawFretboardSvg } from './svg-fretboard';
-import { buildStatsViewModel } from './stats-view';
+import { buildLastSessionViewModel, buildStatsViewModel } from './stats-view';
 import { isChordDataMode } from './training-mode-groups';
 import type { ChordNote } from './types';
 import { nearestChromaticTargetFrequencyFromA4 } from './music-theory';
@@ -23,7 +25,14 @@ import { getMelodyFingeredEvent } from './melody-fingering';
 import { normalizeMelodyStudyRange } from './melody-study-range';
 import { isMelodyWorkflowMode } from './training-mode-groups';
 import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
-import { hideMelodyTabTimeline, renderMelodyTabTimeline } from './melody-tab-timeline';
+import {
+  hideMelodyTabTimeline,
+  renderMelodyTabTimeline,
+  setMelodyTimelineBackgroundCopyPayload,
+} from './melody-tab-timeline';
+import { buildPerformanceTimelineFeedbackKey } from './performance-timeline-feedback';
+import { exportMelodyToAsciiTab } from './melody-ascii-export';
+import { getMelodyTimelineZoomScale } from './melody-timeline-zoom';
 import {
   applyTuningPresetToInstrument,
   getDefaultTuningPresetKey,
@@ -323,6 +332,7 @@ export function renderMelodyTabTimelineFromState() {
     state.melodyStringShift === 0;
 
   if (!melody || !inMelodyMode) {
+    setMelodyTimelineBackgroundCopyPayload(null);
     hideMelodyTabTimeline();
     return;
   }
@@ -345,16 +355,44 @@ export function renderMelodyTabTimelineFromState() {
     { startIndex: state.melodyStudyRangeStartIndex, endIndex: state.melodyStudyRangeEndIndex },
     melody.events.length
   );
+  const performanceFeedbackKey = buildPerformanceTimelineFeedbackKey({
+    melodyId: melody.id,
+    instrumentName: state.currentInstrument.name,
+    melodyTransposeSemitones: state.melodyTransposeSemitones,
+    melodyStringShift: state.melodyStringShift,
+  });
+  const performanceFeedbackByEvent =
+    dom.trainingMode.value === 'performance' &&
+    performanceFeedbackKey !== null &&
+    state.performanceTimelineFeedbackKey === performanceFeedbackKey
+      ? state.performanceTimelineFeedbackByEvent
+      : null;
+  const showPrerollLeadIn = dom.trainingMode.value === 'performance';
+  const copyText =
+    state.melodyTransposeSemitones === 0 &&
+    state.melodyStringShift === 0 &&
+    typeof baseMelody?.tabText === 'string' &&
+    baseMelody.tabText.trim().length > 0
+      ? baseMelody.tabText.trim()
+      : exportMelodyToAsciiTab(melody, state.currentInstrument);
+  setMelodyTimelineBackgroundCopyPayload({
+    text: copyText,
+    melodyName: melody.name,
+  });
   renderMelodyTabTimeline(melody, state.currentInstrument, activeIndex, {
     modeLabel,
     viewMode: state.melodyTimelineViewMode,
+    zoomScale: getMelodyTimelineZoomScale(state.melodyTimelineZoomPercent),
     studyRange,
     showStepNumbers: state.showMelodyTimelineSteps,
     showMetaDetails: state.showMelodyTimelineDetails,
     minimapRangeEditor: dom.trainingMode.value === 'melody',
+    showPrerollLeadIn,
+    activePrerollStepIndex: state.performancePrerollStepIndex,
     editingEnabled,
     selectedEventIndex: state.melodyTimelineSelectedEventIndex,
     selectedNoteIndex: state.melodyTimelineSelectedNoteIndex,
+    performanceFeedbackByEvent,
   });
 }
 
@@ -370,6 +408,12 @@ export function handleModeChange() {
 export function displayStats() {
   const statsView = buildStatsViewModel(state.stats, 3, state.lastSessionStats);
   setStatsView(statsView);
+}
+
+export function displaySessionSummary() {
+  const sessionSummary = buildLastSessionViewModel(state.lastSessionStats, 3);
+  setSessionSummaryView(sessionSummary);
+  setModalVisible('sessionSummary', Boolean(sessionSummary));
 }
 
 /** Sets the loading state of the UI, disabling controls and showing a message. */

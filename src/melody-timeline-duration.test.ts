@@ -69,11 +69,24 @@ describe('melody-timeline-duration', () => {
   it('clamps playback bpm to a safe range', () => {
     expect(clampMelodyPlaybackBpm(-10)).toBe(40);
     expect(clampMelodyPlaybackBpm(999)).toBe(220);
+    expect(clampMelodyPlaybackBpm('126')).toBe(126);
     expect(clampMelodyPlaybackBpm(NaN)).toBe(90);
   });
 
   it('computes playback duration from beats or columns', () => {
     expect(getMelodyEventPlaybackDurationMs({ notes: [], durationBeats: 1 }, 120)).toBe(500);
     expect(getMelodyEventPlaybackDurationMs({ notes: [], durationColumns: 8 }, 120)).toBe(760);
+  });
+
+  it('derives bpm-aware playback durations from column timing when melody context is available', () => {
+    const melody = buildMelody([
+      { notes: [], durationColumns: 4 },
+      { notes: [], durationColumns: 8 },
+      { notes: [], durationColumns: 16 },
+    ]);
+
+    expect(getMelodyEventPlaybackDurationMs(melody.events[0]!, 120, melody)).toBe(250);
+    expect(getMelodyEventPlaybackDurationMs(melody.events[1]!, 120, melody)).toBe(500);
+    expect(getMelodyEventPlaybackDurationMs(melody.events[2]!, 120, melody)).toBe(1000);
   });
 });

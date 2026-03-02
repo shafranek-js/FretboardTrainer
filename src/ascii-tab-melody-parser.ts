@@ -290,7 +290,7 @@ function parseEventsFromBlock(rows: ResolvedParsedTabLine[]): ParsedTabEvent[] {
 }
 
 function parseCountTokens(countContent: string): CountToken[] {
-  return Array.from(countContent.matchAll(/\S+/g)).map((match) => ({
+  return Array.from(countContent.matchAll(/(\d+|and|и|&)/gi)).map((match) => ({
     text: match[0] ?? '',
     startColumn: match.index ?? 0,
   }));

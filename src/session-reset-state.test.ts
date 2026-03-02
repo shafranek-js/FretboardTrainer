@@ -27,6 +27,7 @@ describe('createSessionStopResetState', () => {
       currentMelodyEventFoundNotes: new Set<string>(),
       performancePromptResolved: false,
       performancePromptMatched: false,
+      showSessionSummaryOnStop: false,
       pendingSessionStopResultMessage: null,
     });
   });

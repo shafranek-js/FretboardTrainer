@@ -1,6 +1,11 @@
 import type { MelodyDefinition, MelodyEvent } from './melody-library';
 import { buildMelodyFingeredEvents } from './melody-fingering';
 import { normalizeMelodyStudyRange, type MelodyStudyRange } from './melody-study-range';
+import type {
+  PerformanceTimelineAttempt,
+  PerformanceTimelineAttemptStatus,
+  PerformanceTimelineFeedbackByEvent,
+} from './performance-timeline-feedback';
 
 export interface TimelineNoteChip {
   note: string;
@@ -8,6 +13,7 @@ export interface TimelineNoteChip {
   fret: number;
   finger: number;
   noteIndex: number;
+  performanceStatus: PerformanceTimelineAttemptStatus | null;
 }
 
 export interface TimelineCell {
@@ -17,6 +23,8 @@ export interface TimelineCell {
   isStudyRangeStart: boolean;
   isStudyRangeEnd: boolean;
   notes: TimelineNoteChip[];
+  playedNotes: PerformanceTimelineAttempt[];
+  unmatchedPlayedNotes: PerformanceTimelineAttempt[];
 }
 
 export interface TimelineRow {
@@ -41,7 +49,8 @@ export function buildMelodyTabTimelineViewModel(
   melody: Pick<MelodyDefinition, 'events'>,
   stringOrder: string[],
   activeEventIndex: number | null,
-  studyRange?: MelodyStudyRange | null
+  studyRange?: MelodyStudyRange | null,
+  performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null
 ): MelodyTabTimelineViewModel {
   const fingeredEvents = buildMelodyFingeredEvents(melody.events);
   const clampedActive = clampEventIndex(activeEventIndex, fingeredEvents.length);
@@ -51,6 +60,10 @@ export function buildMelodyTabTimelineViewModel(
   const rows = stringOrder.map((stringName) => {
     const cells = fingeredEvents.map((eventNotes, eventIndex) => {
       const event = melody.events[eventIndex];
+      const playedNotes = (performanceFeedbackByEvent?.[eventIndex] ?? []).filter(
+        (attempt) => attempt.stringName === stringName && typeof attempt.fret === 'number'
+      );
+      const matchedPlayedNoteIndexes = new Set<number>();
       const notes = (event?.notes ?? [])
         .map((note, noteIndex) => {
           if (note.stringName !== stringName || typeof note.fret !== 'number') return null;
@@ -61,12 +74,48 @@ export function buildMelodyTabTimelineViewModel(
                 candidate.stringName !== null && typeof candidate.fret === 'number'
             ).length - 1;
           const fingered = eventNotes[playableIndex];
+          const correctAttemptIndex = playedNotes.findIndex(
+            (attempt, attemptIndex) =>
+              !matchedPlayedNoteIndexes.has(attemptIndex) &&
+              attempt.status === 'correct' &&
+              attempt.fret === note.fret
+          );
+          const wrongAttemptIndex =
+            correctAttemptIndex >= 0
+              ? -1
+              : playedNotes.findIndex(
+                  (attempt, attemptIndex) =>
+                    !matchedPlayedNoteIndexes.has(attemptIndex) &&
+                    attempt.status === 'wrong' &&
+                    attempt.fret === note.fret
+                );
+          const missedAttemptIndex =
+            correctAttemptIndex >= 0 || wrongAttemptIndex >= 0
+              ? -1
+              : playedNotes.findIndex(
+                  (attempt, attemptIndex) =>
+                    !matchedPlayedNoteIndexes.has(attemptIndex) &&
+                    attempt.status === 'missed' &&
+                    attempt.fret === note.fret
+                );
+          const matchedAttemptIndex =
+            correctAttemptIndex >= 0
+              ? correctAttemptIndex
+              : wrongAttemptIndex >= 0
+                ? wrongAttemptIndex
+                : missedAttemptIndex;
+          const performanceStatus =
+            matchedAttemptIndex >= 0 ? playedNotes[matchedAttemptIndex]?.status ?? null : null;
+          if (matchedAttemptIndex >= 0) {
+            matchedPlayedNoteIndexes.add(matchedAttemptIndex);
+          }
           return {
             note: note.note,
             stringName,
             fret: note.fret,
             finger: typeof fingered?.finger === 'number' ? fingered.finger : 0,
             noteIndex,
+            performanceStatus,
           };
         })
         .filter((note): note is TimelineNoteChip => note !== null)
@@ -81,6 +130,8 @@ export function buildMelodyTabTimelineViewModel(
         isStudyRangeStart: normalizedStudyRange?.startIndex === eventIndex,
         isStudyRangeEnd: normalizedStudyRange?.endIndex === eventIndex,
         notes,
+        playedNotes,
+        unmatchedPlayedNotes: playedNotes.filter((_, attemptIndex) => !matchedPlayedNoteIndexes.has(attemptIndex)),
       };
     });
     return {
