@@ -352,6 +352,7 @@ function resetMockState() {
 describe('storage', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', createStorage());
+    vi.stubGlobal('window', { innerWidth: 1280 });
     resetMockState();
   });
 
@@ -433,5 +434,15 @@ describe('storage', () => {
     expect(mocked.panelState.melodySetupCollapsed).toBe(true);
     expect(mocked.panelState.sessionToolsCollapsed).toBe(false);
     expect(mocked.ui.populateProfileSelector).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses melody mode with Ode to Joy on first launch when no profile exists', async () => {
+    localStorage.removeItem(PROFILES_KEY);
+    localStorage.removeItem(ACTIVE_PROFILE_KEY);
+
+    await storageModule.loadSettings();
+
+    expect(mocked.dom.trainingMode.value).toBe('melody');
+    expect(mocked.state.preferredMelodyId).toBe('builtin:guitar:ode_to_joy_intro');
   });
 });

@@ -148,6 +148,16 @@ export interface ProfileSettings {
 
 type ProfilesMap = Record<string, ProfileSettings>;
 
+function getDefaultTrainingMode() {
+  return 'melody';
+}
+
+function getDefaultMelodyIdForInstrument(instrumentName: InstrumentName) {
+  return instrumentName === 'ukulele'
+    ? 'builtin:ukulele:ode_to_joy_intro'
+    : 'builtin:guitar:ode_to_joy_intro';
+}
+
 // --- PROFILE MANAGEMENT ---
 
 /** Gets all saved profiles from localStorage. */
@@ -330,7 +340,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     setPreferredMidiInputDeviceId(normalizeMidiInputDeviceId(safeSettings.midiInputDeviceId));
     dom.startFret.value = safeSettings.startFret ?? '0';
     dom.endFret.value = safeSettings.endFret ?? '20';
-    dom.trainingMode.value = safeSettings.trainingMode ?? 'random';
+    dom.trainingMode.value = safeSettings.trainingMode ?? getDefaultTrainingMode();
     dom.sessionGoal.value = safeSettings.sessionGoal ?? 'none';
     state.sessionPace = normalizeSessionPace(safeSettings.sessionPace);
     dom.sessionPace.value = state.sessionPace;
@@ -384,7 +394,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.preferredMelodyId =
       typeof safeSettings.selectedMelodyId === 'string' && safeSettings.selectedMelodyId.trim().length > 0
         ? safeSettings.selectedMelodyId
-        : null;
+        : getDefaultMelodyIdForInstrument(state.currentInstrument.name);
     dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
     state.melodyTimelineZoomPercent = normalizeMelodyTimelineZoomPercent(
       safeSettings.melodyTimelineZoomPercent
