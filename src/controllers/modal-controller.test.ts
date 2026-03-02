@@ -21,6 +21,23 @@ const harness = vi.hoisted(() => {
     settingsBtn: createEventTargetStub(),
     closeSettingsBtn: createEventTargetStub(),
     settingsModal: createEventTargetStub(),
+    settingsHubView: createEventTargetStub(),
+    settingsSectionView: createEventTargetStub(),
+    settingsSectionTitle: { textContent: '' } as HTMLElement,
+    settingsSectionDescription: { textContent: '' } as HTMLElement,
+    settingsSectionBackBtn: createEventTargetStub(),
+    settingsOpenAppDefaultsBtn: createEventTargetStub(),
+    settingsOpenInputDetectionBtn: createEventTargetStub(),
+    settingsOpenRhythmBtn: createEventTargetStub(),
+    settingsOpenProfilesBtn: createEventTargetStub(),
+    settingsOpenToolsBtn: createEventTargetStub(),
+    settingsOpenMelodyLibraryBtn: createEventTargetStub(),
+    settingsSectionAppDefaults: createEventTargetStub(),
+    settingsSectionInputDetection: createEventTargetStub(),
+    settingsSectionRhythm: createEventTargetStub(),
+    settingsSectionProfiles: createEventTargetStub(),
+    settingsSectionTools: createEventTargetStub(),
+    settingsSectionMelodyLibrary: createEventTargetStub(),
     openUserDataBtn: createEventTargetStub(),
     userDataModal: createEventTargetStub(),
     closeUserDataBtn: createEventTargetStub(),
@@ -98,6 +115,8 @@ const harness = vi.hoisted(() => {
       payloads: {},
     })),
     applyAppUserDataSnapshot: vi.fn(),
+    settingsModalLayoutShowHub: vi.fn(),
+    settingsModalLayoutOpenSection: vi.fn(),
   };
 });
 
@@ -187,6 +206,13 @@ vi.mock('../user-data-transfer', () => ({
   applyAppUserDataSnapshot: harness.applyAppUserDataSnapshot,
 }));
 
+vi.mock('./settings-modal-layout-controller', () => ({
+  createSettingsModalLayoutController: vi.fn(() => ({
+    showHub: harness.settingsModalLayoutShowHub,
+    openSection: harness.settingsModalLayoutOpenSection,
+  })),
+}));
+
 import { registerModalControls } from './modal-controller';
 
 describe('modal-controller', () => {
@@ -199,9 +225,28 @@ describe('modal-controller', () => {
     harness.buildAppUserDataSnapshot.mockClear();
     harness.parseAppUserDataSnapshot.mockClear();
     harness.applyAppUserDataSnapshot.mockClear();
+    harness.settingsModalLayoutShowHub.mockClear();
+    harness.settingsModalLayoutOpenSection.mockClear();
     harness.dom.importUserDataFileInput.files = null;
     harness.dom.importUserDataFileInput.value = '';
     locationReload.mockClear();
+  });
+
+  it('opens settings in section-hub mode', async () => {
+    registerModalControls();
+
+    await harness.dom.settingsBtn.listeners.click?.();
+
+    expect(harness.settingsModalLayoutShowHub).toHaveBeenCalledTimes(1);
+    expect(harness.setModalVisible).toHaveBeenCalledWith('settings', true);
+  });
+
+  it('opens the requested settings section from the hub', async () => {
+    registerModalControls();
+
+    await harness.dom.settingsOpenToolsBtn.listeners.click?.();
+
+    expect(harness.settingsModalLayoutOpenSection).toHaveBeenCalledWith('tools');
   });
 
   it('blocks resetting saved settings during an active session', async () => {

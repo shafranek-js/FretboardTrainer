@@ -7,6 +7,7 @@ import { instruments } from '../instruments';
 import { refreshAudioInputDeviceOptions } from '../audio-input-devices';
 import { refreshInputSourceAvailabilityUi, refreshMidiInputDevices } from '../midi-runtime';
 import { confirmUserAction } from '../user-feedback-port';
+import { createSettingsModalLayoutController } from './settings-modal-layout-controller';
 import {
   applyAppUserDataSnapshot,
   buildAppUserDataSnapshot,
@@ -26,6 +27,23 @@ function downloadTextFile(fileName: string, text: string, mimeType: string) {
 
 export function registerModalControls() {
   // --- Settings Modal and its Children ---
+  const settingsModalLayoutController = createSettingsModalLayoutController({
+    settingsHubView: dom.settingsHubView,
+    settingsSectionView: dom.settingsSectionView,
+    settingsSectionTitle: dom.settingsSectionTitle,
+    settingsSectionDescription: dom.settingsSectionDescription,
+    settingsSectionAppDefaults: dom.settingsSectionAppDefaults,
+    settingsSectionInputDetection: dom.settingsSectionInputDetection,
+    settingsSectionRhythm: dom.settingsSectionRhythm,
+    settingsSectionProfiles: dom.settingsSectionProfiles,
+    settingsSectionTools: dom.settingsSectionTools,
+    settingsSectionMelodyLibrary: dom.settingsSectionMelodyLibrary,
+  });
+  const closeSettingsModal = () => {
+    settingsModalLayoutController.showHub();
+    setModalVisible('settings', false);
+  };
+
   dom.helpBtn.addEventListener('click', () => {
     setModalVisible('help', true);
   });
@@ -38,16 +56,34 @@ export function registerModalControls() {
     refreshInputSourceAvailabilityUi();
     void refreshAudioInputDeviceOptions();
     void refreshMidiInputDevices(true);
+    settingsModalLayoutController.showHub();
     setModalVisible('settings', true);
   });
 
-  dom.closeSettingsBtn.addEventListener('click', () => setModalVisible('settings', false));
+  dom.closeSettingsBtn.addEventListener('click', closeSettingsModal);
 
   dom.settingsModal.addEventListener('click', (e) => {
-    if (e.target === dom.settingsModal) setModalVisible('settings', false);
+    if (e.target === dom.settingsModal) closeSettingsModal();
   });
+  dom.settingsSectionBackBtn.addEventListener('click', () => settingsModalLayoutController.showHub());
+  dom.settingsOpenAppDefaultsBtn.addEventListener('click', () =>
+    settingsModalLayoutController.openSection('appDefaults')
+  );
+  dom.settingsOpenInputDetectionBtn.addEventListener('click', () =>
+    settingsModalLayoutController.openSection('inputDetection')
+  );
+  dom.settingsOpenRhythmBtn.addEventListener('click', () =>
+    settingsModalLayoutController.openSection('rhythm')
+  );
+  dom.settingsOpenProfilesBtn.addEventListener('click', () =>
+    settingsModalLayoutController.openSection('profiles')
+  );
+  dom.settingsOpenToolsBtn.addEventListener('click', () => settingsModalLayoutController.openSection('tools'));
+  dom.settingsOpenMelodyLibraryBtn.addEventListener('click', () =>
+    settingsModalLayoutController.openSection('melodyLibrary')
+  );
   dom.openUserDataBtn.addEventListener('click', () => {
-    setModalVisible('settings', false);
+    closeSettingsModal();
     setModalVisible('userData', true);
   });
   dom.closeUserDataBtn.addEventListener('click', () => setModalVisible('userData', false));
@@ -56,7 +92,7 @@ export function registerModalControls() {
   });
 
   dom.openCalibrateBtn.addEventListener('click', async () => {
-    setModalVisible('settings', false);
+    closeSettingsModal();
     showCalibrationModal('Listening...');
     if (!(await startListening(true))) {
       cancelCalibration();
@@ -65,7 +101,7 @@ export function registerModalControls() {
   dom.cancelCalibrationBtn.addEventListener('click', cancelCalibration);
 
   dom.openStatsBtn.addEventListener('click', () => {
-    setModalVisible('settings', false);
+    closeSettingsModal();
     displayStats();
     setModalVisible('stats', true);
   });

@@ -659,361 +659,425 @@
           &times;
         </button>
         <h2 class="text-2xl font-bold mb-5 text-white text-center">App Settings</h2>
-        <div class="settings-menu grid grid-cols-1 xl:grid-cols-3 gap-4 items-start text-left">
-            <section
-              class="settings-card settings-card-balanced compact-section xl:col-span-1 rounded-lg border border-slate-600 bg-slate-800/40 p-4"
-              data-section-hint="Instrument and notation. Choose instrument, tuning, note naming, and timeline display defaults."
-              title="Instrument and notation. Choose instrument, tuning, note naming, and timeline display defaults."
-              aria-label="Instrument and notation"
-            >
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div class="instrument-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Instrument">
-                  <label for="instrumentSelector" class="field-tooltip-label">Instrument</label>
-                  <select
-                    id="instrumentSelector"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="guitar">Guitar</option>
-                    <option value="ukulele">Ukulele</option>
-                  </select>
-                </div>
-                <div class="tuning-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Tuning">
-                  <label for="tuningPreset" class="field-tooltip-label">Tuning</label>
-                  <select
-                    id="tuningPreset"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="standard">Standard</option>
-                  </select>
-                </div>
-                <div class="note-naming-selector field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Note Names">
-                  <label for="noteNaming" class="field-tooltip-label">Note Names</label>
-                  <select
-                    id="noteNaming"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="sharps">Sharps (#)</option>
-                    <option value="flats">Flats (b)</option>
-                  </select>
-                </div>
-                <div
-                  class="compact-section md:col-span-2 rounded-md border border-slate-600/70 bg-slate-900/30 px-3 py-2"
-                  data-section-hint="Timeline defaults. Choose Classic TAB or Grid view, and keep extra technical details hidden unless you need them."
-                  title="Timeline defaults. Choose Classic TAB or Grid view, and keep extra technical details hidden unless you need them."
-                  aria-label="Timeline defaults"
-                >
-                  <div class="grid gap-2 md:grid-cols-2">
-                    <div class="field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Timeline View">
-                      <label for="timelineViewMode" class="field-tooltip-label">Timeline View</label>
-                      <select
-                        id="timelineViewMode"
-                        class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                      >
-                        <option value="classic">Classic TAB</option>
-                        <option value="grid">Grid</option>
-                      </select>
-                    </div>
-                    <label class="flex items-center gap-2 text-slate-200">
-                      <input type="checkbox" id="showTimelineSteps" class="h-4 w-4 accent-cyan-500" />
-                      <span>Show step numbers</span>
-                    </label>
-                    <label class="flex items-center gap-2 text-slate-200">
-                      <input type="checkbox" id="showTimelineDetails" class="h-4 w-4 accent-cyan-500" />
-                      <span>Show timeline details</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              <div
-                id="tuningPresetInfo"
-                class="settings-inline-note mt-3 hidden text-[11px] leading-4 text-cyan-100 bg-cyan-900/20 border border-cyan-700/40 rounded-md px-3 py-2"
-                role="note"
-              ></div>
-            </section>
-            <section
-              class="settings-card compact-section xl:col-span-2 rounded-lg border border-slate-600 bg-slate-800/40 p-4"
-              data-section-hint="Input and detection. Configure microphone or MIDI sources and note-detection filters."
-              title="Input and detection. Configure microphone or MIDI sources and note-detection filters."
-              aria-label="Input and detection"
-            >
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div class="input-source-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Input Source">
-                  <label for="inputSource" class="field-tooltip-label">Input Source</label>
-                  <select
-                    id="inputSource"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="microphone">Microphone</option>
-                    <option value="midi">MIDI (Web MIDI)</option>
-                  </select>
-                </div>
-                <div id="audioInputRow" class="audio-input-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Microphone">
-                  <label for="audioInputDevice" class="field-tooltip-label">Microphone</label>
-                  <select
-                    id="audioInputDevice"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="">Default microphone</option>
-                  </select>
-                </div>
-                <div id="midiInputRow" class="midi-input-selector field-tooltip-host flex flex-col items-stretch hidden" data-field-hint="MIDI Input">
-                  <label for="midiInputDevice" class="field-tooltip-label">MIDI Input</label>
-                  <select
-                    id="midiInputDevice"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="">Default MIDI device</option>
-                  </select>
-                </div>
-                <div id="micSensitivityRow" class="mic-sensitivity-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Mic Sensitivity">
-                  <label for="micSensitivityPreset" class="field-tooltip-label">Mic Sensitivity</label>
-                  <select
-                    id="micSensitivityPreset"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="quiet_room">Quiet Room</option>
-                    <option value="normal" selected>Normal</option>
-                    <option value="noisy_room">Noisy Room</option>
-                    <option value="auto">Auto (Calibrated)</option>
-                  </select>
-                </div>
-                <div id="micAttackFilterRow" class="mic-attack-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Note Attack Filter">
-                  <label for="micNoteAttackFilter" class="field-tooltip-label">Note Attack Filter</label>
-                  <select
-                    id="micNoteAttackFilter"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="off">Off</option>
-                    <option value="balanced" selected>Balanced</option>
-                    <option value="strong">Strong</option>
-                  </select>
-                </div>
-                <div id="micHoldFilterRow" class="mic-hold-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Min Note Hold Time">
-                  <label for="micNoteHoldFilter" class="field-tooltip-label">Min Note Hold Time</label>
-                  <select
-                    id="micNoteHoldFilter"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="off">Off</option>
-                    <option value="40ms">40 ms</option>
-                    <option value="80ms" selected>80 ms</option>
-                    <option value="120ms">120 ms</option>
-                  </select>
-                </div>
-                <div
-                  id="micPolyphonicDetectorRow"
-                  class="mic-polyphonic-detector-selector field-tooltip-host flex flex-col items-stretch md:col-span-2"
-                  data-field-hint="Mic Polyphonic Detector"
-                >
-                  <label for="micPolyphonicDetectorProvider" class="field-tooltip-label">
-                    Mic Polyphonic Detector
-                  </label>
-                  <select
-                    id="micPolyphonicDetectorProvider"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="spectrum" selected>Spectrum (Fast baseline)</option>
-                    <option value="essentia_experimental">Essentia Experimental (if available)</option>
-                  </select>
-                </div>
-              </div>
-              <div
-                id="audioInputInfo"
-                class="settings-inline-note mt-3 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
-                role="note"
-              >
-                Mic labels appear after first permission grant.
-              </div>
-              <div
-                id="micNoiseGateInfo"
-                class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
-                role="note"
-              >
-                Mic noise gate threshold: -
-              </div>
-              <div
-                id="midiInputInfo"
-                class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2 hidden"
-                role="note"
-              >
-                Web MIDI requires Chrome or Edge desktop.
-              </div>
-              <div
-                id="midiConnectionStatus"
-                class="settings-inline-note mt-2 hidden text-[11px] leading-4 text-slate-200 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
-                role="status"
-              >
-                MIDI Connection: -
-              </div>
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <button
-                  id="runMicPolyphonicBenchmarkBtn"
-                  type="button"
-                  title="Run a synthetic benchmark for the selected mic polyphonic detector provider."
-                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
-                >
-                  Benchmark Poly Detector
-                </button>
-                <button
-                  id="exportMicPolyphonicTelemetryBtn"
-                  type="button"
-                  title="Export the current live mic polyphonic detector telemetry as JSON for cross-device comparison."
-                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
-                >
-                  Export Poly Telemetry
-                </button>
-                <button
-                  id="resetMicPolyphonicTelemetryBtn"
-                  type="button"
-                  title="Clear the current live poly detector telemetry window so you can capture a clean measurement."
-                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
-                >
-                  Reset Poly Telemetry
-                </button>
-              </div>
-              <div
-                id="micPolyphonicBenchmarkInfo"
-                class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
-                role="status"
-              >
-                Poly benchmark: -
-              </div>
-            </section>
-            <section
-              class="settings-card settings-card-balanced compact-section xl:col-span-1 rounded-lg border border-slate-600 bg-slate-800/40 p-4"
-              data-section-hint="Rhythm and calibration. Control rhythm tolerance and calibrate the microphone noise floor."
-              title="Rhythm and calibration. Control rhythm tolerance and calibrate the microphone noise floor."
-              aria-label="Rhythm and calibration"
-            >
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div class="rhythm-window-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Rhythm Window">
-                  <label for="rhythmTimingWindow" class="field-tooltip-label">Rhythm Window</label>
-                  <select
-                    id="rhythmTimingWindow"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-amber-400 focus:outline-none"
-                  >
-                    <option value="strict">Strict</option>
-                    <option value="normal" selected>Normal</option>
-                    <option value="loose">Loose</option>
-                  </select>
-                </div>
-                <div
-                  id="micNoiseCalibrationRow"
-                  class="md:col-span-1 flex flex-col justify-end gap-2"
-                >
-                  <button
-                    id="calibrateNoiseFloorBtn"
-                    type="button"
-                    title="Measure room noise and switch the mic threshold to Auto."
-                    class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
-                  >
-                    Calibrate
-                  </button>
-                </div>
-              </div>
-            </section>
-            <div
-              class="settings-card compact-section xl:col-span-1 rounded-lg border border-slate-600 bg-slate-800/40 p-4"
-              data-section-hint="Utilities. Open tools, help, user-data actions, and melody-library actions without mixing them into one flat button list."
-              title="Utilities. Open tools, help, user-data actions, and melody-library actions without mixing them into one flat button list."
-              aria-label="Utilities"
-            >
-              <div class="space-y-3">
-                <div class="rounded-md border border-slate-600/70 bg-slate-900/30 p-3">
-                  <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                    Tools
-                  </div>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
-                    <button
-                      id="openCalibrateBtn"
-                      class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                    >
-                      Calibrate Tuning
-                    </button>
-                    <button
-                      id="openStatsBtn"
-                      class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                    >
-                      My Stats
-                    </button>
-                  </div>
-                </div>
-                <div class="rounded-md border border-slate-600/70 bg-slate-900/30 p-3">
-                  <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                    User Data
-                  </div>
-                  <div class="grid grid-cols-1 gap-3">
-                    <button
-                      id="openUserDataBtn"
-                      type="button"
-                      aria-label="Open user data tools"
-                      class="settings-menu-btn w-full p-4 text-base bg-cyan-700 hover:bg-cyan-600 text-white rounded-md transition-colors"
-                      title="Open export, import, and reset actions for saved local data"
-                    >
-                      Manage User Data
-                    </button>
-                  </div>
-                </div>
-                <div class="rounded-md border border-slate-600/70 bg-slate-900/30 p-3">
-                  <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                    Melody Library
-                  </div>
-                  <div class="grid grid-cols-1 gap-3">
-                    <button
-                      id="melodyTransposeBatchCustomBtn"
-                      type="button"
-                      aria-label="Apply the current transpose value to all custom melodies"
-                      class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
-                      title="Set the current transpose value for all custom melodies"
-                    >
-                      Apply to All
-                    </button>
-                  </div>
-                </div>
-              </div>
+        <p class="mb-5 text-sm text-slate-300 text-center">
+          Choose a section first. This keeps settings readable instead of dumping every control into one screen.
+        </p>
+        <div id="settingsHubView" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 text-left">
+          <button
+            id="settingsOpenAppDefaultsBtn"
+            type="button"
+            class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
+          >
+            <div class="text-base font-semibold text-white">App Defaults</div>
+            <div class="mt-1 text-sm text-slate-300">Instrument, tuning, note names, and timeline defaults.</div>
+          </button>
+          <button
+            id="settingsOpenInputDetectionBtn"
+            type="button"
+            class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
+          >
+            <div class="text-base font-semibold text-white">Input &amp; Detection</div>
+            <div class="mt-1 text-sm text-slate-300">Microphone, MIDI, detector filters, and poly benchmark tools.</div>
+          </button>
+          <button
+            id="settingsOpenRhythmBtn"
+            type="button"
+            class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
+          >
+            <div class="text-base font-semibold text-white">Rhythm &amp; Calibration</div>
+            <div class="mt-1 text-sm text-slate-300">Timing tolerance and room-noise calibration controls.</div>
+          </button>
+          <button
+            id="settingsOpenProfilesBtn"
+            type="button"
+            class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
+          >
+            <div class="text-base font-semibold text-white">Profiles</div>
+            <div class="mt-1 text-sm text-slate-300">Save, update, delete, and switch complete presets.</div>
+          </button>
+          <button
+            id="settingsOpenToolsBtn"
+            type="button"
+            class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
+          >
+            <div class="text-base font-semibold text-white">Tools</div>
+            <div class="mt-1 text-sm text-slate-300">Calibration and stats tools for the current app state.</div>
+          </button>
+          <button
+            id="openUserDataBtn"
+            type="button"
+            class="rounded-lg border border-cyan-700 bg-cyan-950/30 p-4 text-left transition-colors hover:bg-cyan-900/40"
+          >
+            <div class="text-base font-semibold text-cyan-100">User Data</div>
+            <div class="mt-1 text-sm text-cyan-50/80">Export, import, or reset local data in a dedicated modal.</div>
+          </button>
+          <button
+            id="settingsOpenMelodyLibraryBtn"
+            type="button"
+            class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60 sm:col-span-2 xl:col-span-1"
+          >
+            <div class="text-base font-semibold text-white">Melody Library</div>
+            <div class="mt-1 text-sm text-slate-300">Library-wide melody maintenance actions.</div>
+          </button>
+        </div>
+        <div id="settingsSectionView" class="hidden text-left">
+          <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 id="settingsSectionTitle" class="text-xl font-semibold text-white"></h3>
+              <p id="settingsSectionDescription" class="mt-1 text-sm text-slate-300"></p>
             </div>
+            <button
+              id="settingsSectionBackBtn"
+              type="button"
+              class="self-start rounded-md border border-slate-500 bg-slate-700 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-600"
+            >
+              Back To Sections
+            </button>
+          </div>
 
-            <div
-              class="settings-card settings-card-tight compact-section xl:col-span-1 rounded-lg border border-slate-600 bg-slate-800/40 p-4"
-              data-section-hint="Profiles. Save, update, delete, and switch between complete app presets."
-              title="Profiles. Save, update, delete, and switch between complete app presets."
-              aria-label="Profiles"
-            >
-              <div class="profile-manager grid grid-cols-1 gap-3 items-center text-xs">
-                <div class="field-tooltip-host" data-field-hint="Profile">
-                  <label for="profileSelector" class="field-tooltip-label">Profile</label>
-                  <select
-                    id="profileSelector"
-                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                  >
-                    <option value="__default__">Default Settings</option>
-                  </select>
-                </div>
-                <div class="sm:col-span-2 grid grid-cols-3 gap-2">
-                  <button
-                    id="saveAsProfileBtn"
-                    title="Save as New Profile"
-                    class="h-10 flex items-center justify-center text-xl bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-                  >
-                    &#128190;
-                  </button>
-                  <button
-                    id="updateProfileBtn"
-                    title="Update Current Profile"
-                    class="h-10 flex items-center justify-center text-xl bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-                  >
-                    &#128260;
-                  </button>
-                  <button
-                    id="deleteProfileBtn"
-                    title="Delete Selected Profile"
-                    class="h-10 flex items-center justify-center text-xl bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-                  >
-                    &#128465;&#65039;
-                  </button>
+          <section
+            id="settingsSectionAppDefaults"
+            class="hidden settings-card settings-card-balanced compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
+            data-section-hint="Instrument and notation. Choose instrument, tuning, note naming, and timeline display defaults."
+            title="Instrument and notation. Choose instrument, tuning, note naming, and timeline display defaults."
+            aria-label="Instrument and notation"
+          >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div class="instrument-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Instrument">
+                <label for="instrumentSelector" class="field-tooltip-label">Instrument</label>
+                <select
+                  id="instrumentSelector"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="guitar">Guitar</option>
+                  <option value="ukulele">Ukulele</option>
+                </select>
+              </div>
+              <div class="tuning-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Tuning">
+                <label for="tuningPreset" class="field-tooltip-label">Tuning</label>
+                <select
+                  id="tuningPreset"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="standard">Standard</option>
+                </select>
+              </div>
+              <div class="note-naming-selector field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Note Names">
+                <label for="noteNaming" class="field-tooltip-label">Note Names</label>
+                <select
+                  id="noteNaming"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="sharps">Sharps (#)</option>
+                  <option value="flats">Flats (b)</option>
+                </select>
+              </div>
+              <div
+                class="compact-section md:col-span-2 rounded-md border border-slate-600/70 bg-slate-900/30 px-3 py-2"
+                data-section-hint="Timeline defaults. Choose Classic TAB or Grid view, and keep extra technical details hidden unless you need them."
+                title="Timeline defaults. Choose Classic TAB or Grid view, and keep extra technical details hidden unless you need them."
+                aria-label="Timeline defaults"
+              >
+                <div class="grid gap-2 md:grid-cols-2">
+                  <div class="field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Timeline View">
+                    <label for="timelineViewMode" class="field-tooltip-label">Timeline View</label>
+                    <select
+                      id="timelineViewMode"
+                      class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    >
+                      <option value="classic">Classic TAB</option>
+                      <option value="grid">Grid</option>
+                    </select>
+                  </div>
+                  <label class="flex items-center gap-2 text-slate-200">
+                    <input type="checkbox" id="showTimelineSteps" class="h-4 w-4 accent-cyan-500" />
+                    <span>Show step numbers</span>
+                  </label>
+                  <label class="flex items-center gap-2 text-slate-200">
+                    <input type="checkbox" id="showTimelineDetails" class="h-4 w-4 accent-cyan-500" />
+                    <span>Show timeline details</span>
+                  </label>
                 </div>
               </div>
             </div>
+            <div
+              id="tuningPresetInfo"
+              class="settings-inline-note mt-3 hidden text-[11px] leading-4 text-cyan-100 bg-cyan-900/20 border border-cyan-700/40 rounded-md px-3 py-2"
+              role="note"
+            ></div>
+          </section>
+
+          <section
+            id="settingsSectionInputDetection"
+            class="hidden settings-card compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
+            data-section-hint="Input and detection. Configure microphone or MIDI sources and note-detection filters."
+            title="Input and detection. Configure microphone or MIDI sources and note-detection filters."
+            aria-label="Input and detection"
+          >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div class="input-source-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Input Source">
+                <label for="inputSource" class="field-tooltip-label">Input Source</label>
+                <select
+                  id="inputSource"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="microphone">Microphone</option>
+                  <option value="midi">MIDI (Web MIDI)</option>
+                </select>
+              </div>
+              <div id="audioInputRow" class="audio-input-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Microphone">
+                <label for="audioInputDevice" class="field-tooltip-label">Microphone</label>
+                <select
+                  id="audioInputDevice"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="">Default microphone</option>
+                </select>
+              </div>
+              <div id="midiInputRow" class="midi-input-selector field-tooltip-host flex flex-col items-stretch hidden" data-field-hint="MIDI Input">
+                <label for="midiInputDevice" class="field-tooltip-label">MIDI Input</label>
+                <select
+                  id="midiInputDevice"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="">Default MIDI device</option>
+                </select>
+              </div>
+              <div id="micSensitivityRow" class="mic-sensitivity-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Mic Sensitivity">
+                <label for="micSensitivityPreset" class="field-tooltip-label">Mic Sensitivity</label>
+                <select
+                  id="micSensitivityPreset"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="quiet_room">Quiet Room</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="noisy_room">Noisy Room</option>
+                  <option value="auto">Auto (Calibrated)</option>
+                </select>
+              </div>
+              <div id="micAttackFilterRow" class="mic-attack-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Note Attack Filter">
+                <label for="micNoteAttackFilter" class="field-tooltip-label">Note Attack Filter</label>
+                <select
+                  id="micNoteAttackFilter"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="off">Off</option>
+                  <option value="balanced" selected>Balanced</option>
+                  <option value="strong">Strong</option>
+                </select>
+              </div>
+              <div id="micHoldFilterRow" class="mic-hold-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Min Note Hold Time">
+                <label for="micNoteHoldFilter" class="field-tooltip-label">Min Note Hold Time</label>
+                <select
+                  id="micNoteHoldFilter"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="off">Off</option>
+                  <option value="40ms">40 ms</option>
+                  <option value="80ms" selected>80 ms</option>
+                  <option value="120ms">120 ms</option>
+                </select>
+              </div>
+              <div
+                id="micPolyphonicDetectorRow"
+                class="mic-polyphonic-detector-selector field-tooltip-host flex flex-col items-stretch md:col-span-2"
+                data-field-hint="Mic Polyphonic Detector"
+              >
+                <label for="micPolyphonicDetectorProvider" class="field-tooltip-label">
+                  Mic Polyphonic Detector
+                </label>
+                <select
+                  id="micPolyphonicDetectorProvider"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="spectrum" selected>Spectrum (Fast baseline)</option>
+                  <option value="essentia_experimental">Essentia Experimental (if available)</option>
+                </select>
+              </div>
+            </div>
+            <div
+              id="audioInputInfo"
+              class="settings-inline-note mt-3 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="note"
+            >
+              Mic labels appear after first permission grant.
+            </div>
+            <div
+              id="micNoiseGateInfo"
+              class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="note"
+            >
+              Mic noise gate threshold: -
+            </div>
+            <div
+              id="midiInputInfo"
+              class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2 hidden"
+              role="note"
+            >
+              Web MIDI requires Chrome or Edge desktop.
+            </div>
+            <div
+              id="midiConnectionStatus"
+              class="settings-inline-note mt-2 hidden text-[11px] leading-4 text-slate-200 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="status"
+            >
+              MIDI Connection: -
+            </div>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                id="runMicPolyphonicBenchmarkBtn"
+                type="button"
+                title="Run a synthetic benchmark for the selected mic polyphonic detector provider."
+                class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+              >
+                Benchmark Poly Detector
+              </button>
+              <button
+                id="exportMicPolyphonicTelemetryBtn"
+                type="button"
+                title="Export the current live mic polyphonic detector telemetry as JSON for cross-device comparison."
+                class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+              >
+                Export Poly Telemetry
+              </button>
+              <button
+                id="resetMicPolyphonicTelemetryBtn"
+                type="button"
+                title="Clear the current live poly detector telemetry window so you can capture a clean measurement."
+                class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+              >
+                Reset Poly Telemetry
+              </button>
+            </div>
+            <div
+              id="micPolyphonicBenchmarkInfo"
+              class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="status"
+            >
+              Poly benchmark: -
+            </div>
+          </section>
+
+          <section
+            id="settingsSectionRhythm"
+            class="hidden settings-card settings-card-balanced compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
+            data-section-hint="Rhythm and calibration. Control rhythm tolerance and calibrate the microphone noise floor."
+            title="Rhythm and calibration. Control rhythm tolerance and calibrate the microphone noise floor."
+            aria-label="Rhythm and calibration"
+          >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div class="rhythm-window-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Rhythm Window">
+                <label for="rhythmTimingWindow" class="field-tooltip-label">Rhythm Window</label>
+                <select
+                  id="rhythmTimingWindow"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                >
+                  <option value="strict">Strict</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="loose">Loose</option>
+                </select>
+              </div>
+              <div
+                id="micNoiseCalibrationRow"
+                class="md:col-span-1 flex flex-col justify-end gap-2"
+              >
+                <button
+                  id="calibrateNoiseFloorBtn"
+                  type="button"
+                  title="Measure room noise and switch the mic threshold to Auto."
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Calibrate
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section
+            id="settingsSectionProfiles"
+            class="hidden settings-card settings-card-tight compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
+            data-section-hint="Profiles. Save, update, delete, and switch between complete app presets."
+            title="Profiles. Save, update, delete, and switch between complete app presets."
+            aria-label="Profiles"
+          >
+            <div class="profile-manager grid grid-cols-1 gap-3 items-center text-xs">
+              <div class="field-tooltip-host" data-field-hint="Profile">
+                <label for="profileSelector" class="field-tooltip-label">Profile</label>
+                <select
+                  id="profileSelector"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option value="__default__">Default Settings</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2 grid grid-cols-3 gap-2">
+                <button
+                  id="saveAsProfileBtn"
+                  title="Save as New Profile"
+                  class="h-10 flex items-center justify-center text-xl bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+                >
+                  &#128190;
+                </button>
+                <button
+                  id="updateProfileBtn"
+                  title="Update Current Profile"
+                  class="h-10 flex items-center justify-center text-xl bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+                >
+                  &#128260;
+                </button>
+                <button
+                  id="deleteProfileBtn"
+                  title="Delete Selected Profile"
+                  class="h-10 flex items-center justify-center text-xl bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+                >
+                  &#128465;&#65039;
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section
+            id="settingsSectionTools"
+            class="hidden settings-card compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
+            data-section-hint="Tools. Open calibration and stats without mixing them with unrelated storage controls."
+            title="Tools. Open calibration and stats without mixing them with unrelated storage controls."
+            aria-label="Tools"
+          >
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                id="openCalibrateBtn"
+                class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+              >
+                Calibrate Tuning
+              </button>
+              <button
+                id="openStatsBtn"
+                class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+              >
+                My Stats
+              </button>
+            </div>
+          </section>
+
+          <section
+            id="settingsSectionMelodyLibrary"
+            class="hidden settings-card compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
+            data-section-hint="Melody library. Apply bulk maintenance actions across custom melodies."
+            title="Melody library. Apply bulk maintenance actions across custom melodies."
+            aria-label="Melody library"
+          >
+            <div class="grid grid-cols-1 gap-3">
+              <button
+                id="melodyTransposeBatchCustomBtn"
+                type="button"
+                aria-label="Apply the current transpose value to all custom melodies"
+                class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                title="Set the current transpose value for all custom melodies"
+              >
+                Apply to All
+              </button>
+            </div>
+          </section>
         </div>
       </div>
     </div>
