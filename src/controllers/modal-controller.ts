@@ -8,6 +8,7 @@ import { refreshAudioInputDeviceOptions } from '../audio-input-devices';
 import { refreshInputSourceAvailabilityUi, refreshMidiInputDevices } from '../midi-runtime';
 import { confirmUserAction } from '../user-feedback-port';
 import { createSettingsModalLayoutController } from './settings-modal-layout-controller';
+import { refreshMelodyOptionsForCurrentInstrument } from './session-controller';
 import {
   applyAppUserDataSnapshot,
   buildAppUserDataSnapshot,
@@ -213,6 +214,7 @@ export function registerModalControls() {
 
     resetSavedSettings();
     await loadSettings();
+    refreshMelodyOptionsForCurrentInstrument();
     setResultMessage('Saved settings were reset to defaults.', 'success');
   });
 

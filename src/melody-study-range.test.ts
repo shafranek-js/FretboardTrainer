@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   areMelodyStudyRangesEqual,
   buildDefaultMelodyStudyRange,
+  formatMelodyStudyRange,
   formatMelodyStudyStepLabel,
   normalizeMelodyStudyRange,
 } from './melody-study-range';
@@ -22,6 +23,10 @@ describe('melody-study-range', () => {
     expect(
       formatMelodyStudyStepLabel(1, 4, { startIndex: 4, endIndex: 7 }, 12)
     ).toBe('[2/4] Steps 5-8');
+  });
+
+  it('formats the default study range as full melody', () => {
+    expect(formatMelodyStudyRange({ startIndex: 0, endIndex: 15 }, 16)).toBe('Full melody');
   });
 
   it('compares ranges after normalization', () => {

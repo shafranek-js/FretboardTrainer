@@ -72,6 +72,9 @@ export function formatMelodyStudyRange(range: MelodyStudyRange, totalEvents: num
   if (normalizedTotal <= 0) return 'No steps';
 
   const normalized = normalizeMelodyStudyRange(range, totalEvents);
+  if (isDefaultMelodyStudyRange(normalized, totalEvents)) {
+    return 'Full melody';
+  }
   return `Steps ${normalized.startIndex + 1}-${normalized.endIndex + 1}`;
 }
 

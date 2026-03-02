@@ -114,6 +114,7 @@ const harness = vi.hoisted(() => {
     refreshAudioInputDeviceOptions: vi.fn(async () => {}),
     refreshInputSourceAvailabilityUi: vi.fn(),
     refreshMidiInputDevices: vi.fn(async () => {}),
+    refreshMelodyOptionsForCurrentInstrument: vi.fn(),
     confirmUserAction: vi.fn(async () => true),
     buildAppUserDataSnapshot: vi.fn(() => ({
       type: 'fretflow-user-data',
@@ -209,6 +210,10 @@ vi.mock('../midi-runtime', () => ({
   refreshMidiInputDevices: harness.refreshMidiInputDevices,
 }));
 
+vi.mock('./session-controller', () => ({
+  refreshMelodyOptionsForCurrentInstrument: harness.refreshMelodyOptionsForCurrentInstrument,
+}));
+
 vi.mock('../user-feedback-port', () => ({
   confirmUserAction: harness.confirmUserAction,
 }));
@@ -241,6 +246,7 @@ describe('modal-controller', () => {
     harness.applyAppUserDataSnapshot.mockClear();
     harness.settingsModalLayoutShowHub.mockClear();
     harness.settingsModalLayoutOpenSection.mockClear();
+    harness.refreshMelodyOptionsForCurrentInstrument.mockClear();
     harness.dom.importUserDataFileInput.files = null;
     harness.dom.importUserDataFileInput.value = '';
     locationReload.mockClear();
@@ -317,6 +323,7 @@ describe('modal-controller', () => {
     );
     expect(harness.resetSavedSettings).toHaveBeenCalledTimes(1);
     expect(harness.loadSettings).toHaveBeenCalledTimes(1);
+    expect(harness.refreshMelodyOptionsForCurrentInstrument).toHaveBeenCalledTimes(1);
     expect(harness.setResultMessage).toHaveBeenCalledWith('Saved settings were reset to defaults.', 'success');
   });
 
