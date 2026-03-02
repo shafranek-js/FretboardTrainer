@@ -54,6 +54,7 @@ test('renders last session input source metadata in Stats modal from persisted s
 
   await page.goto('/');
   await page.locator('#settingsBtn').click();
+  await page.locator('#settingsOpenToolsBtn').click();
   await page.locator('#openStatsBtn').click();
 
   await expect(page.locator('#statsLastSessionSection')).toBeVisible();

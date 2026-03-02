@@ -14,7 +14,8 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
 
   await page.locator('#settingsBtn').click();
   await expect(page.locator('#settingsModal')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /Settings & Utilities/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /App Settings/i })).toBeVisible();
+  await page.locator('#settingsOpenInputDetectionBtn').click();
   await expect(page.locator('#audioInputDevice')).toBeVisible();
   await expect(page.locator('#inputSource')).toBeVisible();
   const midiOptionDisabled = await page.evaluate(() => {
@@ -44,6 +45,8 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
     await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
   }
 
+  await page.locator('#settingsBackToHubBtn').click();
+  await page.locator('#settingsOpenToolsBtn').click();
   await page.locator('#openStatsBtn').click();
   await expect(page.locator('#statsModal')).toBeVisible();
   await expect(page.getByRole('heading', { name: /My Statistics/i })).toBeVisible();

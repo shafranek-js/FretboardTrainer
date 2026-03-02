@@ -8,8 +8,8 @@ test('hydrates built-in melody source tempo into the shared bpm slider and prese
   await page.locator('#trainingMode').selectOption('performance');
 
   await page.locator('#melodySelector').selectOption('builtin:guitar:ode_to_joy_intro');
-  await expect(page.locator('#melodyDemoBpm')).toHaveValue('92');
-  await expect(page.locator('#melodyDemoBpmValue')).toHaveText('92');
+  await expect(page.locator('#melodyDemoBpm')).toHaveValue('140');
+  await expect(page.locator('#melodyDemoBpmValue')).toHaveText('140');
 
   await page.locator('#melodyDemoBpm').evaluate((element) => {
     const input = element as HTMLInputElement;
