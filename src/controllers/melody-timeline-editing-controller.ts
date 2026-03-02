@@ -331,6 +331,7 @@ export function createMelodyTimelineEditingController(deps: MelodyTimelineEditin
       if (!commit) return;
       const eligibility = deps.canEditSelectedMelodyOnTimeline();
       if (!eligibility.editable) return;
+      deps.stopPlaybackForEditing();
       deps.ensureDraftLoaded(eligibility.melody);
       state.melodyTimelineSelectedEventIndex = sourceEventIndex;
       deps.ensureSelection();

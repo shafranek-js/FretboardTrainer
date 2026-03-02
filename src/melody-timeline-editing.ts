@@ -22,6 +22,18 @@ export function cloneMelodyEventsDraft(events: MelodyEvent[]) {
   }));
 }
 
+function clearMelodyTimelineStructuralMetadata(events: MelodyEvent[]) {
+  for (const event of events) {
+    delete event.barIndex;
+    delete event.column;
+  }
+}
+
+function normalizeMelodyTimelineDraftAfterStructuralMutation(session: MelodyTimelineEditingSession) {
+  if (!session.draft) return;
+  clearMelodyTimelineStructuralMetadata(session.draft);
+}
+
 function stripScientificOctave(noteWithOctave: string) {
   return noteWithOctave.replace(/-?\d+$/, '');
 }
@@ -370,6 +382,7 @@ export function deleteSelectedMelodyTimelineEditingNote(
   event.notes.splice(selection.noteIndex, 1);
   if (event.notes.length === 0) {
     session.draft.splice(selection.eventIndex, 1);
+    normalizeMelodyTimelineDraftAfterStructuralMutation(session);
     if (session.draft.length === 0) {
       selection.eventIndex = null;
       selection.noteIndex = null;
@@ -426,10 +439,6 @@ export function createDefaultMelodyEventFromSelection(
     nextEvent.durationBeats = 1;
   }
 
-  if (typeof selectedEvent?.barIndex === 'number' && Number.isFinite(selectedEvent.barIndex)) {
-    nextEvent.barIndex = selectedEvent.barIndex;
-  }
-
   return nextEvent;
 }
 
@@ -467,6 +476,7 @@ export function addMelodyTimelineEditingEventAfterSelection(
   if (!session.draft || selection.eventIndex === null) return;
   const insertIndex = Math.max(0, Math.min(session.draft.length, selection.eventIndex + 1));
   session.draft.splice(insertIndex, 0, createDefaultMelodyEventFromSelection(session, selection, instrument));
+  normalizeMelodyTimelineDraftAfterStructuralMutation(session);
   selection.eventIndex = insertIndex;
   selection.noteIndex = 0;
 }
@@ -482,6 +492,7 @@ export function duplicateSelectedMelodyTimelineEvent(
   const clone = cloneMelodyEventsDraft([sourceEvent])[0]!;
   const insertIndex = selection.eventIndex + 1;
   session.draft.splice(insertIndex, 0, clone);
+  normalizeMelodyTimelineDraftAfterStructuralMutation(session);
   selection.eventIndex = insertIndex;
   selection.noteIndex = Math.min(selection.noteIndex ?? 0, Math.max(0, clone.notes.length - 1));
 }
@@ -499,6 +510,7 @@ export function moveSelectedMelodyTimelineEvent(
   const [movedEvent] = session.draft.splice(sourceIndex, 1);
   if (!movedEvent) return;
   session.draft.splice(targetIndex, 0, movedEvent);
+  normalizeMelodyTimelineDraftAfterStructuralMutation(session);
   selection.eventIndex = targetIndex;
   selection.noteIndex = Math.min(selection.noteIndex ?? 0, Math.max(0, movedEvent.notes.length - 1));
 }
@@ -516,6 +528,7 @@ export function moveSelectedMelodyTimelineEventToIndex(
   const [movedEvent] = session.draft.splice(sourceIndex, 1);
   if (!movedEvent) return;
   session.draft.splice(normalizedTargetIndex, 0, movedEvent);
+  normalizeMelodyTimelineDraftAfterStructuralMutation(session);
   selection.eventIndex = normalizedTargetIndex;
   selection.noteIndex = Math.min(selection.noteIndex ?? 0, Math.max(0, movedEvent.notes.length - 1));
 }
@@ -530,6 +543,7 @@ export function deleteSelectedMelodyTimelineEvent(
   }
 
   session.draft.splice(selection.eventIndex, 1);
+  normalizeMelodyTimelineDraftAfterStructuralMutation(session);
   if (session.draft.length === 0) {
     selection.eventIndex = null;
     selection.noteIndex = null;
@@ -551,6 +565,7 @@ export function splitSelectedMelodyTimelineEvent(
 
   const { first, second } = splitMelodyEventDuration(sourceEvent);
   session.draft.splice(selection.eventIndex, 1, first, second);
+  normalizeMelodyTimelineDraftAfterStructuralMutation(session);
   selection.noteIndex = Math.min(selection.noteIndex ?? 0, Math.max(0, first.notes.length - 1));
 }
 
@@ -567,6 +582,7 @@ export function mergeSelectedMelodyTimelineEventWithNext(
   const next = session.draft[selection.eventIndex + 1];
   if (!current || !next) return;
   session.draft.splice(selection.eventIndex, 2, mergeMelodyEventDurations(current, next));
+  normalizeMelodyTimelineDraftAfterStructuralMutation(session);
   selection.noteIndex = Math.min(selection.noteIndex ?? 0, Math.max(0, session.draft[selection.eventIndex]!.notes.length - 1));
 }
 

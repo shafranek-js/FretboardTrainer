@@ -127,6 +127,9 @@
   - [x] Keep duplicated pitch classes as distinct playable notes (no collapsing) when events are polyphonic.
   - [x] Improve ergonomic cost model (stretch/high-fret penalties, softer open-string bonus for polyphony).
   - [x] Reuse the same optimizer for event-melody import/storage fallback when explicit string/fret constraints are missing.
+- [x] Fix post-refactor melody timeline editing regressions.
+  - [x] Clear stale structural timeline metadata (`barIndex` / `column`) after event-level add/duplicate/move/split/merge/delete mutations so timeline regrouping stays correct.
+  - [x] Stop active melody playback before committing event drag-reorder operations on the timeline.
 
 ## Future / Backlog
 

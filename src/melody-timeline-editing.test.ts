@@ -13,6 +13,7 @@ import {
   mergeSelectedMelodyTimelineEventWithNext,
   moveSelectedMelodyTimelineEditingNoteToString,
   moveSelectedMelodyTimelineEvent,
+  moveSelectedMelodyTimelineEventToIndex,
   pushMelodyTimelineEditingHistory,
   redoMelodyTimelineEditingMutation,
   splitSelectedMelodyTimelineEvent,
@@ -112,6 +113,69 @@ describe('melody-timeline-editing', () => {
     expect(session.draft?.[0]?.durationBeats).toBe(2);
   });
 
+  it('clears stale bar and column metadata after structural event mutations', () => {
+    const events: MelodyEvent[] = [
+      { barIndex: 4, column: 12, durationBeats: 2, notes: [{ note: 'C', stringName: 'A', fret: 3 }] },
+      { barIndex: 5, column: 20, durationBeats: 1, notes: [{ note: 'D', stringName: 'A', fret: 5 }] },
+    ];
+    const session = createSession();
+    const selection = createSelection(0, 0);
+
+    ensureMelodyTimelineEditingDraftLoaded(session, 'melody:test', events);
+
+    addMelodyTimelineEditingEventAfterSelection(session, selection, instruments.guitar);
+    expect(session.draft?.every((event) => typeof event.barIndex === 'undefined' && typeof event.column === 'undefined')).toBe(
+      true
+    );
+
+    session.draft?.forEach((event, index) => {
+      event.barIndex = index;
+      event.column = index * 4;
+    });
+    duplicateSelectedMelodyTimelineEvent(session, selection);
+    expect(session.draft?.every((event) => typeof event.barIndex === 'undefined' && typeof event.column === 'undefined')).toBe(
+      true
+    );
+
+    session.draft?.forEach((event, index) => {
+      event.barIndex = index;
+      event.column = index * 4;
+    });
+    moveSelectedMelodyTimelineEvent(session, selection, 1);
+    expect(session.draft?.every((event) => typeof event.barIndex === 'undefined' && typeof event.column === 'undefined')).toBe(
+      true
+    );
+
+    session.draft?.forEach((event, index) => {
+      event.barIndex = index;
+      event.column = index * 4;
+    });
+    moveSelectedMelodyTimelineEventToIndex(session, selection, 0);
+    expect(session.draft?.every((event) => typeof event.barIndex === 'undefined' && typeof event.column === 'undefined')).toBe(
+      true
+    );
+
+    session.draft?.forEach((event, index) => {
+      event.barIndex = index;
+      event.column = index * 4;
+    });
+    selection.eventIndex = 0;
+    selection.noteIndex = 0;
+    splitSelectedMelodyTimelineEvent(session, selection);
+    expect(session.draft?.every((event) => typeof event.barIndex === 'undefined' && typeof event.column === 'undefined')).toBe(
+      true
+    );
+
+    session.draft?.forEach((event, index) => {
+      event.barIndex = index;
+      event.column = index * 4;
+    });
+    mergeSelectedMelodyTimelineEventWithNext(session, selection);
+    expect(session.draft?.every((event) => typeof event.barIndex === 'undefined' && typeof event.column === 'undefined')).toBe(
+      true
+    );
+  });
+
   it('tracks history and restores state through undo and redo', () => {
     const events: MelodyEvent[] = [{ durationBeats: 1, notes: [{ note: 'C', stringName: 'A', fret: 3 }] }];
     const session = createSession();
@@ -172,6 +236,10 @@ describe('melody-timeline-editing', () => {
     const selection = createSelection(0, 0);
 
     ensureMelodyTimelineEditingDraftLoaded(session, 'melody:test', events);
+    session.draft?.forEach((event, index) => {
+      event.barIndex = index;
+      event.column = index * 4;
+    });
     deleteSelectedMelodyTimelineEditingNote(session, selection);
 
     expect(session.draft).toHaveLength(1);
@@ -181,5 +249,7 @@ describe('melody-timeline-editing', () => {
       fret: 5,
     });
     expect(selection).toEqual({ eventIndex: 0, noteIndex: 0 });
+    expect(session.draft?.[0]?.barIndex).toBeUndefined();
+    expect(session.draft?.[0]?.column).toBeUndefined();
   });
 });

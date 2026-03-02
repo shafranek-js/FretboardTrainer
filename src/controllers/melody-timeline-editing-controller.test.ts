@@ -275,6 +275,7 @@ describe('melody-timeline-editing-controller', () => {
       targetEventIndex: 1,
       commit: true,
     });
+    expect(deps.stopPlaybackForEditing).toHaveBeenCalled();
     expect(deps.ensureDraftLoaded).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'melody-1' })
     );
