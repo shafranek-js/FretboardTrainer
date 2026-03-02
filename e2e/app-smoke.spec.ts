@@ -45,7 +45,7 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
     await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
   }
 
-  await page.locator('#settingsBackToHubBtn').click();
+  await page.locator('#settingsSectionBackBtn').click();
   await page.locator('#settingsOpenToolsBtn').click();
   await page.locator('#openStatsBtn').click();
   await expect(page.locator('#statsModal')).toBeVisible();
