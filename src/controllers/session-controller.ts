@@ -3,6 +3,7 @@ import { saveSettings } from '../storage';
 import {
   handleModeChange,
   redrawFretboard,
+  scheduleMelodyTimelineRenderFromState,
   updateInstrumentUI,
   drawFretboard,
   renderMelodyTabTimelineFromState,
@@ -143,6 +144,10 @@ import {
   formatMelodyTimelineZoomPercent,
   normalizeMelodyTimelineZoomPercent,
 } from '../melody-timeline-zoom';
+import {
+  formatScrollingTabPanelZoomPercent,
+  normalizeScrollingTabPanelZoomPercent,
+} from '../scrolling-tab-panel-zoom';
 
 function getSelectedMelodyId() {
   const selectedMelodyId = dom.melodySelector.value.trim();
@@ -428,7 +433,7 @@ const melodyDemoPresentationController = createMelodyDemoPresentationController(
   setPromptText,
   drawFretboard,
   redrawFretboard,
-  renderTimeline: renderMelodyTabTimelineFromState,
+  renderTimeline: scheduleMelodyTimelineRenderFromState,
   findPlayableStringForNote,
 });
 
@@ -451,14 +456,30 @@ melodyDemoController = createMelodyDemoController({
   getStudyRangeLength: getMelodyStudyRangeLength,
   formatStudyRange: formatMelodyStudyRange,
   clearUiPreview: () => {
-    state.melodyTimelinePreviewIndex = null;
-    state.melodyTimelinePreviewLabel = null;
-    setPromptText('');
-  },
-  redrawFretboard,
-  onStateChange: melodyDemoPresentationController.renderButtonState,
-  setResultMessage,
-});
+      state.melodyTimelinePreviewIndex = null;
+      state.melodyTimelinePreviewLabel = null;
+      setPromptText('');
+    },
+    redrawFretboard,
+    onStateChange: melodyDemoPresentationController.renderButtonState,
+    setResultMessage,
+    onPlaybackCursorChange: (cursor) => {
+      state.melodyDemoRuntimeActive = cursor.active;
+      state.melodyDemoRuntimePaused = cursor.paused;
+      state.melodyDemoRuntimeBaseTimeSec = cursor.baseTimeSec;
+      state.melodyDemoRuntimeAnchorStartedAtMs = cursor.anchorStartedAtMs;
+      state.melodyDemoRuntimePausedOffsetSec = cursor.pausedOffsetSec;
+      scheduleMelodyTimelineRenderFromState();
+    },
+    onPlaybackStopped: () => {
+      state.melodyDemoRuntimeActive = false;
+      state.melodyDemoRuntimePaused = false;
+      state.melodyDemoRuntimeBaseTimeSec = 0;
+      state.melodyDemoRuntimeAnchorStartedAtMs = null;
+      state.melodyDemoRuntimePausedOffsetSec = 0;
+      scheduleMelodyTimelineRenderFromState();
+    },
+  });
 
 function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
   melodyDemoController.stopPlayback(options);
@@ -471,6 +492,19 @@ function pauseMelodyDemoPlayback() {
 
 async function resumeMelodyDemoPlayback() {
   await melodyDemoController.resumePlayback();
+}
+
+function shouldToggleMelodyPlaybackFromBackgroundClick(target: Element) {
+  if (state.isListening) return false;
+  if (!(melodyDemoController.isPlaying() || melodyDemoController.isPaused())) return false;
+  if (
+    target.closest(
+      'button, input, select, textarea, a, label, summary, [role="button"], .timeline-context-menu, [data-note-index], [data-event-index], [data-timeline-range-ui="true"], .modal-panel, [aria-modal="true"]'
+    )
+  ) {
+    return false;
+  }
+  return Boolean(target.closest('.app-shell, .compact-section, .fretboard-area, .session-area'));
 }
 
 function seekMelodyTimelineToEvent(eventIndex: number, options?: { commit?: boolean }) {
@@ -1009,6 +1043,14 @@ function syncMelodyTimelineZoomDisplay() {
   );
 }
 
+function syncScrollingTabZoomDisplay() {
+  state.scrollingTabZoomPercent = normalizeScrollingTabPanelZoomPercent(dom.scrollingTabZoom.value);
+  dom.scrollingTabZoom.value = String(state.scrollingTabZoomPercent);
+  dom.scrollingTabZoomValue.textContent = formatScrollingTabPanelZoomPercent(
+    state.scrollingTabZoomPercent
+  );
+}
+
 export function registerSessionControls() {
   setCurriculumPresetSelection('custom');
   dom.metronomeBpm.value = String(getClampedMetronomeBpmFromInput());
@@ -1022,6 +1064,7 @@ export function registerSessionControls() {
   dom.showTimelineSteps.checked = state.showMelodyTimelineSteps;
   dom.showTimelineDetails.checked = state.showMelodyTimelineDetails;
   syncMelodyTimelineZoomDisplay();
+  syncScrollingTabZoomDisplay();
   syncHiddenMetronomeTempoFromSharedTempo();
   syncMetronomeBpmDisplay();
   melodyDemoPresentationController.syncBpmDisplay();
@@ -1419,6 +1462,16 @@ export function registerSessionControls() {
     updatePracticeSetupSummary();
     saveSettings();
   });
+  dom.melodyShowTabTimeline.addEventListener('change', () => {
+    state.showMelodyTabTimeline = dom.melodyShowTabTimeline.checked;
+    saveSettings();
+    refreshMelodyTimelineUi();
+  });
+  dom.melodyShowScrollingTab.addEventListener('change', () => {
+    state.showScrollingTabPanel = dom.melodyShowScrollingTab.checked;
+    saveSettings();
+    refreshMelodyTimelineUi();
+  });
   dom.melodyTimelineZoom.addEventListener('input', () => {
     syncMelodyTimelineZoomDisplay();
     saveSettings();
@@ -1426,6 +1479,16 @@ export function registerSessionControls() {
   });
   dom.melodyTimelineZoom.addEventListener('change', () => {
     syncMelodyTimelineZoomDisplay();
+    saveSettings();
+    refreshMelodyTimelineUi();
+  });
+  dom.scrollingTabZoom.addEventListener('input', () => {
+    syncScrollingTabZoomDisplay();
+    saveSettings();
+    refreshMelodyTimelineUi();
+  });
+  dom.scrollingTabZoom.addEventListener('change', () => {
+    syncScrollingTabZoomDisplay();
     saveSettings();
     refreshMelodyTimelineUi();
   });
@@ -1639,6 +1702,13 @@ export function registerSessionControls() {
   document.addEventListener('keydown', async (event) => {
     if (!shouldHandleMelodyDemoHotkeys(event)) return;
 
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setPracticeSetupCollapsed(true);
+      await startMelodyDemoPlayback();
+      return;
+    }
+
     if (event.code === 'Space') {
       event.preventDefault();
       if (melodyDemoController.isPlaying()) {
@@ -1688,6 +1758,19 @@ export function registerSessionControls() {
 
     melodyTimelineEditingController.clearSelection();
     renderMelodyEventEditorInspector();
+  });
+  document.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (!shouldToggleMelodyPlaybackFromBackgroundClick(target)) return;
+
+    if (melodyDemoController.isPlaying()) {
+      pauseMelodyDemoPlayback();
+      return;
+    }
+    if (melodyDemoController.isPaused()) {
+      await resumeMelodyDemoPlayback();
+    }
   });
   dom.melodyStepBackBtn.addEventListener('click', async () => {
     await stepMelodyPreview(-1);

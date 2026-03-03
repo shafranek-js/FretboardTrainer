@@ -82,6 +82,7 @@ export function renderGridTimeline(
     for (let eventIndex = 0; eventIndex < model.totalEvents; eventIndex++) {
       const widthPx = scaleTimelinePixels(durationLayout.cellPixelWidths[eventIndex] ?? 28, zoomScale, 18);
       const step = document.createElement('th');
+      step.dataset.timelineGridCell = 'true';
       step.dataset.eventIndex = String(eventIndex);
       const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
       const isInStudyRange = rangeCell?.isInStudyRange ?? false;
@@ -96,6 +97,13 @@ export function renderGridTimeline(
       step.style.minWidth = `${widthPx}px`;
       step.style.width = `${widthPx}px`;
       step.style.padding = `${scaleTimelinePixels(2, zoomScale, 1)}px ${scaleTimelinePixels(6, zoomScale, 3)}px`;
+      step.style.setProperty('--timeline-grid-base-border', isInStudyRange ? 'rgba(217,119,6,0.7)' : '#475569');
+      step.style.setProperty('--timeline-grid-base-bg', isInStudyRange ? 'rgba(120,53,15,0.2)' : 'rgba(30,41,59,0.55)');
+      step.style.setProperty('--timeline-grid-base-color', isInStudyRange ? '#fef3c7' : '#64748b');
+      step.style.setProperty('--timeline-grid-playhead-border', withAlpha(accentColor, 0.88));
+      step.style.setProperty('--timeline-grid-playhead-bg', withAlpha(accentColor, 0.2));
+      step.style.setProperty('--timeline-grid-playhead-color', '#f8fafc');
+      step.style.setProperty('--timeline-grid-playhead-box-shadow', `inset 0 0 0 1px ${withAlpha(accentColor, 0.16)}`);
       if (model.activeEventIndex === eventIndex) {
         step.style.borderColor = withAlpha(accentColor, 0.88);
         step.style.backgroundColor = withAlpha(accentColor, 0.26);
@@ -127,6 +135,7 @@ export function renderGridTimeline(
       const widthPx = scaleTimelinePixels(durationLayout.cellPixelWidths[eventIndex] ?? 28, zoomScale, 18);
       const accentColor = getPrimaryCellFingerColor(cell.notes);
       const td = document.createElement('td');
+      td.dataset.timelineGridCell = 'true';
       td.dataset.eventIndex = String(eventIndex);
       if (rowIndex === 0) {
         td.dataset.timelineStepAnchor = 'true';
@@ -141,6 +150,19 @@ export function renderGridTimeline(
       td.style.minWidth = `${widthPx}px`;
       td.style.width = `${widthPx}px`;
       td.style.height = `${scaleTimelinePixels(24, zoomScale, 18)}px`;
+      td.style.setProperty(
+        '--timeline-grid-base-border',
+        cell.isInStudyRange ? 'rgba(180,83,9,0.6)' : 'rgba(51,65,85,0.7)'
+      );
+      td.style.setProperty(
+        '--timeline-grid-base-bg',
+        cell.isInStudyRange ? 'rgba(69,26,3,0.2)' : 'rgba(15,23,42,0.25)'
+      );
+      td.style.setProperty('--timeline-grid-base-color', cell.isInStudyRange ? '#fef3c7' : '#94a3b8');
+      td.style.setProperty('--timeline-grid-playhead-border', withAlpha(accentColor, 0.88));
+      td.style.setProperty('--timeline-grid-playhead-bg', withAlpha(accentColor, 0.16));
+      td.style.setProperty('--timeline-grid-playhead-color', '#f8fafc');
+      td.style.setProperty('--timeline-grid-playhead-box-shadow', `inset 0 0 0 1px ${withAlpha(accentColor, 0.14)}`);
       if (cell.isActive) {
         td.style.borderColor = withAlpha(accentColor, 0.88);
         td.style.backgroundColor = withAlpha(accentColor, 0.16);

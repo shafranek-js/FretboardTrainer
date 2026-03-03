@@ -82,7 +82,10 @@ export interface ProfileSettings {
   curriculumPreset?: CurriculumPresetKey;
   selectedMelodyId?: string;
   melodyShowNote?: boolean;
+  melodyShowTabTimeline?: boolean;
+  melodyShowScrollingTab?: boolean;
   melodyTimelineZoomPercent?: number;
+  scrollingTabZoomPercent?: number;
   melodyDemoBpm?: string;
   melodyPlaybackBpmById?: Record<string, number>;
   melodyTransposeById?: Record<string, number>;

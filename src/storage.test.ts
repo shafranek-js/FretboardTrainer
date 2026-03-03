@@ -95,8 +95,12 @@ const mocked = vi.hoisted(() => {
     } as unknown as HTMLElement,
     melodySelector: createSelect('', ['', 'ode-to-joy']) as unknown as HTMLSelectElement,
     melodyShowNote: { checked: true } as HTMLInputElement,
+    melodyShowTabTimeline: { checked: true } as HTMLInputElement,
+    melodyShowScrollingTab: { checked: true } as HTMLInputElement,
     melodyTimelineZoom: { value: '100' } as HTMLInputElement,
     melodyTimelineZoomValue: { textContent: '' } as HTMLElement,
+    scrollingTabZoom: { value: '100' } as HTMLInputElement,
+    scrollingTabZoomValue: { textContent: '' } as HTMLElement,
     melodyDemoBpm: { value: '90' } as HTMLInputElement,
     melodyDemoBpmValue: { textContent: '' } as HTMLElement,
     melodyLoopRange: { checked: false } as HTMLInputElement,
@@ -126,7 +130,10 @@ const mocked = vi.hoisted(() => {
     melodyStringShiftById: {} as Record<string, number>,
     melodyStudyRangeById: {} as Record<string, { startIndex: number; endIndex: number }>,
     melodyLoopRangeEnabled: false,
+    showMelodyTabTimeline: true,
+    showScrollingTabPanel: true,
     melodyTimelineZoomPercent: 100,
+    scrollingTabZoomPercent: 100,
     melodyTransposeSemitones: 0,
     melodyStringShift: 0,
     calibratedA4: 440,
@@ -304,6 +311,8 @@ function resetMockState() {
   mocked.dom.curriculumPresetInfo.classList.toggle('hidden', true);
   mocked.dom.melodySelector.value = '';
   mocked.dom.melodyShowNote.checked = true;
+  mocked.dom.melodyShowTabTimeline.checked = true;
+  mocked.dom.melodyShowScrollingTab.checked = true;
   mocked.dom.melodyTimelineZoom.value = '100';
   mocked.dom.melodyTimelineZoomValue.textContent = '';
   mocked.dom.melodyDemoBpm.value = '90';
@@ -331,6 +340,8 @@ function resetMockState() {
   mocked.state.melodyStringShiftById = {};
   mocked.state.melodyStudyRangeById = {};
   mocked.state.melodyLoopRangeEnabled = false;
+  mocked.state.showMelodyTabTimeline = true;
+  mocked.state.showScrollingTabPanel = true;
   mocked.state.melodyTimelineZoomPercent = 100;
   mocked.state.melodyTransposeSemitones = 0;
   mocked.state.melodyStringShift = 0;
@@ -362,6 +373,8 @@ describe('storage', () => {
     mocked.dom.melodyDemoBpm.value = '132';
     mocked.dom.melodyTimelineZoom.value = '135';
     mocked.dom.melodySelector.value = 'ode-to-joy';
+    mocked.state.showMelodyTabTimeline = false;
+    mocked.state.showScrollingTabPanel = false;
     mocked.state.melodyPlaybackBpmById = { 'builtin:guitar:ode_to_joy_intro': 108 };
     mocked.dom.performanceTimingLeniencyPreset.value = 'forgiving';
     mocked.panelState.practiceSetupCollapsed = true;
@@ -376,6 +389,8 @@ describe('storage', () => {
       trainingMode: 'performance',
       curriculumPreset: 'beginner_essentials',
       melodyDemoBpm: '132',
+      melodyShowTabTimeline: false,
+      melodyShowScrollingTab: false,
       melodyTimelineZoomPercent: 135,
       melodyPlaybackBpmById: { 'builtin:guitar:ode_to_joy_intro': 108 },
       selectedMelodyId: 'ode-to-joy',
@@ -395,6 +410,8 @@ describe('storage', () => {
           trainingMode: 'performance',
           curriculumPreset: 'beginner_essentials',
           melodyDemoBpm: '150',
+          melodyShowTabTimeline: false,
+          melodyShowScrollingTab: false,
           melodyTimelineZoomPercent: 145,
           showAllNotes: true,
           autoPlayPromptSound: false,
@@ -420,6 +437,8 @@ describe('storage', () => {
     expect(mocked.dom.curriculumPresetInfo.classList.contains('hidden')).toBe(false);
     expect(mocked.dom.melodyDemoBpm.value).toBe('150');
     expect(mocked.dom.melodyDemoBpmValue.textContent).toBe('150');
+    expect(mocked.dom.melodyShowTabTimeline.checked).toBe(false);
+    expect(mocked.dom.melodyShowScrollingTab.checked).toBe(false);
     expect(mocked.dom.melodyTimelineZoom.value).toBe('145');
     expect(mocked.dom.melodyTimelineZoomValue.textContent).toBe('145%');
     expect(mocked.dom.showAllNotes.checked).toBe(true);
@@ -429,6 +448,8 @@ describe('storage', () => {
     expect(mocked.dom.performanceTimingLeniencyPreset.value).toBe('strict');
     expect(mocked.dom.noteNaming.value).toBe('flats');
     expect(mocked.state.melodyTimelineZoomPercent).toBe(145);
+    expect(mocked.state.showMelodyTabTimeline).toBe(false);
+    expect(mocked.state.showScrollingTabPanel).toBe(false);
     expect(mocked.state.melodyPlaybackBpmById).toEqual({ 'builtin:guitar:ode_to_joy_intro': 108 });
     expect(mocked.panelState.practiceSetupCollapsed).toBe(true);
     expect(mocked.panelState.melodySetupCollapsed).toBe(true);

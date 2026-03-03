@@ -38,12 +38,31 @@ export function setMelodyTimelineNoteDragHandler(
   onMelodyTimelineNoteDrag = handler;
 }
 
+export function emitMelodyTimelineNoteDrag(payload: {
+  melodyId: string;
+  eventIndex: number;
+  noteIndex: number;
+  stringName: string;
+  commit: boolean;
+}) {
+  onMelodyTimelineNoteDrag?.(payload);
+}
+
 export function setMelodyTimelineEventDragHandler(
   handler:
     | ((payload: { melodyId: string; sourceEventIndex: number; targetEventIndex: number; commit: boolean }) => void)
     | null
 ) {
   onMelodyTimelineEventDrag = handler;
+}
+
+export function emitMelodyTimelineEventDrag(payload: {
+  melodyId: string;
+  sourceEventIndex: number;
+  targetEventIndex: number;
+  commit: boolean;
+}) {
+  onMelodyTimelineEventDrag?.(payload);
 }
 
 export function getActiveTimelineNoteDragSource() {

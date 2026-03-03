@@ -23,9 +23,18 @@ import { nearestChromaticTargetFrequencyFromA4 } from './music-theory';
 import {
   hideMelodyTabTimeline,
   renderMelodyTabTimeline,
+  updateMelodyTabTimelineRuntimeCursor,
   setMelodyTimelineBackgroundCopyPayload,
 } from './melody-tab-timeline';
+import {
+  hideScrollingTabPanel,
+  renderScrollingTabPanel,
+  updateScrollingTabPanelRuntime,
+} from './scrolling-tab-panel';
+import { resolveScrollingTabPanelRuntimeState } from './scrolling-tab-panel-runtime';
 import { getMelodyTimelineZoomScale } from './melody-timeline-zoom';
+import { getScrollingTabPanelZoomScale } from './scrolling-tab-panel-zoom';
+import { clampMelodyPlaybackBpm } from './melody-timeline-duration';
 import {
   resolveMelodyFretboardPreview,
   resolveMelodyTimelineRenderState,
@@ -36,6 +45,141 @@ import {
   getTuningPresetsForInstrument,
   isChordCompatibleTuning,
 } from './tuning-presets';
+
+let scrollingTabAnimationFrameId: number | null = null;
+let pendingMelodyTimelineRenderFrameId: number | null = null;
+let pendingFretboardRedrawFrameId: number | null = null;
+let scrollingTabAnimationContext: {
+  melody: Parameters<typeof renderMelodyTabTimeline>[0];
+  bpm: number;
+  studyRange: { startIndex: number; endIndex: number };
+  runtimeSignature: string;
+} | null = null;
+let scrollingTabDisplayedTimeSec: number | null = null;
+let scrollingTabLastFrameTimestampMs: number | null = null;
+let scrollingTabLastRuntimeSignature = '';
+
+function stopScrollingTabAnimationLoop() {
+  if (scrollingTabAnimationFrameId !== null) {
+    cancelAnimationFrame(scrollingTabAnimationFrameId);
+    scrollingTabAnimationFrameId = null;
+  }
+}
+
+function cancelPendingMelodyTimelineRender() {
+  if (pendingMelodyTimelineRenderFrameId !== null) {
+    cancelAnimationFrame(pendingMelodyTimelineRenderFrameId);
+    pendingMelodyTimelineRenderFrameId = null;
+  }
+}
+
+function cancelPendingFretboardRedraw() {
+  if (pendingFretboardRedrawFrameId !== null) {
+    cancelAnimationFrame(pendingFretboardRedrawFrameId);
+    pendingFretboardRedrawFrameId = null;
+  }
+}
+
+export function scheduleMelodyTimelineRenderFromState() {
+  if (pendingMelodyTimelineRenderFrameId !== null) return;
+  pendingMelodyTimelineRenderFrameId = requestAnimationFrame(() => {
+    pendingMelodyTimelineRenderFrameId = null;
+    renderMelodyTabTimelineFromState();
+  });
+}
+
+function resolveSmoothedScrollingRuntimeTime(
+  targetTimeSec: number | null,
+  shouldAnimate: boolean,
+  runtimeSignature: string,
+  nowMs: number
+) {
+  if (targetTimeSec === null) {
+    scrollingTabDisplayedTimeSec = null;
+    scrollingTabLastFrameTimestampMs = nowMs;
+    scrollingTabLastRuntimeSignature = runtimeSignature;
+    return null;
+  }
+
+  if (
+    !shouldAnimate ||
+    scrollingTabDisplayedTimeSec === null ||
+    scrollingTabLastFrameTimestampMs === null ||
+    scrollingTabLastRuntimeSignature !== runtimeSignature
+  ) {
+    scrollingTabDisplayedTimeSec = targetTimeSec;
+    scrollingTabLastFrameTimestampMs = nowMs;
+    scrollingTabLastRuntimeSignature = runtimeSignature;
+    return targetTimeSec;
+  }
+
+  const dtSec = Math.max(0, Math.min(0.05, (nowMs - scrollingTabLastFrameTimestampMs) / 1000));
+  scrollingTabLastFrameTimestampMs = nowMs;
+  scrollingTabLastRuntimeSignature = runtimeSignature;
+
+  const previousTimeSec = scrollingTabDisplayedTimeSec;
+  if (targetTimeSec <= previousTimeSec) {
+    return previousTimeSec;
+  }
+
+  const expectedTimeSec = previousTimeSec + dtSec;
+  const catchupSec = Math.max(0, targetTimeSec - expectedTimeSec);
+  const maxCatchupSec = Math.max(0.03, dtSec * 6);
+  const nextTimeSec = Math.min(targetTimeSec, expectedTimeSec + Math.min(catchupSec, maxCatchupSec));
+  scrollingTabDisplayedTimeSec = nextTimeSec;
+  return nextTimeSec;
+}
+
+function scheduleScrollingTabAnimationLoop() {
+  if (scrollingTabAnimationFrameId !== null) return;
+  const tick = () => {
+    scrollingTabAnimationFrameId = null;
+    const animationContext = scrollingTabAnimationContext;
+    if (!animationContext) return;
+    const runtimeState = resolveScrollingTabPanelRuntimeState({
+      melody: animationContext.melody,
+      bpm: animationContext.bpm,
+      studyRange: animationContext.studyRange,
+      trainingMode: dom.trainingMode.value,
+      isListening: state.isListening,
+      currentPrompt: state.currentPrompt,
+      promptStartedAtMs: state.startTime,
+      currentMelodyEventIndex: state.currentMelodyEventIndex,
+      melodyDemoRuntimeActive: state.melodyDemoRuntimeActive,
+      melodyDemoRuntimePaused: state.melodyDemoRuntimePaused,
+      melodyDemoRuntimeBaseTimeSec: state.melodyDemoRuntimeBaseTimeSec,
+      melodyDemoRuntimeAnchorStartedAtMs: state.melodyDemoRuntimeAnchorStartedAtMs,
+      melodyDemoRuntimePausedOffsetSec: state.melodyDemoRuntimePausedOffsetSec,
+      performancePrerollLeadInVisible: state.performancePrerollLeadInVisible,
+      performancePrerollStartedAtMs: state.performancePrerollStartedAtMs,
+      performancePrerollDurationMs: state.performancePrerollDurationMs,
+      performanceRuntimeStartedAtMs: state.performanceRuntimeStartedAtMs,
+      nowMs: Date.now(),
+    });
+    const smoothedCurrentTimeSec = resolveSmoothedScrollingRuntimeTime(
+      runtimeState.currentTimeSec,
+      runtimeState.shouldAnimate,
+      animationContext.runtimeSignature,
+      performance.now()
+    );
+    if (state.showMelodyTabTimeline && smoothedCurrentTimeSec !== null) {
+      updateMelodyTabTimelineRuntimeCursor(
+        animationContext.melody,
+        animationContext.bpm,
+        animationContext.studyRange,
+        smoothedCurrentTimeSec,
+        runtimeState.leadInSec
+      );
+    }
+    if (state.showScrollingTabPanel) {
+      updateScrollingTabPanelRuntime(smoothedCurrentTimeSec);
+    }
+    if (runtimeState.shouldAnimate) {
+      scheduleScrollingTabAnimationLoop();
+    }
+  };
+  scrollingTabAnimationFrameId = requestAnimationFrame(tick);
+}
 
 /** Populates the profile selector dropdown from localStorage. */
 export function populateProfileSelector() {
@@ -250,7 +394,7 @@ export function updateTuner(frequency: number | null) {
 }
 
 /** Redraws the fretboard based on the current application state. */
-export function redrawFretboard() {
+function performRedrawFretboard() {
   const melodyPreview = resolveMelodyFretboardPreview({
     trainingMode: dom.trainingMode.value,
     isListening: state.isListening,
@@ -286,10 +430,18 @@ export function redrawFretboard() {
     state.wrongDetectedString,
     state.wrongDetectedFret
   );
-  renderMelodyTabTimelineFromState();
+}
+
+export function redrawFretboard() {
+  if (pendingFretboardRedrawFrameId !== null) return;
+  pendingFretboardRedrawFrameId = requestAnimationFrame(() => {
+    pendingFretboardRedrawFrameId = null;
+    performRedrawFretboard();
+  });
 }
 
 export function renderMelodyTabTimelineFromState() {
+  cancelPendingMelodyTimelineRender();
   const renderState = resolveMelodyTimelineRenderState({
     trainingMode: dom.trainingMode.value,
     selectedMelodyId: dom.melodySelector.value,
@@ -307,29 +459,109 @@ export function renderMelodyTabTimelineFromState() {
   });
 
   if (!renderState) {
+    stopScrollingTabAnimationLoop();
+    scrollingTabAnimationContext = null;
     setMelodyTimelineBackgroundCopyPayload(null);
     hideMelodyTabTimeline();
+    hideScrollingTabPanel();
     return;
   }
+  const scrollingRuntime = resolveScrollingTabPanelRuntimeState({
+    melody: renderState.melody,
+    bpm: clampMelodyPlaybackBpm(dom.melodyDemoBpm.value),
+    studyRange: renderState.studyRange,
+    trainingMode: dom.trainingMode.value,
+    isListening: state.isListening,
+    currentPrompt: state.currentPrompt,
+    promptStartedAtMs: state.startTime,
+    currentMelodyEventIndex: state.currentMelodyEventIndex,
+    melodyDemoRuntimeActive: state.melodyDemoRuntimeActive,
+    melodyDemoRuntimePaused: state.melodyDemoRuntimePaused,
+    melodyDemoRuntimeBaseTimeSec: state.melodyDemoRuntimeBaseTimeSec,
+    melodyDemoRuntimeAnchorStartedAtMs: state.melodyDemoRuntimeAnchorStartedAtMs,
+    melodyDemoRuntimePausedOffsetSec: state.melodyDemoRuntimePausedOffsetSec,
+    performancePrerollLeadInVisible: state.performancePrerollLeadInVisible,
+    performancePrerollStartedAtMs: state.performancePrerollStartedAtMs,
+    performancePrerollDurationMs: state.performancePrerollDurationMs,
+    performanceRuntimeStartedAtMs: state.performanceRuntimeStartedAtMs,
+    nowMs: Date.now(),
+  });
+  const runtimeSignature = JSON.stringify({
+    melodyId: renderState.melody.id,
+    bpm: clampMelodyPlaybackBpm(dom.melodyDemoBpm.value),
+    trainingMode: dom.trainingMode.value,
+    studyRange: renderState.studyRange,
+    leadInSec: scrollingRuntime.leadInSec,
+    melodyDemoRuntimeActive: state.melodyDemoRuntimeActive,
+    melodyDemoRuntimePaused: state.melodyDemoRuntimePaused,
+    melodyDemoRuntimeBaseTimeSec: state.melodyDemoRuntimeBaseTimeSec,
+    melodyDemoRuntimePausedOffsetSec: state.melodyDemoRuntimePausedOffsetSec,
+    performancePrerollLeadInVisible: state.performancePrerollLeadInVisible,
+    performancePrerollStartedAtMs: state.performancePrerollStartedAtMs,
+    performanceRuntimeStartedAtMs: state.performanceRuntimeStartedAtMs,
+  });
+  const effectiveCurrentTimeSec = resolveSmoothedScrollingRuntimeTime(
+    scrollingRuntime.currentTimeSec,
+    scrollingRuntime.shouldAnimate,
+    runtimeSignature,
+    performance.now()
+  );
   setMelodyTimelineBackgroundCopyPayload({
     text: renderState.copyText,
     melodyName: renderState.melody.name,
   });
-  renderMelodyTabTimeline(renderState.melody, state.currentInstrument, renderState.activeIndex, {
-    modeLabel: renderState.modeLabel,
-    viewMode: state.melodyTimelineViewMode,
-    zoomScale: getMelodyTimelineZoomScale(state.melodyTimelineZoomPercent),
-    studyRange: renderState.studyRange,
-    showStepNumbers: state.showMelodyTimelineSteps,
-    showMetaDetails: state.showMelodyTimelineDetails,
-    minimapRangeEditor: dom.trainingMode.value === 'melody',
-    showPrerollLeadIn: renderState.showPrerollLeadIn,
-    activePrerollStepIndex: state.performancePrerollStepIndex,
-    editingEnabled: renderState.editingEnabled,
-    selectedEventIndex: state.melodyTimelineSelectedEventIndex,
-    selectedNoteIndex: state.melodyTimelineSelectedNoteIndex,
-    performanceFeedbackByEvent: renderState.performanceFeedbackByEvent,
-  });
+  if (state.showMelodyTabTimeline) {
+    renderMelodyTabTimeline(renderState.melody, state.currentInstrument, renderState.activeIndex, {
+      modeLabel: renderState.modeLabel,
+      viewMode: state.melodyTimelineViewMode,
+      zoomScale: getMelodyTimelineZoomScale(state.melodyTimelineZoomPercent),
+      studyRange: renderState.studyRange,
+      showStepNumbers: state.showMelodyTimelineSteps,
+      showMetaDetails: state.showMelodyTimelineDetails,
+      minimapRangeEditor: dom.trainingMode.value === 'melody',
+      showPrerollLeadIn: renderState.showPrerollLeadIn,
+      activePrerollStepIndex: state.performancePrerollStepIndex,
+      editingEnabled: renderState.editingEnabled,
+      selectedEventIndex: state.melodyTimelineSelectedEventIndex,
+      selectedNoteIndex: state.melodyTimelineSelectedNoteIndex,
+      performanceFeedbackByEvent: renderState.performanceFeedbackByEvent,
+    });
+  } else {
+    hideMelodyTabTimeline();
+  }
+  if (state.showScrollingTabPanel) {
+    renderScrollingTabPanel(renderState.melody, state.currentInstrument.STRING_ORDER, {
+      bpm: clampMelodyPlaybackBpm(dom.melodyDemoBpm.value),
+      zoomScale: getScrollingTabPanelZoomScale(state.scrollingTabZoomPercent),
+      studyRange: renderState.studyRange,
+      activeEventIndex: renderState.activeIndex,
+      currentTimeSec: effectiveCurrentTimeSec,
+      leadInSec: scrollingRuntime.leadInSec,
+      performanceFeedbackByEvent: renderState.performanceFeedbackByEvent,
+      editingEnabled: renderState.editingEnabled,
+      selectedEventIndex: state.melodyTimelineSelectedEventIndex,
+      selectedNoteIndex: state.melodyTimelineSelectedNoteIndex,
+    });
+  } else {
+    hideScrollingTabPanel();
+  }
+
+  if (state.showScrollingTabPanel || state.showMelodyTabTimeline) {
+    scrollingTabAnimationContext = {
+      melody: renderState.melody,
+      bpm: clampMelodyPlaybackBpm(dom.melodyDemoBpm.value),
+      studyRange: renderState.studyRange,
+      runtimeSignature,
+    };
+    if (scrollingRuntime.shouldAnimate) {
+      scheduleScrollingTabAnimationLoop();
+    } else {
+      stopScrollingTabAnimationLoop();
+    }
+  } else {
+    stopScrollingTabAnimationLoop();
+    scrollingTabAnimationContext = null;
+  }
 }
 
 /** Handles UI changes when the training mode is switched. */

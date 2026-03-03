@@ -20,7 +20,7 @@ interface PerformancePromptControllerDeps {
   };
   getTrainingMode(): string;
   clearWrongDetectedHighlight(): void;
-  recordPerformanceTimelineSuccess(prompt: Prompt): void;
+  recordPerformanceTimelineSuccess(prompt: Prompt, redraw?: boolean): void;
   recordPerformanceTimelineMissed(prompt: Prompt): void;
   recordSessionAttempt(
     activeSessionStats: unknown,
@@ -80,7 +80,13 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     deps.state.performancePromptHadAttempt = true;
   }
 
-  function recordOutcome(correct: boolean, elapsedSeconds: number) {
+  function recordOutcome(
+    correct: boolean,
+    elapsedSeconds: number,
+    options?: {
+      skipVisualUpdate?: boolean;
+    }
+  ) {
     const prompt = deps.state.currentPrompt;
     if (!prompt) return;
 
@@ -99,6 +105,10 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     const infoSlots = buildSuccessInfoSlots(prompt);
     if (infoSlots.slot1 || infoSlots.slot2 || infoSlots.slot3) {
       deps.setInfoSlots(infoSlots.slot1, infoSlots.slot2, infoSlots.slot3);
+    }
+
+    if (options?.skipVisualUpdate) {
+      return;
     }
 
     if (deps.state.showingAllNotes) {
@@ -128,11 +138,8 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     deps.clearWrongDetectedHighlight();
     deps.state.performancePromptResolved = true;
     deps.state.performancePromptMatched = true;
-    deps.recordPerformanceTimelineSuccess(deps.state.currentPrompt);
-    recordOutcome(true, elapsedSeconds);
-    deps.setResultMessage(`Hit: ${elapsedSeconds.toFixed(2)}s`, 'success');
-    invalidatePendingAdvance();
-    deps.nextPrompt();
+    deps.recordPerformanceTimelineSuccess(deps.state.currentPrompt, false);
+    recordOutcome(true, elapsedSeconds, { skipVisualUpdate: true });
   }
 
   function scheduleAdvance(prompt: Prompt) {
@@ -165,7 +172,6 @@ export function createPerformancePromptController(deps: PerformancePromptControl
           deps.recordPerformanceTimelineMissed(prompt);
           recordOutcome(false, 0);
           deps.setResultMessage('Missed event.', 'error');
-          deps.redrawFretboard();
           deps.nextPrompt();
           return;
         }
@@ -182,7 +188,6 @@ export function createPerformancePromptController(deps: PerformancePromptControl
               deps.recordPerformanceTimelineMissed(prompt);
               recordOutcome(false, 0);
               deps.setResultMessage('Missed event.', 'error');
-              deps.redrawFretboard();
             }
 
             deps.nextPrompt();

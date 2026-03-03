@@ -9,6 +9,7 @@ describe('storage-melody-settings', () => {
     const resolved = resolveStoredMelodySettings(
       {
         melodyTimelineZoomPercent: 155,
+        scrollingTabZoomPercent: 135,
         melodyDemoBpm: '132',
         melodyPlaybackBpmById: {
           ' song-a ': 500,
@@ -38,6 +39,7 @@ describe('storage-melody-settings', () => {
     expect(resolved).toEqual({
       preferredMelodyId: 'builtin:guitar:ode_to_joy_intro',
       melodyTimelineZoomPercent: 155,
+      scrollingTabZoomPercent: 135,
       melodyDemoBpm: '132',
       melodyPlaybackBpmById: { 'song-a': 220 },
       melodyTransposeById: { 'song-a': 2 },
@@ -53,6 +55,8 @@ describe('storage-melody-settings', () => {
     const dom = {
       melodyTimelineZoom: { value: '' },
       melodyTimelineZoomValue: { textContent: '' },
+      scrollingTabZoom: { value: '' },
+      scrollingTabZoomValue: { textContent: '' },
       melodyDemoBpm: { value: '' },
       melodyDemoBpmValue: { textContent: '' },
       melodyLoopRange: { checked: false },
@@ -64,6 +68,7 @@ describe('storage-melody-settings', () => {
     const state = {
       preferredMelodyId: null,
       melodyTimelineZoomPercent: 100,
+      scrollingTabZoomPercent: 100,
       melodyPlaybackBpmById: {},
       melodyTransposeById: {},
       melodyStringShiftById: {},
@@ -79,6 +84,7 @@ describe('storage-melody-settings', () => {
       {
         preferredMelodyId: 'song-a',
         melodyTimelineZoomPercent: 145,
+        scrollingTabZoomPercent: 120,
         melodyDemoBpm: '108',
         melodyPlaybackBpmById: { 'song-a': 108 },
         melodyTransposeById: { 'song-a': 3 },
@@ -95,6 +101,7 @@ describe('storage-melody-settings', () => {
     expect(state).toMatchObject({
       preferredMelodyId: 'song-a',
       melodyTimelineZoomPercent: 145,
+      scrollingTabZoomPercent: 120,
       melodyPlaybackBpmById: { 'song-a': 108 },
       melodyTransposeById: { 'song-a': 3 },
       melodyStringShiftById: { 'song-a': -1 },
@@ -108,6 +115,8 @@ describe('storage-melody-settings', () => {
     expect(dom).toMatchObject({
       melodyTimelineZoom: { value: '145' },
       melodyTimelineZoomValue: { textContent: '145%' },
+      scrollingTabZoom: { value: '120' },
+      scrollingTabZoomValue: { textContent: '120%' },
       melodyDemoBpm: { value: '108' },
       melodyDemoBpmValue: { textContent: '108' },
       melodyLoopRange: { checked: true },

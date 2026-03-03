@@ -8,8 +8,32 @@ import {
   writeStorageJson,
 } from './storage-schema';
 
+const STATS_SAVE_DEBOUNCE_MS = 180;
+let pendingStatsSaveTimeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
+
+function clearPendingStatsSave() {
+  if (pendingStatsSaveTimeoutId !== null) {
+    clearTimeout(pendingStatsSaveTimeoutId);
+    pendingStatsSaveTimeoutId = null;
+  }
+}
+
+function scheduleStatsSave() {
+  clearPendingStatsSave();
+  pendingStatsSaveTimeoutId = globalThis.setTimeout(() => {
+    pendingStatsSaveTimeoutId = null;
+    saveStats();
+  }, STATS_SAVE_DEBOUNCE_MS);
+}
+
 export function saveStats() {
   writeStorageJson(localStorage, STATS_KEY, state.stats);
+}
+
+export function flushPendingStatsSave() {
+  if (pendingStatsSaveTimeoutId === null) return;
+  clearPendingStatsSave();
+  saveStats();
 }
 
 export function saveLastSessionStats() {
@@ -21,6 +45,7 @@ export function saveLastSessionStats() {
 }
 
 export function loadStats() {
+  clearPendingStatsSave();
   state.lastSessionStats = null;
   const loadedStats = readStorageJson(
     localStorage,
@@ -89,6 +114,7 @@ export function loadStats() {
 }
 
 export function resetStats() {
+  clearPendingStatsSave();
   state.stats = {
     highScore: 0,
     totalAttempts: 0,
@@ -130,5 +156,5 @@ export function updateStats(isCorrect: boolean, time: number) {
     state.stats.noteStats[noteKey].correct++;
     state.stats.noteStats[noteKey].totalTime += time;
   }
-  saveStats();
+  scheduleStatsSave();
 }

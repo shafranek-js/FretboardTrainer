@@ -73,11 +73,11 @@ export function getTimelineContextMenuSignature(melodyId: string) {
 export function clearMelodyTimelineContextMenu() {
   const hadOpenMenu = activeTimelineContextMenu !== null;
   activeTimelineContextMenu = null;
-  dom.melodyTabTimelinePanel.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
+  document.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
   return hadOpenMenu;
 }
 
-function openTimelineContextMenu(payload: {
+export function emitMelodyTimelineContextMenuOpen(payload: {
   melodyId: string;
   eventIndex: number;
   noteIndex: number | null;
@@ -95,11 +95,10 @@ export function bindTimelineContextMenu(
   element.addEventListener('contextmenu', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const panelRect = dom.melodyTabTimelinePanel.getBoundingClientRect();
-    openTimelineContextMenu({
+    emitMelodyTimelineContextMenuOpen({
       ...payload,
-      anchorX: event.clientX - panelRect.left,
-      anchorY: event.clientY - panelRect.top,
+      anchorX: event.clientX,
+      anchorY: event.clientY,
     });
   });
 }
@@ -158,7 +157,7 @@ export function renderTimelineContextMenu(
   selectedEventIndex: number | null,
   options: { editingEnabled: boolean }
 ) {
-  dom.melodyTabTimelinePanel.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
+  document.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
   if (!options.editingEnabled || !activeTimelineContextMenu || activeTimelineContextMenu.melodyId !== melody.id) {
     return;
   }
@@ -255,10 +254,10 @@ export function renderTimelineContextMenu(
   addSectionLabel('History');
   addItem('Undo', 'Ctrl/Cmd+Z', 'Revert the last timeline edit.', 'undo', false);
   addItem('Redo', 'Ctrl/Cmd+Shift+Z', 'Reapply the last reverted edit.', 'redo', false);
-  dom.melodyTabTimelinePanel.appendChild(menu);
+  document.body.appendChild(menu);
 
-  const maxLeft = Math.max(4, dom.melodyTabTimelinePanel.clientWidth - menu.offsetWidth - 4);
-  const maxTop = Math.max(4, dom.melodyTabTimelinePanel.clientHeight - menu.offsetHeight - 4);
+  const maxLeft = Math.max(4, window.innerWidth - menu.offsetWidth - 4);
+  const maxTop = Math.max(4, window.innerHeight - menu.offsetHeight - 4);
   menu.style.left = `${Math.min(Math.max(4, activeTimelineContextMenu.anchorX), maxLeft)}px`;
   menu.style.top = `${Math.min(Math.max(4, activeTimelineContextMenu.anchorY), maxTop)}px`;
 }

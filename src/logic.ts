@@ -3,8 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { dom, state } from './state';
-import { updateStats, saveLastSessionStats, saveSettings, saveStats } from './storage';
-import { updateTuner, redrawFretboard, drawFretboard, displaySessionSummary, displayStats } from './ui';
+import { flushPendingStatsSave, updateStats, saveLastSessionStats, saveSettings, saveStats } from './storage';
+import {
+  updateTuner,
+  redrawFretboard,
+  drawFretboard,
+  displaySessionSummary,
+  displayStats,
+  scheduleMelodyTimelineRenderFromState,
+} from './ui';
 import { freqToNoteName, freqToScientificNoteName, detectPitch, playSound } from './audio';
 import { modes } from './modes';
 import {
@@ -122,6 +129,8 @@ import { buildSessionInitialPromptPlan } from './session-initial-prompt-plan';
 import { buildSessionInitialTimelinePreview } from './session-initial-timeline-preview';
 import { shouldIgnorePerformanceOctaveMismatch } from './performance-octave-policy';
 import { isPerformancePitchWithinTolerance as isPerformancePitchWithinToleranceHelper } from './performance-pitch-tolerance';
+import { getMelodyById } from './melody-library';
+import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -216,6 +225,7 @@ function applySessionInitialTimelinePreview(previewLabel: string) {
   state.melodyTimelinePreviewIndex = preview?.eventIndex ?? null;
   state.melodyTimelinePreviewLabel = preview ? previewLabel : null;
   redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
 }
 
 function clearSessionInitialTimelinePreview() {
@@ -226,12 +236,16 @@ function clearSessionInitialTimelinePreview() {
   state.melodyTimelinePreviewIndex = null;
   state.melodyTimelinePreviewLabel = null;
   redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
 }
 
-function beginPerformancePrerollTimeline(pulseCount: number) {
+function beginPerformancePrerollTimeline(pulseCount: number, durationMs: number) {
   state.performancePrerollLeadInVisible = pulseCount > 0;
+  state.performancePrerollStartedAtMs = pulseCount > 0 ? Date.now() : null;
+  state.performancePrerollDurationMs = pulseCount > 0 ? Math.max(0, durationMs) : 0;
   state.performancePrerollStepIndex = pulseCount > 0 ? 0 : null;
   redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
 }
 
 function advancePerformancePrerollTimeline(stepIndex: number, pulseCount: number) {
@@ -239,11 +253,38 @@ function advancePerformancePrerollTimeline(stepIndex: number, pulseCount: number
   if (!state.performancePrerollLeadInVisible || pulseCount <= 0) return;
   state.performancePrerollStepIndex = Math.max(0, Math.min(pulseCount - 1, stepIndex));
   redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
 }
 
 function finishPerformancePrerollTimeline() {
+  state.performancePrerollLeadInVisible = false;
+  state.performancePrerollStartedAtMs = null;
+  state.performancePrerollDurationMs = 0;
   state.performancePrerollStepIndex = null;
   redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
+}
+
+function getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex: number) {
+  const selectedMelodyId = dom.melodySelector.value.trim();
+  const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+  if (!melody || melody.events.length === 0) return 0;
+
+  const rangeStart = Math.max(0, Math.min(state.melodyStudyRangeStartIndex, melody.events.length - 1));
+  const clampedTargetIndex = Math.max(rangeStart, Math.min(Math.round(targetEventIndex), melody.events.length));
+  let totalSec = 0;
+  for (let index = rangeStart; index < clampedTargetIndex; index += 1) {
+    const event = melody.events[index];
+    if (!event) continue;
+    totalSec += getMelodyEventPlaybackDurationMs(event, Number(dom.melodyDemoBpm.value), melody) / 1000;
+  }
+  return totalSec;
+}
+
+function startPerformanceRuntimeClock(targetEventIndex = state.melodyStudyRangeStartIndex) {
+  if (dom.trainingMode.value !== 'performance') return;
+  const elapsedSec = getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex);
+  state.performanceRuntimeStartedAtMs = Date.now() - Math.round(elapsedSec * 1000);
 }
 
 const performancePromptController = createPerformancePromptController({
@@ -364,7 +405,7 @@ function ensureCurrentPerformanceTimelineFeedbackBucket() {
   return true;
 }
 
-function recordPerformanceTimelineSuccess(prompt: Prompt) {
+function recordPerformanceTimelineSuccess(prompt: Prompt, redraw = true) {
   const eventIndex = getCurrentPerformanceTimelineEventIndex();
   if (eventIndex === null) return;
   if (!ensureCurrentPerformanceTimelineFeedbackBucket()) return;
@@ -373,7 +414,11 @@ function recordPerformanceTimelineSuccess(prompt: Prompt) {
     eventIndex,
     buildPerformanceTimelineSuccessAttempts(prompt)
   );
-  redrawFretboard();
+  if (redraw) {
+    redrawFretboard();
+    return;
+  }
+  scheduleMelodyTimelineRenderFromState();
 }
 
 function recordPerformanceTimelineWrongAttempt(note: string) {
@@ -389,7 +434,7 @@ function recordPerformanceTimelineWrongAttempt(note: string) {
       fret: state.wrongDetectedFret,
     })
   );
-  redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
 }
 
 function recordPerformanceTimelineMissed(prompt: Prompt) {
@@ -401,7 +446,7 @@ function recordPerformanceTimelineMissed(prompt: Prompt) {
     eventIndex,
     buildPerformanceTimelineMissedAttempts(prompt)
   );
-  redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
 }
 
 function detectMonophonicOctaveMismatch(
@@ -860,6 +905,7 @@ export async function startListening(forCalibration = false) {
         setStatusText,
         nextPrompt: () => {
           if (initialPromptPlan.delayMs <= 0) {
+            startPerformanceRuntimeClock();
             nextPrompt();
             return;
           }
@@ -869,7 +915,7 @@ export async function startListening(forCalibration = false) {
             setResultMessage(initialPromptPlan.prepMessage);
           }
           applySessionInitialTimelinePreview(initialPromptPlan.prepMessage);
-          beginPerformancePrerollTimeline(initialPromptPlan.pulseCount);
+          beginPerformancePrerollTimeline(initialPromptPlan.pulseCount, initialPromptPlan.delayMs);
           const pulseIntervalMs =
             initialPromptPlan.pulseCount > 0 ? initialPromptPlan.delayMs / initialPromptPlan.pulseCount : 0;
           for (let pulseIndex = 1; pulseIndex < initialPromptPlan.pulseCount; pulseIndex += 1) {
@@ -888,6 +934,7 @@ export async function startListening(forCalibration = false) {
               finishPerformancePrerollTimeline();
               clearSessionInitialTimelinePreview();
               clearResultMessage();
+              startPerformanceRuntimeClock();
               nextPrompt();
             },
             'session initial prompt preroll'
@@ -910,6 +957,7 @@ export function stopListening(keepStreamOpen = false) {
   const shouldShowSessionSummary = state.showSessionSummaryOnStop;
   if (state.activeSessionStats && !state.isCalibrating) {
     state.lastSessionStats = finalizeSessionStats(state.activeSessionStats);
+    flushPendingStatsSave();
     saveLastSessionStats();
     displayStats();
     if (shouldShowSessionSummary) {
@@ -949,6 +997,7 @@ export function stopListening(keepStreamOpen = false) {
     refreshMicPolyphonicDetectorAudioInfoUi();
   }
   redrawFretboard();
+  scheduleMelodyTimelineRenderFromState();
 }
 
 export function seekActiveMelodySessionToEvent(eventIndex: number) {
@@ -963,6 +1012,9 @@ export function seekActiveMelodySessionToEvent(eventIndex: number) {
   performancePromptController.resetPromptResolution();
   state.pendingSessionStopResultMessage = null;
   clearWrongDetectedHighlight();
+  if (dom.trainingMode.value === 'performance') {
+    startPerformanceRuntimeClock(state.currentMelodyEventIndex);
+  }
   nextPrompt();
   return true;
 }
@@ -1032,6 +1084,9 @@ function displayResult(correct: boolean, elapsed: number) {
 function nextPrompt() {
   try {
     if (!state.isListening) return;
+    if (dom.trainingMode.value === 'performance' && state.performanceRuntimeStartedAtMs === null) {
+      startPerformanceRuntimeClock();
+    }
     clearResultMessage();
     state.pendingSessionStopResultMessage = null;
     state.liveDetectedNote = null;
@@ -1043,7 +1098,6 @@ function nextPrompt() {
     state.currentMelodyEventFoundNotes.clear();
     resetMicMonophonicAttackTracking();
     Object.assign(state, createPromptCycleTrackingResetState());
-    redrawFretboard();
 
     const trainingMode = dom.trainingMode.value;
     const mode = modes[trainingMode];
@@ -1068,6 +1122,7 @@ function nextPrompt() {
         state.currentMelodyEventFoundNotes.clear();
         setPromptText(nextPrompt.displayText);
         redrawFretboard();
+        scheduleMelodyTimelineRenderFromState();
         configurePromptAudio();
         state.startTime = Date.now();
         performancePromptController.scheduleAdvance(nextPrompt);

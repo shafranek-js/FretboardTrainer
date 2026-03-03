@@ -133,6 +133,13 @@
 
 ## Future / Backlog
 
+- [ ] Add a dedicated scrolling tablature panel for melody/performance practice, separate from the existing `TAB Timeline`.
+  - [x] Reuse existing `MelodyDefinition.events` plus `melody-timeline-duration` as the timing source instead of inventing a second song model.
+  - [x] Build a canvas-based renderer with fixed string lanes, right-to-left note motion, and a fixed playhead.
+  - [x] Keep the scrolling panel synchronized with existing melody demo/performance runtime time, not an independent playback clock.
+  - [x] Support note width by duration, chord stacks, fixed playhead X, and Y movement between strings/events.
+  - [x] Add an MVP integration path for `Melodies (Follow the Notes)` and `Performance` only.
+  - [ ] Validate resize behavior, long-song performance, and zoom/tempo synchronization before wiring hit-feedback/scoring into the new panel.
 - [x] Refactor built-in melody definitions out of `src/melody-library.ts` into a dedicated module tree so the library can grow without turning one file into a monolith.
   - [x] Split built-in melody tab/event sources by instrument (`guitar`, `ukulele`).
   - [x] Split built-in melody sources further by song once the library grows beyond the current per-instrument modules.

@@ -35,6 +35,8 @@ function createDeps(options?: { selection?: MelodyDemoSelection | null; loop?: b
     redrawFretboard: vi.fn(),
     onStateChange: vi.fn(),
     setResultMessage: vi.fn(),
+    onPlaybackCursorChange: vi.fn(),
+    onPlaybackStopped: vi.fn(),
   };
   return deps;
 }
@@ -71,6 +73,7 @@ describe('melody-demo-controller', () => {
       { startIndex: 0, endIndex: 1 },
       { label: 'Playback', autoplaySound: true }
     );
+    expect(deps.onPlaybackCursorChange).toHaveBeenCalled();
     expect(controller.isPlaying()).toBe(true);
   });
 
@@ -87,6 +90,7 @@ describe('melody-demo-controller', () => {
     expect(controller.isActive()).toBe(false);
     expect(deps.clearUiPreview).toHaveBeenCalled();
     expect(deps.redrawFretboard).toHaveBeenCalled();
+    expect(deps.onPlaybackStopped).toHaveBeenCalled();
     expect(deps.setResultMessage).toHaveBeenCalledWith('Stopped.');
   });
 

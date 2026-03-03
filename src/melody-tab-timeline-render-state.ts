@@ -9,12 +9,15 @@ export interface MelodyTimelineRenderOptions {
   modeLabel?: string | null;
   viewMode?: 'classic' | 'grid';
   zoomScale?: number;
+  bpm?: number;
   studyRange?: MelodyStudyRange | null;
   showStepNumbers?: boolean;
   showMetaDetails?: boolean;
   minimapRangeEditor?: boolean;
   showPrerollLeadIn?: boolean;
   activePrerollStepIndex?: number | null;
+  currentTimeSec?: number | null;
+  leadInSec?: number;
   editingEnabled?: boolean;
   selectedEventIndex?: number | null;
   selectedNoteIndex?: number | null;
@@ -25,12 +28,15 @@ export interface ResolvedMelodyTimelineRenderOptions {
   modeLabel: string;
   viewMode: 'classic' | 'grid';
   zoomScale: number;
+  bpm: number | null;
   studyRange: MelodyStudyRange;
   showStepNumbers: boolean;
   showMetaDetails: boolean;
   minimapRangeEditor: boolean;
   showPrerollLeadIn: boolean;
   activePrerollStepIndex: number | null;
+  currentTimeSec: number | null;
+  leadInSec: number;
   editingEnabled: boolean;
   selectedEventIndex: number | null;
   selectedNoteIndex: number | null;
@@ -47,6 +53,7 @@ interface RenderKeyInput {
   studyRange: MelodyStudyRange;
   contextMenuSignature: string;
   activeTimelineNoteDragSource: { eventIndex: number; noteIndex: number } | null;
+  includePerformanceFeedbackSignature?: boolean;
 }
 
 interface MetaTextInput {
@@ -79,12 +86,21 @@ export function resolveMelodyTimelineRenderOptions(
     modeLabel: options.modeLabel?.trim() ?? '',
     viewMode: options.viewMode ?? 'classic',
     zoomScale: Math.max(0.7, Math.min(1.7, options.zoomScale ?? 1)),
+    bpm: typeof options.bpm === 'number' && Number.isFinite(options.bpm) ? options.bpm : null,
     studyRange,
     showStepNumbers: options.showStepNumbers ?? false,
     showMetaDetails: options.showMetaDetails ?? false,
     minimapRangeEditor: options.minimapRangeEditor ?? true,
     showPrerollLeadIn: options.showPrerollLeadIn ?? false,
     activePrerollStepIndex: options.activePrerollStepIndex ?? null,
+    currentTimeSec:
+      typeof options.currentTimeSec === 'number' && Number.isFinite(options.currentTimeSec)
+        ? Math.max(0, options.currentTimeSec)
+        : null,
+    leadInSec:
+      typeof options.leadInSec === 'number' && Number.isFinite(options.leadInSec)
+        ? Math.max(0, options.leadInSec)
+        : 0,
     editingEnabled: options.editingEnabled ?? false,
     selectedEventIndex: options.selectedEventIndex ?? null,
     selectedNoteIndex: options.selectedNoteIndex ?? null,
@@ -120,7 +136,9 @@ export function buildMelodyTimelineRenderKey(
     options.activePrerollStepIndex ?? -1,
     options.selectedEventIndex ?? -1,
     options.selectedNoteIndex ?? -1,
-    formatPerformanceFeedbackSignature(options.performanceFeedbackByEvent),
+    input.includePerformanceFeedbackSignature === false
+      ? ''
+      : formatPerformanceFeedbackSignature(options.performanceFeedbackByEvent),
     input.activeTimelineNoteDragSource?.eventIndex ?? -1,
     input.activeTimelineNoteDragSource?.noteIndex ?? -1,
     input.contextMenuSignature,

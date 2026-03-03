@@ -418,6 +418,24 @@
                     <span id="melodyTimelineZoomValue" class="min-w-[4.2rem] rounded-md border border-violet-400/30 bg-violet-900/20 px-2 py-1 text-center text-[11px] font-semibold text-violet-100">100%</span>
                   </div>
                 </div>
+                <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="Scroll Zoom">
+                  <label for="scrollingTabZoom" class="field-tooltip-label">Scroll Zoom</label>
+                  <div class="flex h-9 items-center gap-2 rounded-md border border-slate-500 bg-slate-700 px-2">
+                    <span class="text-[10px] text-slate-400">-</span>
+                    <input
+                      id="scrollingTabZoom"
+                      type="range"
+                      min="70"
+                      max="170"
+                      step="5"
+                      value="100"
+                      class="flex-1 accent-emerald-500"
+                      aria-label="Scrolling panel zoom percent"
+                    />
+                    <span class="text-[10px] text-slate-400">+</span>
+                    <span id="scrollingTabZoomValue" class="min-w-[4.2rem] rounded-md border border-emerald-400/30 bg-emerald-900/20 px-2 py-1 text-center text-[11px] font-semibold text-emerald-100">100%</span>
+                  </div>
+                </div>
                 <div class="field-tooltip-host hidden flex min-w-0 flex-col" data-field-hint="Study Range" aria-hidden="true">
                   <label for="melodyStudyStart" class="field-tooltip-label">Study Range</label>
                   <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1.5">
@@ -432,6 +450,8 @@
                 <div class="flex flex-wrap items-center gap-1">
                   <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyLoopRange" type="checkbox" class="h-3.5 w-3.5 accent-amber-500" />Loop Range</label>
                   <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowNote" type="checkbox" checked class="h-3.5 w-3.5 accent-cyan-500" />Show Note Hint</label>
+                  <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowTabTimeline" type="checkbox" checked class="h-3.5 w-3.5 accent-violet-500" />Show TAB Timeline</label>
+                  <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowScrollingTab" type="checkbox" checked class="h-3.5 w-3.5 accent-emerald-500" />Show Scroller</label>
                 </div>
                 <div class="flex flex-wrap items-center gap-1">
                   <button id="melodyTransposeResetBtn" type="button" title="Reset transpose for the selected melody" aria-label="Reset transpose for the selected melody" class="melody-action-chip h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">Reset</button>
@@ -569,9 +589,9 @@
         </div>
       </div>
 
-      <div
-        id="melodyTabTimelinePanel"
-        class="compact-section hidden shrink-0 rounded-lg border border-cyan-500/30 bg-slate-900/70 px-1.5 py-1"
+        <div
+          id="melodyTabTimelinePanel"
+          class="compact-section hidden shrink-0 rounded-lg border border-cyan-500/30 bg-slate-900/70 px-1.5 py-1"
         data-section-hint="TAB timeline. Inspect the active phrase and edit the study range. View mode now lives in App Settings."
         title="TAB timeline. Inspect the active phrase and edit the study range. View mode now lives in App Settings."
         aria-label="TAB timeline"
@@ -582,15 +602,37 @@
           class="timeline-scroll-shell rounded-md"
         >
           <div
+            id="melodyTabTimelinePlayhead"
+            class="timeline-main-playhead"
+            aria-hidden="true"
+          ></div>
+          <div
             id="melodyTabTimelineGrid"
             class="overflow-x-auto overflow-y-hidden"
           ></div>
         </div>
       </div>
 
-      <!-- This is now the main content panel -->
-      <div
-        class="fretboard-area flex flex-row items-stretch flex-grow min-h-0 bg-slate-700 rounded-lg p-0 gap-1"
+        <div
+          id="scrollingTabPanel"
+          class="compact-section hidden shrink-0 rounded-lg border border-cyan-500/30 bg-slate-900/70 px-1.5 py-1"
+          data-section-hint="Scrolling tablature preview. Strings stay fixed while note blocks move toward a fixed playhead."
+          title="Scrolling tablature preview. Strings stay fixed while note blocks move toward a fixed playhead."
+          aria-label="Scrolling tablature preview"
+        >
+          <span id="scrollingTabPanelMeta" class="hidden"></span>
+          <div id="scrollingTabPanelViewport" class="scrolling-tab-panel-shell rounded-md">
+            <canvas
+              id="scrollingTabPanelCanvas"
+              class="block h-[196px] w-full"
+              aria-label="Scrolling tablature canvas"
+            ></canvas>
+          </div>
+        </div>
+
+        <!-- This is now the main content panel -->
+        <div
+          class="fretboard-area flex flex-row items-stretch flex-grow min-h-0 bg-slate-700 rounded-lg p-0 gap-1"
       >
         <!-- fretboard-and-strings-panel contains the fretboard and string selectors -->
         <div class="fretboard-and-strings-panel bg-slate-900 rounded-lg p-0 flex-grow relative">

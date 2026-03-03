@@ -74,13 +74,13 @@ describe('performance-prompt-controller', () => {
     expect(state.performancePromptResolved).toBe(true);
     expect(state.performancePromptMatched).toBe(true);
     expect(deps.clearWrongDetectedHighlight).toHaveBeenCalledTimes(1);
-    expect(deps.recordPerformanceTimelineSuccess).toHaveBeenCalledWith(prompt);
+    expect(deps.recordPerformanceTimelineSuccess).toHaveBeenCalledWith(prompt, false);
     expect(deps.recordSessionAttempt).toHaveBeenCalledWith({}, prompt, true, 1.25, {});
     expect(deps.updateStats).toHaveBeenCalledWith(true, 1.25);
     expect(deps.updateSessionGoalProgress).toHaveBeenCalledTimes(1);
-    expect(deps.drawFretboard).toHaveBeenCalledWith(false, 'C', 'A');
-    expect(deps.setResultMessage).toHaveBeenCalledWith('Hit: 1.25s', 'success');
-    expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
+    expect(deps.drawFretboard).not.toHaveBeenCalled();
+    expect(deps.setResultMessage).not.toHaveBeenCalled();
+    expect(deps.nextPrompt).not.toHaveBeenCalled();
 
     deps.recordSessionAttempt.mockClear();
     deps.nextPrompt.mockClear();
@@ -89,14 +89,15 @@ describe('performance-prompt-controller', () => {
     expect(deps.nextPrompt).not.toHaveBeenCalled();
   });
 
-  it('invalidates the pending deadline when success resolves immediately', () => {
+  it('keeps the nominal deadline active after success so performance stays time-driven', () => {
     const prompt = createPrompt();
     const { deps } = createDeps({ prompt });
     const controller = createPerformancePromptController(deps);
 
     controller.scheduleAdvance(prompt);
     controller.resolveSuccess(0.42);
-    vi.runAllTimers();
+    const nominalCallback = deps.scheduleSessionTimeout.mock.calls[0]?.[1] as (() => void) | undefined;
+    nominalCallback?.();
 
     expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
     expect(deps.recordPerformanceTimelineMissed).not.toHaveBeenCalled();
@@ -123,7 +124,7 @@ describe('performance-prompt-controller', () => {
     expect(deps.recordPerformanceTimelineMissed).toHaveBeenCalledWith(prompt);
     expect(deps.recordSessionAttempt).toHaveBeenCalledWith({}, prompt, false, 0, {});
     expect(deps.setResultMessage).toHaveBeenCalledWith('Missed event.', 'error');
-    expect(deps.redrawFretboard).toHaveBeenCalledTimes(1);
+    expect(deps.redrawFretboard).not.toHaveBeenCalled();
     expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
   });
 

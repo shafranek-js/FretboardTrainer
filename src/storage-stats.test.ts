@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocked = vi.hoisted(() => ({
   dom: {
@@ -47,6 +47,7 @@ const storageStatsModule = await import('./storage-stats');
 
 describe('storage-stats', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.stubGlobal('localStorage', createStorage());
     mocked.dom.trainingMode.value = 'random';
     mocked.state.stats = {
@@ -59,6 +60,10 @@ describe('storage-stats', () => {
     mocked.state.lastSessionStats = null;
     mocked.state.activeSessionStats = null;
     mocked.state.currentPrompt = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('updates persisted note stats for successful prompts', () => {
@@ -78,6 +83,8 @@ describe('storage-stats', () => {
       correct: 1,
       totalTime: 1.25,
     });
+    expect(localStorage.getItem('fretflow-stats')).toBeNull();
+    vi.runAllTimers();
     expect(localStorage.getItem('fretflow-stats')).not.toBeNull();
   });
 

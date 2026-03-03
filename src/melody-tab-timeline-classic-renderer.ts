@@ -72,6 +72,25 @@ export function renderClassicTimeline(
   activeTimelineNoteDragSource: { eventIndex: number; noteIndex: number } | null,
   deps: ClassicRendererDeps
 ) {
+  const applyTrackCellVisualState = (
+    cell: HTMLElement,
+    active: boolean,
+    feedbackTone: 'correct' | 'wrong' | 'missed' | null
+  ) => {
+    if (feedbackTone) return;
+    cell.dataset.activeEvent = active ? 'true' : 'false';
+    cell.style.backgroundColor = active
+      ? cell.style.getPropertyValue('--timeline-active-bg')
+      : cell.style.getPropertyValue('--timeline-base-bg');
+    cell.style.color = active
+      ? cell.style.getPropertyValue('--timeline-active-color')
+      : cell.style.getPropertyValue('--timeline-base-color');
+    const boxShadow = active
+      ? cell.style.getPropertyValue('--timeline-active-box-shadow')
+      : cell.style.getPropertyValue('--timeline-base-box-shadow');
+    cell.style.boxShadow = boxShadow === 'none' ? '' : boxShadow;
+  };
+
   const wrapper = document.createElement('div');
   wrapper.className = 'min-w-max text-[11px] leading-5 font-mono text-slate-200';
   wrapper.style.fontSize = `${scaleTimelinePixels(11, zoomScale, 8)}px`;
@@ -123,12 +142,19 @@ export function renderClassicTimeline(
       }
 
       const cell = document.createElement('span');
+      cell.dataset.timelineTrackCell = 'true';
       cell.dataset.eventIndex = String(eventIndex);
       if (isAnchorRow) {
         cell.dataset.timelineStepAnchor = 'true';
       }
       const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
       const accentColor = getPrimaryCellFingerColor(rangeCell?.notes ?? []);
+      const baseColor = isHeader
+        ? '#64748b'
+        : rangeCell?.isInStudyRange
+          ? '#fef3c7'
+          : '#64748b';
+      const baseBackground = rangeCell?.isInStudyRange && !isHeader ? 'rgba(120, 53, 15, 0.25)' : 'transparent';
       cell.className =
         'inline-block px-[1px] rounded-sm ' +
         (model.activeEventIndex === eventIndex
@@ -140,11 +166,14 @@ export function renderClassicTimeline(
               : 'text-slate-500');
       cell.style.minWidth = `${eventWidths[eventIndex]}ch`;
       cell.style.width = `${eventWidths[eventIndex]}ch`;
-      cell.dataset.activeEvent = model.activeEventIndex === eventIndex ? 'true' : 'false';
-      if (model.activeEventIndex === eventIndex) {
-        cell.style.backgroundColor = withAlpha(accentColor, 0.28);
-        cell.style.color = '#f8fafc';
-      }
+      cell.dataset.cellWidth = String(eventWidths[eventIndex]);
+      cell.style.setProperty('--timeline-base-bg', baseBackground);
+      cell.style.setProperty('--timeline-base-color', baseColor);
+      cell.style.setProperty('--timeline-active-bg', withAlpha(accentColor, 0.28));
+      cell.style.setProperty('--timeline-active-color', '#f8fafc');
+      cell.style.setProperty('--timeline-playhead-bg', withAlpha(accentColor, 0.22));
+      cell.style.setProperty('--timeline-playhead-color', '#f8fafc');
+      let baseBoxShadow = 'none';
       const rowCell = model.rows.find((row) => row.stringName === labelText)?.cells[eventIndex] ?? null;
       const selectedRowNote = rowCell?.notes[0] ?? null;
       const isDragSource =
@@ -162,12 +191,13 @@ export function renderClassicTimeline(
         cell.style.boxShadow = `0 0 0 1px ${withAlpha(getFingerColor(selectedRowNote.finger), 0.28)}`;
       }
       if (rangeCell?.isStudyRangeStart) {
-        cell.style.boxShadow = 'inset 2px 0 0 rgba(251, 191, 36, 0.9)';
+        baseBoxShadow = 'inset 2px 0 0 rgba(251, 191, 36, 0.9)';
       }
       if (rangeCell?.isStudyRangeEnd) {
-        cell.style.boxShadow = cell.style.boxShadow
-          ? `${cell.style.boxShadow}, inset -2px 0 0 rgba(251, 191, 36, 0.9)`
-          : 'inset -2px 0 0 rgba(251, 191, 36, 0.9)';
+        baseBoxShadow =
+          baseBoxShadow !== 'none'
+            ? `${baseBoxShadow}, inset -2px 0 0 rgba(251, 191, 36, 0.9)`
+            : 'inset -2px 0 0 rgba(251, 191, 36, 0.9)';
       }
       if (isDragSource) {
         cell.classList.add('timeline-note-drag-source');
@@ -177,8 +207,24 @@ export function renderClassicTimeline(
           ? buildClassicTimelineFeedbackSegment(rowCell, eventWidths[eventIndex])
           : segment;
       cell.textContent = displaySegment;
+      const feedbackTone = rowCell ? resolveClassicCellFeedbackTone(rowCell) : null;
+      cell.dataset.feedbackTone = feedbackTone ?? '';
+      cell.style.setProperty('--timeline-base-box-shadow', baseBoxShadow);
+      cell.style.setProperty(
+        '--timeline-active-box-shadow',
+        baseBoxShadow !== 'none'
+          ? `${baseBoxShadow}, inset 0 0 0 1px ${withAlpha(accentColor, 0.18)}`
+          : `inset 0 0 0 1px ${withAlpha(accentColor, 0.18)}`
+      );
+      cell.style.setProperty(
+        '--timeline-playhead-box-shadow',
+        baseBoxShadow !== 'none'
+          ? `${baseBoxShadow}, inset 0 0 0 1px ${withAlpha(accentColor, 0.14)}`
+          : `inset 0 0 0 1px ${withAlpha(accentColor, 0.14)}`
+      );
+      applyTrackCellVisualState(cell, model.activeEventIndex === eventIndex, feedbackTone);
       if (rowCell) {
-        applyClassicCellFeedbackStyles(cell, resolveClassicCellFeedbackTone(rowCell), accentColor);
+        applyClassicCellFeedbackStyles(cell, feedbackTone, accentColor);
       }
       if (!isHeader && selectedRowNote) {
         cell.dataset.timelineNoPan = 'true';

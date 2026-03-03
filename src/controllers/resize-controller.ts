@@ -6,4 +6,5 @@ export function registerResizeObserver() {
     requestAnimationFrame(redrawFretboard);
   });
   resizeObserver.observe(dom.fretboard);
+  resizeObserver.observe(dom.scrollingTabPanelViewport);
 }

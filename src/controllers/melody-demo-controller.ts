@@ -35,6 +35,14 @@ interface MelodyDemoControllerDeps {
   redrawFretboard(): void;
   onStateChange(): void;
   setResultMessage(message: string, type?: 'success' | 'error'): void;
+  onPlaybackCursorChange(cursor: {
+    active: boolean;
+    paused: boolean;
+    baseTimeSec: number;
+    anchorStartedAtMs: number | null;
+    pausedOffsetSec: number;
+  }): void;
+  onPlaybackStopped(): void;
 }
 
 export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
@@ -45,6 +53,9 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
   let nextEventIndex = 0;
   let stepPreviewIndex: number | null = null;
   let seekResumeMode: 'playing' | 'paused' | null = null;
+  let playbackBaseTimeSec = 0;
+  let currentEventStartedAtMs: number | null = null;
+  let pausedOffsetSec = 0;
 
   function isActive() {
     return isPlaying || isPaused;
@@ -61,6 +72,10 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     isPlaying = false;
     isPaused = false;
     nextEventIndex = 0;
+    playbackBaseTimeSec = 0;
+    currentEventStartedAtMs = null;
+    pausedOffsetSec = 0;
+    deps.onPlaybackStopped();
     if (options?.clearUi) {
       seekResumeMode = null;
       stepPreviewIndex = null;
@@ -85,8 +100,18 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
       clearTimeout(timeoutId);
       timeoutId = null;
     }
+    pausedOffsetSec =
+      currentEventStartedAtMs === null ? 0 : Math.max(0, (Date.now() - currentEventStartedAtMs) / 1000);
+    currentEventStartedAtMs = null;
     isPlaying = false;
     isPaused = true;
+    deps.onPlaybackCursorChange({
+      active: true,
+      paused: true,
+      baseTimeSec: playbackBaseTimeSec,
+      anchorStartedAtMs: null,
+      pausedOffsetSec,
+    });
     deps.onStateChange();
     deps.setResultMessage('Melody playback paused.');
   }
@@ -99,9 +124,27 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     seekResumeMode = null;
     isPaused = false;
     isPlaying = true;
+    currentEventStartedAtMs = Date.now();
+    deps.onPlaybackCursorChange({
+      active: true,
+      paused: false,
+      baseTimeSec: playbackBaseTimeSec,
+      anchorStartedAtMs: currentEventStartedAtMs,
+      pausedOffsetSec,
+    });
     deps.onStateChange();
     deps.setResultMessage(`Resumed playback: ${selection.melody.name}`);
     startPlaybackFromIndex(selection, nextEventIndex);
+  }
+
+  function getElapsedSecondsBeforeEvent(selection: MelodyDemoSelection, targetIndex: number) {
+    let elapsedSec = 0;
+    for (let index = selection.studyRange.startIndex; index < targetIndex; index += 1) {
+      const event = selection.melody.events[index];
+      if (!event) continue;
+      elapsedSec += deps.getStepDelayMs(event, selection.melody.events) / 1000;
+    }
+    return elapsedSec;
   }
 
   function seekToEvent(eventIndex: number, options?: { commit?: boolean }) {
@@ -263,6 +306,10 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         nextEventIndex = studyRange.startIndex;
         isPlaying = false;
         isPaused = false;
+        playbackBaseTimeSec = 0;
+        currentEventStartedAtMs = null;
+        pausedOffsetSec = 0;
+        deps.onPlaybackStopped();
         deps.onStateChange();
         deps.clearUiPreview();
         deps.redrawFretboard();
@@ -275,6 +322,16 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
 
       nextEventIndex = index + 1;
       const event = melody.events[index];
+      playbackBaseTimeSec = getElapsedSecondsBeforeEvent(selection, index);
+      pausedOffsetSec = 0;
+      currentEventStartedAtMs = Date.now();
+      deps.onPlaybackCursorChange({
+        active: true,
+        paused: false,
+        baseTimeSec: playbackBaseTimeSec,
+        anchorStartedAtMs: currentEventStartedAtMs,
+        pausedOffsetSec: 0,
+      });
       deps.previewEvent(melody.events, melody.name, event, index, totalEventsInRange, studyRange, {
         label: 'Playback',
         autoplaySound: true,

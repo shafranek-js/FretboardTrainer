@@ -185,24 +185,12 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
       { label: options?.label }
     );
     deps.setPromptText(prompt.displayText);
-
-    if ((prompt.targetMelodyEventNotes?.length ?? 0) >= 1) {
-      deps.drawFretboard(false, null, null, prompt.targetMelodyEventNotes ?? []);
-    } else if (prompt.targetNote) {
-      deps.drawFretboard(
-        false,
-        prompt.targetNote,
-        prompt.targetString || deps.findPlayableStringForNote(prompt.targetNote)
-      );
-    } else {
-      deps.redrawFretboard();
-    }
+    deps.redrawFretboard();
+    deps.renderTimeline();
 
     if (options?.autoplaySound !== false) {
       playPromptAudioFromPrompt(prompt);
     }
-
-    deps.renderTimeline();
   }
 
   return {

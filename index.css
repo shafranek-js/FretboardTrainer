@@ -82,6 +82,7 @@ input[type='number'] {
 
 .session-area,
 #melodyTabTimelinePanel,
+.scrolling-tab-panel-shell,
 .fretboard-area,
 #melodyTabTimelineMinimapDock {
   border: 1px solid var(--ff-shell-border);
@@ -869,8 +870,8 @@ input[type='number'] {
 }
 
 #melodyLibraryRow .field-tooltip-host {
-  flex: 0 0 15rem;
-  min-width: 15rem !important;
+  flex: 0 0 11.25rem;
+  min-width: 11.25rem !important;
 }
 
 #melodyPracticeFieldsRow > .field-tooltip-host {
@@ -878,7 +879,7 @@ input[type='number'] {
 }
 
 #melodyPracticeSection .field-tooltip-host[data-field-hint='Transpose'] > div {
-  width: 11rem;
+  width: 9.4rem;
 }
 
 #melodyPracticeSection .field-tooltip-host[data-field-hint='Study Range'] > div {
@@ -887,6 +888,15 @@ input[type='number'] {
 
 #melodyPracticeSection .field-tooltip-host[data-field-hint='Demo BPM'] > div {
   width: 11rem;
+}
+
+#melodyPracticeSection .field-tooltip-host[data-field-hint='String Shift'] > div {
+  width: 9.7rem;
+}
+
+#melodyPracticeSection .field-tooltip-host[data-field-hint='TAB Zoom'] > div,
+#melodyPracticeSection .field-tooltip-host[data-field-hint='Scroll Zoom'] > div {
+  width: 9.6rem;
 }
 
 #melodyPracticeActionsRow {
@@ -1014,7 +1024,7 @@ input[type='number'] {
 
 #practiceSetupPanel label.font-medium,
 #melodySetupPanel label.font-medium {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   line-height: 1.1;
 }
 
@@ -1022,12 +1032,97 @@ input[type='number'] {
 #melodySetupPanel .melody-setting-chip,
 #melodySetupPanel .melody-action-chip {
   min-height: 1.8rem;
-  padding: 0.16rem 0.44rem;
-  font-size: 0.68rem;
+  padding: 0.14rem 0.34rem;
+  font-size: 0.64rem;
   line-height: 1.1;
   border-color: var(--ff-control-stroke) !important;
   background: var(--ff-chip-fill) !important;
   color: var(--ff-text-soft) !important;
+}
+
+#melodySelectorContainer,
+#melodyPracticeSection,
+#melodyLibraryRow,
+#melodyPracticeFieldsRow,
+#melodyPracticeActionsRow,
+#melodyPracticeActionsRow > div {
+  gap: 0.28rem !important;
+}
+
+#melodySetupPanel section {
+  padding: 0.34rem 0.38rem !important;
+}
+
+#melodySetupPanel select,
+#melodySetupPanel input[type='number'] {
+  font-size: 0.64rem !important;
+}
+
+#melodySetupPanel button.h-9,
+#melodySetupPanel label.h-9 {
+  height: 1.85rem !important;
+  font-size: 0.64rem !important;
+}
+
+#melodySetupPanel .field-tooltip-label,
+#melodySetupPanel label.font-medium {
+  font-size: 0.62rem !important;
+}
+
+#melodySetupPanel .h-7 {
+  height: 1.5rem !important;
+}
+
+#melodySetupPanel .w-7 {
+  width: 1.5rem !important;
+}
+
+#melodySetupPanel #melodySelector,
+#melodySetupPanel #melodyTranspose,
+#melodySetupPanel #melodyStringShift,
+#melodySetupPanel #melodyStudyStart,
+#melodySetupPanel #melodyStudyEnd {
+  padding-left: 0.35rem !important;
+  padding-right: 0.35rem !important;
+}
+
+#melodySetupPanel #melodyTranspose,
+#melodySetupPanel #melodyStringShift,
+#melodySetupPanel #melodyStudyStart,
+#melodySetupPanel #melodyStudyEnd {
+  width: 2.55rem !important;
+}
+
+#melodySetupPanel #melodyTransposeValue,
+#melodySetupPanel #melodyStringShiftValue,
+#melodySetupPanel #melodyTimelineZoomValue,
+#melodySetupPanel #scrollingTabZoomValue {
+  min-width: 3.45rem !important;
+  padding: 0.18rem 0.38rem !important;
+  font-size: 0.64rem !important;
+}
+
+#melodySetupPanel #melodyStudyValue {
+  min-width: 5.6rem !important;
+  padding: 0.18rem 0.38rem !important;
+  font-size: 0.64rem !important;
+}
+
+#melodySetupPanel #openMelodyImportBtn,
+#melodySetupPanel #editMelodyBtn,
+#melodySetupPanel #exportMelodyMidiBtn,
+#melodySetupPanel #bakePracticeMelodyBtn,
+#melodySetupPanel #deleteMelodyBtn,
+#melodySetupPanel #melodyTransposeResetBtn,
+#melodySetupPanel #melodyStringShiftResetBtn,
+#melodySetupPanel #melodyStudyResetBtn {
+  padding-left: 0.48rem !important;
+  padding-right: 0.48rem !important;
+  letter-spacing: -0.01em;
+}
+
+#melodySetupPanel #melodyPracticeFieldsRow input[type='range'] {
+  min-width: 0 !important;
 }
 
 #practiceSetupCore > .flex,
@@ -1330,6 +1425,39 @@ input[type='number'] {
   padding-right: calc(0.28rem * var(--melody-timeline-zoom-scale)) !important;
 }
 
+#scrollingTabPanel {
+  --melody-timeline-zoom-scale: 1;
+  position: relative;
+  overflow: hidden;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: calc(0.18rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-bottom: calc(0.18rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-left: calc(0.28rem * var(--melody-timeline-zoom-scale)) !important;
+  padding-right: calc(0.28rem * var(--melody-timeline-zoom-scale)) !important;
+}
+
+.scrolling-tab-panel-shell {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.84));
+}
+
+.scrolling-tab-panel-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.02));
+}
+
+#scrollingTabPanelCanvas {
+  display: block;
+  position: relative;
+}
+
 #melodyTabTimelineMinimapDock {
   --melody-timeline-zoom-scale: 1;
   margin-top: 0;
@@ -1479,6 +1607,22 @@ input[type='number'] {
   background: transparent;
   box-shadow: none;
   backdrop-filter: saturate(0.92);
+}
+
+#melodyTabTimelinePanel .timeline-main-playhead {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.7rem;
+  left: 0;
+  width: 1px;
+  opacity: 0;
+  transform: translateX(-0.5px);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.98), rgba(125, 211, 252, 0.82));
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.18),
+    0 0 10px rgba(34, 211, 238, 0.26);
+  pointer-events: none;
+  z-index: 6;
 }
 
 #melodyTabTimelinePanel #melodyTabTimelineViewport::before,
@@ -1641,8 +1785,8 @@ body.timeline-pan-active * {
   z-index: 2;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu {
-  position: absolute;
+.timeline-context-menu {
+  position: fixed;
   display: flex;
   flex-direction: column;
   min-width: 250px;
@@ -1650,10 +1794,10 @@ body.timeline-pan-active * {
   background: rgba(12, 18, 31, 0.98);
   border: 1px solid rgba(51, 65, 85, 0.94);
   box-shadow: 0 10px 22px rgba(2, 6, 23, 0.38);
-  z-index: 6;
+  z-index: 120;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-btn {
+.timeline-context-menu-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1668,7 +1812,7 @@ body.timeline-pan-active * {
   text-align: left;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-text {
+.timeline-context-menu-text {
   display: flex;
   min-width: 0;
   flex: 1;
@@ -1678,13 +1822,13 @@ body.timeline-pan-active * {
   overflow: hidden;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-title {
+.timeline-context-menu-title {
   flex: 0 0 auto;
   color: #f8fafc;
   font-size: 11px;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-description {
+.timeline-context-menu-description {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1693,20 +1837,20 @@ body.timeline-pan-active * {
   font-size: 10px;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-description::before {
+.timeline-context-menu-description::before {
   content: '\2014';
   margin-right: 0.28rem;
   color: rgba(100, 116, 139, 0.8);
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-shortcut {
+.timeline-context-menu-shortcut {
   flex: 0 0 auto;
   color: rgba(148, 163, 184, 0.95);
   font-size: 10px;
   white-space: nowrap;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-section {
+.timeline-context-menu-section {
   padding: 0.3rem 0.55rem 0.12rem;
   color: rgba(148, 163, 184, 0.78);
   font-size: 9px;
@@ -1715,22 +1859,22 @@ body.timeline-pan-active * {
   text-transform: uppercase;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-btn:hover:not(:disabled) {
+.timeline-context-menu-btn:hover:not(:disabled) {
   background: rgba(51, 65, 85, 0.88);
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-btn:disabled {
+.timeline-context-menu-btn:disabled {
   color: rgba(148, 163, 184, 0.5);
   cursor: default;
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-btn:disabled .timeline-context-menu-title,
-#melodyTabTimelinePanel .timeline-context-menu-btn:disabled .timeline-context-menu-description,
-#melodyTabTimelinePanel .timeline-context-menu-btn:disabled .timeline-context-menu-shortcut {
+.timeline-context-menu-btn:disabled .timeline-context-menu-title,
+.timeline-context-menu-btn:disabled .timeline-context-menu-description,
+.timeline-context-menu-btn:disabled .timeline-context-menu-shortcut {
   color: rgba(100, 116, 139, 0.55);
 }
 
-#melodyTabTimelinePanel .timeline-context-menu-separator {
+.timeline-context-menu-separator {
   height: 1px;
   margin: 0.15rem 0.35rem;
   background: rgba(51, 65, 85, 0.9);

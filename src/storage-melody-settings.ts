@@ -9,6 +9,10 @@ import {
   normalizeMelodyTimelineZoomPercent,
 } from './melody-timeline-zoom';
 import {
+  formatScrollingTabPanelZoomPercent,
+  normalizeScrollingTabPanelZoomPercent,
+} from './scrolling-tab-panel-zoom';
+import {
   formatMelodyTransposeSemitones,
   normalizeMelodyTransposeSemitones,
 } from './melody-transposition';
@@ -17,6 +21,7 @@ import { normalizeStoredMelodyStudyRangeIndex, type ProfileSettings } from './st
 export interface ResolvedStoredMelodySettings {
   preferredMelodyId: string;
   melodyTimelineZoomPercent: number;
+  scrollingTabZoomPercent: number;
   melodyDemoBpm: string;
   melodyPlaybackBpmById: Record<string, number>;
   melodyTransposeById: Record<string, number>;
@@ -30,6 +35,8 @@ export interface ResolvedStoredMelodySettings {
 interface MelodySettingsDomTarget {
   melodyTimelineZoom: { value: string };
   melodyTimelineZoomValue: { textContent: string };
+  scrollingTabZoom: { value: string };
+  scrollingTabZoomValue: { textContent: string };
   melodyDemoBpm: { value: string };
   melodyDemoBpmValue: { textContent: string };
   melodyLoopRange: { checked: boolean };
@@ -42,6 +49,7 @@ interface MelodySettingsDomTarget {
 interface MelodySettingsStateTarget {
   preferredMelodyId: string | null;
   melodyTimelineZoomPercent: number;
+  scrollingTabZoomPercent: number;
   melodyPlaybackBpmById: Record<string, number>;
   melodyTransposeById: Record<string, number>;
   melodyStringShiftById: Record<string, number>;
@@ -114,6 +122,7 @@ export function resolveStoredMelodySettings(
         ? safeSettings.selectedMelodyId
         : getDefaultMelodyIdForInstrument(instrument.name),
     melodyTimelineZoomPercent: normalizeMelodyTimelineZoomPercent(safeSettings.melodyTimelineZoomPercent),
+    scrollingTabZoomPercent: normalizeScrollingTabPanelZoomPercent(safeSettings.scrollingTabZoomPercent),
     melodyDemoBpm: String(clampMelodyPlaybackBpm(safeSettings.melodyDemoBpm)),
     melodyPlaybackBpmById: normalizeBpmMap(safeSettings.melodyPlaybackBpmById),
     melodyTransposeById: normalizeTransposeMap(safeSettings.melodyTransposeById),
@@ -135,6 +144,11 @@ export function applyStoredMelodySettings(
   dom.melodyTimelineZoom.value = String(resolved.melodyTimelineZoomPercent);
   dom.melodyTimelineZoomValue.textContent = formatMelodyTimelineZoomPercent(
     resolved.melodyTimelineZoomPercent
+  );
+  state.scrollingTabZoomPercent = resolved.scrollingTabZoomPercent;
+  dom.scrollingTabZoom.value = String(resolved.scrollingTabZoomPercent);
+  dom.scrollingTabZoomValue.textContent = formatScrollingTabPanelZoomPercent(
+    resolved.scrollingTabZoomPercent
   );
 
   dom.melodyDemoBpm.value = resolved.melodyDemoBpm;

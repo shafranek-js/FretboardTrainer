@@ -51,12 +51,20 @@ import {
   bindTimelineDragPan,
   bindTimelineScrollChrome,
   centerTimelineEvent,
+  followTimelineRuntimeScroll,
   updateTimelineScrollChrome,
 } from './melody-tab-timeline-scroll';
 import {
   getRenderedTimelineStepMetrics,
   renderStudyRangeBar,
 } from './melody-tab-timeline-study-range-renderer';
+import { buildClassicTimelineFeedbackSegment } from './melody-tab-timeline-performance-feedback-renderer';
+import {
+  applyClassicCellFeedbackStyles,
+  getClassicCellText,
+  getPrimaryCellFingerColor,
+  resolveClassicCellFeedbackTone,
+} from './melody-tab-timeline-render-utils';
 import {
   formatMelodyStudyRange,
   getMelodyStudyRangeLength,
@@ -80,6 +88,135 @@ export {
 export type { MelodyTimelineContextAction };
 
 let lastRenderKey = '';
+let lastStructuralRenderKey = '';
+let lastClassicActiveEventIndex: number | null = null;
+let lastPlayheadEventIndex: number | null = null;
+
+function applyTimelinePlayheadCellVisualState(cell: HTMLElement, active: boolean) {
+  cell.dataset.playheadActive = active ? 'true' : 'false';
+  if (cell.dataset.feedbackTone) return;
+
+  if (cell.dataset.timelineGridCell === 'true') {
+    cell.style.borderColor = active
+      ? cell.style.getPropertyValue('--timeline-grid-playhead-border')
+      : cell.style.getPropertyValue('--timeline-grid-base-border');
+    cell.style.backgroundColor = active
+      ? cell.style.getPropertyValue('--timeline-grid-playhead-bg')
+      : cell.style.getPropertyValue('--timeline-grid-base-bg');
+    if (cell.tagName === 'TH') {
+      cell.style.color = active
+        ? cell.style.getPropertyValue('--timeline-grid-playhead-color')
+        : cell.style.getPropertyValue('--timeline-grid-base-color');
+    }
+    cell.style.boxShadow = active ? cell.style.getPropertyValue('--timeline-grid-playhead-box-shadow') : '';
+    return;
+  }
+
+  cell.style.backgroundColor = active
+    ? cell.style.getPropertyValue('--timeline-playhead-bg')
+    : cell.style.getPropertyValue('--timeline-base-bg');
+  cell.style.color = active
+    ? cell.style.getPropertyValue('--timeline-playhead-color')
+    : cell.style.getPropertyValue('--timeline-base-color');
+  const boxShadow = active
+    ? cell.style.getPropertyValue('--timeline-playhead-box-shadow')
+    : cell.style.getPropertyValue('--timeline-base-box-shadow');
+  cell.style.boxShadow = boxShadow === 'none' ? '' : boxShadow;
+}
+
+function updateTimelinePlayheadEventCells(eventIndex: number | null, active: boolean) {
+  if (eventIndex === null) return;
+  const cells = dom.melodyTabTimelineGrid.querySelectorAll<HTMLElement>(
+    `[data-event-index="${eventIndex}"][data-timeline-track-cell="true"], [data-event-index="${eventIndex}"][data-timeline-grid-cell="true"]`
+  );
+  cells.forEach((cell) => {
+    if ((cell.dataset.feedbackTone ?? '') !== '') return;
+    applyTimelinePlayheadCellVisualState(cell, active);
+  });
+}
+
+function updateTimelinePlayheadEvent(activeEventIndex: number | null) {
+  if (lastPlayheadEventIndex === activeEventIndex) return;
+  updateTimelinePlayheadEventCells(lastPlayheadEventIndex, false);
+  updateTimelinePlayheadEventCells(activeEventIndex, true);
+  lastPlayheadEventIndex = activeEventIndex;
+}
+
+function applyClassicTimelineTrackCellVisualState(
+  cell: HTMLElement,
+  active: boolean,
+  feedbackTone: 'correct' | 'wrong' | 'missed' | null
+) {
+  if (feedbackTone) return;
+  cell.dataset.activeEvent = active ? 'true' : 'false';
+  cell.style.backgroundColor = active
+    ? cell.style.getPropertyValue('--timeline-active-bg')
+    : cell.style.getPropertyValue('--timeline-base-bg');
+  cell.style.color = active
+    ? cell.style.getPropertyValue('--timeline-active-color')
+    : cell.style.getPropertyValue('--timeline-base-color');
+  const boxShadow = active
+    ? cell.style.getPropertyValue('--timeline-active-box-shadow')
+    : cell.style.getPropertyValue('--timeline-base-box-shadow');
+  cell.style.boxShadow = boxShadow === 'none' ? '' : boxShadow;
+}
+
+function updateClassicTimelineEventCells(eventIndex: number | null, active: boolean) {
+  if (eventIndex === null) return;
+  const cells = dom.melodyTabTimelineGrid.querySelectorAll<HTMLElement>(
+    `[data-timeline-track-cell="true"][data-event-index="${eventIndex}"]`
+  );
+  cells.forEach((cell) => {
+    if ((cell.dataset.feedbackTone ?? '') !== '') return;
+    applyClassicTimelineTrackCellVisualState(cell, active, null);
+  });
+}
+
+function updateClassicTimelineActiveEvent(activeEventIndex: number | null) {
+  if (lastClassicActiveEventIndex === activeEventIndex) return;
+  updateClassicTimelineEventCells(lastClassicActiveEventIndex, false);
+  updateClassicTimelineEventCells(activeEventIndex, true);
+  lastClassicActiveEventIndex = activeEventIndex;
+}
+
+function followHighlightedTimelineEvent(eventIndex: number | null) {
+  if (eventIndex === null) return;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  centerTimelineEvent(eventIndex, prefersReducedMotion ? 'auto' : 'smooth');
+}
+
+function updateClassicTimelineFeedback(model: ReturnType<typeof buildMelodyTabTimelineViewModel>) {
+  model.rows.forEach((row) => {
+    const rowLine = dom.melodyTabTimelineGrid.querySelector<HTMLElement>(
+      `[data-timeline-string-name="${row.stringName}"]`
+    );
+    if (!rowLine) return;
+    row.cells.forEach((rowCell, eventIndex) => {
+      const cell = rowLine.querySelector<HTMLElement>(`[data-event-index="${eventIndex}"]`);
+      if (!cell) return;
+
+      const cellWidth = Number.parseInt(cell.dataset.cellWidth ?? '3', 10);
+      const feedbackTone = resolveClassicCellFeedbackTone(rowCell);
+      const accentColor = getPrimaryCellFingerColor(rowCell.notes);
+      const displaySegment =
+        rowCell.unmatchedPlayedNotes.length > 0
+          ? buildClassicTimelineFeedbackSegment(rowCell, cellWidth)
+          : getClassicCellText(rowCell.notes, cellWidth);
+
+      if (cell.textContent !== displaySegment) {
+        cell.textContent = displaySegment;
+      }
+
+      cell.dataset.feedbackTone = feedbackTone ?? '';
+      cell.style.backgroundColor = '';
+      cell.style.color = '';
+      const baseBoxShadow = cell.style.getPropertyValue('--timeline-base-box-shadow');
+      cell.style.boxShadow = baseBoxShadow === 'none' ? '' : baseBoxShadow;
+      applyClassicTimelineTrackCellVisualState(cell, model.activeEventIndex === eventIndex, feedbackTone);
+      applyClassicCellFeedbackStyles(cell, feedbackTone, accentColor);
+    });
+  });
+}
 
 function clearGrid() {
   dom.melodyTabTimelineGrid.innerHTML = '';
@@ -93,12 +230,29 @@ export function hideMelodyTabTimeline() {
   dom.melodyTabTimelineMinimap.innerHTML = '';
   dom.melodyTabTimelineMeta.classList.add('hidden');
   dom.melodyTabTimelineMeta.textContent = '';
+  dom.melodyTabTimelinePlayhead.style.opacity = '0';
   dom.melodyTabTimelineGrid.dataset.activeEventIndex = '';
   dom.melodyTabTimelineViewport.dataset.scrollable = 'false';
   dom.melodyTabTimelineViewport.dataset.scrollLeft = 'false';
   dom.melodyTabTimelineViewport.dataset.scrollRight = 'false';
   clearGrid();
   lastRenderKey = '';
+  lastStructuralRenderKey = '';
+  lastClassicActiveEventIndex = null;
+  lastPlayheadEventIndex = null;
+}
+
+export function updateMelodyTabTimelineRuntimeCursor(
+  melody: MelodyDefinition,
+  bpm: number,
+  studyRange: { startIndex: number; endIndex: number },
+  currentTimeSec: number,
+  leadInSec = 0
+) {
+  if (dom.melodyTabTimelineGrid.childElementCount <= 0) return;
+  followTimelineRuntimeScroll(melody, bpm, studyRange, currentTimeSec, leadInSec);
+  updateTimelinePlayheadEvent(null);
+  dom.melodyTabTimelinePlayhead.style.opacity = '0';
 }
 
 export function renderMelodyTabTimeline(
@@ -120,6 +274,8 @@ export function renderMelodyTabTimeline(
     resolvedOptions.studyRange,
     resolvedOptions.performanceFeedbackByEvent
   );
+  const runtimePlayheadActive = resolvedOptions.currentTimeSec !== null && resolvedOptions.bpm !== null;
+  const renderModel = model;
   const barGrouping = buildTimelineBarGrouping(melody);
   const durationLayout = computeTimelineDurationLayout(melody);
   const melodyContentSignature = buildMelodyContentSignature(melody);
@@ -130,22 +286,105 @@ export function renderMelodyTabTimeline(
       melody,
       stringOrder: instrument.STRING_ORDER,
       melodyContentSignature,
-      model,
+      model: renderModel,
       barGrouping,
       durationLayout,
       studyRange: resolvedOptions.studyRange,
       contextMenuSignature,
       activeTimelineNoteDragSource,
+      includePerformanceFeedbackSignature: true,
     },
     resolvedOptions
   );
+  const structuralRenderKey = buildMelodyTimelineRenderKey(
+    {
+      melody,
+      stringOrder: instrument.STRING_ORDER,
+      melodyContentSignature,
+      model: { activeEventIndex: options.viewMode === 'classic' ? null : renderModel.activeEventIndex },
+      barGrouping,
+      durationLayout,
+      studyRange: resolvedOptions.studyRange,
+      contextMenuSignature,
+      activeTimelineNoteDragSource,
+      includePerformanceFeedbackSignature: false,
+    },
+    resolvedOptions
+  );
+  if (
+    structuralRenderKey === lastStructuralRenderKey &&
+    dom.melodyTabTimelineGrid.childElementCount > 0 &&
+    resolvedOptions.viewMode === 'classic'
+  ) {
+    const previousActiveEventIndex = lastClassicActiveEventIndex;
+    dom.melodyTabTimelineGrid.dataset.activeEventIndex =
+      renderModel.activeEventIndex === null ? '' : String(renderModel.activeEventIndex);
+    updateClassicTimelineFeedback(renderModel);
+    updateClassicTimelineActiveEvent(renderModel.activeEventIndex);
+    if (!runtimePlayheadActive && previousActiveEventIndex !== renderModel.activeEventIndex) {
+      followHighlightedTimelineEvent(renderModel.activeEventIndex);
+    }
+    if (runtimePlayheadActive && resolvedOptions.currentTimeSec !== null && resolvedOptions.bpm !== null) {
+      followTimelineRuntimeScroll(
+        melody,
+        resolvedOptions.bpm,
+        resolvedOptions.studyRange,
+        resolvedOptions.currentTimeSec,
+        resolvedOptions.leadInSec
+      );
+      updateTimelinePlayheadEvent(null);
+      dom.melodyTabTimelinePlayhead.style.opacity = '0';
+    } else {
+      updateTimelinePlayheadEvent(null);
+      dom.melodyTabTimelinePlayhead.style.opacity = '0';
+    }
+    const studyRangeText = ` | Study: ${formatMelodyStudyRange(studyRange, melody.events.length)} (${getMelodyStudyRangeLength(studyRange, melody.events.length)} steps)`;
+    dom.melodyTabTimelineMeta.textContent = buildMelodyTimelineMetaText({
+      modeLabel: resolvedOptions.modeLabel,
+      viewMode: resolvedOptions.viewMode,
+      model,
+      barGrouping,
+      durationLayout,
+      studyRangeText,
+      showMetaDetails: resolvedOptions.showMetaDetails,
+    });
+    if (resolvedOptions.currentTimeSec !== null && resolvedOptions.bpm !== null) {
+      followTimelineRuntimeScroll(
+        melody,
+        resolvedOptions.bpm,
+        resolvedOptions.studyRange,
+        resolvedOptions.currentTimeSec,
+        resolvedOptions.leadInSec
+      );
+      updateTimelinePlayheadEvent(null);
+      dom.melodyTabTimelinePlayhead.style.opacity = '0';
+    }
+    lastRenderKey = renderKey;
+    return;
+  }
   if (renderKey === lastRenderKey && dom.melodyTabTimelineGrid.childElementCount > 0) {
+    if (resolvedOptions.currentTimeSec !== null && resolvedOptions.bpm !== null) {
+      followTimelineRuntimeScroll(
+        melody,
+        resolvedOptions.bpm,
+        resolvedOptions.studyRange,
+        resolvedOptions.currentTimeSec,
+        resolvedOptions.leadInSec
+      );
+      updateTimelinePlayheadEvent(null);
+      dom.melodyTabTimelinePlayhead.style.opacity = '0';
+    }
     return;
   }
   lastRenderKey = renderKey;
+  lastStructuralRenderKey = structuralRenderKey;
+  lastClassicActiveEventIndex = renderModel.activeEventIndex;
   dom.melodyTabTimelineGrid.dataset.activeEventIndex =
-    model.activeEventIndex === null ? '' : String(model.activeEventIndex);
+    renderModel.activeEventIndex === null ? '' : String(renderModel.activeEventIndex);
   dom.melodyTabTimelineGrid.dataset.melodyId = melody.id;
+  dom.melodyTabTimelineGrid.dataset.renderEpoch = String(
+    Number.parseInt(dom.melodyTabTimelineGrid.dataset.renderEpoch ?? '0', 10) + 1
+  );
 
   dom.melodyTabTimelinePanel.classList.remove('hidden');
   dom.melodyTabTimelinePanel.style.setProperty(
@@ -169,10 +408,10 @@ export function renderMelodyTabTimeline(
   });
 
   clearGrid();
-  renderTimelineMinimap(
+    renderTimelineMinimap(
     melody,
     instrument.STRING_ORDER,
-    model.activeEventIndex,
+    renderModel.activeEventIndex,
     durationLayout,
     resolvedOptions.studyRange,
     {
@@ -192,7 +431,7 @@ export function renderMelodyTabTimeline(
     renderGridTimeline(
       melody.id,
       instrument,
-      model,
+      renderModel,
       barGrouping,
       durationLayout,
       content,
@@ -218,7 +457,7 @@ export function renderMelodyTabTimeline(
     renderClassicTimeline(
       melody.id,
       instrument,
-      model,
+      renderModel,
       barGrouping,
       durationLayout,
       content,
@@ -258,9 +497,23 @@ export function renderMelodyTabTimeline(
     getMelodyTimelineStudyRangeCommitHandler()
   );
 
-  if (model.activeEventIndex !== null) {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    centerTimelineEvent(model.activeEventIndex, prefersReducedMotion ? 'auto' : 'smooth');
+  if (resolvedOptions.currentTimeSec !== null && resolvedOptions.bpm !== null) {
+    followTimelineRuntimeScroll(
+      melody,
+      resolvedOptions.bpm,
+      resolvedOptions.studyRange,
+      resolvedOptions.currentTimeSec,
+      resolvedOptions.leadInSec
+    );
+    updateTimelinePlayheadEvent(null);
+    dom.melodyTabTimelinePlayhead.style.opacity = '0';
+  } else if (renderModel.activeEventIndex !== null) {
+    updateTimelinePlayheadEvent(null);
+    dom.melodyTabTimelinePlayhead.style.opacity = '0';
+    followHighlightedTimelineEvent(renderModel.activeEventIndex);
+  } else {
+    updateTimelinePlayheadEvent(null);
+    dom.melodyTabTimelinePlayhead.style.opacity = '0';
   }
 
   updateTimelineScrollChrome();

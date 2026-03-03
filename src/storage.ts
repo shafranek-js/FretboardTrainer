@@ -52,6 +52,7 @@ import {
   type ProfileSettings,
 } from './storage-profiles';
 import {
+  flushPendingStatsSave,
   loadStats,
   resetStats,
   saveLastSessionStats,
@@ -72,6 +73,7 @@ export {
   getDefaultTrainingMode,
   getDefaultMelodyIdForInstrument,
   saveStats,
+  flushPendingStatsSave,
   saveLastSessionStats,
   loadStats,
   resetStats,
@@ -137,7 +139,10 @@ export function gatherCurrentSettings(): ProfileSettings {
     curriculumPreset: dom.curriculumPreset.value as CurriculumPresetKey,
     selectedMelodyId: dom.melodySelector.value || undefined,
     melodyShowNote: dom.melodyShowNote.checked,
+    melodyShowTabTimeline: state.showMelodyTabTimeline,
+    melodyShowScrollingTab: state.showScrollingTabPanel,
     melodyTimelineZoomPercent: normalizeMelodyTimelineZoomPercent(dom.melodyTimelineZoom.value),
+    scrollingTabZoomPercent: state.scrollingTabZoomPercent,
     melodyDemoBpm: dom.melodyDemoBpm.value,
     melodyPlaybackBpmById: { ...state.melodyPlaybackBpmById },
     melodyTransposeById: { ...state.melodyTransposeById },
@@ -272,6 +277,10 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.curriculumPresetInfo.textContent = curriculumPresetDescription;
     dom.curriculumPresetInfo.classList.toggle('hidden', curriculumPresetDescription.length === 0);
     dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
+    state.showMelodyTabTimeline = safeSettings.melodyShowTabTimeline ?? true;
+    dom.melodyShowTabTimeline.checked = state.showMelodyTabTimeline;
+    state.showScrollingTabPanel = safeSettings.melodyShowScrollingTab ?? true;
+    dom.melodyShowScrollingTab.checked = state.showScrollingTabPanel;
     const resolvedMelodySettings = resolveStoredMelodySettings(
       safeSettings,
       state.currentInstrument,

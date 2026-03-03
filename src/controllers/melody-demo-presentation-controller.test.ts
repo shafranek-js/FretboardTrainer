@@ -140,14 +140,10 @@ describe('melody-demo-presentation-controller', () => {
     expect(state.melodyTimelinePreviewIndex).toBe(0);
     expect(state.melodyTimelinePreviewLabel).toBe('Playback');
     expect(deps.setPromptText).toHaveBeenCalledWith('Playback [1/1]: C (A, fret 3) (Romanza)');
-    expect(deps.drawFretboard).toHaveBeenCalledWith(
-      false,
-      null,
-      null,
-      [expect.objectContaining({ note: 'C', string: 'A', fret: 3, finger: 1 })]
-    );
-    expect(deps.playSound).toHaveBeenCalledWith('A3');
+    expect(deps.redrawFretboard).toHaveBeenCalledTimes(1);
     expect(deps.renderTimeline).toHaveBeenCalledTimes(1);
+    expect(deps.drawFretboard).not.toHaveBeenCalled();
+    expect(deps.playSound).toHaveBeenCalledWith('A3');
   });
 
   it('previews a chord event with chord fingering and can skip autoplay', () => {
@@ -165,15 +161,9 @@ describe('melody-demo-presentation-controller', () => {
 
     controller.previewEvent(events, 'Romanza', events[0]!, 0, 1, { startIndex: 0, endIndex: 0 }, { autoplaySound: false });
 
-    expect(deps.drawFretboard).toHaveBeenCalledWith(
-      false,
-      null,
-      null,
-      [
-        expect.objectContaining({ note: 'C', string: 'A', fret: 3 }),
-        expect.objectContaining({ note: 'G', string: 'D', fret: 5 }),
-      ]
-    );
+    expect(deps.redrawFretboard).toHaveBeenCalledTimes(1);
+    expect(deps.renderTimeline).toHaveBeenCalledTimes(1);
+    expect(deps.drawFretboard).not.toHaveBeenCalled();
     expect(deps.playSound).not.toHaveBeenCalled();
   });
 

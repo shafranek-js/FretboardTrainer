@@ -67,6 +67,11 @@ export function setMelodyTimelineSelectionClearHandler(
   onMelodyTimelineSelectionClear = handler;
 }
 
+export function emitMelodyTimelineSelectionClear(payload: { melodyId: string }) {
+  clearMelodyTimelineContextMenu();
+  onMelodyTimelineSelectionClear?.(payload);
+}
+
 export function bindTimelineSelectionClear() {
   if (timelineSelectionClearBound) return;
   timelineSelectionClearBound = true;
@@ -78,7 +83,6 @@ export function bindTimelineSelectionClear() {
     if (target.closest('[data-note-index]')) return;
     if (target.closest('.timeline-context-menu')) return;
     if (target.closest('[data-timeline-range-ui="true"]')) return;
-    clearMelodyTimelineContextMenu();
-    onMelodyTimelineSelectionClear?.({ melodyId });
+    emitMelodyTimelineSelectionClear({ melodyId });
   });
 }

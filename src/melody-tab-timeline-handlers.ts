@@ -39,3 +39,11 @@ export function getMelodyTimelineSeekHandler() {
 export function getMelodyTimelineEmptyCellAddHandler() {
   return onMelodyTimelineEmptyCellAdd;
 }
+
+export function emitMelodyTimelineSeek(payload: { melodyId: string; eventIndex: number; commit: boolean }) {
+  onMelodyTimelineSeek?.(payload);
+}
+
+export function emitMelodyTimelineEmptyCellAdd(payload: { melodyId: string; eventIndex: number; stringName: string }) {
+  onMelodyTimelineEmptyCellAdd?.(payload);
+}

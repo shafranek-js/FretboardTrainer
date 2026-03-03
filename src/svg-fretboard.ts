@@ -22,6 +22,17 @@ const FINGER_COLORS: Record<number, string> = {
   4: '#ef4444',
 };
 
+type SvgContainer = SVGSVGElement | SVGGElement;
+let lastStaticFretboardRenderKey = '';
+let cachedDynamicNotesLayer: SVGGElement | null = null;
+type DynamicNoteMarker = {
+  group: SVGGElement;
+  halo: SVGCircleElement;
+  circle: SVGCircleElement;
+  text: SVGTextElement;
+};
+let cachedDynamicNoteMarkers: DynamicNoteMarker[] = [];
+
 function createSvgEl<K extends keyof SVGElementTagNameMap>(
   tag: K,
   attrs: Record<string, string | number>
@@ -34,7 +45,7 @@ function createSvgEl<K extends keyof SVGElementTagNameMap>(
 }
 
 function appendCircle(
-  svg: SVGSVGElement,
+  svg: SvgContainer,
   x: number,
   y: number,
   r: number,
@@ -54,11 +65,11 @@ function appendCircle(
   return circle;
 }
 
-function appendRect(svg: SVGSVGElement, attrs: Record<string, string | number>) {
+function appendRect(svg: SvgContainer, attrs: Record<string, string | number>) {
   svg.appendChild(createSvgEl('rect', attrs));
 }
 
-function appendLine(svg: SVGSVGElement, attrs: Record<string, string | number>) {
+function appendLine(svg: SvgContainer, attrs: Record<string, string | number>) {
   svg.appendChild(createSvgEl('line', attrs));
 }
 
@@ -100,8 +111,83 @@ function resolveAnchorFretFromFrets(frets: number[]) {
   return minFret;
 }
 
-function appendHoverableNoteMarker(
-  svg: SVGSVGElement,
+function createDynamicNoteMarker(parent: SvgContainer) {
+  const group = createSvgEl('g', {});
+  group.style.cursor = 'pointer';
+
+  const halo = createSvgEl('circle', {
+    cx: 0,
+    cy: 0,
+    r: 1,
+    fill: 'rgba(255, 255, 255, 0.08)',
+    stroke: 'rgba(251, 191, 36, 0.9)',
+    'stroke-width': 1.25,
+    opacity: 0,
+    'pointer-events': 'none',
+  });
+
+  const circle = createSvgEl('circle', {
+    cx: 0,
+    cy: 0,
+    r: 1,
+    fill: '#9ca3af',
+    stroke: 'none',
+    'stroke-width': 0,
+  });
+
+  const textEl = createSvgEl('text', {
+    x: 0,
+    y: 0,
+    fill: '#fff',
+    'font-size': 12,
+    'font-family': 'Segoe UI',
+    'font-weight': 'normal',
+    'text-anchor': 'middle',
+    'dominant-baseline': 'middle',
+    'pointer-events': 'none',
+  });
+  textEl.textContent = '';
+
+  const applyHover = (isHovering: boolean) => {
+    const baseRadius = Number(group.dataset.baseRadius ?? '0');
+    const baseStroke = group.dataset.baseStroke ?? 'none';
+    const baseStrokeWidth = Number(group.dataset.baseStrokeWidth ?? '0');
+    const baseTextWeight = group.dataset.baseTextWeight ?? 'normal';
+    halo.setAttribute('opacity', isHovering ? '1' : '0');
+    circle.setAttribute('r', String(isHovering ? baseRadius * 1.07 : baseRadius));
+    circle.setAttribute('stroke', isHovering ? '#f59e0b' : baseStroke);
+    circle.setAttribute(
+      'stroke-width',
+      String(isHovering ? Math.max(2, baseStrokeWidth || 0) : baseStrokeWidth)
+    );
+    textEl.setAttribute('font-weight', isHovering ? 'bold' : baseTextWeight);
+  };
+
+  group.addEventListener('pointerenter', () => applyHover(true));
+  group.addEventListener('pointerleave', () => applyHover(false));
+  group.addEventListener('pointercancel', () => applyHover(false));
+
+  group.appendChild(halo);
+  group.appendChild(circle);
+  group.appendChild(textEl);
+  parent.appendChild(group);
+  return { group, halo, circle, text: textEl };
+}
+
+function getDynamicNoteMarker(parent: SvgContainer, index: number) {
+  let marker = cachedDynamicNoteMarkers[index];
+  if (!marker) {
+    marker = createDynamicNoteMarker(parent);
+    cachedDynamicNoteMarkers[index] = marker;
+  } else if (marker.group.parentNode !== parent) {
+    parent.appendChild(marker.group);
+  }
+  return marker;
+}
+
+function renderDynamicNoteMarker(
+  parent: SvgContainer,
+  index: number,
   x: number,
   y: number,
   note: string,
@@ -113,65 +199,38 @@ function appendHoverableNoteMarker(
   textFill = '#fff',
   textWeight = 'normal'
 ) {
-  const group = createSvgEl('g', {});
-  group.style.cursor = 'pointer';
+  const marker = getDynamicNoteMarker(parent, index);
+  marker.group.style.display = '';
+  marker.group.dataset.baseRadius = String(radius);
+  marker.group.dataset.baseStroke = stroke;
+  marker.group.dataset.baseStrokeWidth = String(strokeWidth);
+  marker.group.dataset.baseTextWeight = textWeight;
 
-  const halo = createSvgEl('circle', {
-    cx: x,
-    cy: y,
-    r: radius * 1.42,
-    fill: 'rgba(255, 255, 255, 0.08)',
-    stroke: 'rgba(251, 191, 36, 0.9)',
-    'stroke-width': Math.max(1.25, strokeWidth || 0),
-    opacity: 0,
-    'pointer-events': 'none',
-  });
+  marker.halo.setAttribute('cx', String(x));
+  marker.halo.setAttribute('cy', String(y));
+  marker.halo.setAttribute('r', String(radius * 1.42));
+  marker.halo.setAttribute('stroke-width', String(Math.max(1.25, strokeWidth || 0)));
+  marker.halo.setAttribute('opacity', '0');
 
-  const circle = createSvgEl('circle', {
-    cx: x,
-    cy: y,
-    r: radius,
-    fill,
-    stroke,
-    'stroke-width': strokeWidth,
-  });
+  marker.circle.setAttribute('cx', String(x));
+  marker.circle.setAttribute('cy', String(y));
+  marker.circle.setAttribute('r', String(radius));
+  marker.circle.setAttribute('fill', fill);
+  marker.circle.setAttribute('stroke', stroke);
+  marker.circle.setAttribute('stroke-width', String(strokeWidth));
 
-  const textEl = createSvgEl('text', {
-    x,
-    y,
-    fill: textFill,
-    'font-size': fontSize,
-    'font-family': 'Segoe UI',
-    'font-weight': textWeight,
-    'text-anchor': 'middle',
-    'dominant-baseline': 'middle',
-    'pointer-events': 'none',
-  });
-  textEl.textContent = formatMusicText(note);
+  marker.text.setAttribute('x', String(x));
+  marker.text.setAttribute('y', String(y));
+  marker.text.setAttribute('fill', textFill);
+  marker.text.setAttribute('font-size', String(fontSize));
+  marker.text.setAttribute('font-weight', textWeight);
+  marker.text.textContent = formatMusicText(note);
+}
 
-  const base = {
-    radius,
-    stroke,
-    strokeWidth,
-  };
-
-  const applyHover = (isHovering: boolean) => {
-    halo.setAttribute('opacity', isHovering ? '1' : '0');
-    circle.setAttribute('r', String(isHovering ? base.radius * 1.07 : base.radius));
-    circle.setAttribute('stroke', isHovering ? '#f59e0b' : base.stroke);
-    circle.setAttribute('stroke-width', String(isHovering ? Math.max(2, base.strokeWidth || 0) : base.strokeWidth));
-    textEl.setAttribute('font-weight', isHovering ? 'bold' : textWeight);
-  };
-
-  group.addEventListener('pointerenter', () => applyHover(true));
-  group.addEventListener('pointerleave', () => applyHover(false));
-  group.addEventListener('pointercancel', () => applyHover(false));
-
-  group.appendChild(halo);
-  group.appendChild(circle);
-  group.appendChild(textEl);
-  svg.appendChild(group);
-  return group;
+function hideUnusedDynamicNoteMarkers(fromIndex: number) {
+  for (let index = fromIndex; index < cachedDynamicNoteMarkers.length; index += 1) {
+    cachedDynamicNoteMarkers[index].group.style.display = 'none';
+  }
 }
 
 function appendFretboardDefs(svg: SVGSVGElement) {
@@ -289,7 +348,6 @@ export function drawFretboardSvg(
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.setAttribute('width', String(width));
   svg.setAttribute('height', String(height));
-  svg.innerHTML = '';
 
   const stringCount = STRING_ORDER.length;
   const layout = computeFretboardLayout(width, height, stringCount, { fretCount: renderFretCount });
@@ -325,248 +383,290 @@ export function drawFretboardSvg(
   const boardEndX = fretboardX + fretboardWidth;
   const fretTopY = fretboardY + Math.max(4, stringSpacing * 0.18);
   const fretBottomY = fretboardY + visualBoardHeight - Math.max(4, stringSpacing * 0.18);
+  const enabledStringsKey = [...enabledStrings].sort().join(',');
+  const staticRenderKey = [
+    state.currentInstrument.name,
+    renderFretCount,
+    width,
+    height,
+    enabledStringsKey,
+  ].join('|');
+  const shouldRebuildStaticLayer =
+    lastStaticFretboardRenderKey !== staticRenderKey ||
+    cachedDynamicNotesLayer === null ||
+    cachedDynamicNotesLayer.ownerSVGElement !== svg;
 
-  appendFretboardDefs(svg);
+  let dynamicNotesLayer = cachedDynamicNotesLayer;
 
-  // Wooden fretboard body and subtle inset/shadow layers.
-  appendRect(svg, {
-    x: fretboardX + 2,
-    y: fretboardY + 4,
-    width: fretboardWidth,
-    height: visualBoardHeight,
-    rx: boardRadius,
-    ry: boardRadius,
-    fill: 'rgba(0, 0, 0, 0.28)',
-  });
-  appendRect(svg, {
-    x: fretboardX,
-    y: fretboardY,
-    width: fretboardWidth,
-    height: visualBoardHeight,
-    rx: boardRadius,
-    ry: boardRadius,
-    fill: 'url(#fretboardWoodGradient)',
-    stroke: '#20120a',
-    'stroke-width': 2,
-  });
-  appendRect(svg, {
-    x: fretboardX + 1,
-    y: fretboardY + 1,
-    width: Math.max(0, fretboardWidth - 2),
-    height: Math.max(0, visualBoardHeight - 2),
-    rx: Math.max(2, boardRadius - 1),
-    ry: Math.max(2, boardRadius - 1),
-    fill: 'url(#fretboardGrainPattern)',
-    opacity: 0.95,
-  });
-  appendRect(svg, {
-    x: fretboardX,
-    y: fretboardY,
-    width: fretboardWidth,
-    height: visualBoardHeight,
-    rx: boardRadius,
-    ry: boardRadius,
-    fill: 'url(#fretboardEdgeShade)',
-    opacity: 0.9,
-  });
-  appendLine(svg, {
-    x1: fretboardX + 10,
-    y1: fretboardY + visualBoardHeight * 0.22,
-    x2: boardEndX - 12,
-    y2: fretboardY + visualBoardHeight * 0.18,
-    stroke: 'rgba(255, 228, 196, 0.12)',
-    'stroke-width': 1.2,
-    'stroke-linecap': 'round',
-  });
-  appendLine(svg, {
-    x1: fretboardX + 16,
-    y1: fretboardY + visualBoardHeight * 0.78,
-    x2: boardEndX - 8,
-    y2: fretboardY + visualBoardHeight * 0.82,
-    stroke: 'rgba(255, 228, 196, 0.08)',
-    'stroke-width': 1,
-    'stroke-linecap': 'round',
-  });
+  if (shouldRebuildStaticLayer) {
+    svg.innerHTML = '';
+    lastStaticFretboardRenderKey = staticRenderKey;
+    cachedDynamicNoteMarkers = [];
 
-  // Fret markers (repeat marker pattern every octave for extended fretboards).
-  const markerFrets = new Set<number>();
-  MARKER_POSITIONS.forEach((baseFret) => {
-    for (let fret = baseFret; fret <= fretCount; fret += 12) {
-      if (fret > 0) markerFrets.add(fret);
-    }
-  });
+    appendFretboardDefs(svg);
 
-  [...markerFrets]
-    .sort((a, b) => a - b)
-    .forEach((fret) => {
-    const x = getFretCenterX(fret);
-    const markerRadius = noteRadius * 0.7;
-    if (fret % 12 === 0) {
-      const y1 = startY + (stringCount / 2 - 1.5) * stringSpacing;
-      const y2 = startY + (stringCount / 2 + 0.5) * stringSpacing;
-      appendCircle(svg, x, y1, markerRadius, 'rgba(237, 243, 247, 0.72)', 'rgba(60, 67, 76, 0.5)', 1);
-      appendCircle(svg, x, y2, markerRadius, 'rgba(237, 243, 247, 0.72)', 'rgba(60, 67, 76, 0.5)', 1);
-    } else {
-      const y = startY + ((stringCount - 1) / 2) * stringSpacing;
-      appendCircle(svg, x, y, markerRadius, 'rgba(237, 243, 247, 0.72)', 'rgba(60, 67, 76, 0.5)', 1);
-    }
-  });
-
-  // Nut and frets
-  appendLine(svg, {
-    x1: nutX,
-    y1: fretTopY,
-    x2: nutX,
-    y2: fretBottomY,
-    stroke: '#f2e3c9',
-    'stroke-width': 7,
-  });
-  appendLine(svg, {
-    x1: nutX - 1,
-    y1: fretTopY,
-    x2: nutX - 1,
-    y2: fretBottomY,
-    stroke: 'rgba(91, 68, 45, 0.65)',
-    'stroke-width': 1.4,
-  });
-  const fretCrownWidth = Math.max(2.05, Math.min(2.85, fretSpacing * 0.105));
-  const fretSlotShadowWidth = Math.max(0.95, fretCrownWidth * 0.42);
-  const fretHighlightWidth = Math.max(0.42, fretCrownWidth * 0.2);
-  const fretRightFalloffWidth = Math.max(0.36, fretCrownWidth * 0.18);
-  const fretLeftEdgeShadowWidth = Math.max(0.55, fretCrownWidth * 0.28);
-  for (let i = 1; i <= fretCount; i++) {
-    const x = getFretWireX(i);
-    // Fret slot shadow (cut into the wood)
+    // Wooden fretboard body and subtle inset/shadow layers.
+    appendRect(svg, {
+      x: fretboardX + 2,
+      y: fretboardY + 4,
+      width: fretboardWidth,
+      height: visualBoardHeight,
+      rx: boardRadius,
+      ry: boardRadius,
+      fill: 'rgba(0, 0, 0, 0.28)',
+    });
+    appendRect(svg, {
+      x: fretboardX,
+      y: fretboardY,
+      width: fretboardWidth,
+      height: visualBoardHeight,
+      rx: boardRadius,
+      ry: boardRadius,
+      fill: 'url(#fretboardWoodGradient)',
+      stroke: '#20120a',
+      'stroke-width': 2,
+    });
+    appendRect(svg, {
+      x: fretboardX + 1,
+      y: fretboardY + 1,
+      width: Math.max(0, fretboardWidth - 2),
+      height: Math.max(0, visualBoardHeight - 2),
+      rx: Math.max(2, boardRadius - 1),
+      ry: Math.max(2, boardRadius - 1),
+      fill: 'url(#fretboardGrainPattern)',
+      opacity: 0.95,
+    });
+    appendRect(svg, {
+      x: fretboardX,
+      y: fretboardY,
+      width: fretboardWidth,
+      height: visualBoardHeight,
+      rx: boardRadius,
+      ry: boardRadius,
+      fill: 'url(#fretboardEdgeShade)',
+      opacity: 0.9,
+    });
     appendLine(svg, {
-      x1: x + 0.15,
-      y1: fretTopY,
-      x2: x + 0.15,
-      y2: fretBottomY,
-      stroke: 'rgba(26, 14, 8, 0.34)',
-      'stroke-width': fretSlotShadowWidth,
+      x1: fretboardX + 10,
+      y1: fretboardY + visualBoardHeight * 0.22,
+      x2: boardEndX - 12,
+      y2: fretboardY + visualBoardHeight * 0.18,
+      stroke: 'rgba(255, 228, 196, 0.12)',
+      'stroke-width': 1.2,
       'stroke-linecap': 'round',
     });
-    // Left edge shadow of the fret crown
     appendLine(svg, {
-      x1: x - fretCrownWidth * 0.28,
-      y1: fretTopY,
-      x2: x - fretCrownWidth * 0.28,
-      y2: fretBottomY,
-      stroke: 'rgba(66, 72, 80, 0.25)',
-      'stroke-width': fretLeftEdgeShadowWidth,
+      x1: fretboardX + 16,
+      y1: fretboardY + visualBoardHeight * 0.78,
+      x2: boardEndX - 8,
+      y2: fretboardY + visualBoardHeight * 0.82,
+      stroke: 'rgba(255, 228, 196, 0.08)',
+      'stroke-width': 1,
       'stroke-linecap': 'round',
     });
-    // Satin nickel fret crown
-    appendLine(svg, {
-      x1: x,
-      y1: fretTopY,
-      x2: x,
-      y2: fretBottomY,
-      stroke: '#c7ced6',
-      'stroke-width': fretCrownWidth,
-      'stroke-linecap': 'round',
-    });
-    // Narrow specular highlight
-    appendLine(svg, {
-      x1: x - fretCrownWidth * 0.17,
-      y1: fretTopY,
-      x2: x - fretCrownWidth * 0.17,
-      y2: fretBottomY,
-      stroke: 'rgba(255, 255, 255, 0.6)',
-      'stroke-width': fretHighlightWidth,
-      'stroke-linecap': 'round',
-    });
-    // Right-side falloff so the fret looks rounded, not flat
-    appendLine(svg, {
-      x1: x + fretCrownWidth * 0.19,
-      y1: fretTopY,
-      x2: x + fretCrownWidth * 0.19,
-      y2: fretBottomY,
-      stroke: 'rgba(104, 111, 121, 0.4)',
-      'stroke-width': fretRightFalloffWidth,
-      'stroke-linecap': 'round',
-    });
-  }
 
-  // Strings
-  const enabledStringPalette = ['#eef2f7', '#dde3ea', '#cfd6df', '#bec6cf', '#aeb7c2', '#9fa9b5'];
-  const woundStringPalette = ['#caa074', '#b98757', '#aa7647', '#9a693d', '#8c5d34', '#7f522d'];
-  const disabledStringColor = 'rgba(115, 123, 132, 0.75)';
-  const woundStringStartIndex = stringCount >= 6 ? 2 : Number.POSITIVE_INFINITY;
-  STRING_ORDER.forEach((stringName, idx) => {
-    const y = startY + idx * stringSpacing;
-    const isEnabled = enabledStrings.has(stringName);
-    const strokeWidth = 1.15 + idx * ((6 / stringCount) * 0.34);
-    const isWoundString = idx >= woundStringStartIndex;
-    const strokeColor = isEnabled
-      ? isWoundString
-        ? woundStringPalette[Math.min(idx, woundStringPalette.length - 1)]
-        : enabledStringPalette[Math.min(idx, enabledStringPalette.length - 1)]
-      : disabledStringColor;
+    // Fret markers (repeat marker pattern every octave for extended fretboards).
+    const markerFrets = new Set<number>();
+    MARKER_POSITIONS.forEach((baseFret) => {
+      for (let fret = baseFret; fret <= fretCount; fret += 12) {
+        if (fret > 0) markerFrets.add(fret);
+      }
+    });
+
+    [...markerFrets]
+      .sort((a, b) => a - b)
+      .forEach((fret) => {
+        const x = getFretCenterX(fret);
+        const markerRadius = noteRadius * 0.7;
+        if (fret % 12 === 0) {
+          const y1 = startY + (stringCount / 2 - 1.5) * stringSpacing;
+          const y2 = startY + (stringCount / 2 + 0.5) * stringSpacing;
+          appendCircle(svg, x, y1, markerRadius, 'rgba(237, 243, 247, 0.72)', 'rgba(60, 67, 76, 0.5)', 1);
+          appendCircle(svg, x, y2, markerRadius, 'rgba(237, 243, 247, 0.72)', 'rgba(60, 67, 76, 0.5)', 1);
+        } else {
+          const y = startY + ((stringCount - 1) / 2) * stringSpacing;
+          appendCircle(svg, x, y, markerRadius, 'rgba(237, 243, 247, 0.72)', 'rgba(60, 67, 76, 0.5)', 1);
+        }
+      });
+
+    // Nut and frets
     appendLine(svg, {
       x1: nutX,
-      y1: y,
-      x2: lastFretX,
-      y2: y,
-      stroke: strokeColor,
-      'stroke-width': strokeWidth,
-      'stroke-linecap': 'round',
-      opacity: isEnabled ? 0.95 : 0.7,
+      y1: fretTopY,
+      x2: nutX,
+      y2: fretBottomY,
+      stroke: '#f2e3c9',
+      'stroke-width': 7,
     });
-    if (isEnabled) {
-      if (isWoundString) {
-        // Simulate wound strings with alternating dash overlays (string winding ridges).
-        const dashSize = Math.max(1.1, Math.min(2.4, fretSpacing * 0.075));
-        const gapSize = Math.max(0.8, Math.min(1.8, dashSize * 0.7));
-        appendLine(svg, {
-          x1: nutX,
-          y1: y,
-          x2: lastFretX,
-          y2: y,
-          stroke: 'rgba(255, 214, 163, 0.38)',
-          'stroke-width': Math.max(0.4, strokeWidth * 0.27),
-          'stroke-linecap': 'butt',
-          'stroke-dasharray': `${dashSize} ${gapSize}`,
-          'stroke-dashoffset': 0.15,
-          opacity: 0.95,
-        });
-        appendLine(svg, {
-          x1: nutX,
-          y1: y + 0.12,
-          x2: lastFretX,
-          y2: y + 0.12,
-          stroke: 'rgba(66, 35, 16, 0.34)',
-          'stroke-width': Math.max(0.25, strokeWidth * 0.17),
-          'stroke-linecap': 'butt',
-          'stroke-dasharray': `${dashSize} ${gapSize}`,
-          'stroke-dashoffset': dashSize * 0.55,
-          opacity: 0.9,
-        });
-        appendLine(svg, {
-          x1: nutX,
-          y1: y - 0.12,
-          x2: lastFretX,
-          y2: y - 0.12,
-          stroke: 'rgba(255, 238, 214, 0.18)',
-          'stroke-width': Math.max(0.2, strokeWidth * 0.1),
-          'stroke-linecap': 'butt',
-          'stroke-dasharray': `${dashSize * 0.7} ${gapSize * 1.1}`,
-          'stroke-dashoffset': dashSize * 0.3,
-          opacity: 0.85,
-        });
-      }
+    appendLine(svg, {
+      x1: nutX - 1,
+      y1: fretTopY,
+      x2: nutX - 1,
+      y2: fretBottomY,
+      stroke: 'rgba(91, 68, 45, 0.65)',
+      'stroke-width': 1.4,
+    });
+    const fretCrownWidth = Math.max(2.05, Math.min(2.85, fretSpacing * 0.105));
+    const fretSlotShadowWidth = Math.max(0.95, fretCrownWidth * 0.42);
+    const fretHighlightWidth = Math.max(0.42, fretCrownWidth * 0.2);
+    const fretRightFalloffWidth = Math.max(0.36, fretCrownWidth * 0.18);
+    const fretLeftEdgeShadowWidth = Math.max(0.55, fretCrownWidth * 0.28);
+    for (let i = 1; i <= fretCount; i++) {
+      const x = getFretWireX(i);
       appendLine(svg, {
-        x1: nutX,
-        y1: y - 0.45,
-        x2: lastFretX,
-        y2: y - 0.45,
-        stroke: isWoundString ? 'rgba(255, 236, 210, 0.16)' : 'rgba(255, 255, 255, 0.24)',
-        'stroke-width': Math.max(0.45, strokeWidth * (isWoundString ? 0.16 : 0.22)),
+        x1: x + 0.15,
+        y1: fretTopY,
+        x2: x + 0.15,
+        y2: fretBottomY,
+        stroke: 'rgba(26, 14, 8, 0.34)',
+        'stroke-width': fretSlotShadowWidth,
         'stroke-linecap': 'round',
-        opacity: 0.9,
+      });
+      appendLine(svg, {
+        x1: x - fretCrownWidth * 0.28,
+        y1: fretTopY,
+        x2: x - fretCrownWidth * 0.28,
+        y2: fretBottomY,
+        stroke: 'rgba(66, 72, 80, 0.25)',
+        'stroke-width': fretLeftEdgeShadowWidth,
+        'stroke-linecap': 'round',
+      });
+      appendLine(svg, {
+        x1: x,
+        y1: fretTopY,
+        x2: x,
+        y2: fretBottomY,
+        stroke: '#c7ced6',
+        'stroke-width': fretCrownWidth,
+        'stroke-linecap': 'round',
+      });
+      appendLine(svg, {
+        x1: x - fretCrownWidth * 0.17,
+        y1: fretTopY,
+        x2: x - fretCrownWidth * 0.17,
+        y2: fretBottomY,
+        stroke: 'rgba(255, 255, 255, 0.6)',
+        'stroke-width': fretHighlightWidth,
+        'stroke-linecap': 'round',
+      });
+      appendLine(svg, {
+        x1: x + fretCrownWidth * 0.19,
+        y1: fretTopY,
+        x2: x + fretCrownWidth * 0.19,
+        y2: fretBottomY,
+        stroke: 'rgba(104, 111, 121, 0.4)',
+        'stroke-width': fretRightFalloffWidth,
+        'stroke-linecap': 'round',
       });
     }
-  });
+
+    // Strings
+    const enabledStringPalette = ['#eef2f7', '#dde3ea', '#cfd6df', '#bec6cf', '#aeb7c2', '#9fa9b5'];
+    const woundStringPalette = ['#caa074', '#b98757', '#aa7647', '#9a693d', '#8c5d34', '#7f522d'];
+    const disabledStringColor = 'rgba(115, 123, 132, 0.75)';
+    const woundStringStartIndex = stringCount >= 6 ? 2 : Number.POSITIVE_INFINITY;
+    STRING_ORDER.forEach((stringName, idx) => {
+      const y = startY + idx * stringSpacing;
+      const isEnabled = enabledStrings.has(stringName);
+      const strokeWidth = 1.15 + idx * ((6 / stringCount) * 0.34);
+      const isWoundString = idx >= woundStringStartIndex;
+      const strokeColor = isEnabled
+        ? isWoundString
+          ? woundStringPalette[Math.min(idx, woundStringPalette.length - 1)]
+          : enabledStringPalette[Math.min(idx, enabledStringPalette.length - 1)]
+        : disabledStringColor;
+      appendLine(svg, {
+        x1: nutX,
+        y1: y,
+        x2: lastFretX,
+        y2: y,
+        stroke: strokeColor,
+        'stroke-width': strokeWidth,
+        'stroke-linecap': 'round',
+        opacity: isEnabled ? 0.95 : 0.7,
+      });
+      if (isEnabled) {
+        if (isWoundString) {
+          const dashSize = Math.max(1.1, Math.min(2.4, fretSpacing * 0.075));
+          const gapSize = Math.max(0.8, Math.min(1.8, dashSize * 0.7));
+          appendLine(svg, {
+            x1: nutX,
+            y1: y,
+            x2: lastFretX,
+            y2: y,
+            stroke: 'rgba(255, 214, 163, 0.38)',
+            'stroke-width': Math.max(0.4, strokeWidth * 0.27),
+            'stroke-linecap': 'butt',
+            'stroke-dasharray': `${dashSize} ${gapSize}`,
+            'stroke-dashoffset': 0.15,
+            opacity: 0.95,
+          });
+          appendLine(svg, {
+            x1: nutX,
+            y1: y + 0.12,
+            x2: lastFretX,
+            y2: y + 0.12,
+            stroke: 'rgba(66, 35, 16, 0.34)',
+            'stroke-width': Math.max(0.25, strokeWidth * 0.17),
+            'stroke-linecap': 'butt',
+            'stroke-dasharray': `${dashSize} ${gapSize}`,
+            'stroke-dashoffset': dashSize * 0.55,
+            opacity: 0.9,
+          });
+          appendLine(svg, {
+            x1: nutX,
+            y1: y - 0.12,
+            x2: lastFretX,
+            y2: y - 0.12,
+            stroke: 'rgba(255, 238, 214, 0.18)',
+            'stroke-width': Math.max(0.2, strokeWidth * 0.1),
+            'stroke-linecap': 'butt',
+            'stroke-dasharray': `${dashSize * 0.7} ${gapSize * 1.1}`,
+            'stroke-dashoffset': dashSize * 0.3,
+            opacity: 0.85,
+          });
+        }
+        appendLine(svg, {
+          x1: nutX,
+          y1: y - 0.45,
+          x2: lastFretX,
+          y2: y - 0.45,
+          stroke: isWoundString ? 'rgba(255, 236, 210, 0.16)' : 'rgba(255, 255, 255, 0.24)',
+          'stroke-width': Math.max(0.45, strokeWidth * (isWoundString ? 0.16 : 0.22)),
+          'stroke-linecap': 'round',
+          opacity: 0.9,
+        });
+      }
+    });
+
+    // Fret numbers
+    for (let i = 1; i <= fretCount; i++) {
+      const x = getFretCenterX(i);
+      const y = startY + fretboardHeight + fretNumberAreaHeight * 0.2;
+      const textEl = createSvgEl('text', {
+        x,
+        y,
+        fill: '#d7c29d',
+        'font-size': labelFontSize,
+        'font-family': 'Segoe UI',
+        'text-anchor': 'middle',
+        'dominant-baseline': 'hanging',
+      });
+      textEl.textContent = String(i);
+      svg.appendChild(textEl);
+    }
+
+    dynamicNotesLayer = createSvgEl('g', {
+      'data-role': 'dynamic-notes-layer',
+    });
+    svg.appendChild(dynamicNotesLayer);
+    cachedDynamicNotesLayer = dynamicNotesLayer;
+  } else {
+    dynamicNotesLayer = cachedDynamicNotesLayer;
+  }
+
+  if (!dynamicNotesLayer) return;
+  let dynamicNoteMarkerIndex = 0;
 
   // Show all notes mode
   if (showAll) {
@@ -585,8 +685,9 @@ export function drawFretboardSvg(
         if (!note) continue;
         const x = fret === 0 ? openNoteX : getFretCenterX(fret);
         const fingerFill = getFingerColorForFret(fret, { useAbsoluteCycle: true });
-        appendHoverableNoteMarker(
-          svg,
+        renderDynamicNoteMarker(
+          dynamicNotesLayer,
+          dynamicNoteMarkerIndex++,
           x,
           y,
           note,
@@ -601,23 +702,6 @@ export function drawFretboardSvg(
     });
   }
 
-  // Fret numbers
-  for (let i = 1; i <= fretCount; i++) {
-    const x = getFretCenterX(i);
-    const y = startY + fretboardHeight + fretNumberAreaHeight * 0.2;
-    const textEl = createSvgEl('text', {
-      x,
-      y,
-      fill: '#d7c29d',
-      'font-size': labelFontSize,
-      'font-family': 'Segoe UI',
-      'text-anchor': 'middle',
-      'dominant-baseline': 'hanging',
-    });
-    textEl.textContent = String(i);
-    svg.appendChild(textEl);
-  }
-
   // Root note highlight (single-string or all positions when string is omitted)
   if (rootNote) {
     if (rootString) {
@@ -628,8 +712,9 @@ export function drawFretboardSvg(
         const y = startY + stringIdx * stringSpacing;
         const x = rootFret === 0 ? openNoteX : getFretCenterX(rootFret);
         const fingerFill = getFingerColorForFret(rootFret, { useAbsoluteCycle: true });
-        appendHoverableNoteMarker(
-          svg,
+        renderDynamicNoteMarker(
+          dynamicNotesLayer,
+          dynamicNoteMarkerIndex++,
           x,
           y,
           rootNote,
@@ -659,8 +744,9 @@ export function drawFretboardSvg(
           if (noteAtFret !== rootNote) continue;
           const x = fret === 0 ? openNoteX : getFretCenterX(fret);
           const fingerFill = getFingerColorForFret(fret, { useAbsoluteCycle: true });
-          appendHoverableNoteMarker(
-            svg,
+          renderDynamicNoteMarker(
+            dynamicNotesLayer,
+            dynamicNoteMarkerIndex++,
             x,
             y,
             rootNote,
@@ -710,7 +796,20 @@ export function drawFretboardSvg(
         getFingerColorForAssignedFinger(noteInfo.finger) ??
         getFingerColorForFret(fret, { anchorFret: chordFingerAnchor });
       const stroke = isCurrent ? '#d39e00' : isFound ? '#1e7e34' : '#138496';
-      appendHoverableNoteMarker(svg, x, y, note, noteRadius * 1.1, fill, stroke, 2, noteFontSize, '#fff', 'bold');
+      renderDynamicNoteMarker(
+        dynamicNotesLayer,
+        dynamicNoteMarkerIndex++,
+        x,
+        y,
+        note,
+        noteRadius * 1.1,
+        fill,
+        stroke,
+        2,
+        noteFontSize,
+        '#fff',
+        'bold'
+      );
     });
   } else {
     svg.setAttribute('aria-label', `${state.currentInstrument.name} fretboard visualization.`);
@@ -726,8 +825,9 @@ export function drawFretboardSvg(
       if (typeof wrongFret === 'number' && wrongFret <= fretCount) {
         const y = startY + wrongStringIdx * stringSpacing;
         const x = wrongFret === 0 ? openNoteX : getFretCenterX(wrongFret);
-        appendHoverableNoteMarker(
-          svg,
+        renderDynamicNoteMarker(
+          dynamicNotesLayer,
+          dynamicNoteMarkerIndex++,
           x,
           y,
           wrongDetectedNote,
@@ -743,207 +843,204 @@ export function drawFretboardSvg(
     }
   }
 
-  // Hover preview for any string+fret position (not only visible note markers).
-  const hoverGroup = createSvgEl('g', {
-    opacity: 0,
-    'pointer-events': 'none',
-  });
-  const hoverHalo = createSvgEl('circle', {
-    cx: 0,
-    cy: 0,
-    r: noteRadius * 1.45,
-    fill: 'rgba(251, 191, 36, 0.16)',
-    stroke: 'rgba(251, 191, 36, 0.95)',
-    'stroke-width': 2,
-  });
-  const hoverDot = createSvgEl('circle', {
-    cx: 0,
-    cy: 0,
-    r: noteRadius * 1.08,
-    fill: 'rgba(15, 23, 42, 0.92)',
-    stroke: '#f59e0b',
-    'stroke-width': 2,
-  });
-  const hoverText = createSvgEl('text', {
-    x: 0,
-    y: 0,
-    fill: '#fde68a',
-    'font-size': noteFontSize,
-    'font-family': 'Segoe UI',
-    'font-weight': 'bold',
-    'text-anchor': 'middle',
-    'dominant-baseline': 'middle',
-    'pointer-events': 'none',
-  });
-  hoverText.textContent = '';
-  hoverGroup.appendChild(hoverHalo);
-  hoverGroup.appendChild(hoverDot);
-  hoverGroup.appendChild(hoverText);
-  svg.appendChild(hoverGroup);
+  hideUnusedDynamicNoteMarkers(dynamicNoteMarkerIndex);
 
-  const openAreaLeftX = Math.max(0, openNoteX - fretSpacing * 0.6);
-  const openAreaRightX = nutX;
-  const boardHoverBottomY = fretBottomY + Math.max(6, stringSpacing * 0.15);
-  const boardHoverTopY = fretTopY - Math.max(6, stringSpacing * 0.15);
+  if (shouldRebuildStaticLayer) {
+    // Hover preview for any string+fret position (not only visible note markers).
+    const hoverGroup = createSvgEl('g', {
+      opacity: 0,
+      'pointer-events': 'none',
+      'data-role': 'hover-preview',
+    });
+    const hoverHalo = createSvgEl('circle', {
+      cx: 0,
+      cy: 0,
+      r: noteRadius * 1.45,
+      fill: 'rgba(251, 191, 36, 0.16)',
+      stroke: 'rgba(251, 191, 36, 0.95)',
+      'stroke-width': 2,
+    });
+    const hoverDot = createSvgEl('circle', {
+      cx: 0,
+      cy: 0,
+      r: noteRadius * 1.08,
+      fill: 'rgba(15, 23, 42, 0.92)',
+      stroke: '#f59e0b',
+      'stroke-width': 2,
+    });
+    const hoverText = createSvgEl('text', {
+      x: 0,
+      y: 0,
+      fill: '#fde68a',
+      'font-size': noteFontSize,
+      'font-family': 'Segoe UI',
+      'font-weight': 'bold',
+      'text-anchor': 'middle',
+      'dominant-baseline': 'middle',
+      'pointer-events': 'none',
+    });
+    hoverText.textContent = '';
+    hoverGroup.appendChild(hoverHalo);
+    hoverGroup.appendChild(hoverDot);
+    hoverGroup.appendChild(hoverText);
+    svg.appendChild(hoverGroup);
 
-  const hideHoverPreview = () => {
-    hoverGroup.setAttribute('opacity', '0');
-  };
+    const openAreaLeftX = Math.max(0, openNoteX - fretSpacing * 0.6);
+    const openAreaRightX = nutX;
+    const boardHoverBottomY = fretBottomY + Math.max(6, stringSpacing * 0.15);
+    const boardHoverTopY = fretTopY - Math.max(6, stringSpacing * 0.15);
 
-  const showHoverPreview = (x: number, y: number, noteName: string) => {
-    hoverHalo.setAttribute('cx', String(x));
-    hoverHalo.setAttribute('cy', String(y));
-    hoverDot.setAttribute('cx', String(x));
-    hoverDot.setAttribute('cy', String(y));
-    hoverText.setAttribute('x', String(x));
-    hoverText.setAttribute('y', String(y));
-    hoverText.textContent = formatMusicText(noteName);
-    hoverGroup.setAttribute('opacity', '1');
-  };
-
-  const getHoveredStringIndex = (y: number) => {
-    const nearest = Math.round((y - startY) / stringSpacing);
-    if (nearest < 0 || nearest >= stringCount) return null;
-    const centerY = startY + nearest * stringSpacing;
-    return Math.abs(y - centerY) <= stringSpacing * 0.62 ? nearest : null;
-  };
-
-  const getHoveredFret = (x: number) => {
-    if (x >= openAreaLeftX && x < openAreaRightX) return 0;
-    if (x < nutX || x > lastFretX) return null;
-    for (let fret = 1; fret <= fretCount; fret++) {
-      const left = getFretWireX(fret - 1);
-      const right = getFretWireX(fret);
-      if (x >= left && x <= right) return fret;
-    }
-    return null;
-  };
-
-  const resolvePointerNotePosition = (event: PointerEvent) => {
-    const point = svg.createSVGPoint();
-    point.x = event.clientX;
-    point.y = event.clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) {
-      return null;
-    }
-    const local = point.matrixTransform(ctm.inverse());
-    if (
-      local.x < openAreaLeftX ||
-      local.x > boardEndX ||
-      local.y < boardHoverTopY ||
-      local.y > boardHoverBottomY
-    ) {
-      return null;
-    }
-
-    const stringIdx = getHoveredStringIndex(local.y);
-    if (stringIdx === null) {
-      return null;
-    }
-    const fret = getHoveredFret(local.x);
-    if (fret === null) {
-      return null;
-    }
-
-    const stringName = STRING_ORDER[stringIdx];
-    const noteWithOctave = instrumentData.getNoteWithOctave(stringName, fret);
-    if (!noteWithOctave) {
-      return null;
-    }
-
-    return {
-      x: fret === 0 ? openNoteX : getFretCenterX(fret),
-      y: startY + stringIdx * stringSpacing,
-      fret,
-      stringName,
-      noteWithOctave,
-      noteName: stripOctaveSuffix(noteWithOctave),
+    const hideHoverPreview = () => {
+      hoverGroup.setAttribute('opacity', '0');
     };
-  };
 
-  let activeDragPointerId: number | null = null;
-  let lastDragPositionKey: string | null = null;
-  let lastDragPlayAtMs = 0;
-  const DRAG_PLAY_MIN_INTERVAL_MS = 28;
+    const showHoverPreview = (x: number, y: number, noteName: string) => {
+      hoverHalo.setAttribute('cx', String(x));
+      hoverHalo.setAttribute('cy', String(y));
+      hoverDot.setAttribute('cx', String(x));
+      hoverDot.setAttribute('cy', String(y));
+      hoverText.setAttribute('x', String(x));
+      hoverText.setAttribute('y', String(y));
+      hoverText.textContent = formatMusicText(noteName);
+      hoverGroup.setAttribute('opacity', '1');
+    };
 
-  const playResolvedPointerNote = (
-    resolved: NonNullable<ReturnType<typeof resolvePointerNotePosition>>,
-    options: { force?: boolean } = {}
-  ) => {
-    const key = `${resolved.stringName}:${resolved.fret}`;
-    const now = performance.now();
-    const force = options.force === true;
-    if (!force) {
-      if (key === lastDragPositionKey) return;
-      if (now - lastDragPlayAtMs < DRAG_PLAY_MIN_INTERVAL_MS) return;
-    }
-    playSound(resolved.noteWithOctave);
-    lastDragPositionKey = key;
-    lastDragPlayAtMs = now;
-  };
+    const getHoveredStringIndex = (y: number) => {
+      const nearest = Math.round((y - startY) / stringSpacing);
+      if (nearest < 0 || nearest >= stringCount) return null;
+      const centerY = startY + nearest * stringSpacing;
+      return Math.abs(y - centerY) <= stringSpacing * 0.62 ? nearest : null;
+    };
 
-  const endDragPlayback = (event?: PointerEvent) => {
-    if (event && activeDragPointerId !== null && event.pointerId !== activeDragPointerId) return;
-    if (event && svg.hasPointerCapture?.(event.pointerId)) {
+    const getHoveredFret = (x: number) => {
+      if (x >= openAreaLeftX && x < openAreaRightX) return 0;
+      if (x < nutX || x > lastFretX) return null;
+      for (let fret = 1; fret <= fretCount; fret++) {
+        const left = getFretWireX(fret - 1);
+        const right = getFretWireX(fret);
+        if (x >= left && x <= right) return fret;
+      }
+      return null;
+    };
+
+    const resolvePointerNotePosition = (event: PointerEvent) => {
+      const point = svg.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return null;
+      const local = point.matrixTransform(ctm.inverse());
+      if (
+        local.x < openAreaLeftX ||
+        local.x > boardEndX ||
+        local.y < boardHoverTopY ||
+        local.y > boardHoverBottomY
+      ) {
+        return null;
+      }
+
+      const stringIdx = getHoveredStringIndex(local.y);
+      if (stringIdx === null) return null;
+      const fret = getHoveredFret(local.x);
+      if (fret === null) return null;
+
+      const stringName = STRING_ORDER[stringIdx];
+      const noteWithOctave = instrumentData.getNoteWithOctave(stringName, fret);
+      if (!noteWithOctave) return null;
+
+      return {
+        x: fret === 0 ? openNoteX : getFretCenterX(fret),
+        y: startY + stringIdx * stringSpacing,
+        fret,
+        stringName,
+        noteWithOctave,
+        noteName: stripOctaveSuffix(noteWithOctave),
+      };
+    };
+
+    let activeDragPointerId: number | null = null;
+    let lastDragPositionKey: string | null = null;
+    let lastDragPlayAtMs = 0;
+    const DRAG_PLAY_MIN_INTERVAL_MS = 28;
+
+    const playResolvedPointerNote = (
+      resolved: NonNullable<ReturnType<typeof resolvePointerNotePosition>>,
+      options: { force?: boolean } = {}
+    ) => {
+      const key = `${resolved.stringName}:${resolved.fret}`;
+      const now = performance.now();
+      const force = options.force === true;
+      if (!force) {
+        if (key === lastDragPositionKey) return;
+        if (now - lastDragPlayAtMs < DRAG_PLAY_MIN_INTERVAL_MS) return;
+      }
+      playSound(resolved.noteWithOctave);
+      lastDragPositionKey = key;
+      lastDragPlayAtMs = now;
+    };
+
+    const endDragPlayback = (event?: PointerEvent) => {
+      if (event && activeDragPointerId !== null && event.pointerId !== activeDragPointerId) return;
+      if (event && svg.hasPointerCapture?.(event.pointerId)) {
+        try {
+          svg.releasePointerCapture(event.pointerId);
+        } catch {
+          // no-op
+        }
+      }
+      activeDragPointerId = null;
+      lastDragPositionKey = null;
+      lastDragPlayAtMs = 0;
+    };
+
+    svg.onpointermove = (event: PointerEvent) => {
+      const resolved = resolvePointerNotePosition(event);
+      if (!resolved) {
+        if (activeDragPointerId !== null && event.pointerId === activeDragPointerId) {
+          lastDragPositionKey = null;
+        }
+        hideHoverPreview();
+        return;
+      }
+      showHoverPreview(resolved.x, resolved.y, resolved.noteName);
+      if (activeDragPointerId !== null && event.pointerId === activeDragPointerId) {
+        playResolvedPointerNote(resolved);
+      }
+    };
+    svg.onpointerleave = () => {
+      if (activeDragPointerId === null) {
+        hideHoverPreview();
+      }
+    };
+    svg.onpointercancel = (event: PointerEvent) => {
+      hideHoverPreview();
+      endDragPlayback(event);
+    };
+    svg.onpointerdown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const resolved = resolvePointerNotePosition(event);
+      if (!resolved) return;
+      activeDragPointerId = event.pointerId;
+      lastDragPositionKey = null;
+      lastDragPlayAtMs = 0;
       try {
-        svg.releasePointerCapture(event.pointerId);
+        svg.setPointerCapture(event.pointerId);
       } catch {
         // no-op
       }
-    }
-    activeDragPointerId = null;
-    lastDragPositionKey = null;
-    lastDragPlayAtMs = 0;
-  };
-
-  svg.onpointermove = (event: PointerEvent) => {
-    const resolved = resolvePointerNotePosition(event);
-    if (!resolved) {
-      if (activeDragPointerId !== null && event.pointerId === activeDragPointerId) {
-        lastDragPositionKey = null;
-      }
-      hideHoverPreview();
-      return;
-    }
-    showHoverPreview(resolved.x, resolved.y, resolved.noteName);
-    if (activeDragPointerId !== null && event.pointerId === activeDragPointerId) {
-      playResolvedPointerNote(resolved);
-    }
-  };
-  svg.onpointerleave = () => {
-    if (activeDragPointerId === null) {
-      hideHoverPreview();
-    }
-  };
-  svg.onpointercancel = (event: PointerEvent) => {
-    hideHoverPreview();
-    endDragPlayback(event);
-  };
-  svg.onpointerdown = (event: PointerEvent) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    const resolved = resolvePointerNotePosition(event);
-    if (!resolved) return;
-    activeDragPointerId = event.pointerId;
-    lastDragPositionKey = null;
-    lastDragPlayAtMs = 0;
-    try {
-      svg.setPointerCapture(event.pointerId);
-    } catch {
-      // no-op
-    }
-    playResolvedPointerNote(resolved, { force: true });
-    showHoverPreview(resolved.x, resolved.y, resolved.noteName);
-  };
-  svg.onpointerup = (event: PointerEvent) => {
-    endDragPlayback(event);
-  };
-  svg.onlostpointercapture = () => {
-    activeDragPointerId = null;
-    lastDragPositionKey = null;
-    lastDragPlayAtMs = 0;
-  };
+      playResolvedPointerNote(resolved, { force: true });
+      showHoverPreview(resolved.x, resolved.y, resolved.noteName);
+    };
+    svg.onpointerup = (event: PointerEvent) => {
+      endDragPlayback(event);
+    };
+    svg.onlostpointercapture = () => {
+      activeDragPointerId = null;
+      lastDragPositionKey = null;
+      lastDragPlayAtMs = 0;
+    };
+  }
 
   const stringLabels = Array.from(dom.stringSelector.children) as HTMLElement[];
   positionStringLabels(stringLabels, stringCount, startY, stringSpacing, nutX, fretSpacing);
