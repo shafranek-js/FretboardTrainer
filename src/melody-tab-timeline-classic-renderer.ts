@@ -1,0 +1,253 @@
+import type { IInstrument } from './instruments/instrument';
+import type { MelodyTabTimelineViewModel } from './melody-tab-timeline-model';
+import type { TimelineDurationLayout } from './melody-timeline-duration';
+import { appendClassicTimelinePreroll, computeClassicTimelinePrerollLayout } from './melody-tab-timeline-preroll-renderer';
+import { buildClassicTimelineFeedbackSegment } from './melody-tab-timeline-performance-feedback-renderer';
+import {
+  applyClassicCellFeedbackStyles,
+  getClassicCellText,
+  getClassicCellTextRaw,
+  getClassicPlayedCellTextRaw,
+  getFingerColor,
+  getPrimaryCellFingerColor,
+  resolveClassicCellFeedbackTone,
+  scaleTimelinePixels,
+  withAlpha,
+} from './melody-tab-timeline-render-utils';
+
+interface TimelineBarGrouping {
+  source: 'none' | 'explicit' | 'duration';
+  hasBeatTiming: boolean;
+  beatsPerBar: number | null;
+  totalBars: number | null;
+  barStartEventIndexes: Set<number>;
+}
+
+interface TimelineNoteDragPayload {
+  melodyId: string;
+  eventIndex: number;
+  noteIndex: number;
+  stringName: string;
+  fret: number;
+}
+
+interface ClassicRendererContextMenuPayload {
+  melodyId: string;
+  eventIndex: number;
+  noteIndex: number | null;
+}
+
+interface ClassicRendererEventDragPayload {
+  melodyId: string;
+  sourceEventIndex: number;
+  selectedEventIndex: number | null;
+}
+
+interface ClassicRendererDeps {
+  bindTimelineContextMenu(element: HTMLElement, payload: ClassicRendererContextMenuPayload): void;
+  bindTimelineNoteDrag(
+    element: HTMLElement,
+    payload: TimelineNoteDragPayload,
+    instrument: Pick<IInstrument, 'getNoteWithOctave'>
+  ): void;
+  bindTimelineEventDrag(element: HTMLElement, payload: ClassicRendererEventDragPayload): void;
+  onMelodyTimelineNoteSelect(payload: { melodyId: string; eventIndex: number; noteIndex: number; toggle: boolean }): void;
+  onMelodyTimelineEmptyCellAdd(payload: { melodyId: string; eventIndex: number; stringName: string }): void;
+}
+
+export function renderClassicTimeline(
+  melodyId: string,
+  instrument: Pick<IInstrument, 'getNoteWithOctave'>,
+  model: MelodyTabTimelineViewModel,
+  barGrouping: TimelineBarGrouping,
+  durationLayout: TimelineDurationLayout,
+  root: HTMLElement,
+  showStepNumbers: boolean,
+  showPrerollLeadIn: boolean,
+  activePrerollStepIndex: number | null,
+  zoomScale: number,
+  editingEnabled: boolean,
+  selectedEventIndex: number | null,
+  selectedNoteIndex: number | null,
+  activeTimelineNoteDragSource: { eventIndex: number; noteIndex: number } | null,
+  deps: ClassicRendererDeps
+) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'min-w-max text-[11px] leading-5 font-mono text-slate-200';
+  wrapper.style.fontSize = `${scaleTimelinePixels(11, zoomScale, 8)}px`;
+  wrapper.style.lineHeight = `${scaleTimelinePixels(20, zoomScale, 14)}px`;
+
+  const eventWidths = Array.from({ length: model.totalEvents }, (_, eventIndex) => {
+    const durationWidth = durationLayout.cellCharWidths[eventIndex] ?? 3;
+    const widestRaw = Math.max(
+      0,
+      ...model.rows.map((row) =>
+        Math.max(
+          getClassicCellTextRaw(row.cells[eventIndex]?.notes ?? []).length,
+          getClassicPlayedCellTextRaw(row.cells[eventIndex]?.unmatchedPlayedNotes ?? []).length
+        )
+      )
+    );
+    return Math.max(3, widestRaw, durationWidth);
+  });
+  const prerollLayout = computeClassicTimelinePrerollLayout(eventWidths, showPrerollLeadIn);
+
+  const buildLine = (labelText: string, segments: string[], options?: { isHeader?: boolean; isAnchorRow?: boolean }) => {
+    const isHeader = options?.isHeader ?? false;
+    const isAnchorRow = options?.isAnchorRow ?? false;
+    const line = document.createElement('div');
+    line.className = 'flex items-center whitespace-nowrap';
+    if (!isHeader) {
+      line.dataset.timelineStringName = labelText;
+    }
+
+    const label = document.createElement('span');
+    label.className = `inline-block w-7 shrink-0 ${isHeader ? 'text-slate-400' : 'text-cyan-200'}`;
+    label.style.width = `${scaleTimelinePixels(28, zoomScale, 22)}px`;
+    label.textContent = labelText;
+    line.appendChild(label);
+
+    const startPipe = document.createElement('span');
+    startPipe.className = 'text-slate-500';
+    startPipe.textContent = '|';
+    line.appendChild(startPipe);
+
+    appendClassicTimelinePreroll(line, prerollLayout, activePrerollStepIndex, isHeader);
+
+    segments.forEach((segment, eventIndex) => {
+      if (barGrouping.barStartEventIndexes.has(eventIndex)) {
+        const barPipe = document.createElement('span');
+        barPipe.className = 'text-slate-500';
+        barPipe.textContent = '|';
+        line.appendChild(barPipe);
+      }
+
+      const cell = document.createElement('span');
+      cell.dataset.eventIndex = String(eventIndex);
+      if (isAnchorRow) {
+        cell.dataset.timelineStepAnchor = 'true';
+      }
+      const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
+      const accentColor = getPrimaryCellFingerColor(rangeCell?.notes ?? []);
+      cell.className =
+        'inline-block px-[1px] rounded-sm ' +
+        (model.activeEventIndex === eventIndex
+          ? 'text-slate-50'
+          : rangeCell?.isInStudyRange
+            ? 'bg-amber-900/25 text-amber-100'
+            : isHeader
+              ? 'text-slate-500'
+              : 'text-slate-500');
+      cell.style.minWidth = `${eventWidths[eventIndex]}ch`;
+      cell.style.width = `${eventWidths[eventIndex]}ch`;
+      cell.dataset.activeEvent = model.activeEventIndex === eventIndex ? 'true' : 'false';
+      if (model.activeEventIndex === eventIndex) {
+        cell.style.backgroundColor = withAlpha(accentColor, 0.28);
+        cell.style.color = '#f8fafc';
+      }
+      const rowCell = model.rows.find((row) => row.stringName === labelText)?.cells[eventIndex] ?? null;
+      const selectedRowNote = rowCell?.notes[0] ?? null;
+      const isDragSource =
+        !isHeader &&
+        selectedRowNote &&
+        activeTimelineNoteDragSource?.eventIndex === eventIndex &&
+        activeTimelineNoteDragSource?.noteIndex === selectedRowNote.noteIndex;
+      if (
+        !isHeader &&
+        selectedRowNote &&
+        selectedEventIndex === eventIndex &&
+        selectedNoteIndex === selectedRowNote.noteIndex
+      ) {
+        cell.style.outline = `1px solid ${withAlpha(getFingerColor(selectedRowNote.finger), 0.92)}`;
+        cell.style.boxShadow = `0 0 0 1px ${withAlpha(getFingerColor(selectedRowNote.finger), 0.28)}`;
+      }
+      if (rangeCell?.isStudyRangeStart) {
+        cell.style.boxShadow = 'inset 2px 0 0 rgba(251, 191, 36, 0.9)';
+      }
+      if (rangeCell?.isStudyRangeEnd) {
+        cell.style.boxShadow = cell.style.boxShadow
+          ? `${cell.style.boxShadow}, inset -2px 0 0 rgba(251, 191, 36, 0.9)`
+          : 'inset -2px 0 0 rgba(251, 191, 36, 0.9)';
+      }
+      if (isDragSource) {
+        cell.classList.add('timeline-note-drag-source');
+      }
+      const displaySegment =
+        rowCell && rowCell.unmatchedPlayedNotes.length > 0
+          ? buildClassicTimelineFeedbackSegment(rowCell, eventWidths[eventIndex])
+          : segment;
+      cell.textContent = displaySegment;
+      if (rowCell) {
+        applyClassicCellFeedbackStyles(cell, resolveClassicCellFeedbackTone(rowCell), accentColor);
+      }
+      if (!isHeader && selectedRowNote) {
+        cell.dataset.timelineNoPan = 'true';
+        cell.dataset.noteIndex = String(selectedRowNote.noteIndex);
+        cell.addEventListener('click', () => {
+          deps.onMelodyTimelineNoteSelect({
+            melodyId,
+            eventIndex,
+            noteIndex: selectedRowNote.noteIndex,
+            toggle: true,
+          });
+        });
+        if (editingEnabled) {
+          deps.bindTimelineContextMenu(cell, { melodyId, eventIndex, noteIndex: selectedRowNote.noteIndex });
+        }
+        deps.bindTimelineNoteDrag(
+          cell,
+          {
+            melodyId,
+            eventIndex,
+            noteIndex: selectedRowNote.noteIndex,
+            stringName: selectedRowNote.stringName,
+            fret: selectedRowNote.fret,
+          },
+          instrument
+        );
+      }
+      if (!isHeader) {
+        if (!selectedRowNote && editingEnabled) {
+          cell.title = 'Double-click to add a note on this string';
+          cell.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            deps.onMelodyTimelineEmptyCellAdd({
+              melodyId,
+              eventIndex,
+              stringName: labelText,
+            });
+          });
+        }
+        if (editingEnabled && !selectedRowNote) {
+          deps.bindTimelineContextMenu(cell, { melodyId, eventIndex, noteIndex: null });
+        }
+        deps.bindTimelineEventDrag(cell, {
+          melodyId,
+          sourceEventIndex: eventIndex,
+          selectedEventIndex,
+        });
+      }
+      line.appendChild(cell);
+    });
+
+    const endPipe = document.createElement('span');
+    endPipe.className = 'text-slate-500';
+    endPipe.textContent = '|';
+    line.appendChild(endPipe);
+
+    return line;
+  };
+
+  if (showStepNumbers) {
+    const headerSegments = eventWidths.map((width, eventIndex) => String(eventIndex + 1).padEnd(width, ' '));
+    wrapper.appendChild(buildLine('Stp', headerSegments, { isHeader: true }));
+  }
+
+  model.rows.forEach((row, rowIndex) => {
+    const segments = row.cells.map((cell, eventIndex) => getClassicCellText(cell.notes, eventWidths[eventIndex]));
+    wrapper.appendChild(buildLine(row.stringName, segments, { isAnchorRow: rowIndex === 0 }));
+  });
+
+  root.appendChild(wrapper);
+}

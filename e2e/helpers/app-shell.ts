@@ -1,0 +1,157 @@
+import { expect, type Page } from '@playwright/test';
+
+export class AppShell {
+  constructor(private readonly page: Page) {}
+
+  async seedStorage(entries: Record<string, unknown>) {
+    await this.page.addInitScript((payload) => {
+      for (const [key, value] of Object.entries(payload)) {
+        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+      }
+    }, entries);
+  }
+
+  async goto() {
+    await this.page.goto('/');
+  }
+
+  async expectLoaded() {
+    await expect(this.page).toHaveTitle(/FretFlow/i);
+    await expect(this.page.locator('#sessionToggleBtn')).toBeVisible();
+    await expect(this.page.locator('#sessionToggleBtn')).toHaveText(/Start Session/i);
+    await expect(this.page.locator('#statusBar')).not.toHaveText(/Startup failed|Runtime error/i);
+    await expect(this.page.locator('#inputStatusBar')).toContainText(/Mic:/i);
+    await expect(this.page.locator('#trainingMode')).toBeVisible();
+    await expect(this.page.locator('#practiceSetupToggleBtn')).toBeVisible();
+  }
+
+  async selectTrainingMode(value: string) {
+    await this.page.locator('#trainingMode').selectOption(value);
+  }
+
+  settings() {
+    return new SettingsHub(this.page);
+  }
+
+  melodyTempo() {
+    return new MelodyTempoControls(this.page);
+  }
+}
+
+export class SettingsHub {
+  constructor(private readonly page: Page) {}
+
+  async open() {
+    await this.page.locator('#settingsBtn').click();
+    await expect(this.page.locator('#settingsModal')).toBeVisible();
+    await expect(this.page.getByRole('heading', { name: /App Settings/i })).toBeVisible();
+  }
+
+  async openInputDetection() {
+    await this.page.locator('#settingsOpenInputDetectionBtn').click();
+    await this.inputDetection().expectVisible();
+  }
+
+  async openTools() {
+    await this.page.locator('#settingsOpenToolsBtn').click();
+  }
+
+  async backToSections() {
+    await this.page.locator('#settingsSectionBackBtn').click();
+  }
+
+  stats() {
+    return new StatsModal(this.page);
+  }
+
+  inputDetection() {
+    return new InputDetectionSettings(this.page);
+  }
+}
+
+export class InputDetectionSettings {
+  constructor(private readonly page: Page) {}
+
+  async expectVisible() {
+    await expect(this.page.locator('#audioInputDevice')).toBeVisible();
+    await expect(this.page.locator('#inputSource')).toBeVisible();
+  }
+
+  async isMidiDisabled() {
+    return this.page.evaluate(() => {
+      const select = document.getElementById('inputSource') as HTMLSelectElement | null;
+      const midiOption = [...(select?.options ?? [])].find((option) => option.value === 'midi');
+      return Boolean(midiOption?.disabled);
+    });
+  }
+
+  async expectMicrophoneState() {
+    await expect(this.page.locator('#inputSource')).toHaveValue('microphone');
+    await expect(this.page.locator('#midiInputRow')).toBeHidden();
+    await expect(this.page.locator('#audioInputRow')).toBeVisible();
+    await expect(this.page.locator('#midiConnectionStatus')).toBeHidden();
+    await expect(this.page.locator('#inputStatusBar')).toContainText(/Mic:/i);
+  }
+
+  async switchToMidi() {
+    await this.page.locator('#inputSource').selectOption('midi');
+  }
+
+  async expectMidiState() {
+    await expect(this.page.locator('#midiInputRow')).toBeVisible();
+    await expect(this.page.locator('#audioInputRow')).toBeHidden();
+    await expect(this.page.locator('#midiConnectionStatus')).toBeVisible();
+    await expect(this.page.locator('#midiConnectionStatus')).toContainText(/MIDI Connection:/i);
+    await expect(this.page.locator('#inputStatusBar')).toContainText(/MIDI:/i);
+  }
+
+  async switchToMicrophone() {
+    await this.page.locator('#inputSource').selectOption('microphone');
+  }
+}
+
+export class StatsModal {
+  constructor(private readonly page: Page) {}
+
+  async openFromTools() {
+    await this.page.locator('#openStatsBtn').click();
+    await expect(this.page.locator('#statsModal')).toBeVisible();
+    await expect(this.page.getByRole('heading', { name: /My Statistics/i })).toBeVisible();
+  }
+
+  async expectBaseActionsVisible() {
+    await expect(this.page.locator('#repeatLastSessionBtn')).toBeVisible();
+    await expect(this.page.locator('#practiceWeakSpotsBtn')).toBeVisible();
+    await expect(this.page.locator('#resetStatsBtn')).toBeVisible();
+  }
+
+  async expectLastSessionInput(sourcePattern: RegExp) {
+    await expect(this.page.locator('#statsLastSessionSection')).toBeVisible();
+    await expect(this.page.locator('#statsLastSessionInput')).toBeVisible();
+    await expect(this.page.locator('#statsLastSessionInput')).toHaveText(sourcePattern);
+    await expect(this.page.locator('#statsLastSessionInput')).toHaveAttribute('title', sourcePattern);
+  }
+}
+
+export class MelodyTempoControls {
+  constructor(private readonly page: Page) {}
+
+  async selectMelody(value: string) {
+    await this.page.locator('#melodySelector').selectOption(value);
+  }
+
+  async expectTempo(value: number) {
+    await expect(this.page.locator('#melodyDemoBpm')).toHaveValue(String(value));
+    await expect(this.page.locator('#melodyDemoBpmValue')).toHaveText(String(value));
+  }
+
+  async setTempo(value: number) {
+    await this.page.locator('#melodyDemoBpm').evaluate((element, nextValue) => {
+      const input = element as HTMLInputElement;
+      input.value = String(nextValue);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+    await expect(this.page.locator('#melodyDemoBpmValue')).toHaveText(String(value));
+  }
+}

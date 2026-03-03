@@ -1,1957 +1,88 @@
 import { dom } from './state';
-import { setResultMessage } from './ui-signals';
 import type { MelodyDefinition } from './melody-library';
 import type { IInstrument } from './instruments/instrument';
-import { buildMelodyTabTimelineViewModel, type TimelineNoteChip } from './melody-tab-timeline-model';
-import type { PerformanceTimelineFeedbackByEvent, PerformanceTimelineAttempt } from './performance-timeline-feedback';
+import { buildMelodyTabTimelineViewModel } from './melody-tab-timeline-model';
 import {
-  computeDraggedMelodyStudyRange,
-  resolveTimelineStepIndexFromX,
-  type MelodyStudyRangeDragMode,
-  type TimelineStepMetric,
-} from './melody-study-range-drag';
+  bindTimelineContextMenu,
+  clearMelodyTimelineContextMenu,
+  getTimelineContextMenuSignature,
+  renderTimelineContextMenu,
+  setMelodyTimelineContextActionHandler,
+  setMelodyTimelineContextMenuOpenHandler,
+  type MelodyTimelineContextAction,
+} from './melody-tab-timeline-context-menu';
+import {
+  bindTimelineEventDrag,
+  bindTimelineNoteDrag,
+  emitMelodyTimelineNoteSelect,
+  getActiveTimelineNoteDragSource,
+  setMelodyTimelineEventDragHandler,
+  setMelodyTimelineNoteDragHandler,
+  setMelodyTimelineNoteSelectHandler,
+} from './melody-tab-timeline-drag';
+import {
+  bindTimelineBackgroundCopy,
+  bindTimelineSelectionClear,
+  setMelodyTimelineBackgroundCopyPayload,
+  setMelodyTimelineSelectionClearHandler,
+} from './melody-tab-timeline-interactions';
+import {
+  buildMelodyContentSignature,
+  buildTimelineBarGrouping,
+} from './melody-tab-timeline-metadata';
+import {
+  buildMelodyTimelineMetaText,
+  buildMelodyTimelineRenderKey,
+  type MelodyTimelineRenderOptions,
+  resolveMelodyTimelineRenderOptions,
+} from './melody-tab-timeline-render-state';
+import {
+  getMelodyTimelineEmptyCellAddHandler,
+  getMelodyTimelineSeekHandler,
+  getMelodyTimelineStudyRangeCommitHandler,
+  setMelodyTimelineEmptyCellAddHandler,
+  setMelodyTimelineSeekHandler,
+  setMelodyTimelineStudyRangeCommitHandler,
+} from './melody-tab-timeline-handlers';
+import { renderClassicTimeline } from './melody-tab-timeline-classic-renderer';
+import { renderGridTimeline } from './melody-tab-timeline-grid-renderer';
+import { renderTimelineMinimap } from './melody-tab-timeline-minimap-renderer';
+import {
+  bindTimelineDragPan,
+  bindTimelineScrollChrome,
+  centerTimelineEvent,
+  updateTimelineScrollChrome,
+} from './melody-tab-timeline-scroll';
+import {
+  getRenderedTimelineStepMetrics,
+  renderStudyRangeBar,
+} from './melody-tab-timeline-study-range-renderer';
 import {
   formatMelodyStudyRange,
   getMelodyStudyRangeLength,
   normalizeMelodyStudyRange,
-  type MelodyStudyRange,
 } from './melody-study-range';
-import {
-  computeTimelineDurationLayout,
-  getEventDurationBeats,
-  type TimelineDurationLayout,
-} from './melody-timeline-duration';
-import {
-  buildMelodyMinimapLayout,
-  resolveMelodyMinimapEventIndexFromRatio,
-} from './melody-minimap';
+import { computeTimelineDurationLayout } from './melody-timeline-duration';
 
-const DEFAULT_TIMELINE_BEATS_PER_BAR = 4;
-
-const FINGER_COLORS: Record<number, string> = {
-  0: '#9ca3af',
-  1: '#f59e0b',
-  2: '#a855f7',
-  3: '#0ea5e9',
-  4: '#ef4444',
+export {
+  clearMelodyTimelineContextMenu,
+  setMelodyTimelineEventDragHandler,
+  setMelodyTimelineBackgroundCopyPayload,
+  setMelodyTimelineEmptyCellAddHandler,
+  setMelodyTimelineNoteDragHandler,
+  setMelodyTimelineNoteSelectHandler,
+  setMelodyTimelineContextActionHandler,
+  setMelodyTimelineContextMenuOpenHandler,
+  setMelodyTimelineSeekHandler,
+  setMelodyTimelineSelectionClearHandler,
+  setMelodyTimelineStudyRangeCommitHandler,
 };
+export type { MelodyTimelineContextAction };
 
 let lastRenderKey = '';
-let timelineScrollChromeBound = false;
-let timelinePanBound = false;
-let timelineSelectionClearBound = false;
-let onMelodyStudyRangeCommit:
-  | ((payload: { melodyId: string; range: MelodyStudyRange }) => void)
-  | null = null;
-let onMelodyTimelineSeek:
-  | ((payload: { melodyId: string; eventIndex: number; commit: boolean }) => void)
-  | null = null;
-let onMelodyTimelineNoteSelect:
-  | ((payload: { melodyId: string; eventIndex: number; noteIndex: number; toggle?: boolean }) => void)
-  | null = null;
-let onMelodyTimelineSelectionClear: ((payload: { melodyId: string }) => void) | null = null;
-let onMelodyTimelineEmptyCellAdd:
-  | ((payload: { melodyId: string; eventIndex: number; stringName: string }) => void)
-  | null = null;
-let onMelodyTimelineNoteDrag:
-  | ((payload: { melodyId: string; eventIndex: number; noteIndex: number; stringName: string; commit: boolean }) => void)
-  | null = null;
-let onMelodyTimelineEventDrag:
-  | ((payload: { melodyId: string; sourceEventIndex: number; targetEventIndex: number; commit: boolean }) => void)
-  | null = null;
-let onMelodyTimelineContextAction:
-  | ((payload: { melodyId: string; action: MelodyTimelineContextAction }) => void)
-  | null = null;
-let onMelodyTimelineContextMenuOpen:
-  | ((payload: {
-      melodyId: string;
-      eventIndex: number;
-      noteIndex: number | null;
-      anchorX: number;
-      anchorY: number;
-    }) => void)
-  | null = null;
-let activeTimelineNoteDragSource: { eventIndex: number; noteIndex: number } | null = null;
-let activeTimelineContextMenu:
-  | { melodyId: string; eventIndex: number; noteIndex: number | null; anchorX: number; anchorY: number }
-  | null = null;
-let timelineBackgroundCopyBound = false;
-let activeTimelineBackgroundCopyPayload: { text: string; melodyName: string } | null = null;
-
-type MelodyTimelineContextAction =
-  | 'fret-down'
-  | 'fret-up'
-  | 'duration-down'
-  | 'duration-up'
-  | 'add-note'
-  | 'add-event'
-  | 'duplicate-event'
-  | 'split-event'
-  | 'merge-event'
-  | 'delete-note'
-  | 'delete-event'
-  | 'undo'
-  | 'redo';
-
-function buildMelodyContentSignature(melody: Pick<MelodyDefinition, 'events'>) {
-  let hash = 2166136261;
-  for (const event of melody.events) {
-    hash ^= (event.barIndex ?? -1) + 17;
-    hash = Math.imul(hash, 16777619);
-    hash ^= (event.column ?? -1) + 31;
-    hash = Math.imul(hash, 16777619);
-    hash ^= (event.durationColumns ?? -1) + 47;
-    hash = Math.imul(hash, 16777619);
-    hash ^= (event.durationCountSteps ?? -1) + 61;
-    hash = Math.imul(hash, 16777619);
-    hash ^= Math.round((event.durationBeats ?? -1) * 1000) + 79;
-    hash = Math.imul(hash, 16777619);
-
-    for (const note of event.notes) {
-      const noteText = `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`;
-      for (let index = 0; index < noteText.length; index++) {
-        hash ^= noteText.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-      }
-    }
-  }
-
-  return (hash >>> 0).toString(16);
-}
-
-interface TimelineBarGrouping {
-  source: 'none' | 'explicit' | 'duration';
-  hasBeatTiming: boolean;
-  beatsPerBar: number | null;
-  totalBars: number | null;
-  barStartEventIndexes: Set<number>;
-}
-
-function getFingerColor(finger: number) {
-  const normalized = Number.isFinite(finger) ? Math.max(0, Math.min(4, Math.round(finger))) : 0;
-  return FINGER_COLORS[normalized] ?? FINGER_COLORS[0];
-}
-
-function withAlpha(hexColor: string, alpha: number) {
-  const sanitized = hexColor.replace('#', '');
-  if (sanitized.length !== 6) return hexColor;
-  const red = Number.parseInt(sanitized.slice(0, 2), 16);
-  const green = Number.parseInt(sanitized.slice(2, 4), 16);
-  const blue = Number.parseInt(sanitized.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-}
-
-function scaleTimelinePixels(base: number, zoomScale: number, minimum: number) {
-  return Math.max(minimum, Math.round(base * zoomScale));
-}
-
-function createCellNoteChip(note: TimelineNoteChip, zoomScale: number) {
-  const chip = document.createElement('button');
-  chip.type = 'button';
-  chip.className =
-    'inline-flex items-center justify-center min-w-[18px] px-1 py-0 rounded-sm text-[10px] leading-4 font-semibold text-slate-50';
-  chip.style.minWidth = `${scaleTimelinePixels(18, zoomScale, 14)}px`;
-  chip.style.paddingLeft = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
-  chip.style.paddingRight = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
-  chip.style.fontSize = `${scaleTimelinePixels(10, zoomScale, 8)}px`;
-  chip.style.lineHeight = `${scaleTimelinePixels(16, zoomScale, 12)}px`;
-  const fingerColor = getFingerColor(note.finger);
-  chip.style.backgroundColor =
-    note.performanceStatus === 'correct'
-      ? '#16a34a'
-      : note.performanceStatus === 'wrong'
-        ? '#dc2626'
-        : note.performanceStatus === 'missed'
-          ? '#991b1b'
-        : fingerColor;
-  if (note.performanceStatus) {
-    chip.style.boxShadow = `inset 0 0 0 1px ${withAlpha(fingerColor, 0.92)}`;
-  }
-  chip.title = `${note.note} | fret ${note.fret} | finger ${note.finger}${
-    note.performanceStatus ? ` | ${note.performanceStatus}` : ''
-  }`;
-  chip.textContent = String(note.fret);
-  chip.dataset.timelineNoPan = 'true';
-  chip.dataset.noteIndex = String(note.noteIndex);
-  chip.dataset.eventIndex = '';
-  return chip;
-}
-
-function createPlayedFeedbackChip(attempt: PerformanceTimelineAttempt, zoomScale: number) {
-  const chip = document.createElement('span');
-  chip.className =
-    'inline-flex items-center justify-center min-w-[14px] px-1 py-[1px] rounded text-[9px] leading-3 font-semibold text-white';
-  chip.style.minWidth = `${scaleTimelinePixels(14, zoomScale, 11)}px`;
-  chip.style.paddingLeft = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
-  chip.style.paddingRight = `${scaleTimelinePixels(4, zoomScale, 2)}px`;
-  chip.style.paddingTop = `${scaleTimelinePixels(1, zoomScale, 1)}px`;
-  chip.style.paddingBottom = `${scaleTimelinePixels(1, zoomScale, 1)}px`;
-  chip.style.fontSize = `${scaleTimelinePixels(9, zoomScale, 8)}px`;
-  chip.style.lineHeight = `${scaleTimelinePixels(12, zoomScale, 10)}px`;
-  chip.style.backgroundColor =
-    attempt.status === 'correct'
-      ? '#16a34a'
-      : attempt.status === 'missed'
-        ? '#991b1b'
-        : '#dc2626';
-  chip.title = `${attempt.status === 'correct' ? 'Correct' : attempt.status === 'missed' ? 'Missed' : 'Wrong'}: ${attempt.note}${
-    typeof attempt.fret === 'number' ? ` | fret ${attempt.fret}` : ''
-  }`;
-  chip.textContent = typeof attempt.fret === 'number' ? String(attempt.fret) : attempt.note;
-  return chip;
-}
-
-function getPrimaryCellFingerColor(notes: TimelineNoteChip[]) {
-  if (notes.length === 0) return '#67e8f9';
-  return getFingerColor(notes[0]?.finger ?? 0);
-}
 
 function clearGrid() {
   dom.melodyTabTimelineGrid.innerHTML = '';
-}
-
-async function writeTextToClipboard(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', 'true');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  textarea.style.pointerEvents = 'none';
-  document.body.appendChild(textarea);
-  textarea.select();
-  const success = document.execCommand('copy');
-  textarea.remove();
-  if (!success) {
-    throw new Error('Clipboard API unavailable.');
-  }
-}
-
-function bindTimelineBackgroundCopy() {
-  if (timelineBackgroundCopyBound) return;
-  timelineBackgroundCopyBound = true;
-
-  dom.melodyTabTimelineViewport.addEventListener('contextmenu', (event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (!activeTimelineBackgroundCopyPayload) return;
-    if (
-      target.closest(
-        '.timeline-context-menu, td, th, button, [role="menuitem"], [data-event-index], [data-note-index], [data-timeline-step-anchor="true"]'
-      )
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    void writeTextToClipboard(activeTimelineBackgroundCopyPayload.text)
-      .then(() => {
-        setResultMessage(`Copied tab text for ${activeTimelineBackgroundCopyPayload?.melodyName}.`, 'success');
-      })
-      .catch((error) => {
-        console.error('Failed to copy melody tab text:', error);
-        setResultMessage('Failed to copy tab text.', 'error');
-      });
-  });
-}
-
-export function setMelodyTimelineBackgroundCopyPayload(payload: { text: string; melodyName: string } | null) {
-  activeTimelineBackgroundCopyPayload = payload;
-}
-
-function getClassicPlayedCellTextRaw(attempts: PerformanceTimelineAttempt[]) {
-  if (attempts.length === 0) return '';
-  return attempts.map((attempt) => (typeof attempt.fret === 'number' ? String(attempt.fret) : attempt.note)).join('/');
-}
-
-function resolveClassicCellFeedbackTone(cell: ReturnType<typeof buildMelodyTabTimelineViewModel>['rows'][number]['cells'][number]) {
-  if (cell.notes.some((note) => note.performanceStatus === 'correct')) return 'correct';
-  if (cell.notes.some((note) => note.performanceStatus === 'wrong')) return 'wrong';
-  if (cell.notes.some((note) => note.performanceStatus === 'missed')) return 'missed';
-  if (cell.unmatchedPlayedNotes.some((attempt) => attempt.status === 'correct')) return 'correct';
-  if (cell.unmatchedPlayedNotes.some((attempt) => attempt.status === 'wrong')) return 'wrong';
-  if (cell.unmatchedPlayedNotes.some((attempt) => attempt.status === 'missed')) return 'missed';
-  return null;
-}
-
-function applyClassicCellFeedbackStyles(
-  cellElement: HTMLElement,
-  tone: 'correct' | 'wrong' | 'missed' | null,
-  accentColor: string
-) {
-  if (tone === 'correct') {
-    cellElement.style.backgroundColor = '#16a34a';
-    cellElement.style.color = '#f0fdf4';
-    cellElement.style.boxShadow = cellElement.style.boxShadow
-      ? `${cellElement.style.boxShadow}, inset 0 0 0 1px #166534`
-      : 'inset 0 0 0 1px #166534';
-    return;
-  }
-  if (tone === 'wrong') {
-    cellElement.style.backgroundColor = '#dc2626';
-    cellElement.style.color = '#fef2f2';
-    cellElement.style.boxShadow = cellElement.style.boxShadow
-      ? `${cellElement.style.boxShadow}, inset 0 0 0 1px #991b1b`
-      : 'inset 0 0 0 1px #991b1b';
-    return;
-  }
-  if (tone === 'missed') {
-    cellElement.style.backgroundColor = '#991b1b';
-    cellElement.style.color = '#fef2f2';
-    cellElement.style.boxShadow = cellElement.style.boxShadow
-      ? `${cellElement.style.boxShadow}, inset 0 0 0 1px #7f1d1d`
-      : 'inset 0 0 0 1px #7f1d1d';
-    return;
-  }
-  if (cellElement.dataset.activeEvent === 'true') {
-    cellElement.style.backgroundColor = withAlpha(accentColor, 0.28);
-    cellElement.style.color = '#f8fafc';
-  }
-}
-
-function centerTimelineEvent(eventIndex: number, behavior: ScrollBehavior = 'smooth') {
-  if (!Number.isFinite(eventIndex) || eventIndex < 0) return;
-  const scroller = dom.melodyTabTimelineGrid;
-  const anchor = scroller.querySelector<HTMLElement>(
-    `[data-timeline-step-anchor="true"][data-event-index="${eventIndex}"]`
-  );
-  if (!anchor) return;
-
-  const anchorLeft = anchor.offsetLeft;
-  const targetLeft = anchorLeft - (scroller.clientWidth - anchor.clientWidth) / 2;
-  const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  scroller.scrollTo({
-    left: Math.max(0, Math.min(maxScrollLeft, targetLeft)),
-    behavior,
-  });
-}
-
-function updateTimelineScrollChrome() {
-  const viewport = dom.melodyTabTimelineViewport;
-  const scroller = dom.melodyTabTimelineGrid;
-  const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  const isScrollable = maxScrollLeft > 4;
-  const hasLeftOverflow = isScrollable && scroller.scrollLeft > 2;
-  const hasRightOverflow = isScrollable && scroller.scrollLeft < maxScrollLeft - 2;
-
-  viewport.dataset.scrollable = isScrollable ? 'true' : 'false';
-  viewport.dataset.scrollLeft = hasLeftOverflow ? 'true' : 'false';
-  viewport.dataset.scrollRight = hasRightOverflow ? 'true' : 'false';
-}
-
-function bindTimelineScrollChrome() {
-  if (timelineScrollChromeBound) return;
-  timelineScrollChromeBound = true;
-
-  dom.melodyTabTimelineGrid.addEventListener(
-    'scroll',
-    () => {
-      updateTimelineScrollChrome();
-    },
-    { passive: true }
-  );
-
-  window.addEventListener(
-    'resize',
-    () => {
-      updateTimelineScrollChrome();
-    },
-    { passive: true }
-  );
-}
-
-function bindTimelineDragPan() {
-  if (timelinePanBound) return;
-  timelinePanBound = true;
-
-  const scroller = dom.melodyTabTimelineGrid;
-  let pointerId: number | null = null;
-  let startClientX = 0;
-  let startScrollLeft = 0;
-  let isDragging = false;
-  let lastClientX = 0;
-  let lastTimestamp = 0;
-  let velocityPxPerMs = 0;
-  let inertiaFrameId: number | null = null;
-
-  const cancelInertia = () => {
-    if (inertiaFrameId !== null) {
-      window.cancelAnimationFrame(inertiaFrameId);
-      inertiaFrameId = null;
-    }
-  };
-
-  const startInertia = () => {
-    if (Math.abs(velocityPxPerMs) < 0.01) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    cancelInertia();
-    let currentVelocity = velocityPxPerMs;
-    let frameTimestamp = performance.now();
-
-    const tick = (timestamp: number) => {
-      const dt = Math.min(34, Math.max(8, timestamp - frameTimestamp));
-      frameTimestamp = timestamp;
-      if (Math.abs(currentVelocity) < 0.01) {
-        cancelInertia();
-        return;
-      }
-
-      const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-      const previousScrollLeft = scroller.scrollLeft;
-      const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, previousScrollLeft + currentVelocity * dt));
-      scroller.scrollLeft = nextScrollLeft;
-
-      if (Math.abs(nextScrollLeft - previousScrollLeft) < 0.1) {
-        cancelInertia();
-        return;
-      }
-
-      currentVelocity *= Math.pow(0.92, dt / 16);
-      inertiaFrameId = window.requestAnimationFrame(tick);
-    };
-
-    inertiaFrameId = window.requestAnimationFrame(tick);
-  };
-
-  const finishDrag = () => {
-    pointerId = null;
-    isDragging = false;
-    scroller.classList.remove('is-drag-panning');
-    document.body.classList.remove('timeline-pan-active');
-  };
-
-  scroller.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'touch') return;
-    if (event.button !== 0) return;
-    const target = event.target as HTMLElement | null;
-    const forcePan = event.ctrlKey || event.metaKey;
-    if (!forcePan && target?.closest('[data-timeline-no-pan="true"]')) return;
-    if (!forcePan && target?.closest('button, input, select, textarea, a')) return;
-    if (scroller.scrollWidth <= scroller.clientWidth + 4) return;
-
-    cancelInertia();
-    pointerId = event.pointerId;
-    startClientX = event.clientX;
-    startScrollLeft = scroller.scrollLeft;
-    lastClientX = event.clientX;
-    lastTimestamp = event.timeStamp;
-    velocityPxPerMs = 0;
-    isDragging = false;
-    document.body.classList.add('timeline-pan-active');
-    scroller.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-
-  scroller.addEventListener('pointermove', (event) => {
-    if (pointerId !== event.pointerId) return;
-    const deltaX = event.clientX - startClientX;
-    if (!isDragging && Math.abs(deltaX) < 3) return;
-    isDragging = true;
-    scroller.classList.add('is-drag-panning');
-    scroller.scrollLeft = startScrollLeft - deltaX;
-    const dt = Math.max(1, event.timeStamp - lastTimestamp);
-    const clientDelta = event.clientX - lastClientX;
-    velocityPxPerMs = -clientDelta / dt;
-    lastClientX = event.clientX;
-    lastTimestamp = event.timeStamp;
-    event.preventDefault();
-  });
-
-  scroller.addEventListener('pointerup', (event) => {
-    if (pointerId !== event.pointerId) return;
-    if (scroller.hasPointerCapture(event.pointerId)) {
-      scroller.releasePointerCapture(event.pointerId);
-    }
-    const shouldInertia = isDragging;
-    finishDrag();
-    if (shouldInertia) {
-      startInertia();
-    }
-  });
-
-  scroller.addEventListener('pointercancel', (event) => {
-    if (pointerId !== event.pointerId) return;
-    if (scroller.hasPointerCapture(event.pointerId)) {
-      scroller.releasePointerCapture(event.pointerId);
-    }
-    finishDrag();
-    cancelInertia();
-  });
-
-  scroller.addEventListener('dblclick', (event) => {
-    const target = event.target as HTMLElement | null;
-    if (target?.closest('[data-timeline-no-pan="true"]')) return;
-    const activeEventIndex = Number.parseInt(scroller.dataset.activeEventIndex ?? '-1', 10);
-    if (!Number.isFinite(activeEventIndex) || activeEventIndex < 0) return;
-    centerTimelineEvent(activeEventIndex);
-  });
-}
-
-function bindTimelineSelectionClear() {
-  if (timelineSelectionClearBound) return;
-  timelineSelectionClearBound = true;
-
-  dom.melodyTabTimelineGrid.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null;
-    const melodyId = dom.melodyTabTimelineGrid.dataset.melodyId;
-    if (!target || !melodyId) return;
-    if (target.closest('[data-note-index]')) return;
-    if (target.closest('.timeline-context-menu')) return;
-    if (target.closest('[data-timeline-range-ui="true"]')) return;
-    clearMelodyTimelineContextMenu();
-    onMelodyTimelineSelectionClear?.({ melodyId });
-  });
-}
-
-export function setMelodyTimelineStudyRangeCommitHandler(
-  handler: ((payload: { melodyId: string; range: MelodyStudyRange }) => void) | null
-) {
-  onMelodyStudyRangeCommit = handler;
-}
-
-export function setMelodyTimelineSeekHandler(
-  handler: ((payload: { melodyId: string; eventIndex: number; commit: boolean }) => void) | null
-) {
-  onMelodyTimelineSeek = handler;
-}
-
-export function setMelodyTimelineNoteSelectHandler(
-  handler: ((payload: { melodyId: string; eventIndex: number; noteIndex: number; toggle?: boolean }) => void) | null
-) {
-  onMelodyTimelineNoteSelect = handler;
-}
-
-export function setMelodyTimelineSelectionClearHandler(
-  handler: ((payload: { melodyId: string }) => void) | null
-) {
-  onMelodyTimelineSelectionClear = handler;
-}
-
-export function setMelodyTimelineEmptyCellAddHandler(
-  handler: ((payload: { melodyId: string; eventIndex: number; stringName: string }) => void) | null
-) {
-  onMelodyTimelineEmptyCellAdd = handler;
-}
-
-export function setMelodyTimelineNoteDragHandler(
-  handler:
-    | ((payload: { melodyId: string; eventIndex: number; noteIndex: number; stringName: string; commit: boolean }) => void)
-    | null
-) {
-  onMelodyTimelineNoteDrag = handler;
-}
-
-export function setMelodyTimelineEventDragHandler(
-  handler:
-    | ((payload: { melodyId: string; sourceEventIndex: number; targetEventIndex: number; commit: boolean }) => void)
-    | null
-) {
-  onMelodyTimelineEventDrag = handler;
-}
-
-export function setMelodyTimelineContextActionHandler(
-  handler: ((payload: { melodyId: string; action: MelodyTimelineContextAction }) => void) | null
-) {
-  onMelodyTimelineContextAction = handler;
-}
-
-export function setMelodyTimelineContextMenuOpenHandler(
-  handler:
-    | ((payload: {
-        melodyId: string;
-        eventIndex: number;
-        noteIndex: number | null;
-        anchorX: number;
-        anchorY: number;
-      }) => void)
-    | null
-) {
-  onMelodyTimelineContextMenuOpen = handler;
-}
-
-export function clearMelodyTimelineContextMenu() {
-  const hadOpenMenu = activeTimelineContextMenu !== null;
-  activeTimelineContextMenu = null;
-  dom.melodyTabTimelinePanel.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
-  return hadOpenMenu;
-}
-
-function openTimelineContextMenu(payload: {
-  melodyId: string;
-  eventIndex: number;
-  noteIndex: number | null;
-  anchorX: number;
-  anchorY: number;
-}) {
-  activeTimelineContextMenu = payload;
-  onMelodyTimelineContextMenuOpen?.(payload);
-}
-
-function bindTimelineContextMenu(
-  element: HTMLElement,
-  payload: { melodyId: string; eventIndex: number; noteIndex: number | null }
-) {
-  element.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const panelRect = dom.melodyTabTimelinePanel.getBoundingClientRect();
-    openTimelineContextMenu({
-      ...payload,
-      anchorX: event.clientX - panelRect.left,
-      anchorY: event.clientY - panelRect.top,
-    });
-  });
-}
-
-function getToolbarEventMagnitude(event: MelodyDefinition['events'][number] | null | undefined) {
-  if (!event) return 0;
-  if (typeof event.durationBeats === 'number' && Number.isFinite(event.durationBeats) && event.durationBeats > 0) {
-    return event.durationBeats;
-  }
-  if (
-    typeof event.durationCountSteps === 'number' &&
-    Number.isFinite(event.durationCountSteps) &&
-    event.durationCountSteps > 0
-  ) {
-    return event.durationCountSteps;
-  }
-  if (
-    typeof event.durationColumns === 'number' &&
-    Number.isFinite(event.durationColumns) &&
-    event.durationColumns > 0
-  ) {
-    return event.durationColumns;
-  }
-  return 1;
-}
-
-function canToolbarSplitEvent(event: MelodyDefinition['events'][number] | null | undefined) {
-  return getToolbarEventMagnitude(event) > 1;
-}
-
-function areToolbarEventNotesEquivalent(
-  left: MelodyDefinition['events'][number] | null | undefined,
-  right: MelodyDefinition['events'][number] | null | undefined
-) {
-  if (!left || !right) return false;
-  if (left.notes.length !== right.notes.length) return false;
-  const leftSignature = left.notes
-    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`)
-    .sort();
-  const rightSignature = right.notes
-    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`)
-    .sort();
-  return leftSignature.every((value, index) => value === rightSignature[index]);
-}
-
-function canToolbarMergeEvent(
-  melody: MelodyDefinition,
-  selectedEventIndex: number | null
-) {
-  if (selectedEventIndex === null || selectedEventIndex < 0 || selectedEventIndex >= melody.events.length - 1) return false;
-  return areToolbarEventNotesEquivalent(melody.events[selectedEventIndex], melody.events[selectedEventIndex + 1]);
-}
-
-function normalizeNonNegativeInteger(value: unknown) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-  return Math.max(0, Math.round(value));
-}
-
-function buildTimelineBarGrouping(melody: Pick<MelodyDefinition, 'events'>): TimelineBarGrouping {
-  const explicitBarIndexes = melody.events.map((event) => normalizeNonNegativeInteger(event.barIndex));
-  const hasExplicitBarIndexes = explicitBarIndexes.length > 0 && explicitBarIndexes.every((bar) => bar !== null);
-  if (hasExplicitBarIndexes) {
-    const bars = explicitBarIndexes as number[];
-    const barStartEventIndexes = new Set<number>();
-    for (let eventIndex = 1; eventIndex < bars.length; eventIndex++) {
-      if (bars[eventIndex] !== bars[eventIndex - 1]) {
-        barStartEventIndexes.add(eventIndex);
-      }
-    }
-
-    const minBar = Math.min(...bars);
-    const maxBar = Math.max(...bars);
-    return {
-      source: 'explicit',
-      hasBeatTiming: false,
-      beatsPerBar: null,
-      totalBars: Math.max(1, maxBar - minBar + 1),
-      barStartEventIndexes,
-    };
-  }
-
-  const durations = melody.events.map((event) => getEventDurationBeats(event));
-  const hasBeatTiming = durations.every((duration) => duration !== null);
-  if (!hasBeatTiming || durations.length === 0) {
-    return {
-      source: 'none',
-      hasBeatTiming: false,
-      beatsPerBar: null,
-      totalBars: null,
-      barStartEventIndexes: new Set<number>(),
-    };
-  }
-
-  const beatsPerBar = DEFAULT_TIMELINE_BEATS_PER_BAR;
-  const barStartEventIndexes = new Set<number>();
-  const epsilon = 1e-6;
-  let accumulatedBeats = 0;
-
-  for (let eventIndex = 0; eventIndex < durations.length; eventIndex++) {
-    if (eventIndex > 0) {
-      const remainder = ((accumulatedBeats % beatsPerBar) + beatsPerBar) % beatsPerBar;
-      if (remainder < epsilon || Math.abs(remainder - beatsPerBar) < epsilon) {
-        barStartEventIndexes.add(eventIndex);
-      }
-    }
-    accumulatedBeats += durations[eventIndex]!;
-  }
-
-  const totalBars = Math.max(1, Math.ceil((accumulatedBeats + epsilon) / beatsPerBar));
-  return {
-    source: 'duration',
-    hasBeatTiming: true,
-    beatsPerBar,
-    totalBars,
-    barStartEventIndexes,
-  };
-}
-
-function getClassicCellTextRaw(notes: TimelineNoteChip[]) {
-  if (notes.length === 0) return '';
-  return notes.map((note) => String(note.fret)).join('/');
-}
-
-function getClassicCellText(notes: TimelineNoteChip[], width: number) {
-  const raw = getClassicCellTextRaw(notes);
-  if (!raw) return '-'.repeat(width);
-  if (raw.length >= width) return raw;
-  return `${raw}${'-'.repeat(width - raw.length)}`;
-}
-
-function parseScientificNoteToMidiValue(noteWithOctave: string) {
-  const match = /^([A-G])(#?)(-?\d+)$/.exec(noteWithOctave.trim());
-  if (!match) return null;
-  const [, letter, sharp, octaveText] = match;
-  const octave = Number.parseInt(octaveText, 10);
-  if (!Number.isFinite(octave)) return null;
-  const baseByLetter: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-  const base = baseByLetter[letter];
-  if (!Number.isFinite(base)) return null;
-  return (octave + 1) * 12 + base + (sharp ? 1 : 0);
-}
-
-function resolveEquivalentTimelineDragFret(
-  instrument: Pick<IInstrument, 'getNoteWithOctave'>,
-  sourceStringName: string,
-  sourceFret: number,
-  targetStringName: string
-) {
-  if (targetStringName === sourceStringName) return sourceFret;
-  const sourceScientific = instrument.getNoteWithOctave(sourceStringName, sourceFret);
-  if (!sourceScientific) return null;
-  const targetMidi = parseScientificNoteToMidiValue(sourceScientific);
-  if (targetMidi === null) return null;
-
-  for (let fret = 0; fret <= 24; fret += 1) {
-    const candidate = instrument.getNoteWithOctave(targetStringName, fret);
-    if (!candidate) continue;
-    if (parseScientificNoteToMidiValue(candidate) === targetMidi) {
-      return fret;
-    }
-  }
-  return null;
-}
-
-function clearTimelineNoteDragPreview() {
-  dom.melodyTabTimelineGrid
-    .querySelectorAll<HTMLElement>('.timeline-note-drag-preview')
-    .forEach((element) => {
-      element.classList.remove('timeline-note-drag-preview');
-      element.style.removeProperty('--timeline-drag-preview-color');
-      delete element.dataset.timelineDragPreviewFret;
-    });
-  dom.melodyTabTimelineGrid
-    .querySelectorAll<HTMLElement>('.timeline-note-drag-target-chip')
-    .forEach((element) => element.remove());
-}
-
-function clearTimelineEventDragPreview() {
-  dom.melodyTabTimelineGrid
-    .querySelectorAll<HTMLElement>('.timeline-event-drag-source, .timeline-event-drag-target')
-    .forEach((element) => {
-      element.classList.remove('timeline-event-drag-source', 'timeline-event-drag-target');
-    });
-}
-
-function markTimelineEventDragPreview(sourceEventIndex: number, targetEventIndex: number) {
-  clearTimelineEventDragPreview();
-  dom.melodyTabTimelineGrid
-    .querySelectorAll<HTMLElement>(`[data-event-index="${sourceEventIndex}"]`)
-    .forEach((element) => {
-      element.classList.add('timeline-event-drag-source');
-    });
-  dom.melodyTabTimelineGrid
-    .querySelectorAll<HTMLElement>(`[data-event-index="${targetEventIndex}"]`)
-    .forEach((element) => {
-      element.classList.add('timeline-event-drag-target');
-    });
-}
-
-function bindTimelineEventDrag(
-  dragTarget: HTMLElement,
-  payload: { melodyId: string; sourceEventIndex: number; selectedEventIndex: number | null }
-) {
-  dragTarget.dataset.timelineNoPan = 'true';
-
-  dragTarget.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'touch') return;
-    if (event.button !== 0) return;
-    if (event.ctrlKey || event.metaKey) return;
-    const pointerId = event.pointerId;
-    const originalTarget = event.target as HTMLElement | null;
-    if (originalTarget?.closest('[data-note-index]')) return;
-    if (payload.selectedEventIndex !== payload.sourceEventIndex) return;
-
-    const metrics = getRenderedTimelineStepMetrics(dom.melodyTabTimelineGrid);
-    if (metrics.length === 0) return;
-
-    let hasMoved = false;
-    let lastTargetIndex = payload.sourceEventIndex;
-
-    const resolveTargetEventIndex = (clientX: number) => {
-      const gridRect = dom.melodyTabTimelineGrid.getBoundingClientRect();
-      const offsetX = clientX - gridRect.left + dom.melodyTabTimelineGrid.scrollLeft;
-      const metric =
-        metrics.find((candidate) => offsetX >= candidate.left && offsetX <= candidate.right) ??
-        metrics.reduce<TimelineStepMetric | null>((best, candidate) => {
-          if (!best) return candidate;
-          const bestCenter = (best.left + best.right) / 2;
-          const candidateCenter = (candidate.left + candidate.right) / 2;
-          return Math.abs(offsetX - candidateCenter) < Math.abs(offsetX - bestCenter) ? candidate : best;
-        }, null);
-      return metric?.index ?? payload.sourceEventIndex;
-    };
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) return;
-      hasMoved = true;
-      const targetEventIndex = resolveTargetEventIndex(moveEvent.clientX);
-      if (targetEventIndex !== lastTargetIndex) {
-        lastTargetIndex = targetEventIndex;
-        markTimelineEventDragPreview(payload.sourceEventIndex, targetEventIndex);
-      }
-      moveEvent.preventDefault();
-    };
-
-    const finish = (finishEvent: PointerEvent, commit: boolean) => {
-      if (finishEvent.pointerId !== pointerId) return;
-      window.removeEventListener('pointermove', handlePointerMove, true);
-      window.removeEventListener('pointerup', handlePointerUp, true);
-      window.removeEventListener('pointercancel', handlePointerCancel, true);
-      if (commit && hasMoved) {
-        const targetEventIndex = resolveTargetEventIndex(finishEvent.clientX);
-        onMelodyTimelineEventDrag?.({
-          melodyId: payload.melodyId,
-          sourceEventIndex: payload.sourceEventIndex,
-          targetEventIndex,
-          commit: true,
-        });
-      }
-      clearTimelineEventDragPreview();
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      finish(upEvent, true);
-    };
-
-    const handlePointerCancel = (cancelEvent: PointerEvent) => {
-      finish(cancelEvent, false);
-    };
-
-    markTimelineEventDragPreview(payload.sourceEventIndex, payload.sourceEventIndex);
-    window.addEventListener('pointermove', handlePointerMove, true);
-    window.addEventListener('pointerup', handlePointerUp, true);
-    window.addEventListener('pointercancel', handlePointerCancel, true);
-  });
-}
-
-function clearTimelineNoteDragSource() {
-  activeTimelineNoteDragSource = null;
-  dom.melodyTabTimelineGrid
-    .querySelectorAll<HTMLElement>('.timeline-note-drag-source')
-    .forEach((element) => {
-      element.classList.remove('timeline-note-drag-source');
-    });
-}
-
-function markTimelineNoteDragSource(eventIndex: number, noteIndex: number) {
-  activeTimelineNoteDragSource = { eventIndex, noteIndex };
-  clearTimelineNoteDragSource();
-  activeTimelineNoteDragSource = { eventIndex, noteIndex };
-  dom.melodyTabTimelineGrid
-    .querySelectorAll<HTMLElement>(`[data-event-index="${eventIndex}"][data-note-index="${noteIndex}"]`)
-    .forEach((element) => {
-      element.classList.add('timeline-note-drag-source');
-    });
-}
-
-function setTimelineNoteDragPreview(stringName: string, eventIndex: number, color: string, previewFret: number | null) {
-  clearTimelineNoteDragPreview();
-  const rowElements = Array.from(
-    dom.melodyTabTimelineGrid.querySelectorAll<HTMLElement>('[data-timeline-string-name]')
-  ).filter((element) => element.dataset.timelineStringName === stringName);
-
-  rowElements.forEach((rowElement) => {
-    rowElement
-      .querySelectorAll<HTMLElement>(`[data-event-index="${eventIndex}"]:not([data-note-index])`)
-      .forEach((cellElement) => {
-        cellElement.classList.add('timeline-note-drag-preview');
-        cellElement.style.setProperty('--timeline-drag-preview-color', color);
-        if (previewFret !== null) {
-          cellElement.dataset.timelineDragPreviewFret = String(previewFret);
-          const targetChip = document.createElement('span');
-          targetChip.className = 'timeline-note-drag-target-chip';
-          targetChip.textContent = String(previewFret);
-          targetChip.style.backgroundColor = color;
-          cellElement.appendChild(targetChip);
-        }
-      });
-  });
-}
-
-function bindTimelineNoteDrag(noteTarget: HTMLElement, payload: {
-  melodyId: string;
-  eventIndex: number;
-  noteIndex: number;
-  stringName: string;
-  fret: number;
-}, instrument: Pick<IInstrument, 'getNoteWithOctave'>) {
-  noteTarget.dataset.timelineNoPan = 'true';
-  noteTarget.style.cursor = 'grab';
-
-  noteTarget.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'touch') return;
-    if (event.button !== 0) return;
-    if (event.ctrlKey || event.metaKey) return;
-    event.preventDefault();
-
-    const pointerId = event.pointerId;
-    let lastStringName: string | null = null;
-    let hasMoved = false;
-    const computedStyle = window.getComputedStyle(noteTarget);
-    const previewColor =
-      computedStyle.backgroundColor && computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)'
-        ? computedStyle.backgroundColor
-        : computedStyle.color || '#67e8f9';
-
-    onMelodyTimelineNoteSelect?.({ ...payload, toggle: false });
-    markTimelineNoteDragSource(payload.eventIndex, payload.noteIndex);
-    document.body.classList.add('timeline-note-drag-active');
-
-    const resolveStringName = (_clientX: number, clientY: number) => {
-      const rows = Array.from(
-        dom.melodyTabTimelineGrid.querySelectorAll<HTMLElement>('[data-timeline-string-name]')
-      );
-      if (rows.length === 0) return null;
-
-      let bestRow: HTMLElement | null = null;
-      let bestDistance = Number.POSITIVE_INFINITY;
-      rows.forEach((row) => {
-        const rect = row.getBoundingClientRect();
-        const centerY = rect.top + rect.height / 2;
-        const distance = Math.abs(clientY - centerY);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestRow = row;
-        }
-      });
-
-      return bestRow?.dataset.timelineStringName ?? null;
-    };
-
-    const updateHoverTarget = (clientX: number, clientY: number, commit: boolean) => {
-      const stringName = resolveStringName(clientX, clientY);
-      if (!stringName) {
-        lastStringName = null;
-        clearTimelineNoteDragPreview();
-        return;
-      }
-      if (stringName !== lastStringName) {
-        lastStringName = stringName;
-        setTimelineNoteDragPreview(
-          stringName,
-          payload.eventIndex,
-          previewColor,
-          resolveEquivalentTimelineDragFret(instrument, payload.stringName, payload.fret, stringName)
-        );
-      }
-      if (commit) {
-        onMelodyTimelineNoteDrag?.({
-          ...payload,
-          stringName,
-          commit: true,
-        });
-      }
-    };
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) return;
-      hasMoved = true;
-      noteTarget.style.cursor = 'grabbing';
-      window.getSelection()?.removeAllRanges();
-      updateHoverTarget(moveEvent.clientX, moveEvent.clientY, false);
-      moveEvent.preventDefault();
-    };
-
-    const finish = (upEvent: PointerEvent, commit: boolean) => {
-      if (upEvent.pointerId !== pointerId) return;
-      window.removeEventListener('pointermove', handlePointerMove, true);
-      window.removeEventListener('pointerup', handlePointerUp, true);
-      window.removeEventListener('pointercancel', handlePointerCancel, true);
-      noteTarget.style.cursor = 'grab';
-      clearTimelineNoteDragSource();
-      document.body.classList.remove('timeline-note-drag-active');
-      if (commit && hasMoved) {
-        updateHoverTarget(upEvent.clientX, upEvent.clientY, true);
-      }
-      clearTimelineNoteDragPreview();
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      finish(upEvent, true);
-    };
-
-    const handlePointerCancel = (cancelEvent: PointerEvent) => {
-      finish(cancelEvent, false);
-    };
-
-    window.addEventListener('pointermove', handlePointerMove, true);
-    window.addEventListener('pointerup', handlePointerUp, true);
-    window.addEventListener('pointercancel', handlePointerCancel, true);
-  });
-}
-
-function renderGridTimeline(
-  melodyId: string,
-  instrument: Pick<IInstrument, 'getNoteWithOctave'>,
-  model: ReturnType<typeof buildMelodyTabTimelineViewModel>,
-  barGrouping: TimelineBarGrouping,
-  durationLayout: TimelineDurationLayout,
-  root: HTMLElement,
-  showStepNumbers: boolean,
-  zoomScale: number,
-  editingEnabled: boolean,
-  selectedEventIndex: number | null,
-  selectedNoteIndex: number | null
-) {
-  const table = document.createElement('table');
-  table.className = 'min-w-max border-separate border-spacing-px text-[10px] font-mono text-slate-200';
-  table.style.fontSize = `${scaleTimelinePixels(10, zoomScale, 8)}px`;
-  table.style.lineHeight = '1.2';
-
-  if (showStepNumbers) {
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    const corner = document.createElement('th');
-    corner.className =
-      'sticky left-0 z-[3] bg-slate-900/95 text-slate-300 px-1.5 py-0.5 border border-slate-600 rounded text-left';
-    corner.textContent = 'Str';
-    headerRow.appendChild(corner);
-
-    for (let eventIndex = 0; eventIndex < model.totalEvents; eventIndex++) {
-      const widthPx = scaleTimelinePixels(durationLayout.cellPixelWidths[eventIndex] ?? 28, zoomScale, 18);
-      const step = document.createElement('th');
-      step.dataset.eventIndex = String(eventIndex);
-      const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
-      const isInStudyRange = rangeCell?.isInStudyRange ?? false;
-      const accentColor = getPrimaryCellFingerColor(rangeCell?.notes ?? []);
-      step.className =
-        'px-1.5 py-0.5 border rounded text-center whitespace-nowrap ' +
-        (model.activeEventIndex === eventIndex
-          ? 'text-slate-50'
-          : isInStudyRange
-            ? 'border-amber-600/70 bg-amber-900/20 text-amber-100'
-            : 'border-slate-600 bg-slate-800/55 text-slate-500');
-      step.style.minWidth = `${widthPx}px`;
-      step.style.width = `${widthPx}px`;
-      step.style.padding = `${scaleTimelinePixels(2, zoomScale, 1)}px ${scaleTimelinePixels(6, zoomScale, 3)}px`;
-      if (model.activeEventIndex === eventIndex) {
-        step.style.borderColor = withAlpha(accentColor, 0.88);
-        step.style.backgroundColor = withAlpha(accentColor, 0.26);
-        step.style.boxShadow = `inset 0 0 0 1px ${withAlpha(accentColor, 0.18)}`;
-      }
-      if (barGrouping.barStartEventIndexes.has(eventIndex)) {
-        step.style.borderLeftWidth = '2px';
-        step.style.borderLeftColor = model.activeEventIndex === eventIndex ? accentColor : '#94a3b8';
-      }
-      step.textContent = String(eventIndex + 1);
-      headerRow.appendChild(step);
-    }
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-  }
-
-  const tbody = document.createElement('tbody');
-  model.rows.forEach((row, rowIndex) => {
-    const tr = document.createElement('tr');
-    tr.dataset.timelineStringName = row.stringName;
-    const label = document.createElement('th');
-    label.className =
-      'sticky left-0 z-[2] bg-slate-900/95 text-cyan-200 px-1.5 py-0.5 border border-slate-600 rounded text-left';
-    label.textContent = row.stringName;
-    label.style.padding = `${scaleTimelinePixels(2, zoomScale, 1)}px ${scaleTimelinePixels(6, zoomScale, 3)}px`;
-    tr.appendChild(label);
-
-    row.cells.forEach((cell, eventIndex) => {
-      const widthPx = scaleTimelinePixels(durationLayout.cellPixelWidths[eventIndex] ?? 28, zoomScale, 18);
-      const accentColor = getPrimaryCellFingerColor(cell.notes);
-      const td = document.createElement('td');
-      td.dataset.eventIndex = String(eventIndex);
-      if (rowIndex === 0) {
-        td.dataset.timelineStepAnchor = 'true';
-      }
-      td.className =
-        'h-6 border rounded text-center align-middle ' +
-        (cell.isActive
-          ? ''
-          : cell.isInStudyRange
-            ? 'border-amber-700/60 bg-amber-950/20'
-            : 'border-slate-700/70 bg-slate-900/25 opacity-70');
-      td.style.minWidth = `${widthPx}px`;
-      td.style.width = `${widthPx}px`;
-      td.style.height = `${scaleTimelinePixels(24, zoomScale, 18)}px`;
-      if (cell.isActive) {
-        td.style.borderColor = withAlpha(accentColor, 0.88);
-        td.style.backgroundColor = withAlpha(accentColor, 0.16);
-        td.style.boxShadow = `inset 0 0 0 1px ${withAlpha(accentColor, 0.18)}`;
-      }
-      if (barGrouping.barStartEventIndexes.has(eventIndex)) {
-        td.style.borderLeftWidth = '2px';
-        td.style.borderLeftColor = cell.isActive ? accentColor : '#94a3b8';
-      }
-      if (cell.isStudyRangeStart) {
-        td.style.boxShadow = 'inset 2px 0 0 rgba(251, 191, 36, 0.9)';
-      }
-      if (cell.isStudyRangeEnd) {
-        td.style.boxShadow = td.style.boxShadow
-          ? `${td.style.boxShadow}, inset -2px 0 0 rgba(251, 191, 36, 0.9)`
-          : 'inset -2px 0 0 rgba(251, 191, 36, 0.9)';
-      }
-
-      if (cell.notes.length === 0 && cell.unmatchedPlayedNotes.length === 0) {
-        const empty = document.createElement('span');
-        empty.className = cell.isActive
-          ? ''
-          : cell.isInStudyRange
-            ? 'text-amber-200/50'
-            : 'text-slate-600';
-        if (cell.isActive) {
-          empty.style.color = withAlpha(accentColor, 0.84);
-        }
-        empty.textContent = '.';
-        td.appendChild(empty);
-        if (editingEnabled) {
-          td.title = 'Double-click to add a note on this string';
-          td.addEventListener('dblclick', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onMelodyTimelineEmptyCellAdd?.({
-              melodyId,
-              eventIndex,
-              stringName: row.stringName,
-            });
-          });
-        }
-      } else if (cell.notes.length === 1 && cell.unmatchedPlayedNotes.length === 0) {
-        const noteChip = createCellNoteChip(cell.notes[0], zoomScale);
-        const isSelected = selectedEventIndex === eventIndex && selectedNoteIndex === cell.notes[0]!.noteIndex;
-        const isDragSource =
-          activeTimelineNoteDragSource?.eventIndex === eventIndex &&
-          activeTimelineNoteDragSource?.noteIndex === cell.notes[0]!.noteIndex;
-        noteChip.dataset.eventIndex = String(eventIndex);
-        noteChip.dataset.noteIndex = String(cell.notes[0]!.noteIndex);
-        if (isSelected) {
-          noteChip.style.outline = `1px solid ${withAlpha(getFingerColor(cell.notes[0]!.finger), 0.92)}`;
-          noteChip.style.boxShadow = `0 0 0 1px ${withAlpha(getFingerColor(cell.notes[0]!.finger), 0.28)}`;
-        }
-        if (isDragSource) {
-          noteChip.classList.add('timeline-note-drag-source');
-        }
-        noteChip.addEventListener('click', () => {
-          onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: cell.notes[0]!.noteIndex, toggle: true });
-        });
-        if (editingEnabled) {
-          bindTimelineContextMenu(noteChip, { melodyId, eventIndex, noteIndex: cell.notes[0]!.noteIndex });
-        }
-        bindTimelineNoteDrag(noteChip, {
-          melodyId,
-          eventIndex,
-          noteIndex: cell.notes[0]!.noteIndex,
-          stringName: cell.notes[0]!.stringName,
-          fret: cell.notes[0]!.fret,
-        }, instrument);
-        td.appendChild(noteChip);
-      } else {
-        const stack = document.createElement('div');
-        stack.className = 'flex flex-col items-center justify-center gap-px py-0';
-        stack.style.gap = `${scaleTimelinePixels(1, zoomScale, 1)}px`;
-        cell.notes.forEach((note) => {
-          const noteChip = createCellNoteChip(note, zoomScale);
-          const isSelected = selectedEventIndex === eventIndex && selectedNoteIndex === note.noteIndex;
-          const isDragSource =
-            activeTimelineNoteDragSource?.eventIndex === eventIndex &&
-            activeTimelineNoteDragSource?.noteIndex === note.noteIndex;
-          noteChip.dataset.eventIndex = String(eventIndex);
-          noteChip.dataset.noteIndex = String(note.noteIndex);
-          if (isSelected) {
-            noteChip.style.outline = `1px solid ${withAlpha(getFingerColor(note.finger), 0.92)}`;
-            noteChip.style.boxShadow = `0 0 0 1px ${withAlpha(getFingerColor(note.finger), 0.28)}`;
-          }
-          if (isDragSource) {
-            noteChip.classList.add('timeline-note-drag-source');
-          }
-          noteChip.addEventListener('click', () => {
-            onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: note.noteIndex, toggle: true });
-          });
-          if (editingEnabled) {
-            bindTimelineContextMenu(noteChip, { melodyId, eventIndex, noteIndex: note.noteIndex });
-          }
-          bindTimelineNoteDrag(noteChip, {
-            melodyId,
-            eventIndex,
-            noteIndex: note.noteIndex,
-            stringName: note.stringName,
-            fret: note.fret,
-          }, instrument);
-          stack.appendChild(noteChip);
-        });
-        cell.unmatchedPlayedNotes.forEach((attempt) => {
-          stack.appendChild(createPlayedFeedbackChip(attempt, zoomScale));
-        });
-        td.appendChild(stack);
-      }
-
-      bindTimelineEventDrag(td, {
-        melodyId,
-        sourceEventIndex: eventIndex,
-        selectedEventIndex,
-      });
-      if (editingEnabled) {
-        bindTimelineContextMenu(td, { melodyId, eventIndex, noteIndex: null });
-      }
-
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-
-  table.appendChild(tbody);
-  root.appendChild(table);
-}
-
-function renderClassicTimeline(
-  melodyId: string,
-  instrument: Pick<IInstrument, 'getNoteWithOctave'>,
-  model: ReturnType<typeof buildMelodyTabTimelineViewModel>,
-  barGrouping: TimelineBarGrouping,
-  durationLayout: TimelineDurationLayout,
-  root: HTMLElement,
-  showStepNumbers: boolean,
-  showPrerollLeadIn: boolean,
-  activePrerollStepIndex: number | null,
-  zoomScale: number,
-  editingEnabled: boolean,
-  selectedEventIndex: number | null,
-  selectedNoteIndex: number | null
-) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'min-w-max text-[11px] leading-5 font-mono text-slate-200';
-  wrapper.style.fontSize = `${scaleTimelinePixels(11, zoomScale, 8)}px`;
-  wrapper.style.lineHeight = `${scaleTimelinePixels(20, zoomScale, 14)}px`;
-
-  const eventWidths = Array.from({ length: model.totalEvents }, (_, eventIndex) => {
-    const durationWidth = durationLayout.cellCharWidths[eventIndex] ?? 3;
-    const widestRaw = Math.max(
-      0,
-      ...model.rows.map((row) =>
-        Math.max(
-          getClassicCellTextRaw(row.cells[eventIndex]?.notes ?? []).length,
-          getClassicPlayedCellTextRaw(row.cells[eventIndex]?.unmatchedPlayedNotes ?? []).length
-        )
-      )
-    );
-    return Math.max(3, widestRaw, durationWidth);
-  });
-  const prerollLeadInChars = showPrerollLeadIn
-    ? Math.max(
-        8,
-        Math.min(
-          16,
-          eventWidths.slice(0, Math.min(4, eventWidths.length)).reduce((sum, width) => sum + width, 0)
-        )
-      )
-    : 0;
-  const prerollStepCount = showPrerollLeadIn ? 4 : 0;
-  const prerollStepWidth = prerollStepCount > 0 ? Math.max(2, Math.round(prerollLeadInChars / prerollStepCount)) : 0;
-
-  const buildLine = (labelText: string, segments: string[], options?: { isHeader?: boolean; isAnchorRow?: boolean }) => {
-    const isHeader = options?.isHeader ?? false;
-    const isAnchorRow = options?.isAnchorRow ?? false;
-    const line = document.createElement('div');
-    line.className = 'flex items-center whitespace-nowrap';
-    if (!isHeader) {
-      line.dataset.timelineStringName = labelText;
-    }
-
-    const label = document.createElement('span');
-    label.className = `inline-block w-7 shrink-0 ${isHeader ? 'text-slate-400' : 'text-cyan-200'}`;
-    label.style.width = `${scaleTimelinePixels(28, zoomScale, 22)}px`;
-    label.textContent = labelText;
-    line.appendChild(label);
-
-    const startPipe = document.createElement('span');
-    startPipe.className = 'text-slate-500';
-    startPipe.textContent = '|';
-    line.appendChild(startPipe);
-
-    if (prerollLeadInChars > 0) {
-      for (let prerollStep = 0; prerollStep < prerollStepCount; prerollStep += 1) {
-        const prerollCell = document.createElement('span');
-        const isActivePrerollStep = activePrerollStepIndex === prerollStep;
-        prerollCell.className =
-          `inline-block px-[1px] rounded-sm ${isHeader ? 'text-slate-600' : 'text-slate-600/80'}` +
-          (isActivePrerollStep ? ' text-slate-50' : '');
-        prerollCell.style.minWidth = `${prerollStepWidth}ch`;
-        prerollCell.style.width = `${prerollStepWidth}ch`;
-        if (isActivePrerollStep) {
-          prerollCell.style.backgroundColor = 'rgba(34, 211, 238, 0.24)';
-          prerollCell.style.boxShadow = 'inset 0 0 0 1px rgba(34, 211, 238, 0.4)';
-          prerollCell.style.color = '#ecfeff';
-        }
-        prerollCell.textContent = isHeader
-          ? String(prerollStep + 1).padEnd(prerollStepWidth, ' ')
-          : '-'.repeat(prerollStepWidth);
-        line.appendChild(prerollCell);
-      }
-      const prerollEndPipe = document.createElement('span');
-      prerollEndPipe.className = 'text-slate-500';
-      prerollEndPipe.textContent = '|';
-      line.appendChild(prerollEndPipe);
-    }
-
-    segments.forEach((segment, eventIndex) => {
-      if (barGrouping.barStartEventIndexes.has(eventIndex)) {
-        const barPipe = document.createElement('span');
-        barPipe.className = 'text-slate-500';
-        barPipe.textContent = '|';
-        line.appendChild(barPipe);
-      }
-
-      const cell = document.createElement('span');
-      cell.dataset.eventIndex = String(eventIndex);
-      if (isAnchorRow) {
-        cell.dataset.timelineStepAnchor = 'true';
-      }
-      const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
-      const accentColor = getPrimaryCellFingerColor(rangeCell?.notes ?? []);
-      cell.className =
-        'inline-block px-[1px] rounded-sm ' +
-        (model.activeEventIndex === eventIndex
-          ? 'text-slate-50'
-          : rangeCell?.isInStudyRange
-            ? 'bg-amber-900/25 text-amber-100'
-          : isHeader
-            ? 'text-slate-500'
-            : 'text-slate-500');
-      cell.style.minWidth = `${eventWidths[eventIndex]}ch`;
-      cell.style.width = `${eventWidths[eventIndex]}ch`;
-      cell.dataset.activeEvent = model.activeEventIndex === eventIndex ? 'true' : 'false';
-      if (model.activeEventIndex === eventIndex) {
-        cell.style.backgroundColor = withAlpha(accentColor, 0.28);
-        cell.style.color = '#f8fafc';
-      }
-      const rowCell = model.rows.find((row) => row.stringName === labelText)?.cells[eventIndex] ?? null;
-      const selectedRowNote = rowCell?.notes[0] ?? null;
-      const isDragSource =
-        !isHeader &&
-        selectedRowNote &&
-        activeTimelineNoteDragSource?.eventIndex === eventIndex &&
-        activeTimelineNoteDragSource?.noteIndex === selectedRowNote.noteIndex;
-      if (
-        !isHeader &&
-        selectedRowNote &&
-        selectedEventIndex === eventIndex &&
-        selectedNoteIndex === selectedRowNote.noteIndex
-      ) {
-        cell.style.outline = `1px solid ${withAlpha(getFingerColor(selectedRowNote.finger), 0.92)}`;
-        cell.style.boxShadow = `0 0 0 1px ${withAlpha(getFingerColor(selectedRowNote.finger), 0.28)}`;
-      }
-      if (rangeCell?.isStudyRangeStart) {
-        cell.style.boxShadow = 'inset 2px 0 0 rgba(251, 191, 36, 0.9)';
-      }
-      if (rangeCell?.isStudyRangeEnd) {
-        cell.style.boxShadow = cell.style.boxShadow
-          ? `${cell.style.boxShadow}, inset -2px 0 0 rgba(251, 191, 36, 0.9)`
-          : 'inset -2px 0 0 rgba(251, 191, 36, 0.9)';
-      }
-      if (isDragSource) {
-        cell.classList.add('timeline-note-drag-source');
-      }
-      const displaySegment =
-        rowCell && rowCell.unmatchedPlayedNotes.length > 0
-          ? getClassicCellText(
-              rowCell.unmatchedPlayedNotes.map((attempt, attemptIndex) => ({
-                note: attempt.note,
-                stringName: labelText,
-                fret: typeof attempt.fret === 'number' ? attempt.fret : attemptIndex,
-                finger: 0,
-                noteIndex: -1 - attemptIndex,
-                performanceStatus: attempt.status,
-              })),
-              eventWidths[eventIndex]
-            )
-          : segment;
-      cell.textContent = displaySegment;
-      applyClassicCellFeedbackStyles(cell, rowCell ? resolveClassicCellFeedbackTone(rowCell) : null, accentColor);
-      if (!isHeader && selectedRowNote) {
-        cell.dataset.timelineNoPan = 'true';
-        cell.dataset.noteIndex = String(selectedRowNote.noteIndex);
-        cell.addEventListener('click', () => {
-          onMelodyTimelineNoteSelect?.({ melodyId, eventIndex, noteIndex: selectedRowNote.noteIndex, toggle: true });
-        });
-        if (editingEnabled) {
-          bindTimelineContextMenu(cell, { melodyId, eventIndex, noteIndex: selectedRowNote.noteIndex });
-        }
-        bindTimelineNoteDrag(cell, {
-          melodyId,
-          eventIndex,
-          noteIndex: selectedRowNote.noteIndex,
-          stringName: selectedRowNote.stringName,
-          fret: selectedRowNote.fret,
-        }, instrument);
-      }
-      if (!isHeader) {
-        if (!selectedRowNote && editingEnabled) {
-          cell.title = 'Double-click to add a note on this string';
-          cell.addEventListener('dblclick', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onMelodyTimelineEmptyCellAdd?.({
-              melodyId,
-              eventIndex,
-              stringName: labelText,
-            });
-          });
-        }
-        if (editingEnabled && !selectedRowNote) {
-          bindTimelineContextMenu(cell, { melodyId, eventIndex, noteIndex: null });
-        }
-        bindTimelineEventDrag(cell, {
-          melodyId,
-          sourceEventIndex: eventIndex,
-          selectedEventIndex,
-        });
-      }
-      line.appendChild(cell);
-    });
-
-    const endPipe = document.createElement('span');
-    endPipe.className = 'text-slate-500';
-    endPipe.textContent = '|';
-    line.appendChild(endPipe);
-
-    return line;
-  };
-
-  if (showStepNumbers) {
-    const headerSegments = eventWidths.map((width, eventIndex) => String(eventIndex + 1).padEnd(width, ' '));
-    wrapper.appendChild(buildLine('Stp', headerSegments, { isHeader: true }));
-  }
-
-  model.rows.forEach((row, rowIndex) => {
-    const segments = row.cells.map((cell, eventIndex) => getClassicCellText(cell.notes, eventWidths[eventIndex]));
-    wrapper.appendChild(buildLine(row.stringName, segments, { isAnchorRow: rowIndex === 0 }));
-  });
-
-  root.appendChild(wrapper);
-}
-
-function getRenderedTimelineStepMetrics(root: HTMLElement): TimelineStepMetric[] {
-  const wrapperRect = root.getBoundingClientRect();
-  return Array.from(root.querySelectorAll<HTMLElement>('[data-timeline-step-anchor="true"]')).map((element) => {
-    const rect = element.getBoundingClientRect();
-    return {
-      index: Number.parseInt(element.dataset.eventIndex ?? '0', 10) || 0,
-      left: rect.left - wrapperRect.left,
-      right: rect.right - wrapperRect.left,
-    };
-  });
-}
-
-function renderStudyRangeBar(
-  root: HTMLElement,
-  melodyId: string,
-  totalEvents: number,
-  metrics: TimelineStepMetric[],
-  studyRange: MelodyStudyRange,
-  zoomScale: number
-) {
-  if (metrics.length === 0 || totalEvents <= 0) return;
-
-  const normalizedRange = normalizeMelodyStudyRange(studyRange, totalEvents);
-  const totalWidth = Math.max(0, metrics[metrics.length - 1]!.right);
-  const trackStart = metrics[0]!.left;
-  const trackEnd = metrics[metrics.length - 1]!.right;
-  const trackWidth = Math.max(1, trackEnd - trackStart);
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'mb-2 min-w-max select-none';
-  wrapper.dataset.timelineRangeUi = 'true';
-
-  const lane = document.createElement('div');
-  lane.className = 'relative h-8';
-  lane.style.height = `${scaleTimelinePixels(32, zoomScale, 24)}px`;
-  lane.style.width = `${totalWidth}px`;
-  wrapper.appendChild(lane);
-
-  const track = document.createElement('div');
-  track.className = 'absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-800 border border-slate-700/80';
-  track.style.height = `${scaleTimelinePixels(8, zoomScale, 6)}px`;
-  track.style.left = `${trackStart}px`;
-  track.style.width = `${trackWidth}px`;
-  lane.appendChild(track);
-
-  const selection = document.createElement('div');
-  selection.className =
-    'absolute top-1/2 h-4 -translate-y-1/2 rounded-full border border-amber-400/80 bg-amber-500/20 shadow-[0_0_0_1px_rgba(251,191,36,0.15)] cursor-grab';
-  selection.style.height = `${scaleTimelinePixels(16, zoomScale, 12)}px`;
-  selection.style.touchAction = 'none';
-  selection.dataset.timelineNoPan = 'true';
-  lane.appendChild(selection);
-
-  const createHandle = (side: 'left' | 'right') => {
-    const handle = document.createElement('button');
-    handle.type = 'button';
-    handle.className =
-      'absolute top-1/2 h-6 w-3 -translate-y-1/2 rounded-sm border border-amber-300/80 bg-amber-200 text-[0] shadow-sm cursor-ew-resize';
-    handle.style.height = `${scaleTimelinePixels(24, zoomScale, 18)}px`;
-    handle.style.width = `${scaleTimelinePixels(12, zoomScale, 9)}px`;
-    handle.style.touchAction = 'none';
-    handle.dataset.timelineNoPan = 'true';
-    handle.setAttribute('aria-label', side === 'left' ? 'Adjust study range start' : 'Adjust study range end');
-    lane.appendChild(handle);
-    return handle;
-  };
-
-  const leftHandle = createHandle('left');
-  const rightHandle = createHandle('right');
-
-  const applyVisualRange = (range: MelodyStudyRange) => {
-    const startMetric = metrics[range.startIndex] ?? metrics[0]!;
-    const endMetric = metrics[range.endIndex] ?? metrics[metrics.length - 1]!;
-    const left = startMetric.left;
-    const width = Math.max(12, endMetric.right - startMetric.left);
-    const handleOffset = scaleTimelinePixels(6, zoomScale, 4);
-    selection.style.left = `${left}px`;
-    selection.style.width = `${Math.max(scaleTimelinePixels(12, zoomScale, 8), width)}px`;
-    leftHandle.style.left = `${startMetric.left - handleOffset}px`;
-    rightHandle.style.left = `${endMetric.right - handleOffset}px`;
-  };
-
-  applyVisualRange(normalizedRange);
-
-  const startDrag = (mode: MelodyStudyRangeDragMode, event: PointerEvent) => {
-    event.preventDefault();
-    const pointerX = event.clientX - root.getBoundingClientRect().left;
-    const anchorIndex = resolveTimelineStepIndexFromX(metrics, pointerX);
-    const anchorOffset = anchorIndex - normalizedRange.startIndex;
-    let previewRange = normalizedRange;
-
-    selection.classList.add('cursor-grabbing');
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const x = moveEvent.clientX - root.getBoundingClientRect().left;
-      const hoveredIndex = resolveTimelineStepIndexFromX(metrics, x);
-      previewRange = computeDraggedMelodyStudyRange(
-        mode,
-        normalizedRange,
-        hoveredIndex,
-        totalEvents,
-        mode === 'move' ? anchorOffset : 0
-      );
-      applyVisualRange(previewRange);
-    };
-
-    const finishDrag = () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
-      selection.classList.remove('cursor-grabbing');
-      applyVisualRange(previewRange);
-      if (
-        previewRange.startIndex !== normalizedRange.startIndex ||
-        previewRange.endIndex !== normalizedRange.endIndex
-      ) {
-        onMelodyStudyRangeCommit?.({ melodyId, range: previewRange });
-      }
-    };
-
-    const handlePointerUp = () => {
-      finishDrag();
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
-  };
-
-  leftHandle.addEventListener('pointerdown', (event) => startDrag('start', event));
-  rightHandle.addEventListener('pointerdown', (event) => startDrag('end', event));
-  selection.addEventListener('pointerdown', (event) => {
-    const target = event.target as HTMLElement | null;
-    if (target === leftHandle || target === rightHandle) return;
-    startDrag('move', event);
-  });
-
-  root.prepend(wrapper);
-}
-
-function renderTimelineContextMenu(
-  melody: MelodyDefinition,
-  selectedEventIndex: number | null,
-  options: { editingEnabled: boolean }
-) {
-  dom.melodyTabTimelinePanel.querySelectorAll('.timeline-context-menu').forEach((element) => element.remove());
-  if (!options.editingEnabled || !activeTimelineContextMenu || activeTimelineContextMenu.melodyId !== melody.id) {
-    return;
-  }
-
-  const targetEventIndex = activeTimelineContextMenu.eventIndex;
-  const selectedEvent = melody.events[targetEventIndex] ?? null;
-  if (!selectedEvent || selectedEventIndex === null || selectedEventIndex !== targetEventIndex) return;
-  const hasSelectedNote = activeTimelineContextMenu.noteIndex !== null;
-  const stepNoun = selectedEvent.notes.length > 1 ? 'Chord' : 'Note';
-
-  const menu = document.createElement('div');
-  menu.className = 'timeline-context-menu';
-  menu.dataset.timelineNoPan = 'true';
-  menu.setAttribute('role', 'menu');
-  menu.title =
-    `Change fret: ArrowUp/ArrowDown. Decrease duration: -. Increase duration: = or +. Add next ${stepNoun.toLowerCase()}: Insert or Enter. Add note to current step: Shift+Insert. Duplicate ${stepNoun.toLowerCase()}: Shift+D. Split ${stepNoun.toLowerCase()}: Shift+S. Merge with next ${stepNoun.toLowerCase()}: Shift+M. Delete selected note: Delete/Backspace. Delete ${stepNoun.toLowerCase()}: Shift+Delete. Undo: Ctrl/Cmd+Z. Redo: Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y.`;
-  const addItem = (
-    label: string,
-    shortcut: string,
-    description: string,
-    action: MelodyTimelineContextAction,
-    disabled: boolean
-  ) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'timeline-context-menu-btn';
-    button.setAttribute('role', 'menuitem');
-    button.disabled = disabled;
-    button.dataset.timelineNoPan = 'true';
-    const text = document.createElement('span');
-    text.className = 'timeline-context-menu-text';
-    const title = document.createElement('span');
-    title.className = 'timeline-context-menu-title';
-    title.textContent = label;
-    const subtitle = document.createElement('span');
-    subtitle.className = 'timeline-context-menu-description';
-    subtitle.textContent = description;
-    text.append(title, subtitle);
-    const shortcutLabel = document.createElement('span');
-    shortcutLabel.className = 'timeline-context-menu-shortcut';
-    shortcutLabel.textContent = shortcut;
-    button.append(text, shortcutLabel);
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      clearMelodyTimelineContextMenu();
-      onMelodyTimelineContextAction?.({ melodyId: melody.id, action });
-    });
-    menu.appendChild(button);
-  };
-  const addSeparator = () => {
-    const separator = document.createElement('div');
-    separator.className = 'timeline-context-menu-separator';
-    separator.dataset.timelineNoPan = 'true';
-    menu.appendChild(separator);
-  };
-  const addSectionLabel = (label: string) => {
-    const sectionLabel = document.createElement('div');
-    sectionLabel.className = 'timeline-context-menu-section';
-    sectionLabel.dataset.timelineNoPan = 'true';
-    sectionLabel.textContent = label;
-    menu.appendChild(sectionLabel);
-  };
-
-  addSectionLabel('Pitch');
-  addItem('Lower Fret', 'ArrowDown', 'Move the selected note one fret lower.', 'fret-down', !hasSelectedNote);
-  addItem('Raise Fret', 'ArrowUp', 'Move the selected note one fret higher.', 'fret-up', !hasSelectedNote);
-  addItem('Shorter Duration', '-', `Shorten the selected ${stepNoun.toLowerCase()} by one timing unit.`, 'duration-down', false);
-  addItem('Longer Duration', '= / +', `Lengthen the selected ${stepNoun.toLowerCase()} by one timing unit.`, 'duration-up', false);
-  addSeparator();
-
-  addSectionLabel('Timing');
-  addItem(`Split ${stepNoun}`, 'Shift+S', `Split the current ${stepNoun.toLowerCase()} into two equal steps.`, 'split-event', !canToolbarSplitEvent(selectedEvent));
-  addItem(
-    `Merge With Next ${stepNoun}`,
-    'Shift+M',
-    `Merge the current ${stepNoun.toLowerCase()} with the next matching step.`,
-    'merge-event',
-    !canToolbarMergeEvent(melody, targetEventIndex)
-  );
-  addSeparator();
-
-  addSectionLabel('Structure');
-  addItem('Add Note', 'Shift+Insert', 'Add a note to the current step for polyphony.', 'add-note', false);
-  addItem(`Add Next ${stepNoun}`, 'Insert / Enter', `Insert a new ${stepNoun.toLowerCase()} after the current one.`, 'add-event', false);
-  addItem(`Duplicate ${stepNoun}`, 'Shift+D', `Copy the current ${stepNoun.toLowerCase()} after itself.`, 'duplicate-event', false);
-  addSeparator();
-
-  addSectionLabel('Delete');
-  addItem('Delete Selected Note', 'Delete', 'Remove the selected note from the current step.', 'delete-note', !hasSelectedNote);
-  addItem(`Delete ${stepNoun}`, 'Shift+Delete', `Remove the current ${stepNoun.toLowerCase()} and its duration.`, 'delete-event', false);
-  addSeparator();
-
-  addSectionLabel('History');
-  addItem('Undo', 'Ctrl/Cmd+Z', 'Revert the last timeline edit.', 'undo', false);
-  addItem('Redo', 'Ctrl/Cmd+Shift+Z', 'Reapply the last reverted edit.', 'redo', false);
-  dom.melodyTabTimelinePanel.appendChild(menu);
-
-  const maxLeft = Math.max(4, dom.melodyTabTimelinePanel.clientWidth - menu.offsetWidth - 4);
-  const maxTop = Math.max(4, dom.melodyTabTimelinePanel.clientHeight - menu.offsetHeight - 4);
-  menu.style.left = `${Math.min(Math.max(4, activeTimelineContextMenu.anchorX), maxLeft)}px`;
-  menu.style.top = `${Math.min(Math.max(4, activeTimelineContextMenu.anchorY), maxTop)}px`;
-}
-
-function renderTimelineMinimap(
-  melody: MelodyDefinition,
-  stringOrder: string[],
-  activeEventIndex: number | null,
-  durationLayout: TimelineDurationLayout,
-  studyRange: MelodyStudyRange,
-  options: { showRangeEditor: boolean; zoomScale: number }
-) {
-  dom.melodyTabTimelineMinimap.innerHTML = '';
-  if (durationLayout.weights.length === 0 || melody.events.length === 0) {
-    dom.melodyTabTimelineMinimapDock.classList.add('hidden');
-    dom.melodyTabTimelineMinimap.classList.add('hidden');
-    return;
-  }
-
-  const layout = buildMelodyMinimapLayout(
-    melody,
-    stringOrder,
-    durationLayout.weights,
-    activeEventIndex,
-    studyRange
-  );
-  const normalizedStudyRange = normalizeMelodyStudyRange(studyRange, layout.eventSegments.length);
-
-  const shell = document.createElement('div');
-  shell.className = 'timeline-minimap-shell';
-  shell.style.height = `${scaleTimelinePixels(29, options.zoomScale, 22)}px`;
-  shell.dataset.cursor = options.showRangeEditor ? 'range' : 'seek';
-  shell.title = options.showRangeEditor
-    ? 'Timeline minimap. Click or drag to seek. Drag the yellow handles to set the study range.'
-    : 'Timeline minimap. Click or drag to seek through the melody.';
-  shell.setAttribute('aria-label', shell.title);
-
-  const track = document.createElement('div');
-  track.className = 'timeline-minimap-track';
-  track.style.inset = `${scaleTimelinePixels(3, options.zoomScale, 2)}px ${scaleTimelinePixels(4, options.zoomScale, 3)}px`;
-  shell.appendChild(track);
-
-  if (layout.activeRatio !== null) {
-    const progressFill = document.createElement('div');
-    progressFill.className = 'timeline-minimap-progress-fill';
-    progressFill.style.width = `${layout.activeRatio * 100}%`;
-    track.appendChild(progressFill);
-  }
-
-  const rowHeightPercent = 100 / layout.rowCount;
-  layout.noteRects.forEach((noteRect) => {
-    const element = document.createElement('span');
-    element.className = 'timeline-minimap-note' + (noteRect.isInStudyRange ? ' is-study' : '');
-    const fingerColor = getFingerColor(noteRect.finger);
-    element.style.left = `${noteRect.startRatio * 100}%`;
-    element.style.width = `${Math.max(0.28, noteRect.widthRatio * 100)}%`;
-    element.style.top = `calc(${noteRect.rowIndex * rowHeightPercent}% + 2px)`;
-    element.style.height = `max(3px, calc(${rowHeightPercent}% - 4px))`;
-    element.style.backgroundColor = withAlpha(
-      fingerColor,
-      noteRect.isInStudyRange ? 0.8 : 0.58
-    );
-    track.appendChild(element);
-  });
-
-  const rangeStartSegment =
-    layout.eventSegments[normalizedStudyRange.startIndex] ?? layout.eventSegments[0]!;
-  const rangeEndSegment =
-    layout.eventSegments[normalizedStudyRange.endIndex] ??
-    layout.eventSegments[layout.eventSegments.length - 1]!;
-  let previewRange = normalizedStudyRange;
-
-  const rangeStartShade = document.createElement('div');
-  const rangeEndShade = document.createElement('div');
-  const rangeStartLine = document.createElement('div');
-  const rangeEndLine = document.createElement('div');
-  const startHandle = document.createElement('div');
-  const endHandle = document.createElement('div');
-
-  if (options.showRangeEditor) {
-    rangeStartShade.className = 'timeline-minimap-outside-range';
-    rangeEndShade.className = 'timeline-minimap-outside-range';
-    rangeStartLine.className = 'timeline-minimap-range-line';
-    rangeEndLine.className = 'timeline-minimap-range-line';
-    startHandle.className = 'timeline-minimap-handle';
-    endHandle.className = 'timeline-minimap-handle';
-    const handleWidth = scaleTimelinePixels(14, options.zoomScale, 10);
-    startHandle.style.width = `${handleWidth}px`;
-    startHandle.style.marginLeft = `${-Math.round(handleWidth / 2)}px`;
-    endHandle.style.width = `${handleWidth}px`;
-    endHandle.style.marginLeft = `${-Math.round(handleWidth / 2)}px`;
-    startHandle.dataset.dragMode = 'start';
-    endHandle.dataset.dragMode = 'end';
-    track.append(
-      rangeStartShade,
-      rangeEndShade,
-      rangeStartLine,
-      rangeEndLine,
-      startHandle,
-      endHandle
-    );
-  }
-
-  const applyRangeVisuals = (range: MelodyStudyRange) => {
-    if (!options.showRangeEditor) return;
-    const startSegment = layout.eventSegments[range.startIndex] ?? rangeStartSegment;
-    const endSegment = layout.eventSegments[range.endIndex] ?? rangeEndSegment;
-    rangeStartShade.style.left = '0';
-    rangeStartShade.style.width = `${startSegment.startRatio * 100}%`;
-    rangeEndShade.style.left = `${endSegment.endRatio * 100}%`;
-    rangeEndShade.style.width = `${Math.max(0, 1 - endSegment.endRatio) * 100}%`;
-    rangeStartLine.style.left = `${startSegment.startRatio * 100}%`;
-    rangeEndLine.style.left = `${endSegment.endRatio * 100}%`;
-    startHandle.style.left = `${startSegment.startRatio * 100}%`;
-    endHandle.style.left = `${endSegment.endRatio * 100}%`;
-  };
-
-  applyRangeVisuals(normalizedStudyRange);
-
-  if (layout.activeRatio !== null) {
-    const playhead = document.createElement('div');
-    playhead.className = 'timeline-minimap-playhead';
-    playhead.style.left = `${layout.activeRatio * 100}%`;
-    track.appendChild(playhead);
-  }
-
-  const resolveSeekTargetIndex = (clientX: number) => {
-    const rect = track.getBoundingClientRect();
-    if (rect.width <= 0) return null;
-    const ratio = (clientX - rect.left) / rect.width;
-    return resolveMelodyMinimapEventIndexFromRatio(layout.eventSegments, ratio);
-  };
-
-  type MinimapDragMode = 'seek' | 'start' | 'end';
-  let pointerId: number | null = null;
-  let dragMode: MinimapDragMode | null = null;
-
-  const resolveDragMode = (event: PointerEvent): MinimapDragMode => {
-    if (!options.showRangeEditor) return 'seek';
-    const explicitMode = (event.target as HTMLElement | null)?.dataset.dragMode;
-    if (explicitMode === 'start' || explicitMode === 'end') return explicitMode;
-    const rect = track.getBoundingClientRect();
-    if (rect.width <= 0) return 'seek';
-    const ratio = (event.clientX - rect.left) / rect.width;
-    const threshold = 12 / rect.width;
-    if (Math.abs(ratio - layout.rangeStartRatio) <= threshold) return 'start';
-    if (Math.abs(ratio - layout.rangeEndRatio) <= threshold) return 'end';
-    return 'seek';
-  };
-
-  const updateFromPointer = (event: PointerEvent, commit: boolean) => {
-    if (!dragMode) return;
-    if (dragMode === 'seek') {
-      const targetIndex = resolveSeekTargetIndex(event.clientX);
-      if (typeof targetIndex !== 'number') return;
-      if (commit) {
-        onMelodyTimelineSeek?.({ melodyId: melody.id, eventIndex: targetIndex, commit: true });
-      } else {
-        centerTimelineEvent(targetIndex, 'auto');
-      }
-      return;
-    }
-    const rect = track.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const ratio = (event.clientX - rect.left) / rect.width;
-    const hoveredIndex = resolveMelodyMinimapEventIndexFromRatio(layout.eventSegments, ratio);
-    previewRange = normalizeMelodyStudyRange(
-      dragMode === 'start'
-        ? {
-            startIndex: Math.min(hoveredIndex, normalizedStudyRange.endIndex),
-            endIndex: normalizedStudyRange.endIndex,
-          }
-        : {
-            startIndex: normalizedStudyRange.startIndex,
-            endIndex: Math.max(hoveredIndex, normalizedStudyRange.startIndex),
-          },
-      layout.eventSegments.length
-    );
-    applyRangeVisuals(previewRange);
-    if (commit) {
-      onMelodyStudyRangeCommit?.({ melodyId: melody.id, range: previewRange });
-    }
-  };
-
-  const finishDrag = (event: PointerEvent) => {
-    if (pointerId !== event.pointerId) return;
-    if (shell.hasPointerCapture(event.pointerId)) {
-      shell.releasePointerCapture(event.pointerId);
-    }
-    const shouldCommit = dragMode === 'seek' || dragMode === 'start' || dragMode === 'end';
-    updateFromPointer(event, shouldCommit);
-    pointerId = null;
-    dragMode = null;
-    shell.classList.remove('is-scrubbing');
-  };
-
-  shell.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) return;
-    pointerId = event.pointerId;
-    dragMode = resolveDragMode(event);
-    shell.classList.add('is-scrubbing');
-    shell.setPointerCapture(event.pointerId);
-    updateFromPointer(event, false);
-    event.preventDefault();
-  });
-
-  shell.addEventListener('pointermove', (event) => {
-    if (pointerId !== event.pointerId) {
-      if (options.showRangeEditor) {
-        shell.dataset.cursor = resolveDragMode(event) === 'seek' ? 'seek' : 'range';
-      }
-      return;
-    }
-    updateFromPointer(event, false);
-    event.preventDefault();
-  });
-
-  shell.addEventListener('pointerup', finishDrag);
-  shell.addEventListener('pointercancel', finishDrag);
-
-  dom.melodyTabTimelineMinimapDock.classList.remove('hidden');
-  dom.melodyTabTimelineMinimap.classList.remove('hidden');
-  dom.melodyTabTimelineMinimap.appendChild(shell);
 }
 
 export function hideMelodyTabTimeline() {
@@ -1974,36 +105,11 @@ export function renderMelodyTabTimeline(
   melody: MelodyDefinition,
   instrument: Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>,
   activeEventIndex: number | null,
-  options: {
-    modeLabel?: string | null;
-    viewMode?: 'classic' | 'grid';
-    zoomScale?: number;
-    studyRange?: MelodyStudyRange | null;
-    showStepNumbers?: boolean;
-    showMetaDetails?: boolean;
-    minimapRangeEditor?: boolean;
-    showPrerollLeadIn?: boolean;
-    activePrerollStepIndex?: number | null;
-    editingEnabled?: boolean;
-    selectedEventIndex?: number | null;
-    selectedNoteIndex?: number | null;
-    performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null;
-  } = {}
+  options: MelodyTimelineRenderOptions = {}
 ) {
   bindTimelineBackgroundCopy();
-  const modeLabel = options.modeLabel?.trim() ?? '';
-  const viewMode = options.viewMode ?? 'classic';
-  const zoomScale = Math.max(0.7, Math.min(1.7, options.zoomScale ?? 1));
-  const showStepNumbers = options.showStepNumbers ?? false;
-  const showMetaDetails = options.showMetaDetails ?? false;
-  const minimapRangeEditor = options.minimapRangeEditor ?? true;
-  const showPrerollLeadIn = options.showPrerollLeadIn ?? false;
-  const activePrerollStepIndex = options.activePrerollStepIndex ?? null;
-  const editingEnabled = options.editingEnabled ?? false;
-  const selectedEventIndex = options.selectedEventIndex ?? null;
-  const selectedNoteIndex = options.selectedNoteIndex ?? null;
-  const performanceFeedbackByEvent = options.performanceFeedbackByEvent ?? null;
   const studyRange = normalizeMelodyStudyRange(options.studyRange, melody.events.length);
+  const resolvedOptions = resolveMelodyTimelineRenderOptions(options, studyRange);
   bindTimelineScrollChrome();
   bindTimelineDragPan();
   bindTimelineSelectionClear();
@@ -2011,57 +117,28 @@ export function renderMelodyTabTimeline(
     melody,
     instrument.STRING_ORDER,
     activeEventIndex,
-    studyRange,
-    performanceFeedbackByEvent
+    resolvedOptions.studyRange,
+    resolvedOptions.performanceFeedbackByEvent
   );
   const barGrouping = buildTimelineBarGrouping(melody);
   const durationLayout = computeTimelineDurationLayout(melody);
-  const durationSignature = durationLayout.weights
-    .map((weight, index) => `${index}:${Math.round(weight * 100)}`)
-    .join(',');
   const melodyContentSignature = buildMelodyContentSignature(melody);
-  const contextMenuSignature =
-    activeTimelineContextMenu && activeTimelineContextMenu.melodyId === melody.id
-      ? [
-          activeTimelineContextMenu.eventIndex,
-          activeTimelineContextMenu.noteIndex ?? -1,
-          Math.round(activeTimelineContextMenu.anchorX),
-          Math.round(activeTimelineContextMenu.anchorY),
-        ].join(':')
-      : 'closed';
-  const renderKey = [
-    melody.id,
-    melody.events.length,
-    melodyContentSignature,
-    model.activeEventIndex ?? -1,
-    modeLabel,
-    viewMode,
-    barGrouping.source,
-    barGrouping.totalBars ?? -1,
-    barGrouping.hasBeatTiming ? 1 : 0,
-    durationLayout.source,
-    durationSignature,
-    studyRange.startIndex,
-    studyRange.endIndex,
-    showStepNumbers ? 1 : 0,
-    Math.round(zoomScale * 100),
-    minimapRangeEditor ? 1 : 0,
-    showPrerollLeadIn ? 1 : 0,
-    activePrerollStepIndex ?? -1,
-    selectedEventIndex ?? -1,
-    selectedNoteIndex ?? -1,
-    Object.entries(performanceFeedbackByEvent ?? {})
-      .map(([eventIndex, attempts]) =>
-        `${eventIndex}:${attempts
-          .map((attempt) => `${attempt.status}-${attempt.note}-${attempt.stringName ?? '-'}-${attempt.fret ?? '-'}`)
-          .join(',')}`
-      )
-      .join(';'),
-    activeTimelineNoteDragSource?.eventIndex ?? -1,
-    activeTimelineNoteDragSource?.noteIndex ?? -1,
-    contextMenuSignature,
-    instrument.STRING_ORDER.join(','),
-  ].join('|');
+  const contextMenuSignature = getTimelineContextMenuSignature(melody.id);
+  const activeTimelineNoteDragSource = getActiveTimelineNoteDragSource();
+  const renderKey = buildMelodyTimelineRenderKey(
+    {
+      melody,
+      stringOrder: instrument.STRING_ORDER,
+      melodyContentSignature,
+      model,
+      barGrouping,
+      durationLayout,
+      studyRange: resolvedOptions.studyRange,
+      contextMenuSignature,
+      activeTimelineNoteDragSource,
+    },
+    resolvedOptions
+  );
   if (renderKey === lastRenderKey && dom.melodyTabTimelineGrid.childElementCount > 0) {
     return;
   }
@@ -2071,44 +148,47 @@ export function renderMelodyTabTimeline(
   dom.melodyTabTimelineGrid.dataset.melodyId = melody.id;
 
   dom.melodyTabTimelinePanel.classList.remove('hidden');
-  dom.melodyTabTimelinePanel.style.setProperty('--melody-timeline-zoom-scale', String(zoomScale));
-  dom.melodyTabTimelineMinimapDock.style.setProperty('--melody-timeline-zoom-scale', String(zoomScale));
-  dom.melodyTabTimelineMeta.classList.toggle('hidden', !showMetaDetails);
-  const stepText =
-    model.activeEventIndex === null
-      ? `Step -/${model.totalEvents}`
-      : `Step ${model.activeEventIndex + 1}/${model.totalEvents}`;
-  const viewLabel = viewMode === 'classic' ? 'Classic TAB' : 'Grid';
-  const barText = (() => {
-    if (typeof barGrouping.totalBars !== 'number') return '';
-    const base = ` | ${barGrouping.totalBars} bar${barGrouping.totalBars === 1 ? '' : 's'}`;
-    if (barGrouping.hasBeatTiming && typeof barGrouping.beatsPerBar === 'number') {
-      return `${base} (${barGrouping.beatsPerBar}/4)`;
-    }
-    return base;
-  })();
-  const durationText = (() => {
-    if (!durationLayout.hasDurationData) return '';
-    if (durationLayout.source === 'beats') return ' | Duration: beat-scaled';
-    if (durationLayout.source === 'columns') return ' | Duration: column-scaled';
-    return ' | Duration: mixed';
-  })();
+  dom.melodyTabTimelinePanel.style.setProperty(
+    '--melody-timeline-zoom-scale',
+    String(resolvedOptions.zoomScale)
+  );
+  dom.melodyTabTimelineMinimapDock.style.setProperty(
+    '--melody-timeline-zoom-scale',
+    String(resolvedOptions.zoomScale)
+  );
+  dom.melodyTabTimelineMeta.classList.toggle('hidden', !resolvedOptions.showMetaDetails);
   const studyRangeText = ` | Study: ${formatMelodyStudyRange(studyRange, melody.events.length)} (${getMelodyStudyRangeLength(studyRange, melody.events.length)} steps)`;
-  dom.melodyTabTimelineMeta.textContent = showMetaDetails
-    ? modeLabel
-      ? `${modeLabel} | ${viewLabel} | ${stepText}${barText}${durationText}${studyRangeText}`
-      : `${viewLabel} | ${stepText}${barText}${durationText}${studyRangeText}`
-    : '';
+  dom.melodyTabTimelineMeta.textContent = buildMelodyTimelineMetaText({
+    modeLabel: resolvedOptions.modeLabel,
+    viewMode: resolvedOptions.viewMode,
+    model,
+    barGrouping,
+    durationLayout,
+    studyRangeText,
+    showMetaDetails: resolvedOptions.showMetaDetails,
+  });
 
   clearGrid();
-  renderTimelineMinimap(melody, instrument.STRING_ORDER, model.activeEventIndex, durationLayout, studyRange, {
-    showRangeEditor: minimapRangeEditor,
-    zoomScale,
-  });
+  renderTimelineMinimap(
+    melody,
+    instrument.STRING_ORDER,
+    model.activeEventIndex,
+    durationLayout,
+    resolvedOptions.studyRange,
+    {
+      showRangeEditor: resolvedOptions.minimapRangeEditor,
+      zoomScale: resolvedOptions.zoomScale,
+    },
+    {
+      centerTimelineEvent,
+      onMelodyTimelineSeek: getMelodyTimelineSeekHandler(),
+      onMelodyStudyRangeCommit: getMelodyTimelineStudyRangeCommitHandler(),
+    }
+  );
   const content = document.createElement('div');
   content.className = 'relative min-w-max';
   dom.melodyTabTimelineGrid.appendChild(content);
-  if (viewMode === 'grid') {
+  if (resolvedOptions.viewMode === 'grid') {
     renderGridTimeline(
       melody.id,
       instrument,
@@ -2116,33 +196,67 @@ export function renderMelodyTabTimeline(
       barGrouping,
       durationLayout,
       content,
-      showStepNumbers,
-      zoomScale,
-      editingEnabled,
-      selectedEventIndex,
-      selectedNoteIndex
+      resolvedOptions.showStepNumbers,
+      resolvedOptions.zoomScale,
+      resolvedOptions.editingEnabled,
+      resolvedOptions.selectedEventIndex,
+      resolvedOptions.selectedNoteIndex,
+      activeTimelineNoteDragSource,
+      {
+        bindTimelineContextMenu,
+        bindTimelineNoteDrag,
+        bindTimelineEventDrag,
+        onMelodyTimelineNoteSelect: (payload) => {
+          emitMelodyTimelineNoteSelect(payload);
+        },
+        onMelodyTimelineEmptyCellAdd: (payload) => {
+          getMelodyTimelineEmptyCellAddHandler()?.(payload);
+        },
+      }
     );
   } else {
-      renderClassicTimeline(
-        melody.id,
-        instrument,
-        model,
-        barGrouping,
-        durationLayout,
-        content,
-        showStepNumbers,
-        showPrerollLeadIn,
-        activePrerollStepIndex,
-        zoomScale,
-        editingEnabled,
-        selectedEventIndex,
-        selectedNoteIndex
-      );
+    renderClassicTimeline(
+      melody.id,
+      instrument,
+      model,
+      barGrouping,
+      durationLayout,
+      content,
+      resolvedOptions.showStepNumbers,
+      resolvedOptions.showPrerollLeadIn,
+      resolvedOptions.activePrerollStepIndex,
+      resolvedOptions.zoomScale,
+      resolvedOptions.editingEnabled,
+      resolvedOptions.selectedEventIndex,
+      resolvedOptions.selectedNoteIndex,
+      activeTimelineNoteDragSource,
+      {
+        bindTimelineContextMenu,
+        bindTimelineNoteDrag,
+        bindTimelineEventDrag,
+        onMelodyTimelineNoteSelect: (payload) => {
+          emitMelodyTimelineNoteSelect(payload);
+        },
+        onMelodyTimelineEmptyCellAdd: (payload) => {
+          getMelodyTimelineEmptyCellAddHandler()?.(payload);
+        },
+      }
+    );
   }
 
   const renderedMetrics = getRenderedTimelineStepMetrics(content);
-  renderTimelineContextMenu(melody, selectedEventIndex, { editingEnabled });
-  renderStudyRangeBar(content, melody.id, melody.events.length, renderedMetrics, studyRange, zoomScale);
+  renderTimelineContextMenu(melody, resolvedOptions.selectedEventIndex, {
+    editingEnabled: resolvedOptions.editingEnabled,
+  });
+  renderStudyRangeBar(
+    content,
+    melody.id,
+    melody.events.length,
+    renderedMetrics,
+    resolvedOptions.studyRange,
+    resolvedOptions.zoomScale,
+    getMelodyTimelineStudyRangeCommitHandler()
+  );
 
   if (model.activeEventIndex !== null) {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2154,3 +268,6 @@ export function renderMelodyTabTimeline(
     updateTimelineScrollChrome();
   });
 }
+
+
+

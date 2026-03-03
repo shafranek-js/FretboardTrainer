@@ -81,7 +81,7 @@ function buildMelodyContentSignature(melody: Pick<MelodyDefinition, 'events'>) {
 function buildStringShiftCacheKey(
   melody: Pick<MelodyDefinition, 'id' | 'events'>,
   stringShift: number,
-  instrument: Pick<IInstrument, 'name'>
+  instrument: Pick<IInstrument, 'name' | 'STRING_ORDER'>
 ) {
   return [
     instrument.name,

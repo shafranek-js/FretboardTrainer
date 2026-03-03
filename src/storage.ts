@@ -20,8 +20,6 @@ import {
 import { DEFAULT_A4_FREQUENCY } from './constants';
 import { loadInstrumentSoundfont } from './audio';
 import { instruments } from './instruments';
-import type { IInstrument } from './instruments/instrument';
-import type { RhythmSessionStats, SessionStats } from './types';
 import { getEnabledStrings } from './fretboard-ui-state';
 import { normalizeNoteNamingPreference, setNoteNamingPreference } from './note-display';
 import { getDefaultTuningPresetKey } from './tuning-presets';
@@ -31,10 +29,9 @@ import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from './mic-note-hold-filter';
 import { normalizeMicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
-import { normalizePerformanceMicTolerancePreset, type PerformanceMicTolerancePreset } from './performance-mic-tolerance';
+import { normalizePerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import {
   normalizePerformanceTimingLeniencyPreset,
-  type PerformanceTimingLeniencyPreset,
 } from './performance-timing-forgiveness';
 import { getCurriculumPresetDefinitions, type CurriculumPresetKey } from './curriculum-presets';
 import {
@@ -43,155 +40,44 @@ import {
   setInputSourcePreference,
   setPreferredMidiInputDeviceId,
 } from './midi-runtime';
+import { normalizeMelodyTimelineZoomPercent } from './melody-timeline-zoom';
 import {
-  formatMelodyTransposeSemitones,
-  normalizeMelodyTransposeSemitones,
-} from './melody-transposition';
+  getActiveProfileName,
+  getDefaultMelodyIdForInstrument,
+  getDefaultTrainingMode,
+  getProfiles,
+  resetSavedSettings,
+  saveProfiles,
+  setActiveProfileName,
+  type ProfileSettings,
+} from './storage-profiles';
 import {
-  formatMelodyStringShift,
-  normalizeMelodyStringShift,
-} from './melody-string-shift';
-import { clampMelodyPlaybackBpm } from './melody-timeline-duration';
+  loadStats,
+  resetStats,
+  saveLastSessionStats,
+  saveStats,
+  updateStats,
+} from './storage-stats';
 import {
-  formatMelodyTimelineZoomPercent,
-  normalizeMelodyTimelineZoomPercent,
-} from './melody-timeline-zoom';
-import {
-  ACTIVE_PROFILE_KEY,
-  PROFILES_KEY,
-  STATS_KEY,
-  LAST_SESSION_STATS_KEY,
-} from './app-storage-keys';
+  applyStoredMelodySettings,
+  resolveStoredMelodySettings,
+} from './storage-melody-settings';
 
-function normalizeStoredMelodyStudyRangeIndex(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.max(0, Math.round(value));
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    if (Number.isFinite(parsed)) {
-      return Math.max(0, Math.round(parsed));
-    }
-  }
-
-  return 0;
-}
-
-// --- PROFILE CONSTANTS ---
-type InstrumentName = IInstrument['name'];
-
-function createDefaultRhythmSessionStats(): RhythmSessionStats {
-  return {
-    totalJudged: 0,
-    onBeat: 0,
-    early: 0,
-    late: 0,
-    totalAbsOffsetMs: 0,
-    bestAbsOffsetMs: null,
-  };
-}
-
-export interface ProfileSettings {
-  instrument?: InstrumentName;
-  tuningPreset?: string;
-  showAllNotes?: boolean;
-  showStringToggles?: boolean;
-  autoPlayPromptSound?: boolean;
-  relaxPerformanceOctaveCheck?: boolean;
-  performanceMicTolerancePreset?: PerformanceMicTolerancePreset;
-  performanceTimingLeniencyPreset?: PerformanceTimingLeniencyPreset;
-  difficulty?: string;
-  noteNaming?: 'sharps' | 'flats';
-  melodyTimelineViewMode?: 'classic' | 'grid';
-  showTimelineSteps?: boolean;
-  showTimelineDetails?: boolean;
-  inputSource?: 'microphone' | 'midi';
-  audioInputDeviceId?: string | null;
-  micSensitivityPreset?: 'quiet_room' | 'normal' | 'noisy_room' | 'auto';
-  micNoteAttackFilter?: 'off' | 'balanced' | 'strong';
-  micNoteHoldFilter?: 'off' | '40ms' | '80ms' | '120ms';
-  micPolyphonicDetectorProvider?: string;
-  micAutoNoiseFloorRms?: number | null;
-  midiInputDeviceId?: string | null;
-  startFret?: string;
-  endFret?: string;
-  enabledStrings?: Partial<Record<InstrumentName, string[]>>;
-  trainingMode?: string;
-  sessionGoal?: string;
-  sessionPace?: 'slow' | 'normal' | 'fast' | 'ultra';
-  practiceSetupCollapsed?: boolean;
-  melodySetupCollapsed?: boolean;
-  sessionToolsCollapsed?: boolean;
-  metronomeEnabled?: boolean;
-  metronomeBpm?: string;
-  rhythmTimingWindow?: string;
-  selectedScale?: string;
-  selectedChord?: string;
-  randomizeChords?: boolean;
-  selectedProgression?: string;
-  arpeggioPattern?: string;
-  curriculumPreset?: CurriculumPresetKey;
-  selectedMelodyId?: string;
-  melodyShowNote?: boolean;
-  melodyTimelineZoomPercent?: number;
-  melodyDemoBpm?: string;
-  melodyPlaybackBpmById?: Record<string, number>;
-  melodyTransposeById?: Record<string, number>;
-  melodyStringShiftById?: Record<string, number>;
-  melodyStudyRangeById?: Record<string, { startIndex: number; endIndex: number }>;
-  melodyLoopRange?: boolean;
-  melodyTransposeSemitones?: number;
-  melodyStringShift?: number;
-  calibratedA4?: number;
-}
-
-type ProfilesMap = Record<string, ProfileSettings>;
-
-function getDefaultTrainingMode() {
-  return 'melody';
-}
-
-function getDefaultMelodyIdForInstrument(instrumentName: InstrumentName) {
-  return instrumentName === 'ukulele'
-    ? 'builtin:ukulele:ode_to_joy_intro'
-    : 'builtin:guitar:ode_to_joy_intro';
-}
-
-// --- PROFILE MANAGEMENT ---
-
-/** Gets all saved profiles from localStorage. */
-export function getProfiles(): ProfilesMap {
-  const raw = localStorage.getItem(PROFILES_KEY);
-  if (!raw) return {};
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as ProfilesMap;
-    }
-  } catch (error) {
-    console.warn('Failed to parse saved profiles. Resetting profiles storage.', error);
-  }
-
-  localStorage.removeItem(PROFILES_KEY);
-  return {};
-}
-
-/** Saves the entire profiles object to localStorage. */
-export function saveProfiles(profiles: ProfilesMap) {
-  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
-}
-
-/** Gets the name of the currently active profile. */
-export function getActiveProfileName(): string {
-  return localStorage.getItem(ACTIVE_PROFILE_KEY) || '__default__';
-}
-
-/** Sets the name of the active profile. */
-export function setActiveProfileName(name: string) {
-  localStorage.setItem(ACTIVE_PROFILE_KEY, name);
-}
+export {
+  getProfiles,
+  saveProfiles,
+  getActiveProfileName,
+  setActiveProfileName,
+  resetSavedSettings,
+  getDefaultTrainingMode,
+  getDefaultMelodyIdForInstrument,
+  saveStats,
+  saveLastSessionStats,
+  loadStats,
+  resetStats,
+  updateStats,
+};
+export type { ProfileSettings } from './storage-profiles';
 
 /** Gathers the current UI state into a settings object. */
 export function gatherCurrentSettings(): ProfileSettings {
@@ -270,12 +156,6 @@ export function saveSettings() {
   const profiles = getProfiles();
   profiles[activeProfileName] = gatherCurrentSettings();
   saveProfiles(profiles);
-}
-
-/** Clears saved profiles/settings and returns the app to the implicit default profile. */
-export function resetSavedSettings() {
-  localStorage.removeItem(PROFILES_KEY);
-  localStorage.removeItem(ACTIVE_PROFILE_KEY);
 }
 
 /** Applies a settings object to the DOM and application state. */
@@ -391,90 +271,13 @@ export async function applySettings(settings: ProfileSettings | null | undefined
       '';
     dom.curriculumPresetInfo.textContent = curriculumPresetDescription;
     dom.curriculumPresetInfo.classList.toggle('hidden', curriculumPresetDescription.length === 0);
-    state.preferredMelodyId =
-      typeof safeSettings.selectedMelodyId === 'string' && safeSettings.selectedMelodyId.trim().length > 0
-        ? safeSettings.selectedMelodyId
-        : getDefaultMelodyIdForInstrument(state.currentInstrument.name);
     dom.melodyShowNote.checked = safeSettings.melodyShowNote ?? true;
-    state.melodyTimelineZoomPercent = normalizeMelodyTimelineZoomPercent(
-      safeSettings.melodyTimelineZoomPercent
+    const resolvedMelodySettings = resolveStoredMelodySettings(
+      safeSettings,
+      state.currentInstrument,
+      getDefaultMelodyIdForInstrument
     );
-    dom.melodyTimelineZoom.value = String(state.melodyTimelineZoomPercent);
-    dom.melodyTimelineZoomValue.textContent = formatMelodyTimelineZoomPercent(
-      state.melodyTimelineZoomPercent
-    );
-    dom.melodyDemoBpm.value = String(clampMelodyPlaybackBpm(safeSettings.melodyDemoBpm));
-    const melodyPlaybackBpmById: Record<string, number> = {};
-    if (
-      safeSettings.melodyPlaybackBpmById &&
-      typeof safeSettings.melodyPlaybackBpmById === 'object' &&
-      !Array.isArray(safeSettings.melodyPlaybackBpmById)
-    ) {
-      Object.entries(safeSettings.melodyPlaybackBpmById).forEach(([melodyId, bpm]) => {
-        const key = melodyId.trim();
-        if (!key) return;
-        melodyPlaybackBpmById[key] = clampMelodyPlaybackBpm(bpm);
-      });
-    }
-    state.melodyPlaybackBpmById = melodyPlaybackBpmById;
-    const melodyTransposeById: Record<string, number> = {};
-    if (
-      safeSettings.melodyTransposeById &&
-      typeof safeSettings.melodyTransposeById === 'object' &&
-      !Array.isArray(safeSettings.melodyTransposeById)
-    ) {
-      Object.entries(safeSettings.melodyTransposeById).forEach(([melodyId, transpose]) => {
-        const key = melodyId.trim();
-        if (!key) return;
-        melodyTransposeById[key] = normalizeMelodyTransposeSemitones(transpose);
-      });
-    }
-    state.melodyTransposeById = melodyTransposeById;
-    const melodyStringShiftById: Record<string, number> = {};
-    if (
-      safeSettings.melodyStringShiftById &&
-      typeof safeSettings.melodyStringShiftById === 'object' &&
-      !Array.isArray(safeSettings.melodyStringShiftById)
-    ) {
-      Object.entries(safeSettings.melodyStringShiftById).forEach(([melodyId, shift]) => {
-        const key = melodyId.trim();
-        if (!key) return;
-        melodyStringShiftById[key] = normalizeMelodyStringShift(shift, state.currentInstrument);
-      });
-    }
-    state.melodyStringShiftById = melodyStringShiftById;
-    const melodyStudyRangeById: Record<string, { startIndex: number; endIndex: number }> = {};
-    if (
-      safeSettings.melodyStudyRangeById &&
-      typeof safeSettings.melodyStudyRangeById === 'object' &&
-      !Array.isArray(safeSettings.melodyStudyRangeById)
-    ) {
-      Object.entries(safeSettings.melodyStudyRangeById).forEach(([melodyId, range]) => {
-        const key = melodyId.trim();
-        if (!key || !range || typeof range !== 'object' || Array.isArray(range)) return;
-        melodyStudyRangeById[key] = {
-          startIndex: normalizeStoredMelodyStudyRangeIndex((range as { startIndex?: unknown }).startIndex),
-          endIndex: normalizeStoredMelodyStudyRangeIndex((range as { endIndex?: unknown }).endIndex),
-        };
-      });
-    }
-    state.melodyStudyRangeById = melodyStudyRangeById;
-    state.melodyStudyRangeStartIndex = 0;
-    state.melodyStudyRangeEndIndex = 0;
-    state.melodyLoopRangeEnabled = safeSettings.melodyLoopRange ?? false;
-    dom.melodyLoopRange.checked = state.melodyLoopRangeEnabled;
-    state.melodyTransposeSemitones = normalizeMelodyTransposeSemitones(
-      safeSettings.melodyTransposeSemitones
-    );
-    dom.melodyTranspose.value = String(state.melodyTransposeSemitones);
-    dom.melodyTransposeValue.textContent = formatMelodyTransposeSemitones(state.melodyTransposeSemitones);
-    state.melodyStringShift = normalizeMelodyStringShift(
-      safeSettings.melodyStringShift,
-      state.currentInstrument
-    );
-    dom.melodyStringShift.value = String(state.melodyStringShift);
-    dom.melodyStringShiftValue.textContent = formatMelodyStringShift(state.melodyStringShift);
-    dom.melodyDemoBpmValue.textContent = dom.melodyDemoBpm.value;
+    applyStoredMelodySettings(resolvedMelodySettings, dom, state);
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;
     state.autoPlayPromptSound = dom.autoPlayPromptSound.checked;
@@ -511,137 +314,4 @@ export async function loadSettings() {
 
   await applySettings(settings);
   populateProfileSelector();
-}
-
-/** Saves user statistics to localStorage. */
-export function saveStats() {
-  localStorage.setItem(STATS_KEY, JSON.stringify(state.stats));
-}
-
-export function saveLastSessionStats() {
-  if (!state.lastSessionStats) {
-    localStorage.removeItem(LAST_SESSION_STATS_KEY);
-    return;
-  }
-  localStorage.setItem(LAST_SESSION_STATS_KEY, JSON.stringify(state.lastSessionStats));
-}
-
-/** Loads user statistics from localStorage. */
-export function loadStats() {
-  state.lastSessionStats = null;
-  const statsString = localStorage.getItem(STATS_KEY);
-  if (statsString) {
-    try {
-      const loadedStats = JSON.parse(statsString);
-      // Basic validation
-      if (typeof loadedStats.highScore === 'number' && typeof loadedStats.noteStats === 'object') {
-        state.stats = loadedStats;
-      }
-    } catch (error) {
-      console.error('Failed to load stats:', error);
-      // If stats are corrupted, reset them
-      resetStats();
-    }
-  }
-
-  const lastSessionStatsString = localStorage.getItem(LAST_SESSION_STATS_KEY);
-  if (lastSessionStatsString) {
-    try {
-      const loadedLastSession = JSON.parse(lastSessionStatsString) as Partial<SessionStats>;
-      if (
-        typeof loadedLastSession === 'object' &&
-        loadedLastSession &&
-        typeof loadedLastSession.modeKey === 'string' &&
-        typeof loadedLastSession.modeLabel === 'string' &&
-        typeof loadedLastSession.startedAtMs === 'number' &&
-        typeof loadedLastSession.totalAttempts === 'number' &&
-        typeof loadedLastSession.correctAttempts === 'number' &&
-        typeof loadedLastSession.totalTime === 'number' &&
-        typeof loadedLastSession.noteStats === 'object' &&
-        typeof loadedLastSession.targetZoneStats === 'object'
-      ) {
-        state.lastSessionStats = {
-          ...(loadedLastSession as SessionStats),
-          inputSource:
-            loadedLastSession.inputSource === 'midi' ? 'midi' : 'microphone',
-          inputDeviceLabel:
-            typeof loadedLastSession.inputDeviceLabel === 'string'
-              ? loadedLastSession.inputDeviceLabel
-              : '',
-          tuningPresetKey:
-            typeof loadedLastSession.tuningPresetKey === 'string' ? loadedLastSession.tuningPresetKey : '',
-          currentCorrectStreak:
-            typeof loadedLastSession.currentCorrectStreak === 'number'
-              ? loadedLastSession.currentCorrectStreak
-              : 0,
-          bestCorrectStreak:
-            typeof loadedLastSession.bestCorrectStreak === 'number'
-              ? loadedLastSession.bestCorrectStreak
-              : 0,
-          rhythmStats:
-            loadedLastSession.rhythmStats &&
-            typeof loadedLastSession.rhythmStats === 'object' &&
-            typeof (loadedLastSession.rhythmStats as Partial<RhythmSessionStats>).totalJudged ===
-              'number'
-              ? ({
-                  ...createDefaultRhythmSessionStats(),
-                  ...(loadedLastSession.rhythmStats as Partial<RhythmSessionStats>),
-                } satisfies RhythmSessionStats)
-              : createDefaultRhythmSessionStats(),
-        };
-      }
-    } catch (error) {
-      console.error('Failed to load last session stats:', error);
-      localStorage.removeItem(LAST_SESSION_STATS_KEY);
-    }
-  }
-}
-
-/** Resets all user statistics to their default values. */
-export function resetStats() {
-  state.stats = {
-    highScore: 0,
-    totalAttempts: 0,
-    correctAttempts: 0,
-    totalTime: 0,
-    noteStats: {},
-  };
-  state.lastSessionStats = null;
-  state.activeSessionStats = null;
-  saveStats();
-  localStorage.removeItem(LAST_SESSION_STATS_KEY);
-  // Assuming displayStats is imported and available to call
-  // displayStats();
-}
-
-/** Updates statistics after a note attempt. */
-export function updateStats(isCorrect: boolean, time: number) {
-  if (dom.trainingMode.value === 'timed' || !state.currentPrompt) return;
-
-  let noteKey: string | null = null;
-  const { baseChordName, targetNote, targetString } = state.currentPrompt;
-
-  if (baseChordName) {
-    noteKey = `${baseChordName}-CHORD`;
-  } else if (targetNote && targetString) {
-    noteKey = `${targetNote}-${targetString}`;
-  }
-
-  if (!noteKey) return;
-
-  state.stats.totalAttempts++;
-
-  if (!state.stats.noteStats[noteKey]) {
-    state.stats.noteStats[noteKey] = { attempts: 0, correct: 0, totalTime: 0 };
-  }
-
-  state.stats.noteStats[noteKey].attempts++;
-
-  if (isCorrect) {
-    state.stats.correctAttempts++;
-    state.stats.totalTime += time;
-    state.stats.noteStats[noteKey].correct++;
-    state.stats.noteStats[noteKey].totalTime += time;
-  }
-  saveStats();
 }

@@ -95,7 +95,10 @@ import type { Prompt } from './types';
 import { resolveMicVolumeThreshold } from './mic-input-sensitivity';
 import { shouldAcceptMicNoteByAttackStrength } from './mic-note-attack-filter';
 import { shouldAcceptMicNoteByHoldDuration } from './mic-note-hold-filter';
-import { detectMicPolyphonicFrame } from './mic-polyphonic-detector';
+import {
+  detectMicPolyphonicFrame,
+  normalizeMicPolyphonicDetectorProvider,
+} from './mic-polyphonic-detector';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from './mic-polyphonic-detector-ui';
 import { isMelodyWorkflowMode } from './training-mode-groups';
 import { createPerformancePromptController } from './performance-prompt-controller';
@@ -482,7 +485,11 @@ const melodyRuntimeDetectionController = createMelodyRuntimeDetectionController(
   state,
   requiredStableFrames: REQUIRED_STABLE_FRAMES,
   getTrainingMode: () => dom.trainingMode.value,
-  detectMicPolyphonicFrame,
+  detectMicPolyphonicFrame: (input) =>
+    detectMicPolyphonicFrame({
+      ...input,
+      provider: normalizeMicPolyphonicDetectorProvider(input.provider),
+    }),
   updateMicPolyphonicDetectorRuntimeStatus: updateMicPolyphonicDetectorRuntimeStatusFromResult,
   now: () => Date.now(),
   performanceNow: () => performance.now(),
@@ -505,7 +512,11 @@ const melodyRuntimeDetectionController = createMelodyRuntimeDetectionController(
 const polyphonicChordDetectionController = createPolyphonicChordDetectionController({
   state,
   requiredStableFrames: REQUIRED_STABLE_FRAMES,
-  detectMicPolyphonicFrame,
+  detectMicPolyphonicFrame: (input) =>
+    detectMicPolyphonicFrame({
+      ...input,
+      provider: normalizeMicPolyphonicDetectorProvider(input.provider),
+    }),
   updateMicPolyphonicDetectorRuntimeStatus: updateMicPolyphonicDetectorRuntimeStatusFromResult,
   performanceNow: () => performance.now(),
   now: () => Date.now(),
@@ -781,7 +792,7 @@ export async function startListening(forCalibration = false) {
   try {
     const initialPromptPlan = !forCalibration
       ? buildSessionInitialPromptPlan(dom.trainingMode.value)
-      : { delayMs: 0, prepMessage: '' };
+      : { delayMs: 0, prepMessage: '', pulseCount: 0 };
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
     if (!forCalibration) {
       clearPerformanceTimelineFeedback();

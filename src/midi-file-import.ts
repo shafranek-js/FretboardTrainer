@@ -1,6 +1,7 @@
 import type { IInstrument } from './instruments/instrument';
 import type { MelodyEvent } from './melody-library';
 import {
+  type AssignmentPathEvent,
   DEFAULT_TABLATURE_MAX_FRET,
   buildPositionCandidatesByMidi,
   chooseEventPositions,
@@ -355,7 +356,11 @@ function convertMidiTrackSelectionToImportedMelody(
 
   const startTicks = [...grouped.keys()].sort((a, b) => a - b);
   const candidateMap = buildPositionCandidatesByMidi(instrument);
-  const importEvents = startTicks.map((startTick, i) => {
+  const importEvents: AssignmentPathEvent<{
+    barIndex: number;
+    durationBeats: number;
+    occurrences: EventMidiOccurrence[];
+  }>[] = startTicks.map((startTick, i) => {
     const eventNotes = grouped.get(startTick) ?? [];
     const nextStartTick = startTicks[i + 1] ?? null;
     const maxEndTick = eventNotes.reduce((max, note) => {
@@ -363,23 +368,23 @@ function convertMidiTrackSelectionToImportedMelody(
       return Math.max(max, endTick);
     }, startTick + 1);
     const durationTicks = Math.max(1, (nextStartTick ?? maxEndTick) - startTick);
-    const eventMidiOccurrences: EventMidiOccurrence[] = eventNotes
-      .map((note, occurrenceIndex) => {
-        const midi = Math.round(note.midi);
-        if (!Number.isFinite(midi)) return null;
-        return {
-          midi,
-          pitchClass: toPitchClassFromMidi(midi),
-          occurrenceIndex,
-        };
-      })
-      .filter((occurrence): occurrence is EventMidiOccurrence => occurrence !== null);
+    const eventMidiOccurrences: EventMidiOccurrence[] = eventNotes.flatMap((note, occurrenceIndex) => {
+      const midi = Math.round(note.midi);
+      if (!Number.isFinite(midi)) return [];
+      return [{
+        midi,
+        pitchClass: toPitchClassFromMidi(midi),
+        occurrenceIndex,
+      }];
+    });
 
     const assignments = chooseEventPositions(eventMidiOccurrences, candidateMap);
     return {
-      barIndex: resolveBarIndexFromTick(startTick, ticksPerBar, midi.header),
-      durationBeats: durationTicks / ppq,
-      occurrences: eventMidiOccurrences,
+      payload: {
+        barIndex: resolveBarIndexFromTick(startTick, ticksPerBar, midi.header),
+        durationBeats: durationTicks / ppq,
+        occurrences: eventMidiOccurrences,
+      },
       assignments:
         assignments.length > 0 ? assignments : [createFallbackEmptyAssignment(eventMidiOccurrences.length)],
     };
@@ -399,8 +404,8 @@ function convertMidiTrackSelectionToImportedMelody(
         return;
       }
       events.push({
-        barIndex: event.barIndex,
-        durationBeats: event.durationBeats,
+        barIndex: event.payload.barIndex,
+        durationBeats: event.payload.durationBeats,
         notes: assignment.notes,
       });
     });

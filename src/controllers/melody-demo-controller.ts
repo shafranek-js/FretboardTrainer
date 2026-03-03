@@ -38,7 +38,7 @@ interface MelodyDemoControllerDeps {
 }
 
 export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
-  let timeoutId: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let runToken = 0;
   let isPlaying = false;
   let isPaused = false;

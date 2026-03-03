@@ -111,7 +111,7 @@ function getMidiPreviewMetadata(imported: MidiImportedMelody): PreviewMetadata {
 }
 
 export function createMelodyImportPreviewController(deps: MelodyImportPreviewControllerDeps) {
-  let previewUpdateTimeoutId: number | null = null;
+  let previewUpdateTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let pendingGpImport: PendingGpImport | null = null;
   let pendingMidiImport: PendingMidiImport | null = null;
 

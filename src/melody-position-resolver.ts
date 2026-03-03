@@ -2,6 +2,7 @@ import { NOTE_TO_SEMITONE } from './constants';
 import type { IInstrument } from './instruments/instrument';
 import type { MelodyEvent, MelodyEventNote } from './melody-library';
 import {
+  type AssignmentPathEvent,
   DEFAULT_TABLATURE_MAX_FRET,
   buildPositionCandidatesByMidi,
   chooseEventPositions,
@@ -104,10 +105,9 @@ function buildPitchClassCandidateMap(
   return bySemitone;
 }
 
-interface ResolverEventContext {
+interface ResolverEventContext extends AssignmentPathEvent<MelodyEvent> {
   event: MelodyEvent;
   occurrences: EventMidiOccurrence[];
-  assignments: ReturnType<typeof chooseEventPositions>;
 }
 
 export function resolveMelodyEventPositions(
@@ -160,6 +160,7 @@ export function resolveMelodyEventPositions(
         ? chooseEventPositions(occurrences, eventCandidateMap)
         : [createFallbackEmptyAssignment(0)];
     contexts.push({
+      payload: event,
       event,
       occurrences,
       assignments: assignments.length > 0 ? assignments : [createFallbackEmptyAssignment(occurrences.length)],

@@ -1,4 +1,5 @@
 import { APP_USER_DATA_STORAGE_KEYS, type AppUserDataStorageKey } from './app-storage-keys';
+import { applyAppUserDataPayloads, readAppUserDataPayloads } from './storage-schema';
 
 export interface AppUserDataSnapshot {
   type: 'fretflow-user-data';
@@ -15,9 +16,7 @@ export function buildAppUserDataSnapshot(
   storage: Pick<Storage, 'getItem'>,
   exportedAtMs = Date.now()
 ): AppUserDataSnapshot {
-  const payloads = Object.fromEntries(
-    APP_USER_DATA_STORAGE_KEYS.map((key) => [key, storage.getItem(key)])
-  ) as Record<AppUserDataStorageKey, string | null>;
+  const payloads = readAppUserDataPayloads(storage);
 
   return {
     type: 'fretflow-user-data',
@@ -49,6 +48,7 @@ export function parseAppUserDataSnapshot(text: string): AppUserDataSnapshot {
   if (typeof parsed.exportedAtIso !== 'string' || !parsed.exportedAtIso.trim()) {
     throw new Error('Selected file is missing export metadata.');
   }
+  const exportedAtIso = parsed.exportedAtIso as string;
   if (!isRecord(parsed.payloads)) {
     throw new Error('Selected file is missing snapshot payloads.');
   }
@@ -59,13 +59,13 @@ export function parseAppUserDataSnapshot(text: string): AppUserDataSnapshot {
     if (!(typeof value === 'string' || value === null)) {
       throw new Error(`Selected file contains an invalid payload for "${key}".`);
     }
-    payloads[key] = value;
+    payloads[key] = value as string | null;
   }
 
   return {
     type: 'fretflow-user-data',
     version: 1,
-    exportedAtIso: parsed.exportedAtIso,
+    exportedAtIso,
     payloads,
   };
 }
@@ -74,12 +74,5 @@ export function applyAppUserDataSnapshot(
   snapshot: AppUserDataSnapshot,
   storage: Pick<Storage, 'setItem' | 'removeItem'>
 ) {
-  for (const key of APP_USER_DATA_STORAGE_KEYS) {
-    const value = snapshot.payloads[key];
-    if (value === null) {
-      storage.removeItem(key);
-    } else {
-      storage.setItem(key, value);
-    }
-  }
+  applyAppUserDataPayloads(storage, snapshot.payloads);
 }

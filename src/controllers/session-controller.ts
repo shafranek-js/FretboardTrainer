@@ -15,6 +15,8 @@ import {
   startListening,
   stopListening,
 } from '../logic';
+import { ensureAudioRuntime } from '../audio-runtime';
+import { buildPromptAudioPlan } from '../prompt-audio-plan';
 import { instruments } from '../instruments';
 import {
   clearResultMessage,
@@ -68,7 +70,10 @@ import {
 import { confirmUserAction } from '../user-feedback-port';
 import { normalizeSessionPace } from '../session-pace';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from '../mic-polyphonic-detector-ui';
-import { detectMicPolyphonicFrame } from '../mic-polyphonic-detector';
+import {
+  detectMicPolyphonicFrame,
+  normalizeMicPolyphonicDetectorProvider,
+} from '../mic-polyphonic-detector';
 import { parseAsciiTabToMelodyEvents } from '../ascii-tab-melody-parser';
 import {
   convertLoadedGpScoreTrackToImportedMelody,
@@ -712,7 +717,9 @@ const metronomeController = createMetronomeController({
   clampMetronomeBpm: clampMelodyPlaybackBpm,
   startMetronome,
   stopMetronome,
-  setMetronomeTempo,
+  setMetronomeTempo: async (bpm) => {
+    await setMetronomeTempo(bpm);
+  },
   subscribeMetronomeBeat,
   saveSettings,
   formatUserFacingError,
@@ -800,7 +807,11 @@ const micPolyphonicBenchmarkController = createMicPolyphonicBenchmarkController(
     micPolyphonicBenchmarkInfo: dom.micPolyphonicBenchmarkInfo,
   },
   state,
-  detectMicPolyphonicFrame,
+  detectMicPolyphonicFrame: (input) =>
+    detectMicPolyphonicFrame({
+      ...input,
+      provider: normalizeMicPolyphonicDetectorProvider(input.provider),
+    }),
   now: () => performance.now(),
   setResultMessage,
   showNonBlockingError,

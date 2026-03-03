@@ -21,7 +21,7 @@ function requireElementById<T extends Element>(id: string): T {
   if (!element) {
     throw new Error(`Missing required DOM element: #${id}`);
   }
-  return element as T;
+  return element as unknown as T;
 }
 
 function requireQuerySelector<T extends Element>(selector: string): T {
@@ -29,7 +29,7 @@ function requireQuerySelector<T extends Element>(selector: string): T {
   if (!element) {
     throw new Error(`Missing required DOM element: ${selector}`);
   }
-  return element as T;
+  return element as unknown as T;
 }
 
 // --- DOM ELEMENTS ---

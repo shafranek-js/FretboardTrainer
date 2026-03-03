@@ -1,0 +1,7 @@
+import { UKULELE_ODE_TO_JOY_MELODY } from './ode-to-joy';
+import { UKULELE_TWINKLE_MELODY } from './twinkle';
+
+export const UKULELE_BUILTIN_ASCII_TAB_MELODIES = [
+  UKULELE_ODE_TO_JOY_MELODY,
+  UKULELE_TWINKLE_MELODY,
+];

@@ -1,56 +1,31 @@
-import { expect, test } from '@playwright/test';
+import { test } from '@playwright/test';
+import { AppShell } from './helpers/app-shell';
 
 test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
-  await page.goto('/');
+  const app = new AppShell(page);
+  const settings = app.settings();
+  const stats = settings.stats();
+  const inputDetection = settings.inputDetection();
 
-  await expect(page).toHaveTitle(/FretFlow/i);
-  await expect(page.locator('#sessionToggleBtn')).toBeVisible();
-  await expect(page.locator('#sessionToggleBtn')).toHaveText(/Start Session/i);
-  await expect(page.locator('#statusBar')).not.toHaveText(/Startup failed|Runtime error/i);
-  await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
+  await app.goto();
+  await app.expectLoaded();
 
-  await expect(page.locator('#trainingMode')).toBeVisible();
-  await expect(page.locator('#practiceSetupToggleBtn')).toBeVisible();
-
-  await page.locator('#settingsBtn').click();
-  await expect(page.locator('#settingsModal')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /App Settings/i })).toBeVisible();
-  await page.locator('#settingsOpenInputDetectionBtn').click();
-  await expect(page.locator('#audioInputDevice')).toBeVisible();
-  await expect(page.locator('#inputSource')).toBeVisible();
-  const midiOptionDisabled = await page.evaluate(() => {
-    const select = document.getElementById('inputSource') as HTMLSelectElement | null;
-    const midiOption = [...(select?.options ?? [])].find((option) => option.value === 'midi');
-    return Boolean(midiOption?.disabled);
-  });
+  await settings.open();
+  await settings.openInputDetection();
+  const midiOptionDisabled = await inputDetection.isMidiDisabled();
 
   if (midiOptionDisabled) {
-    await expect(page.locator('#inputSource')).toHaveValue('microphone');
-    await expect(page.locator('#midiInputRow')).toBeHidden();
-    await expect(page.locator('#audioInputRow')).toBeVisible();
-    await expect(page.locator('#midiConnectionStatus')).toBeHidden();
-    await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
+    await inputDetection.expectMicrophoneState();
   } else {
-    await page.locator('#inputSource').selectOption('midi');
-    await expect(page.locator('#midiInputRow')).toBeVisible();
-    await expect(page.locator('#audioInputRow')).toBeHidden();
-    await expect(page.locator('#midiConnectionStatus')).toBeVisible();
-    await expect(page.locator('#midiConnectionStatus')).toContainText(/MIDI Connection:/i);
-    await expect(page.locator('#inputStatusBar')).toContainText(/MIDI:/i);
+    await inputDetection.switchToMidi();
+    await inputDetection.expectMidiState();
 
-    await page.locator('#inputSource').selectOption('microphone');
-    await expect(page.locator('#midiInputRow')).toBeHidden();
-    await expect(page.locator('#audioInputRow')).toBeVisible();
-    await expect(page.locator('#midiConnectionStatus')).toBeHidden();
-    await expect(page.locator('#inputStatusBar')).toContainText(/Mic:/i);
+    await inputDetection.switchToMicrophone();
+    await inputDetection.expectMicrophoneState();
   }
 
-  await page.locator('#settingsSectionBackBtn').click();
-  await page.locator('#settingsOpenToolsBtn').click();
-  await page.locator('#openStatsBtn').click();
-  await expect(page.locator('#statsModal')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /My Statistics/i })).toBeVisible();
-  await expect(page.locator('#repeatLastSessionBtn')).toBeVisible();
-  await expect(page.locator('#practiceWeakSpotsBtn')).toBeVisible();
-  await expect(page.locator('#resetStatsBtn')).toBeVisible();
+  await settings.backToSections();
+  await settings.openTools();
+  await stats.openFromTools();
+  await stats.expectBaseActionsVisible();
 });

@@ -20,19 +20,16 @@ import { buildLastSessionViewModel, buildStatsViewModel } from './stats-view';
 import { isChordDataMode } from './training-mode-groups';
 import type { ChordNote } from './types';
 import { nearestChromaticTargetFrequencyFromA4 } from './music-theory';
-import { getMelodyById } from './melody-library';
-import { getMelodyFingeredEvent } from './melody-fingering';
-import { normalizeMelodyStudyRange } from './melody-study-range';
-import { isMelodyWorkflowMode } from './training-mode-groups';
-import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
 import {
   hideMelodyTabTimeline,
   renderMelodyTabTimeline,
   setMelodyTimelineBackgroundCopyPayload,
 } from './melody-tab-timeline';
-import { buildPerformanceTimelineFeedbackKey } from './performance-timeline-feedback';
-import { exportMelodyToAsciiTab } from './melody-ascii-export';
 import { getMelodyTimelineZoomScale } from './melody-timeline-zoom';
+import {
+  resolveMelodyFretboardPreview,
+  resolveMelodyTimelineRenderState,
+} from './melody-timeline-ui-state';
 import {
   applyTuningPresetToInstrument,
   getDefaultTuningPresetKey,
@@ -254,33 +251,15 @@ export function updateTuner(frequency: number | null) {
 
 /** Redraws the fretboard based on the current application state. */
 export function redrawFretboard() {
-  let melodyPreviewEventFingering: ChordNote[] = [];
-  let melodyPreviewTargetNote: string | null = null;
-  let melodyPreviewTargetString: string | null = null;
-  const hasMelodyPreview = typeof state.melodyTimelinePreviewIndex === 'number';
-
-  if (isMelodyWorkflowMode(dom.trainingMode.value) && !state.isListening && hasMelodyPreview) {
-    const selectedMelodyId = dom.melodySelector.value;
-    const baseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
-    const melody =
-      baseMelody === null
-        ? null
-        : getMelodyWithPracticeAdjustments(
-            baseMelody,
-            state.melodyTransposeSemitones,
-            state.melodyStringShift,
-            state.currentInstrument
-          );
-    if (melody && melody.events.length > 0) {
-      const safeIndex = Math.max(0, Math.min(melody.events.length - 1, state.melodyTimelinePreviewIndex ?? 0));
-      const previewEvent = melody.events[safeIndex];
-      melodyPreviewEventFingering = getMelodyFingeredEvent(melody.events, safeIndex);
-      const firstPlayable = melodyPreviewEventFingering[0] ?? null;
-      const firstEventNote = previewEvent?.notes[0] ?? null;
-      melodyPreviewTargetNote = firstPlayable?.note ?? firstEventNote?.note ?? null;
-      melodyPreviewTargetString = firstPlayable?.string ?? firstEventNote?.stringName ?? null;
-    }
-  }
+  const melodyPreview = resolveMelodyFretboardPreview({
+    trainingMode: dom.trainingMode.value,
+    isListening: state.isListening,
+    melodyTimelinePreviewIndex: state.melodyTimelinePreviewIndex,
+    selectedMelodyId: dom.melodySelector.value,
+    instrument: state.currentInstrument,
+    melodyTransposeSemitones: state.melodyTransposeSemitones,
+    melodyStringShift: state.melodyStringShift,
+  });
 
   const plan = computeFretboardRenderPlan({
     trainingMode: dom.trainingMode.value,
@@ -291,9 +270,9 @@ export function redrawFretboard() {
     liveDetectedNote: state.liveDetectedNote,
     liveDetectedString: state.liveDetectedString,
     melodyFoundNotes: state.currentMelodyEventFoundNotes,
-    melodyPreviewEventFingering,
-    melodyPreviewTargetNote,
-    melodyPreviewTargetString,
+    melodyPreviewEventFingering: melodyPreview.eventFingering,
+    melodyPreviewTargetNote: melodyPreview.targetNote,
+    melodyPreviewTargetString: melodyPreview.targetString,
   });
 
   drawFretboard(
@@ -311,88 +290,45 @@ export function redrawFretboard() {
 }
 
 export function renderMelodyTabTimelineFromState() {
-  const selectedMelodyId = dom.melodySelector.value;
-  const baseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
-  const melody =
-    baseMelody === null
-      ? null
-      : getMelodyWithPracticeAdjustments(
-          baseMelody,
-          state.melodyTransposeSemitones,
-          state.melodyStringShift,
-          state.currentInstrument
-        );
-  const inMelodyMode = isMelodyWorkflowMode(dom.trainingMode.value);
-  const hasPreviewIndex = typeof state.melodyTimelinePreviewIndex === 'number';
-  const editingEnabled =
-    !!baseMelody &&
-    baseMelody.source === 'custom' &&
-    typeof baseMelody.tabText !== 'string' &&
-    state.melodyTransposeSemitones === 0 &&
-    state.melodyStringShift === 0;
+  const renderState = resolveMelodyTimelineRenderState({
+    trainingMode: dom.trainingMode.value,
+    selectedMelodyId: dom.melodySelector.value,
+    instrument: state.currentInstrument,
+    melodyTransposeSemitones: state.melodyTransposeSemitones,
+    melodyStringShift: state.melodyStringShift,
+    melodyStudyRangeStartIndex: state.melodyStudyRangeStartIndex,
+    melodyStudyRangeEndIndex: state.melodyStudyRangeEndIndex,
+    isListening: state.isListening,
+    currentMelodyEventIndex: state.currentMelodyEventIndex,
+    melodyTimelinePreviewIndex: state.melodyTimelinePreviewIndex,
+    melodyTimelinePreviewLabel: state.melodyTimelinePreviewLabel,
+    performanceTimelineFeedbackKey: state.performanceTimelineFeedbackKey,
+    performanceTimelineFeedbackByEvent: state.performanceTimelineFeedbackByEvent,
+  });
 
-  if (!melody || !inMelodyMode) {
+  if (!renderState) {
     setMelodyTimelineBackgroundCopyPayload(null);
     hideMelodyTabTimeline();
     return;
   }
-
-  let activeIndex: number | null = null;
-  let modeLabel: string | null = null;
-
-  if (hasPreviewIndex) {
-    activeIndex = state.melodyTimelinePreviewIndex;
-    modeLabel = state.melodyTimelinePreviewLabel ?? 'Preview';
-  } else if (inMelodyMode) {
-    const sessionIndex = state.currentMelodyEventIndex - 1;
-    if (Number.isFinite(sessionIndex) && sessionIndex >= 0) {
-      activeIndex = sessionIndex;
-    }
-    modeLabel = state.isListening ? 'Session' : null;
-  }
-
-  const studyRange = normalizeMelodyStudyRange(
-    { startIndex: state.melodyStudyRangeStartIndex, endIndex: state.melodyStudyRangeEndIndex },
-    melody.events.length
-  );
-  const performanceFeedbackKey = buildPerformanceTimelineFeedbackKey({
-    melodyId: melody.id,
-    instrumentName: state.currentInstrument.name,
-    melodyTransposeSemitones: state.melodyTransposeSemitones,
-    melodyStringShift: state.melodyStringShift,
-  });
-  const performanceFeedbackByEvent =
-    dom.trainingMode.value === 'performance' &&
-    performanceFeedbackKey !== null &&
-    state.performanceTimelineFeedbackKey === performanceFeedbackKey
-      ? state.performanceTimelineFeedbackByEvent
-      : null;
-  const showPrerollLeadIn = dom.trainingMode.value === 'performance';
-  const copyText =
-    state.melodyTransposeSemitones === 0 &&
-    state.melodyStringShift === 0 &&
-    typeof baseMelody?.tabText === 'string' &&
-    baseMelody.tabText.trim().length > 0
-      ? baseMelody.tabText.trim()
-      : exportMelodyToAsciiTab(melody, state.currentInstrument);
   setMelodyTimelineBackgroundCopyPayload({
-    text: copyText,
-    melodyName: melody.name,
+    text: renderState.copyText,
+    melodyName: renderState.melody.name,
   });
-  renderMelodyTabTimeline(melody, state.currentInstrument, activeIndex, {
-    modeLabel,
+  renderMelodyTabTimeline(renderState.melody, state.currentInstrument, renderState.activeIndex, {
+    modeLabel: renderState.modeLabel,
     viewMode: state.melodyTimelineViewMode,
     zoomScale: getMelodyTimelineZoomScale(state.melodyTimelineZoomPercent),
-    studyRange,
+    studyRange: renderState.studyRange,
     showStepNumbers: state.showMelodyTimelineSteps,
     showMetaDetails: state.showMelodyTimelineDetails,
     minimapRangeEditor: dom.trainingMode.value === 'melody',
-    showPrerollLeadIn,
+    showPrerollLeadIn: renderState.showPrerollLeadIn,
     activePrerollStepIndex: state.performancePrerollStepIndex,
-    editingEnabled,
+    editingEnabled: renderState.editingEnabled,
     selectedEventIndex: state.melodyTimelineSelectedEventIndex,
     selectedNoteIndex: state.melodyTimelineSelectedNoteIndex,
-    performanceFeedbackByEvent,
+    performanceFeedbackByEvent: renderState.performanceFeedbackByEvent,
   });
 }
 

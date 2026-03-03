@@ -147,7 +147,7 @@ function toNumericArray(value: unknown, essentia: EssentiaLikeInstance): number[
     return value.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
   }
   if (ArrayBuffer.isView(value)) {
-    return Array.from(value as ArrayLike<number>).filter((n) => Number.isFinite(n));
+    return Array.from(value as unknown as ArrayLike<number>).filter((n) => Number.isFinite(n));
   }
   if (value && typeof essentia.vectorToArray === 'function') {
     try {
@@ -156,7 +156,7 @@ function toNumericArray(value: unknown, essentia: EssentiaLikeInstance): number[
         return converted.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
       }
       if (ArrayBuffer.isView(converted)) {
-        return Array.from(converted as ArrayLike<number>).filter((n) => Number.isFinite(n));
+        return Array.from(converted as unknown as ArrayLike<number>).filter((n) => Number.isFinite(n));
       }
     } catch {
       // ignore and continue with structural fallbacks below

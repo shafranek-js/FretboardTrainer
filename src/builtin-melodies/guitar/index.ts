@@ -1,0 +1,17 @@
+import { GUITAR_FUR_ELISE_MELODY } from './fur-elise';
+import { GUITAR_GREENSLEEVES_MELODY } from './greensleeves';
+import { GUITAR_MO_LI_HUA_MELODY } from './mo-li-hua';
+import { GUITAR_ODE_TO_JOY_MELODY } from './ode-to-joy';
+import { GUITAR_ROMANZA_ANONIMO_MELODY } from './romanza-anonimo';
+import { GUITAR_SCARBOROUGH_FAIR_MELODY } from './scarborough-fair';
+import { GUITAR_TWINKLE_MELODY } from './twinkle';
+
+export const GUITAR_BUILTIN_ASCII_TAB_MELODIES = [
+  GUITAR_ODE_TO_JOY_MELODY,
+  GUITAR_TWINKLE_MELODY,
+  GUITAR_MO_LI_HUA_MELODY,
+  GUITAR_ROMANZA_ANONIMO_MELODY,
+  GUITAR_GREENSLEEVES_MELODY,
+  GUITAR_SCARBOROUGH_FAIR_MELODY,
+  GUITAR_FUR_ELISE_MELODY,
+];

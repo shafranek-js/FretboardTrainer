@@ -133,6 +133,36 @@
 
 ## Future / Backlog
 
+- [x] Refactor built-in melody definitions out of `src/melody-library.ts` into a dedicated module tree so the library can grow without turning one file into a monolith.
+  - [x] Split built-in melody tab/event sources by instrument (`guitar`, `ukulele`).
+  - [x] Split built-in melody sources further by song once the library grows beyond the current per-instrument modules.
+  - [x] Keep shared built-in registry/index wiring separate from the large literal tab blobs.
+- [x] Further decompose melody timeline rendering so `src/ui.ts` and `src/melody-tab-timeline.ts` stay changeable as TAB features grow.
+  - [x] Extract melody timeline state/preview resolution out of `src/ui.ts` into focused helper module.
+  - [ ] Separate Classic TAB rendering, Grid rendering, preroll rendering, and performance-feedback rendering into focused helpers/modules.
+    - [x] Extract `Classic TAB` rendering into a dedicated renderer module.
+    - [x] Extract `Grid` rendering into a dedicated renderer module.
+    - [x] Extract study-range bar rendering into a dedicated renderer module.
+    - [x] Extract minimap rendering into a dedicated renderer module while keeping shared zoom wiring.
+    - [x] Extract preroll rendering into a dedicated helper module.
+    - [x] Extract performance-feedback rendering helpers out of the Classic/Grid renderer modules.
+  - [ ] Reduce cross-coupling between timeline zoom, study-range UI, active-step preview, and performance overlays.
+    - [x] Extract timeline scroll/centering/drag-pan orchestration out of `src/melody-tab-timeline.ts`.
+    - [x] Extract timeline context-menu state/rendering out of `src/melody-tab-timeline.ts` while preserving the existing public API.
+    - [x] Extract note/event drag interaction state out of `src/melody-tab-timeline.ts` while preserving renderer callbacks.
+    - [x] Extract background-copy and selection-clear interaction wiring out of `src/melody-tab-timeline.ts`.
+    - [x] Extract melody content signature and bar-grouping helpers out of `src/melody-tab-timeline.ts`.
+    - [x] Extract render-option normalization plus timeline render-key/meta-text assembly out of `src/melody-tab-timeline.ts`.
+    - [x] Extract timeline seek/study-range/empty-cell handler registry out of `src/melody-tab-timeline.ts`.
+- [x] Refactor persistence/storage code into clearer feature-oriented modules before more saved settings are added.
+  - [x] Separate profile persistence/default-profile plumbing out of `src/storage.ts`.
+  - [x] Separate stats persistence/reset/update lifecycle out of `src/storage.ts`.
+  - [x] Separate melody-specific settings normalization/apply helpers out of `src/storage.ts`.
+  - [x] Separate profile persistence, user-data import/export, reset/defaults, and melody-specific overrides from the current `src/storage.ts`.
+  - [x] Keep one explicit schema boundary for app-owned localStorage data so future migrations are safer.
+- [x] Harden E2E tests against UI layout refactors by adding shared Playwright helpers/selectors instead of hardcoding full modal navigation in each spec.
+  - [x] Add small page-object/helpers for `App Settings`, `Stats`, and melody tempo interactions.
+  - [x] Reduce direct dependence on exact modal section structure where the product contract is really behavioral.
 - [x] Port selected melody workflow upgrades from legacy `fretflow`.
   - [x] Add per-melody `String Shift` with feasibility guardrails and synchronized TAB/fretboard/demo rendering.
   - [x] Add `Performance Mode` for uninterrupted full-song runs with dedicated scoring.
