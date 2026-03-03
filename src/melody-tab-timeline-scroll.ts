@@ -16,7 +16,7 @@ let timelineCenterAnimationFrameId: number | null = null;
 let timelineCenterAnimationTargetLeft = 0;
 let timelineRuntimeFollowFrameId: number | null = null;
 let timelineRuntimeFollowTargetLeft = 0;
-let lastScrollChromeState = {
+const lastScrollChromeState = {
   scrollable: '',
   scrollLeft: '',
   scrollRight: '',

@@ -1,4 +1,3 @@
-import { dom } from './state';
 import type { MelodyDefinition } from './melody-library';
 
 export type MelodyTimelineContextAction =

@@ -73,13 +73,6 @@ function cancelPendingMelodyTimelineRender() {
   }
 }
 
-function cancelPendingFretboardRedraw() {
-  if (pendingFretboardRedrawFrameId !== null) {
-    cancelAnimationFrame(pendingFretboardRedrawFrameId);
-    pendingFretboardRedrawFrameId = null;
-  }
-}
-
 export function scheduleMelodyTimelineRenderFromState() {
   if (pendingMelodyTimelineRenderFrameId !== null) return;
   pendingMelodyTimelineRenderFrameId = requestAnimationFrame(() => {
