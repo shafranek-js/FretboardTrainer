@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   analyzeMonophonicFrame,
   analyzePolyphonicFrame,
+  computeMonophonicPitchConfidence,
   calculateRmsLevel,
   evaluateCalibrationSample,
 } from './audio-frame-processing';
@@ -107,12 +108,22 @@ describe('analyzeMonophonicFrame', () => {
       lastPitches: [220],
       lastNote: 'A',
       stableNoteCounter: 2,
+      previousConfidenceEma: 0.7,
+      previousVoicingEma: 0.5,
       requiredStableFrames: 3,
       targetNote: 'A',
       noteResolver: () => 'A',
     });
 
     expect(result.withinRange).toBe(false);
+    expect(result.confidence).toBe(0);
+    expect(result.rawConfidence).toBe(0);
+    expect(result.isConfident).toBe(false);
+    expect(result.nextConfidenceEma).toBeCloseTo(0.42, 3);
+    expect(result.voicingConfidence).toBe(0);
+    expect(result.rawVoicingConfidence).toBe(0);
+    expect(result.isVoiced).toBe(false);
+    expect(result.nextVoicingEma).toBeCloseTo(0.275, 3);
     expect(result.nextLastPitches).toEqual([220]);
     expect(result.nextLastNote).toBe('A');
     expect(result.nextStableNoteCounter).toBe(2);
@@ -127,6 +138,8 @@ describe('analyzeMonophonicFrame', () => {
       lastPitches: [438],
       lastNote: 'A',
       stableNoteCounter: 2,
+      previousConfidenceEma: 0.5,
+      previousVoicingEma: 0.5,
       requiredStableFrames: 3,
       targetNote: 'A',
       noteResolver: () => 'A',
@@ -136,6 +149,10 @@ describe('analyzeMonophonicFrame', () => {
     expect(result.nextStableNoteCounter).toBe(3);
     expect(result.isStableMatch).toBe(true);
     expect(result.isStableMismatch).toBe(false);
+    expect(result.isConfident).toBe(true);
+    expect(result.isVoiced).toBe(true);
+    expect(result.confidence).toBeGreaterThan(0.6);
+    expect(result.rawConfidence).toBeGreaterThan(0.9);
   });
 
   it('reports stable mismatch for wrong note', () => {
@@ -147,6 +164,8 @@ describe('analyzeMonophonicFrame', () => {
       lastPitches: [492],
       lastNote: 'B',
       stableNoteCounter: 2,
+      previousConfidenceEma: 0.5,
+      previousVoicingEma: 0.5,
       requiredStableFrames: 3,
       targetNote: 'A',
       noteResolver: () => 'B',
@@ -156,6 +175,9 @@ describe('analyzeMonophonicFrame', () => {
     expect(result.nextStableNoteCounter).toBe(3);
     expect(result.isStableMatch).toBe(false);
     expect(result.isStableMismatch).toBe(true);
+    expect(result.isConfident).toBe(true);
+    expect(result.isVoiced).toBe(true);
+    expect(result.rawConfidence).toBeGreaterThan(0.9);
   });
 
   it('updates pitch history but not stability when note resolver returns null', () => {
@@ -167,6 +189,8 @@ describe('analyzeMonophonicFrame', () => {
       lastPitches: [430, 435],
       lastNote: 'A',
       stableNoteCounter: 2,
+      previousConfidenceEma: 0.4,
+      previousVoicingEma: 0.4,
       requiredStableFrames: 3,
       targetNote: 'A',
       noteResolver: () => null,
@@ -177,5 +201,81 @@ describe('analyzeMonophonicFrame', () => {
     expect(result.nextStableNoteCounter).toBe(2);
     expect(result.isStableMatch).toBe(false);
     expect(result.isStableMismatch).toBe(false);
+    expect(result.isConfident).toBe(false);
+    expect(result.nextConfidenceEma).toBeCloseTo(0.28, 3);
+    expect(result.isVoiced).toBe(false);
+    expect(result.nextVoicingEma).toBeCloseTo(0.24, 3);
+  });
+});
+
+describe('computeMonophonicPitchConfidence', () => {
+  it('returns high confidence for tight stable pitch history', () => {
+    const result = computeMonophonicPitchConfidence({
+      lastPitches: [439.8, 440.2],
+      smoothedFrequency: 440,
+      nextStableNoteCounter: 3,
+      requiredStableFrames: 3,
+    });
+
+    expect(result.pitchSpreadCents).toBeLessThan(3);
+    expect(result.confidence).toBeGreaterThan(0.9);
+    expect(result.isConfident).toBe(true);
+  });
+
+  it('returns low confidence for wide unstable pitch history', () => {
+    const result = computeMonophonicPitchConfidence({
+      lastPitches: [410, 455],
+      smoothedFrequency: 432.5,
+      nextStableNoteCounter: 1,
+      requiredStableFrames: 3,
+    });
+
+    expect(result.pitchSpreadCents).toBeGreaterThan(80);
+    expect(result.confidence).toBeLessThan(0.4);
+    expect(result.isConfident).toBe(false);
+  });
+
+  it('keeps confidence alive through mild wobble via hysteresis', () => {
+    const result = analyzeMonophonicFrame({
+      frequency: 440,
+      minFrequency: 50,
+      maxFrequency: 1000,
+      maxPitchWindow: 2,
+      lastPitches: [438, 441],
+      lastNote: 'A',
+      stableNoteCounter: 2,
+      previousConfidenceEma: 0.7,
+      previousVoicingEma: 0.72,
+      requiredStableFrames: 3,
+      targetNote: 'A',
+      noteResolver: () => 'A',
+    });
+
+    expect(result.rawConfidence).toBeGreaterThan(0.7);
+    expect(result.confidence).toBeGreaterThan(0.65);
+    expect(result.isConfident).toBe(true);
+    expect(result.voicingConfidence).toBeGreaterThan(0.65);
+    expect(result.isVoiced).toBe(true);
+  });
+
+  it('keeps voiced state alive through mild wobble via hysteresis', () => {
+    const result = analyzeMonophonicFrame({
+      frequency: 440,
+      minFrequency: 50,
+      maxFrequency: 1000,
+      maxPitchWindow: 3,
+      lastPitches: [438, 441, 439],
+      lastNote: 'A',
+      stableNoteCounter: 2,
+      previousConfidenceEma: 0.62,
+      previousVoicingEma: 0.71,
+      requiredStableFrames: 3,
+      targetNote: 'A',
+      noteResolver: () => 'A',
+    });
+
+    expect(result.rawVoicingConfidence).toBeGreaterThan(0.7);
+    expect(result.voicingConfidence).toBeGreaterThan(0.68);
+    expect(result.isVoiced).toBe(true);
   });
 });

@@ -105,6 +105,8 @@ export interface MonophonicDetectionInput {
   lastPitches: number[];
   lastNote: string | null;
   stableNoteCounter: number;
+  previousConfidenceEma: number;
+  previousVoicingEma: number;
   requiredStableFrames: number;
   targetNote: string | null;
   noteResolver: (frequency: number) => string | null;
@@ -118,6 +120,8 @@ export function detectMonophonicFrame({
   lastPitches,
   lastNote,
   stableNoteCounter,
+  previousConfidenceEma,
+  previousVoicingEma,
   requiredStableFrames,
   targetNote,
   noteResolver,
@@ -133,6 +137,8 @@ export function detectMonophonicFrame({
     lastPitches,
     lastNote,
     stableNoteCounter,
+    previousConfidenceEma,
+    previousVoicingEma,
     requiredStableFrames,
     targetNote,
     noteResolver,

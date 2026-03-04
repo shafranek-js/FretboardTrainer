@@ -17,6 +17,7 @@ interface ScrollingTabPanelRuntimeInput {
   currentPrompt: Prompt | null;
   promptStartedAtMs: number;
   currentMelodyEventIndex: number;
+  performanceActiveEventIndex: number | null;
   melodyDemoRuntimeActive: boolean;
   melodyDemoRuntimePaused: boolean;
   melodyDemoRuntimeBaseTimeSec: number;
@@ -102,7 +103,10 @@ export function resolveScrollingTabPanelRuntimeState(
   }
 
   if (input.trainingMode === 'performance' && input.isListening && input.currentPrompt) {
-    const activeEventIndex = input.currentMelodyEventIndex - 1;
+    const activeEventIndex =
+      typeof input.performanceActiveEventIndex === 'number'
+        ? input.performanceActiveEventIndex
+        : input.currentMelodyEventIndex - 1;
     if (
       Number.isInteger(activeEventIndex) &&
       activeEventIndex >= input.studyRange.startIndex &&

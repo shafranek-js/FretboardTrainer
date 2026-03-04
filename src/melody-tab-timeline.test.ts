@@ -115,4 +115,22 @@ describe('melody-tab-timeline', () => {
     expect(lowERow?.cells[1]?.notes[0]?.performanceStatus).toBe('missed');
     expect(lowERow?.cells[1]?.unmatchedPlayedNotes).toEqual([]);
   });
+
+  it('keeps prior performance feedback visible while a later event is active', () => {
+    const model = buildMelodyTabTimelineViewModel(
+      TEST_MELODY,
+      ['e', 'B', 'G', 'D', 'A', 'E'],
+      2,
+      null,
+      {
+        1: [{ note: 'G', stringName: 'E', fret: 3, status: 'correct' }],
+      }
+    );
+
+    const lowERow = model.rows.find((row) => row.stringName === 'E');
+
+    expect(model.activeEventIndex).toBe(2);
+    expect(lowERow?.cells[1]?.notes[0]?.performanceStatus).toBe('correct');
+    expect(lowERow?.cells[2]?.isActive).toBe(true);
+  });
 });

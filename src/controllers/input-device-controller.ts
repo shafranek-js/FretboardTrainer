@@ -23,6 +23,7 @@ interface InputDeviceControllerDeps {
   stopListening(): void;
   saveSettings(): void;
   updateMicNoiseGateInfo(): void;
+  refreshMicPerformanceReadinessUi(): void;
   setResultMessage(message: string, tone?: 'success' | 'error'): void;
 }
 
@@ -38,6 +39,7 @@ export function createInputDeviceController(deps: InputDeviceControllerDeps) {
 
     deps.saveSettings();
     deps.updateMicNoiseGateInfo();
+    deps.refreshMicPerformanceReadinessUi();
   }
 
   async function handleInputSourceChange() {
@@ -55,6 +57,7 @@ export function createInputDeviceController(deps: InputDeviceControllerDeps) {
     }
 
     deps.saveSettings();
+    deps.refreshMicPerformanceReadinessUi();
   }
 
   function handleMidiInputDeviceChange() {
@@ -67,6 +70,7 @@ export function createInputDeviceController(deps: InputDeviceControllerDeps) {
     }
 
     deps.saveSettings();
+    deps.refreshMicPerformanceReadinessUi();
   }
 
   return {

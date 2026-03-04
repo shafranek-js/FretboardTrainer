@@ -16,6 +16,7 @@ export interface SessionStopResetState {
   currentArpeggioIndex: number;
   currentMelodyId: string | null;
   currentMelodyEventIndex: number;
+  performanceActiveEventIndex: number | null;
   currentMelodyEventFoundNotes: Set<string>;
   melodyDemoRuntimeActive: boolean;
   melodyDemoRuntimePaused: boolean;
@@ -25,11 +26,28 @@ export interface SessionStopResetState {
   performancePromptResolved: boolean;
   performancePromptMatched: boolean;
   performancePromptHadAttempt: boolean;
+  monophonicConfidenceEma: number;
+  performanceMicLastJudgedOnsetNote: string | null;
+  performanceMicLastJudgedOnsetAtMs: number | null;
+  performanceMicLastUncertainOnsetNote: string | null;
+  performanceMicLastUncertainOnsetAtMs: number | null;
+  micLastInputRms: number;
+  micLastMonophonicConfidence: number | null;
+  micLastMonophonicPitchSpreadCents: number | null;
+  micLastMonophonicDetectedAtMs: number | null;
+  micPerformanceReadinessLastUiRefreshAtMs: number;
+  micPerformanceJudgmentCount: number;
+  micPerformanceJudgmentTotalLatencyMs: number;
+  micPerformanceJudgmentLastLatencyMs: number | null;
+  micPerformanceJudgmentMaxLatencyMs: number;
+  micPerformanceSuggestedLatencyMs: number | null;
+  micPerformanceLatencyCalibrationActive: boolean;
   performancePrerollLeadInVisible: boolean;
   performancePrerollStartedAtMs: number | null;
   performancePrerollDurationMs: number;
   performancePrerollStepIndex: number | null;
   performanceRuntimeStartedAtMs: number | null;
+  performanceTransportAnimationId: number;
   showSessionSummaryOnStop: boolean;
   pendingSessionStopResultMessage: { text: string; tone: 'neutral' | 'success' | 'error' } | null;
 }
@@ -51,6 +69,7 @@ export function createSessionStopResetState() {
     currentArpeggioIndex: 0,
     currentMelodyId: null,
     currentMelodyEventIndex: 0,
+    performanceActiveEventIndex: null,
     currentMelodyEventFoundNotes: new Set<string>(),
     melodyDemoRuntimeActive: false,
     melodyDemoRuntimePaused: false,
@@ -60,11 +79,28 @@ export function createSessionStopResetState() {
     performancePromptResolved: false,
     performancePromptMatched: false,
     performancePromptHadAttempt: false,
+    monophonicConfidenceEma: 0,
+    performanceMicLastJudgedOnsetNote: null,
+    performanceMicLastJudgedOnsetAtMs: null,
+    performanceMicLastUncertainOnsetNote: null,
+    performanceMicLastUncertainOnsetAtMs: null,
+    micLastInputRms: 0,
+    micLastMonophonicConfidence: null,
+    micLastMonophonicPitchSpreadCents: null,
+    micLastMonophonicDetectedAtMs: null,
+    micPerformanceReadinessLastUiRefreshAtMs: 0,
+    micPerformanceJudgmentCount: 0,
+    micPerformanceJudgmentTotalLatencyMs: 0,
+    micPerformanceJudgmentLastLatencyMs: null,
+    micPerformanceJudgmentMaxLatencyMs: 0,
+    micPerformanceSuggestedLatencyMs: null,
+    micPerformanceLatencyCalibrationActive: false,
     performancePrerollLeadInVisible: false,
     performancePrerollStartedAtMs: null,
     performancePrerollDurationMs: 0,
     performancePrerollStepIndex: null,
     performanceRuntimeStartedAtMs: null,
+    performanceTransportAnimationId: 0,
     showSessionSummaryOnStop: false,
     pendingSessionStopResultMessage: null,
   } satisfies SessionStopResetState & ReturnType<typeof createPromptCycleTrackingResetState>;

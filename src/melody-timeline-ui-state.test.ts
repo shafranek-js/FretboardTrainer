@@ -33,6 +33,7 @@ describe('melody-timeline-ui-state', () => {
       melodyStudyRangeEndIndex: 0,
       isListening: false,
       currentMelodyEventIndex: 0,
+      performanceActiveEventIndex: null,
       melodyTimelinePreviewIndex: null,
       melodyTimelinePreviewLabel: null,
       performanceTimelineFeedbackKey: null,
@@ -53,6 +54,7 @@ describe('melody-timeline-ui-state', () => {
       melodyStudyRangeEndIndex: 0,
       isListening: false,
       currentMelodyEventIndex: 4,
+      performanceActiveEventIndex: null,
       melodyTimelinePreviewIndex: 2,
       melodyTimelinePreviewLabel: 'Preview',
       performanceTimelineFeedbackKey: null,
@@ -79,6 +81,7 @@ describe('melody-timeline-ui-state', () => {
       melodyStudyRangeEndIndex: 0,
       isListening: true,
       currentMelodyEventIndex: 3,
+      performanceActiveEventIndex: 3,
       melodyTimelinePreviewIndex: null,
       melodyTimelinePreviewLabel: null,
       performanceTimelineFeedbackKey: 'builtin:guitar:ode_to_joy_intro|guitar|2|0',
@@ -86,10 +89,36 @@ describe('melody-timeline-ui-state', () => {
     });
 
     expect(renderState).not.toBeNull();
-    expect(renderState?.activeIndex).toBe(2);
+    expect(renderState?.activeIndex).toBe(3);
     expect(renderState?.modeLabel).toBe('Session');
     expect(renderState?.showPrerollLeadIn).toBe(true);
     expect(renderState?.performanceFeedbackByEvent).toBe(feedback);
     expect(renderState?.copyText).not.toBe(renderState?.baseMelody.tabText?.trim());
+  });
+
+  it('uses performanceActiveEventIndex for performance timeline state even when currentMelodyEventIndex moved ahead', () => {
+    const feedback = {
+      1: [{ note: 'D', stringName: 'e', fret: 10, status: 'correct' as const }],
+    };
+    const renderState = resolveMelodyTimelineRenderState({
+      trainingMode: 'performance',
+      selectedMelodyId: 'builtin:guitar:ode_to_joy_intro',
+      instrument: instruments.guitar,
+      melodyTransposeSemitones: 0,
+      melodyStringShift: 0,
+      melodyStudyRangeStartIndex: 0,
+      melodyStudyRangeEndIndex: 4,
+      isListening: true,
+      currentMelodyEventIndex: 4,
+      performanceActiveEventIndex: 1,
+      melodyTimelinePreviewIndex: null,
+      melodyTimelinePreviewLabel: null,
+      performanceTimelineFeedbackKey: 'builtin:guitar:ode_to_joy_intro|guitar|0|0',
+      performanceTimelineFeedbackByEvent: feedback,
+    });
+
+    expect(renderState).not.toBeNull();
+    expect(renderState?.activeIndex).toBe(1);
+    expect(renderState?.performanceFeedbackByEvent).toBe(feedback);
   });
 });

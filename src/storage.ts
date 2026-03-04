@@ -33,6 +33,7 @@ import { normalizePerformanceMicTolerancePreset } from './performance-mic-tolera
 import {
   normalizePerformanceTimingLeniencyPreset,
 } from './performance-timing-forgiveness';
+import { normalizePerformanceMicLatencyCompensationMs } from './performance-mic-latency-compensation';
 import { getCurriculumPresetDefinitions, type CurriculumPresetKey } from './curriculum-presets';
 import {
   normalizeInputSource,
@@ -105,6 +106,9 @@ export function gatherCurrentSettings(): ProfileSettings {
     performanceMicTolerancePreset: normalizePerformanceMicTolerancePreset(dom.performanceMicTolerancePreset.value),
     performanceTimingLeniencyPreset: normalizePerformanceTimingLeniencyPreset(
       dom.performanceTimingLeniencyPreset.value
+    ),
+    performanceMicLatencyCompensationMs: normalizePerformanceMicLatencyCompensationMs(
+      dom.performanceMicLatencyCompensation.value
     ),
     difficulty: dom.difficulty.value,
     noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
@@ -194,6 +198,11 @@ export async function applySettings(settings: ProfileSettings | null | undefined
       safeSettings.performanceTimingLeniencyPreset
     );
     dom.performanceTimingLeniencyPreset.value = state.performanceTimingLeniencyPreset;
+    state.performanceMicLatencyCompensationMs = normalizePerformanceMicLatencyCompensationMs(
+      safeSettings.performanceMicLatencyCompensationMs
+    );
+    dom.performanceMicLatencyCompensation.value = String(state.performanceMicLatencyCompensationMs);
+    dom.performanceMicLatencyCompensationValue.textContent = `${state.performanceMicLatencyCompensationMs} ms`;
     dom.difficulty.value = safeSettings.difficulty ?? 'natural';
     dom.noteNaming.value = normalizeNoteNamingPreference(safeSettings.noteNaming);
     setNoteNamingPreference(dom.noteNaming.value);
@@ -296,6 +305,9 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     );
     state.performanceTimingLeniencyPreset = normalizePerformanceTimingLeniencyPreset(
       dom.performanceTimingLeniencyPreset.value
+    );
+    state.performanceMicLatencyCompensationMs = normalizePerformanceMicLatencyCompensationMs(
+      dom.performanceMicLatencyCompensation.value
     );
     dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
 

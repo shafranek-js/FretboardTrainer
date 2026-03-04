@@ -14,6 +14,7 @@ import {
 } from './ui';
 import { freqToNoteName, freqToScientificNoteName, detectPitch, playSound } from './audio';
 import { modes } from './modes';
+import { buildPerformancePromptForEvent } from './modes/melody-performance';
 import {
   calculateRmsLevel,
 } from './audio-frame-processing';
@@ -102,11 +103,14 @@ import type { Prompt } from './types';
 import { resolveMicVolumeThreshold } from './mic-input-sensitivity';
 import { shouldAcceptMicNoteByAttackStrength } from './mic-note-attack-filter';
 import { shouldAcceptMicNoteByHoldDuration } from './mic-note-hold-filter';
+import { shouldReportPerformanceMicUncertainFrame } from './performance-mic-uncertain';
+import { resolveLatencyCompensatedPromptStartedAtMs } from './performance-mic-latency-compensation';
 import {
   detectMicPolyphonicFrame,
   normalizeMicPolyphonicDetectorProvider,
 } from './mic-polyphonic-detector';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from './mic-polyphonic-detector-ui';
+import { refreshMicPerformanceReadinessUi } from './mic-performance-readiness-ui';
 import { isMelodyWorkflowMode } from './training-mode-groups';
 import { createPerformancePromptController } from './performance-prompt-controller';
 import {
@@ -130,7 +134,14 @@ import { buildSessionInitialTimelinePreview } from './session-initial-timeline-p
 import { shouldIgnorePerformanceOctaveMismatch } from './performance-octave-policy';
 import { isPerformancePitchWithinTolerance as isPerformancePitchWithinToleranceHelper } from './performance-pitch-tolerance';
 import { getMelodyById } from './melody-library';
-import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
+import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
+import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
+import { formatMelodyStudyRange, isDefaultMelodyStudyRange, normalizeMelodyStudyRange } from './melody-study-range';
+import { resolvePerformanceTransportFrame } from './performance-transport';
+import {
+  captureMicPerformanceLatencyCalibrationState,
+  restoreMicPerformanceLatencyCalibrationState,
+} from './mic-performance-latency-calibration-state';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -176,6 +187,12 @@ function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: 
   if (volume > state.micMonophonicAttackPeakVolume) {
     state.micMonophonicAttackPeakVolume = volume;
   }
+}
+
+function refreshMicPerformanceReadinessUiThrottled(nowMs = Date.now()) {
+  if (nowMs - state.micPerformanceReadinessLastUiRefreshAtMs < 250) return;
+  state.micPerformanceReadinessLastUiRefreshAtMs = nowMs;
+  refreshMicPerformanceReadinessUi(nowMs);
 }
 
 function handleRhythmModeStableNote(detectedNote: string) {
@@ -285,6 +302,123 @@ function startPerformanceRuntimeClock(targetEventIndex = state.melodyStudyRangeS
   if (dom.trainingMode.value !== 'performance') return;
   const elapsedSec = getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex);
   state.performanceRuntimeStartedAtMs = Date.now() - Math.round(elapsedSec * 1000);
+  schedulePerformanceTransportLoop();
+}
+
+function getActivePerformanceTransportContext() {
+  if (dom.trainingMode.value !== 'performance') return null;
+  const selectedMelodyId = dom.melodySelector.value.trim();
+  const baseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+  if (!baseMelody) return null;
+  const melody = getMelodyWithPracticeAdjustments(
+    baseMelody,
+    state.melodyTransposeSemitones,
+    state.melodyStringShift,
+    state.currentInstrument
+  );
+  if (melody.events.length === 0) return null;
+
+  return {
+    melody,
+    studyRange: normalizeMelodyStudyRange(state.melodyStudyRangeById?.[melody.id], melody.events.length),
+    bpm: clampMelodyPlaybackBpm(dom.melodyDemoBpm.value),
+  };
+}
+
+function syncPerformanceTransport(nowMs = Date.now()) {
+  if (
+    dom.trainingMode.value !== 'performance' ||
+    !state.isListening ||
+    state.performanceRuntimeStartedAtMs === null
+  ) {
+    return;
+  }
+
+  const context = getActivePerformanceTransportContext();
+  if (!context) return;
+  state.currentMelodyId = context.melody.id;
+
+  const transportFrame = resolvePerformanceTransportFrame({
+    melody: context.melody,
+    bpm: context.bpm,
+    studyRange: context.studyRange,
+    runtimeStartedAtMs: state.performanceRuntimeStartedAtMs,
+    nowMs,
+  });
+
+  if (transportFrame.isComplete) {
+    if (state.currentPrompt && !state.performancePromptResolved) {
+      performancePromptController.resolveMissed();
+    }
+    state.performanceActiveEventIndex = null;
+    state.currentMelodyEventIndex = context.studyRange.endIndex + 1;
+    state.pendingSessionStopResultMessage = {
+      text: isDefaultMelodyStudyRange(context.studyRange, context.melody.events.length)
+        ? `Performance complete! (${context.melody.name})`
+        : `Performance range complete! (${context.melody.name}, ${formatMelodyStudyRange(
+            context.studyRange,
+            context.melody.events.length
+          )})`,
+      tone: 'success',
+    };
+    nextPrompt();
+    return;
+  }
+
+  const activeEventIndex = transportFrame.activeEventIndex;
+  if (activeEventIndex === null) return;
+
+  if (state.performanceActiveEventIndex === activeEventIndex && state.currentPrompt) {
+    if (transportFrame.eventStartedAtMs !== null) {
+      state.startTime = transportFrame.eventStartedAtMs;
+    }
+    return;
+  }
+
+  if (state.currentPrompt && !state.performancePromptResolved) {
+    performancePromptController.resolveMissed();
+  }
+
+  state.performanceActiveEventIndex = activeEventIndex;
+  state.currentMelodyEventIndex = activeEventIndex;
+  state.currentMelodyEventFoundNotes.clear();
+  clearWrongDetectedHighlight();
+  nextPrompt();
+  if (transportFrame.eventStartedAtMs !== null) {
+    state.startTime = transportFrame.eventStartedAtMs;
+  }
+}
+
+function stopPerformanceTransportLoop() {
+  if (state.performanceTransportAnimationId) {
+    cancelAnimationFrame(state.performanceTransportAnimationId);
+    state.performanceTransportAnimationId = 0;
+  }
+}
+
+function schedulePerformanceTransportLoop() {
+  if (state.performanceTransportAnimationId) return;
+  const tick = () => {
+    state.performanceTransportAnimationId = 0;
+    if (
+      !state.isListening ||
+      dom.trainingMode.value !== 'performance' ||
+      state.performanceRuntimeStartedAtMs === null
+    ) {
+      return;
+    }
+
+    syncPerformanceTransport();
+
+    if (
+      state.isListening &&
+      dom.trainingMode.value === 'performance' &&
+      state.performanceRuntimeStartedAtMs !== null
+    ) {
+      state.performanceTransportAnimationId = requestAnimationFrame(tick);
+    }
+  };
+  state.performanceTransportAnimationId = requestAnimationFrame(tick);
 }
 
 const performancePromptController = createPerformancePromptController({
@@ -347,6 +481,7 @@ function updateMicPolyphonicDetectorRuntimeStatusFromResult(
   if (shouldRefreshTelemetryUi) {
     state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = nowMs;
     refreshMicPolyphonicDetectorAudioInfoUi();
+    refreshMicPerformanceReadinessUi(nowMs);
   }
 }
 
@@ -377,8 +512,7 @@ function setWrongDetectedHighlight(detectedNote: string, detectedFrequency?: num
 
 function getCurrentPerformanceTimelineEventIndex() {
   if (dom.trainingMode.value !== 'performance') return null;
-  if (!state.currentPrompt) return null;
-  const eventIndex = state.currentMelodyEventIndex - 1;
+  const eventIndex = state.performanceActiveEventIndex;
   return Number.isInteger(eventIndex) && eventIndex >= 0 ? eventIndex : null;
 }
 
@@ -492,6 +626,21 @@ const stableMonophonicDetectionController = createStableMonophonicDetectionContr
   recordPerformanceTimelineWrongAttempt,
   markPerformancePromptAttempt: () => {
     performancePromptController.markPromptAttempt();
+  },
+  markPerformanceMicOnsetJudged: (detectedNote, onsetAtMs) => {
+    state.performanceMicLastJudgedOnsetNote = detectedNote;
+    state.performanceMicLastJudgedOnsetAtMs = onsetAtMs;
+  },
+  recordPerformanceMicJudgmentLatency: (onsetAtMs, judgedAtMs) => {
+    const latencyMs = Math.max(0, judgedAtMs - onsetAtMs);
+    state.micPerformanceJudgmentCount += 1;
+    state.micPerformanceJudgmentTotalLatencyMs += latencyMs;
+    state.micPerformanceJudgmentLastLatencyMs = latencyMs;
+    state.micPerformanceJudgmentMaxLatencyMs = Math.max(state.micPerformanceJudgmentMaxLatencyMs, latencyMs);
+    if (state.micPerformanceLatencyCalibrationActive && state.micPerformanceJudgmentCount >= 5) {
+      state.micPerformanceLatencyCalibrationActive = false;
+    }
+    refreshMicPerformanceReadinessUiThrottled(judgedAtMs);
   },
   isPerformancePitchWithinTolerance: (detectedFrequency) =>
     state.inputSource === 'microphone' &&
@@ -639,6 +788,7 @@ function processAudio() {
     // Shared volume calculation
     state.analyser.getFloatTimeDomainData(state.dataArray!);
     const volume = calculateRmsLevel(state.dataArray!);
+    state.micLastInputRms = volume;
     setVolumeLevel(volume);
 
     const trainingMode = dom.trainingMode.value;
@@ -718,13 +868,25 @@ function processAudio() {
           lastPitches: state.lastPitches,
           lastNote: state.lastNote,
           stableNoteCounter: state.stableNoteCounter,
+          previousConfidenceEma: state.monophonicConfidenceEma,
+          previousVoicingEma: state.monophonicVoicingEma,
           requiredStableFrames: REQUIRED_STABLE_FRAMES,
           targetNote: state.currentPrompt.targetNote,
           noteResolver: freqToNoteName,
         });
+        state.micLastMonophonicConfidence = monophonicResult.confidence;
+        state.micLastMonophonicPitchSpreadCents = monophonicResult.pitchSpreadCents;
+        if (monophonicResult.detectedNote) {
+          state.micLastMonophonicDetectedAtMs = Date.now();
+        }
+        if (state.inputSource === 'microphone') {
+          refreshMicPerformanceReadinessUiThrottled();
+        }
         state.lastPitches = monophonicResult.nextLastPitches;
         state.lastNote = monophonicResult.nextLastNote;
         state.stableNoteCounter = monophonicResult.nextStableNoteCounter;
+        state.monophonicConfidenceEma = monophonicResult.nextConfidenceEma;
+        state.monophonicVoicingEma = monophonicResult.nextVoicingEma;
         const monophonicReactionPlan = buildAudioMonophonicReactionPlan({
           detectedNote: monophonicResult.detectedNote,
           nextStableNoteCounter: monophonicResult.nextStableNoteCounter,
@@ -734,23 +896,66 @@ function processAudio() {
           reactionPlan: monophonicReactionPlan,
           onStableDetectedNote: (detectedNote) => {
             updateMicMonophonicAttackTracking(detectedNote, volume);
-            if (
-              state.inputSource !== 'midi' &&
-              !shouldAcceptMicNoteByAttackStrength({
+            const attackAccepted =
+              state.inputSource === 'midi' ||
+              shouldAcceptMicNoteByAttackStrength({
                 preset: state.micNoteAttackFilterPreset,
                 peakVolume: state.micMonophonicAttackPeakVolume,
                 volumeThreshold: micVolumeThreshold,
+              });
+            const holdAccepted =
+              state.inputSource === 'midi' ||
+              shouldAcceptMicNoteByHoldDuration({
+                preset: state.micNoteHoldFilterPreset,
+                noteFirstDetectedAtMs: state.micMonophonicFirstDetectedAtMs,
+                nowMs: Date.now(),
+              });
+            const confidenceAccepted = monophonicResult.isConfident;
+            const voicingAccepted = monophonicResult.isVoiced;
+            if (
+              state.inputSource !== 'midi' &&
+              dom.trainingMode.value === 'performance' &&
+              shouldReportPerformanceMicUncertainFrame({
+                detectedNote,
+                noteFirstDetectedAtMs: state.micMonophonicFirstDetectedAtMs,
+                promptStartedAtMs: resolveLatencyCompensatedPromptStartedAtMs(
+                  state.startTime,
+                  state.performanceMicLatencyCompensationMs
+                ) ?? state.startTime,
+                nowMs: Date.now(),
+                attackAccepted,
+                holdAccepted,
+                confidenceAccepted,
+                voicingAccepted,
+                lastReportedOnsetNote: state.performanceMicLastUncertainOnsetNote,
+                lastReportedOnsetAtMs: state.performanceMicLastUncertainOnsetAtMs,
               })
+            ) {
+              state.performanceMicLastUncertainOnsetNote = detectedNote;
+              state.performanceMicLastUncertainOnsetAtMs = state.micMonophonicFirstDetectedAtMs;
+              setResultMessage('Low mic confidence. Play a cleaner single-note attack.', 'neutral');
+            }
+            if (
+              state.inputSource !== 'midi' &&
+              !voicingAccepted
             ) {
               return;
             }
             if (
               state.inputSource !== 'midi' &&
-              !shouldAcceptMicNoteByHoldDuration({
-                preset: state.micNoteHoldFilterPreset,
-                noteFirstDetectedAtMs: state.micMonophonicFirstDetectedAtMs,
-                nowMs: Date.now(),
-              })
+              !confidenceAccepted
+            ) {
+              return;
+            }
+            if (
+              state.inputSource !== 'midi' &&
+              !attackAccepted
+            ) {
+              return;
+            }
+            if (
+              state.inputSource !== 'midi' &&
+              !holdAccepted
             ) {
               return;
             }
@@ -840,10 +1045,25 @@ export async function startListening(forCalibration = false) {
       : { delayMs: 0, prepMessage: '', pulseCount: 0 };
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
     if (!forCalibration) {
+      state.performanceMicLastJudgedOnsetNote = null;
+      state.performanceMicLastJudgedOnsetAtMs = null;
+      state.performanceMicLastUncertainOnsetNote = null;
+      state.performanceMicLastUncertainOnsetAtMs = null;
+      state.micLastInputRms = 0;
+      state.micLastMonophonicConfidence = null;
+      state.micLastMonophonicPitchSpreadCents = null;
+      state.micLastMonophonicDetectedAtMs = null;
+      state.micPerformanceReadinessLastUiRefreshAtMs = 0;
+      state.micPerformanceJudgmentCount = 0;
+      state.micPerformanceJudgmentTotalLatencyMs = 0;
+      state.micPerformanceJudgmentLastLatencyMs = null;
+      state.micPerformanceJudgmentMaxLatencyMs = 0;
+      state.currentMelodyId = dom.melodySelector.value.trim() || null;
       clearPerformanceTimelineFeedback();
       resetMicPolyphonicDetectorTelemetry();
       if (selectedInputSource === 'microphone') {
         refreshMicPolyphonicDetectorAudioInfoUi();
+        refreshMicPerformanceReadinessUi();
       }
     }
     if (!forCalibration && selectedInputSource === 'midi') {
@@ -953,6 +1173,7 @@ export async function startListening(forCalibration = false) {
 
 /** Stops listening to the microphone and cleans up audio resources. */
 export function stopListening(keepStreamOpen = false) {
+  const preservedMicLatencyCalibrationState = captureMicPerformanceLatencyCalibrationState(state);
   if (state.isLoadingSamples) return;
   const shouldShowSessionSummary = state.showSessionSummaryOnStop;
   if (state.activeSessionStats && !state.isCalibrating) {
@@ -967,6 +1188,7 @@ export function stopListening(keepStreamOpen = false) {
   state.activeSessionStats = null;
   state.isListening = false;
   if (state.animationId) cancelAnimationFrame(state.animationId);
+  stopPerformanceTransportLoop();
   clearTrackedTimeouts(state.pendingTimeoutIds);
   performancePromptController.invalidatePendingAdvance();
   if (state.timerId) {
@@ -985,16 +1207,23 @@ export function stopListening(keepStreamOpen = false) {
   setTunerVisible(false);
   updateTuner(null);
   setVolumeLevel(0);
+  state.micLastInputRms = 0;
+  state.micLastMonophonicConfidence = null;
+  state.micLastMonophonicPitchSpreadCents = null;
+  state.micLastMonophonicDetectedAtMs = null;
+  state.micPerformanceReadinessLastUiRefreshAtMs = 0;
   resetSessionButtonsState();
   setPromptText('');
   clearResultMessage();
   clearSessionGoalProgress();
   setInfoSlots();
   Object.assign(state, createSessionStopResetState());
+  restoreMicPerformanceLatencyCalibrationState(state, preservedMicLatencyCalibrationState);
   dom.melodyTabTimelineGrid.scrollLeft = 0;
   setTimedInfoVisible(false);
   if (state.inputSource === 'microphone') {
     refreshMicPolyphonicDetectorAudioInfoUi();
+    refreshMicPerformanceReadinessUi();
   }
   redrawFretboard();
   scheduleMelodyTimelineRenderFromState();
@@ -1008,6 +1237,7 @@ export function seekActiveMelodySessionToEvent(eventIndex: number) {
   performancePromptController.invalidatePendingAdvance();
   clearPerformanceTimelineFeedback();
   state.currentMelodyEventIndex = Math.max(0, Math.round(eventIndex));
+  state.performanceActiveEventIndex = dom.trainingMode.value === 'performance' ? state.currentMelodyEventIndex : null;
   state.currentMelodyEventFoundNotes.clear();
   performancePromptController.resetPromptResolution();
   state.pendingSessionStopResultMessage = null;
@@ -1101,7 +1331,53 @@ function nextPrompt() {
 
     const trainingMode = dom.trainingMode.value;
     const mode = modes[trainingMode];
-    const prompt = mode?.generatePrompt() ?? null;
+      let prompt: Prompt | null = null;
+      if (trainingMode === 'performance') {
+        const performanceContext = getActivePerformanceTransportContext();
+        if (performanceContext) {
+          state.currentMelodyId = performanceContext.melody.id;
+        }
+        let performanceEventIndex = state.performanceActiveEventIndex;
+      if (
+        performanceContext &&
+        (!(typeof performanceEventIndex === 'number') ||
+          performanceEventIndex < performanceContext.studyRange.startIndex ||
+          performanceEventIndex > performanceContext.studyRange.endIndex) &&
+        state.performanceRuntimeStartedAtMs !== null
+      ) {
+        const transportFrame = resolvePerformanceTransportFrame({
+          melody: performanceContext.melody,
+          bpm: performanceContext.bpm,
+          studyRange: performanceContext.studyRange,
+          runtimeStartedAtMs: state.performanceRuntimeStartedAtMs,
+          nowMs: Date.now(),
+        });
+        if (!transportFrame.isComplete && transportFrame.activeEventIndex !== null) {
+          performanceEventIndex = transportFrame.activeEventIndex;
+          state.performanceActiveEventIndex = performanceEventIndex;
+          state.currentMelodyEventIndex = performanceEventIndex;
+          if (transportFrame.eventStartedAtMs !== null) {
+            state.startTime = transportFrame.eventStartedAtMs;
+          }
+        }
+      }
+      if (
+        performanceContext &&
+        typeof performanceEventIndex === 'number' &&
+        performanceEventIndex >= performanceContext.studyRange.startIndex &&
+        performanceEventIndex <= performanceContext.studyRange.endIndex
+      ) {
+        prompt = buildPerformancePromptForEvent({
+          melody: performanceContext.melody,
+          studyRange: performanceContext.studyRange,
+          eventIndex: performanceEventIndex,
+          showNoteHint: dom.melodyShowNote.checked,
+          bpm: performanceContext.bpm,
+        });
+      }
+    } else {
+      prompt = mode?.generatePrompt() ?? null;
+    }
     const nextPromptPlan = buildSessionNextPromptPlan({
       hasMode: Boolean(mode),
       detectionType: mode?.detectionType ?? null,
@@ -1125,7 +1401,9 @@ function nextPrompt() {
         scheduleMelodyTimelineRenderFromState();
         configurePromptAudio();
         state.startTime = Date.now();
-        performancePromptController.scheduleAdvance(nextPrompt);
+        if (trainingMode !== 'performance') {
+          performancePromptController.scheduleAdvance(nextPrompt);
+        }
       },
     });
     if (executionResult === 'stopped' && pendingStopResultMessage) {

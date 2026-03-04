@@ -105,6 +105,7 @@ export function resolveMelodyTimelineRenderState(input: {
   melodyStudyRangeEndIndex: number;
   isListening: boolean;
   currentMelodyEventIndex: number;
+  performanceActiveEventIndex: number | null;
   melodyTimelinePreviewIndex: number | null;
   melodyTimelinePreviewLabel: string | null;
   performanceTimelineFeedbackKey: string | null;
@@ -123,7 +124,10 @@ export function resolveMelodyTimelineRenderState(input: {
     activeIndex = input.melodyTimelinePreviewIndex;
     modeLabel = input.melodyTimelinePreviewLabel ?? 'Preview';
   } else {
-    const sessionIndex = input.currentMelodyEventIndex - 1;
+    const sessionIndex =
+      input.trainingMode === 'performance' && input.isListening
+        ? input.performanceActiveEventIndex
+        : input.currentMelodyEventIndex - 1;
     if (Number.isFinite(sessionIndex) && sessionIndex >= 0) {
       activeIndex = sessionIndex;
     }

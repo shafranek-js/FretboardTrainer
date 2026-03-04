@@ -27,6 +27,7 @@ function createDeps() {
     stopListening: vi.fn(),
     saveSettings: vi.fn(),
     updateMicNoiseGateInfo: vi.fn(),
+    refreshMicPerformanceReadinessUi: vi.fn(),
     setResultMessage: vi.fn(),
   };
 }
@@ -40,6 +41,7 @@ describe('input-device-controller', () => {
 
     expect(deps.setPreferredAudioInputDeviceId).toHaveBeenCalledWith('mic-2');
     expect(deps.updateMicNoiseGateInfo).toHaveBeenCalledTimes(1);
+    expect(deps.refreshMicPerformanceReadinessUi).toHaveBeenCalledTimes(1);
     expect(deps.saveSettings).toHaveBeenCalledTimes(1);
   });
 

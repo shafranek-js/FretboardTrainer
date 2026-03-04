@@ -71,6 +71,7 @@ import {
 import { confirmUserAction } from '../user-feedback-port';
 import { normalizeSessionPace } from '../session-pace';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from '../mic-polyphonic-detector-ui';
+import { refreshMicPerformanceReadinessUi } from '../mic-performance-readiness-ui';
 import {
   detectMicPolyphonicFrame,
   normalizeMicPolyphonicDetectorProvider,
@@ -137,6 +138,7 @@ import {
 import { isMelodyWorkflowMode } from '../training-mode-groups';
 import { normalizePerformanceMicTolerancePreset } from '../performance-mic-tolerance';
 import { normalizePerformanceTimingLeniencyPreset } from '../performance-timing-forgiveness';
+import { normalizePerformanceMicLatencyCompensationMs } from '../performance-mic-latency-compensation';
 import { resolveSharedMelodyTempoBpm, shouldLinkMelodyTempoControls } from '../shared-melody-tempo';
 import { resolveMelodyPlaybackTempoBpm, storeMelodyPlaybackTempoBpm } from '../melody-playback-tempo';
 import { clampMelodyPlaybackBpm } from '../melody-timeline-duration';
@@ -812,6 +814,7 @@ const micSettingsController = createMicSettingsController({
   ensureAudioRuntime: (runtimeState, options) => ensureAudioRuntime(runtimeState as typeof state, options),
   refreshAudioInputDeviceOptions,
   refreshMicPolyphonicDetectorAudioInfoUi,
+  refreshMicPerformanceReadinessUi,
   saveSettings,
   setResultMessage,
   formatUserFacingError,
@@ -831,6 +834,7 @@ const inputDeviceController = createInputDeviceController({
   stopListening,
   saveSettings,
   updateMicNoiseGateInfo: () => micSettingsController.updateNoiseGateInfo(),
+  refreshMicPerformanceReadinessUi,
   setResultMessage,
 });
 
@@ -1087,6 +1091,7 @@ export function registerSessionControls() {
   renderMetronomeToggleButton();
   updateMicNoiseGateInfo();
   refreshMicPolyphonicDetectorAudioInfoUi();
+  refreshMicPerformanceReadinessUi();
   micPolyphonicTelemetryController.syncButtonState();
   updatePracticeSetupSummary();
   syncMelodyTimelineEditingState();
@@ -1204,6 +1209,7 @@ export function registerSessionControls() {
       dom.performanceMicTolerancePreset.value
     );
     dom.performanceMicTolerancePreset.value = state.performanceMicTolerancePreset;
+    refreshMicPerformanceReadinessUi();
     saveSettings();
   });
   dom.performanceTimingLeniencyPreset.addEventListener('change', () => {
@@ -1211,7 +1217,36 @@ export function registerSessionControls() {
       dom.performanceTimingLeniencyPreset.value
     );
     dom.performanceTimingLeniencyPreset.value = state.performanceTimingLeniencyPreset;
+    refreshMicPerformanceReadinessUi();
     saveSettings();
+  });
+  dom.performanceMicLatencyCompensation.addEventListener('input', () => {
+    state.performanceMicLatencyCompensationMs = normalizePerformanceMicLatencyCompensationMs(
+      dom.performanceMicLatencyCompensation.value
+    );
+    dom.performanceMicLatencyCompensation.value = String(state.performanceMicLatencyCompensationMs);
+    dom.performanceMicLatencyCompensationValue.textContent = `${state.performanceMicLatencyCompensationMs} ms`;
+    refreshMicPerformanceReadinessUi();
+    saveSettings();
+  });
+  dom.applySuggestedMicLatencyBtn.addEventListener('click', () => {
+    const suggestedMs = normalizePerformanceMicLatencyCompensationMs(
+      state.micPerformanceSuggestedLatencyMs
+    );
+    state.performanceMicLatencyCompensationMs = suggestedMs;
+    dom.performanceMicLatencyCompensation.value = String(suggestedMs);
+    dom.performanceMicLatencyCompensationValue.textContent = `${suggestedMs} ms`;
+    refreshMicPerformanceReadinessUi();
+    saveSettings();
+  });
+  dom.startMicLatencyCalibrationBtn.addEventListener('click', () => {
+    state.micPerformanceLatencyCalibrationActive = true;
+    state.micPerformanceJudgmentCount = 0;
+    state.micPerformanceJudgmentTotalLatencyMs = 0;
+    state.micPerformanceJudgmentLastLatencyMs = null;
+    state.micPerformanceJudgmentMaxLatencyMs = 0;
+    state.micPerformanceSuggestedLatencyMs = null;
+    refreshMicPerformanceReadinessUi();
   });
   dom.stringSelector.addEventListener('change', () => {
     markCurriculumPresetAsCustom();
@@ -1286,6 +1321,7 @@ export function registerSessionControls() {
     handleModeChange();
     syncHiddenMetronomeTempoFromSharedTempo();
     updatePracticeSetupSummary();
+    refreshMicPerformanceReadinessUi();
     saveSettings();
     syncMelodyTimelineEditingState();
   });

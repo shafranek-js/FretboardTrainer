@@ -39,6 +39,62 @@ function getPerformanceBpmFromUi() {
   return clampMelodyPlaybackBpm(Number.parseInt(dom.melodyDemoBpm.value, 10));
 }
 
+export function buildPerformancePromptForEvent(input: {
+  melody: ReturnType<typeof getMelodyWithPracticeAdjustments>;
+  studyRange: { startIndex: number; endIndex: number };
+  eventIndex: number;
+  showNoteHint: boolean;
+  bpm: number;
+}): Prompt | null {
+  const { melody, studyRange, eventIndex, showNoteHint, bpm } = input;
+  if (eventIndex < studyRange.startIndex || eventIndex > studyRange.endIndex) {
+    return null;
+  }
+
+  const event = melody.events[eventIndex];
+  if (!event) return null;
+  const currentEventIndexInRange = eventIndex - studyRange.startIndex;
+  const totalEventsInRange = studyRange.endIndex - studyRange.startIndex + 1;
+  const firstNote = event.notes[0] ?? null;
+  const melodyEventFingering = getMelodyFingeredEvent(melody.events, eventIndex);
+  const targetPitchClasses = toMelodyEventChordNotes(event);
+  const isPolyphonicEvent = targetPitchClasses.length > 1;
+  const firstPlayableNote = melodyEventFingering[0] ?? null;
+  const fallbackSingleNoteTarget = firstPlayableNote
+    ? { note: firstPlayableNote.note, string: firstPlayableNote.string }
+    : firstNote
+      ? { note: firstNote.note, string: firstNote.stringName }
+      : null;
+
+  return {
+    displayText: formatPerformancePromptText(
+      formatMelodyStudyStepLabel(
+        currentEventIndexInRange,
+        totalEventsInRange,
+        studyRange,
+        melody.events.length
+      ),
+      event,
+      showNoteHint
+    ),
+    targetNote: isPolyphonicEvent
+      ? melodyEventFingering.length <= 1
+        ? (fallbackSingleNoteTarget?.note ?? null)
+        : null
+      : (fallbackSingleNoteTarget?.note ?? null),
+    targetString: isPolyphonicEvent
+      ? melodyEventFingering.length <= 1
+        ? (fallbackSingleNoteTarget?.string ?? null)
+        : null
+      : (fallbackSingleNoteTarget?.string ?? null),
+    targetChordNotes: isPolyphonicEvent ? targetPitchClasses : [],
+    targetChordFingering: isPolyphonicEvent ? melodyEventFingering : [],
+    targetMelodyEventNotes: melodyEventFingering,
+    melodyEventDurationMs: getMelodyEventPlaybackDurationMs(event, bpm, melody),
+    baseChordName: null,
+  };
+}
+
 export class MelodyPerformanceMode implements ITrainingMode {
   detectionType: DetectionType = 'monophonic';
 
@@ -72,11 +128,10 @@ export class MelodyPerformanceMode implements ITrainingMode {
     }
 
     const studyRange = normalizeMelodyStudyRange(state.melodyStudyRangeById?.[melody.id], melody.events.length);
-    const totalEventsInRange = studyRange.endIndex - studyRange.startIndex + 1;
-
     if (state.currentMelodyId !== melody.id) {
       state.currentMelodyId = melody.id;
       state.currentMelodyEventIndex = studyRange.startIndex;
+      state.performanceActiveEventIndex = studyRange.startIndex;
       state.currentMelodyEventFoundNotes.clear();
     }
 
@@ -95,45 +150,15 @@ export class MelodyPerformanceMode implements ITrainingMode {
       return null;
     }
 
-    const event = melody.events[state.currentMelodyEventIndex];
-    const currentEventIndex = state.currentMelodyEventIndex;
-    const currentEventIndexInRange = currentEventIndex - studyRange.startIndex;
-    state.currentMelodyEventIndex++;
+    state.performanceActiveEventIndex = state.currentMelodyEventIndex;
     state.currentMelodyEventFoundNotes.clear();
 
-    const firstNote = event.notes[0] ?? null;
-    const melodyEventFingering = getMelodyFingeredEvent(melody.events, currentEventIndex);
-    const targetPitchClasses = toMelodyEventChordNotes(event);
-    const isPolyphonicEvent = targetPitchClasses.length > 1;
-    const firstPlayableNote = melodyEventFingering[0] ?? null;
-    const fallbackSingleNoteTarget = firstPlayableNote
-      ? { note: firstPlayableNote.note, string: firstPlayableNote.string }
-      : firstNote
-        ? { note: firstNote.note, string: firstNote.stringName }
-        : null;
-
-    return {
-      displayText: formatPerformancePromptText(
-        formatMelodyStudyStepLabel(
-          currentEventIndexInRange,
-          totalEventsInRange,
-          studyRange,
-          melody.events.length
-        ),
-        event,
-        dom.melodyShowNote.checked
-      ),
-      targetNote: isPolyphonicEvent
-        ? (melodyEventFingering.length <= 1 ? (fallbackSingleNoteTarget?.note ?? null) : null)
-        : (fallbackSingleNoteTarget?.note ?? null),
-      targetString: isPolyphonicEvent
-        ? (melodyEventFingering.length <= 1 ? (fallbackSingleNoteTarget?.string ?? null) : null)
-        : (fallbackSingleNoteTarget?.string ?? null),
-      targetChordNotes: isPolyphonicEvent ? targetPitchClasses : [],
-      targetChordFingering: isPolyphonicEvent ? melodyEventFingering : [],
-      targetMelodyEventNotes: melodyEventFingering,
-      melodyEventDurationMs: getMelodyEventPlaybackDurationMs(event, getPerformanceBpmFromUi(), melody),
-      baseChordName: null,
-    };
+    return buildPerformancePromptForEvent({
+      melody,
+      studyRange,
+      eventIndex: state.currentMelodyEventIndex,
+      showNoteHint: dom.melodyShowNote.checked,
+      bpm: getPerformanceBpmFromUi(),
+    });
   }
 }

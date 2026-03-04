@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  createPerformancePromptController,
-  PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN,
-} from './performance-prompt-controller';
+import { createPerformancePromptController } from './performance-prompt-controller';
 import type { Prompt } from './types';
 
 function createPrompt(overrides?: Partial<Prompt>): Prompt {
@@ -128,7 +125,7 @@ describe('performance-prompt-controller', () => {
     expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
   });
 
-  it('extends the prompt by grace only after a real attempt', () => {
+  it('does not delay transport after a real attempt', () => {
     const prompt = createPrompt();
     const { deps, state } = createDeps({ prompt });
     const controller = createPerformancePromptController(deps);
@@ -139,24 +136,12 @@ describe('performance-prompt-controller', () => {
     const nominalCallback = deps.scheduleSessionTimeout.mock.calls[0]?.[1] as (() => void) | undefined;
     nominalCallback?.();
 
-    expect(state.performancePromptResolved).toBe(false);
-    expect(state.performancePromptHadAttempt).toBe(true);
-    expect(deps.recordPerformanceTimelineMissed).not.toHaveBeenCalled();
-    expect(deps.nextPrompt).not.toHaveBeenCalled();
-    expect(deps.scheduleSessionTimeout).toHaveBeenNthCalledWith(
-      2,
-      PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN,
-      expect.any(Function),
-      'performance nextPrompt grace'
-    );
-
-    const graceCallback = deps.scheduleSessionTimeout.mock.calls[1]?.[1] as (() => void) | undefined;
-    graceCallback?.();
-
     expect(state.performancePromptResolved).toBe(true);
     expect(state.performancePromptMatched).toBe(false);
+    expect(state.performancePromptHadAttempt).toBe(true);
     expect(deps.recordPerformanceTimelineMissed).toHaveBeenCalledWith(prompt);
     expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
+    expect(deps.scheduleSessionTimeout).toHaveBeenCalledTimes(1);
   });
 
   it('invalidates pending advance and prevents stale callback execution', () => {

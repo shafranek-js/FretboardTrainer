@@ -2,6 +2,7 @@ import type { IInstrument } from './instruments/instrument';
 import type { RhythmSessionStats } from './types';
 import type { PerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import type { PerformanceTimingLeniencyPreset } from './performance-timing-forgiveness';
+import { normalizePerformanceMicLatencyCompensationMs } from './performance-mic-latency-compensation';
 import type { CurriculumPresetKey } from './curriculum-presets';
 import { ACTIVE_PROFILE_KEY, PROFILES_KEY } from './app-storage-keys';
 import {
@@ -49,6 +50,7 @@ export interface ProfileSettings {
   relaxPerformanceOctaveCheck?: boolean;
   performanceMicTolerancePreset?: PerformanceMicTolerancePreset;
   performanceTimingLeniencyPreset?: PerformanceTimingLeniencyPreset;
+  performanceMicLatencyCompensationMs?: number;
   difficulty?: string;
   noteNaming?: 'sharps' | 'flats';
   melodyTimelineViewMode?: 'classic' | 'grid';
@@ -108,6 +110,8 @@ export function getDefaultMelodyIdForInstrument(instrumentName: InstrumentName) 
     ? 'builtin:ukulele:ode_to_joy_intro'
     : 'builtin:guitar:ode_to_joy_intro';
 }
+
+export { normalizePerformanceMicLatencyCompensationMs };
 
 export function getProfiles(): ProfilesMap {
   const profiles = readStorageJson(

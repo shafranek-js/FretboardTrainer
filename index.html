@@ -569,6 +569,19 @@
                     <option value="forgiving">Forgiving</option>
                   </select>
                 </label>
+                <label class="session-setting-chip inline-flex items-center gap-1">
+                  <span>Mic Latency</span>
+                  <input
+                    id="performanceMicLatencyCompensation"
+                    type="range"
+                    min="0"
+                    max="250"
+                    step="5"
+                    value="0"
+                    class="w-20 accent-cyan-400"
+                  />
+                  <span id="performanceMicLatencyCompensationValue" class="min-w-[44px] text-center">0 ms</span>
+                </label>
               </div>
             </div>
             <div
@@ -987,6 +1000,27 @@
             >
               Mic noise gate threshold: -
             </div>
+            <div
+              id="micPerformanceInfo"
+              class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-200 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+              role="status"
+            >
+              Mic performance readiness: waiting for input diagnostics.
+            </div>
+            <button
+              id="applySuggestedMicLatencyBtn"
+              type="button"
+              class="mt-2 hidden rounded-md border border-cyan-600/70 bg-cyan-950/35 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 transition-colors hover:bg-cyan-900/45"
+            >
+              Use Suggested Latency
+            </button>
+            <button
+              id="startMicLatencyCalibrationBtn"
+              type="button"
+              class="mt-2 rounded-md border border-slate-500/70 bg-slate-800/70 px-3 py-1.5 text-[11px] font-semibold text-slate-100 transition-colors hover:bg-slate-700/80"
+            >
+              Start Latency Calibration
+            </button>
             <div
               id="midiInputInfo"
               class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2 hidden"

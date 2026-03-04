@@ -6,6 +6,7 @@ import {
   isLowConfidenceMicPolyphonicResult,
 } from './mic-polyphonic-low-confidence';
 import { shouldForgivePerformanceTimingBoundaryAttempt } from './performance-timing-forgiveness';
+import { resolveLatencyCompensatedPromptStartedAtMs } from './performance-mic-latency-compensation';
 
 interface MicPolyphonicResult {
   detectedNotesText: string;
@@ -33,6 +34,7 @@ interface MelodyRuntimeDetectionControllerDeps {
     currentMelodyEventFoundNotes: Set<string>;
     performancePromptResolved: boolean;
     performanceTimingLeniencyPreset?: 'strict' | 'normal' | 'forgiving';
+    performanceMicLatencyCompensationMs?: number;
     startTime: number;
     micPolyphonicDetectorProvider: string;
   };
@@ -154,9 +156,13 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
 
     if (trainingMode === 'performance') {
       if (deps.state.performancePromptResolved) return true;
+      const compensatedPromptStartedAtMs = resolveLatencyCompensatedPromptStartedAtMs(
+        deps.state.startTime,
+        deps.state.performanceMicLatencyCompensationMs ?? 0
+      );
       const shouldForgivePerformanceTiming = shouldForgivePerformanceTimingBoundaryAttempt({
         prompt,
-        promptStartedAtMs: deps.state.startTime,
+        promptStartedAtMs: compensatedPromptStartedAtMs,
         nowMs: deps.now(),
         preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
       });
@@ -242,9 +248,13 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
 
     if (trainingMode === 'performance') {
       if (deps.state.performancePromptResolved) return;
+      const compensatedPromptStartedAtMs = resolveLatencyCompensatedPromptStartedAtMs(
+        deps.state.startTime,
+        deps.state.performanceMicLatencyCompensationMs ?? 0
+      );
       const shouldForgivePerformanceTiming = shouldForgivePerformanceTimingBoundaryAttempt({
         prompt,
-        promptStartedAtMs: deps.state.startTime,
+        promptStartedAtMs: compensatedPromptStartedAtMs,
         nowMs: deps.now(),
         preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
       });

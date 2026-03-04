@@ -23,6 +23,9 @@ function createDeps(overrides: Partial<Parameters<typeof createStableMonophonicD
       currentMelodyEventFoundNotes: new Set<string>(),
       performancePromptResolved: false,
       startTime: 0,
+      micMonophonicFirstDetectedAtMs: 10,
+      performanceMicLastJudgedOnsetNote: null,
+      performanceMicLastJudgedOnsetAtMs: null,
       showingAllNotes: false,
       wrongDetectedNote: 'X',
       wrongDetectedString: 'G',
@@ -35,6 +38,8 @@ function createDeps(overrides: Partial<Parameters<typeof createStableMonophonicD
     setWrongDetectedHighlight: vi.fn(),
     recordPerformanceTimelineWrongAttempt: vi.fn(),
     markPerformancePromptAttempt: vi.fn(),
+    markPerformanceMicOnsetJudged: vi.fn(),
+    recordPerformanceMicJudgmentLatency: vi.fn(),
     isPerformancePitchWithinTolerance: vi.fn(() => false),
     detectMonophonicOctaveMismatch: vi.fn(() => null),
     performanceResolveSuccess: vi.fn(),
@@ -116,6 +121,7 @@ describe('stable-monophonic-detection-controller', () => {
       state: {
         ...createDeps().state,
         startTime: 300,
+        micMonophonicFirstDetectedAtMs: 2200,
         currentPrompt: createPrompt({ targetNote: 'A' }),
       },
     });
@@ -124,6 +130,8 @@ describe('stable-monophonic-detection-controller', () => {
     controller.handleDetectedNote('A', 440);
 
     expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(2);
+    expect(deps.markPerformanceMicOnsetJudged).toHaveBeenCalledWith('A', 2200);
+    expect(deps.recordPerformanceMicJudgmentLatency).toHaveBeenCalledWith(2200, 2300);
     expect(deps.displayResult).not.toHaveBeenCalled();
   });
 
@@ -135,6 +143,7 @@ describe('stable-monophonic-detection-controller', () => {
       state: {
         ...createDeps().state,
         startTime: 600,
+        micMonophonicFirstDetectedAtMs: 1200,
         currentPrompt: createPrompt({ targetNote: 'A' }),
       },
     });
@@ -143,14 +152,19 @@ describe('stable-monophonic-detection-controller', () => {
     controller.handleDetectedNote('G#', 432);
 
     expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(1);
+    expect(deps.markPerformanceMicOnsetJudged).toHaveBeenCalledWith('G#', 1200);
+    expect(deps.recordPerformanceMicJudgmentLatency).toHaveBeenCalledWith(1200, 1600);
     expect(deps.recordPerformanceTimelineWrongAttempt).not.toHaveBeenCalled();
   });
 
   it('records performance wrong-note attempts for off-target notes', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(300);
     const deps = createDeps({
       getTrainingMode: vi.fn(() => 'performance'),
       state: {
         ...createDeps().state,
+        startTime: 100,
+        micMonophonicFirstDetectedAtMs: 120,
         currentPrompt: createPrompt({ targetNote: 'A' }),
       },
     });
@@ -159,6 +173,9 @@ describe('stable-monophonic-detection-controller', () => {
     controller.handleDetectedNote('G', 196);
 
     expect(deps.recordPerformanceTimelineWrongAttempt).toHaveBeenCalledWith('G');
+    expect(deps.markPerformanceMicOnsetJudged).toHaveBeenCalledWith('G', 120);
+    expect(deps.recordPerformanceMicJudgmentLatency).toHaveBeenCalledWith(120, 300);
+    expect(deps.redrawFretboard).not.toHaveBeenCalled();
   });
 
   it('forgives performance off-target notes near prompt boundaries', () => {
@@ -181,6 +198,51 @@ describe('stable-monophonic-detection-controller', () => {
     expect(deps.recordPerformanceTimelineWrongAttempt).not.toHaveBeenCalled();
     expect(deps.setResultMessage).not.toHaveBeenCalledWith(expect.stringContaining('[off target]'), 'error');
     expect(deps.redrawFretboard).not.toHaveBeenCalled();
+  });
+
+  it('does not redraw the fretboard for performance octave mismatches', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(300);
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      detectMonophonicOctaveMismatch: vi.fn(() => ({
+        detectedScientific: 'C3',
+        targetScientific: 'C4',
+      })),
+      state: {
+        ...createDeps().state,
+        startTime: 100,
+        micMonophonicFirstDetectedAtMs: 120,
+        currentPrompt: createPrompt({ targetNote: 'C' }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('C', 130.81);
+
+    expect(deps.recordPerformanceTimelineWrongAttempt).toHaveBeenCalledWith('C');
+    expect(deps.markPerformanceMicOnsetJudged).toHaveBeenCalledWith('C', 120);
+    expect(deps.recordPerformanceMicJudgmentLatency).toHaveBeenCalledWith(120, 300);
+    expect(deps.redrawFretboard).not.toHaveBeenCalled();
+  });
+
+  it('ignores repeated frames from the same already-judged onset in performance mode', () => {
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        currentPrompt: createPrompt({ targetNote: 'A' }),
+        micMonophonicFirstDetectedAtMs: 20,
+        performanceMicLastJudgedOnsetNote: 'A',
+        performanceMicLastJudgedOnsetAtMs: 20,
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('A', 440);
+
+    expect(deps.performanceResolveSuccess).not.toHaveBeenCalled();
+    expect(deps.recordPerformanceTimelineWrongAttempt).not.toHaveBeenCalled();
+    expect(deps.markPerformancePromptAttempt).not.toHaveBeenCalled();
   });
 
   it('clears wrong-highlight state and updates free-play live highlight', () => {

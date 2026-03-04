@@ -87,4 +87,17 @@ describe('performance-timing-forgiveness', () => {
       })
     ).toBe(true);
   });
+
+  it('accepts an otherwise-early microphone attempt when prompt timing is latency compensated', () => {
+    const prompt = createPrompt(500);
+
+    expect(
+      shouldForgivePerformanceTimingBoundaryAttempt({
+        prompt,
+        promptStartedAtMs: 900,
+        nowMs: 965,
+        preset: 'normal',
+      })
+    ).toBe(true);
+  });
 });

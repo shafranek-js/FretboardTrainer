@@ -71,6 +71,7 @@ describe('detectMonophonicFrame', () => {
       lastPitches: [438],
       lastNote: 'A',
       stableNoteCounter: 2,
+      previousConfidenceEma: 0.5,
       requiredStableFrames: 3,
       targetNote: 'A',
       noteResolver: () => 'A',
@@ -79,6 +80,7 @@ describe('detectMonophonicFrame', () => {
     expect(result.detectedNote).toBe('A');
     expect(result.nextStableNoteCounter).toBe(3);
     expect(result.isStableMatch).toBe(true);
+    expect(result.nextConfidenceEma).toBeGreaterThan(0.6);
   });
 });
 

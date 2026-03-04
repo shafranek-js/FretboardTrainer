@@ -1,10 +1,6 @@
 import { buildSuccessInfoSlots } from './session-result';
 import type { Prompt } from './types';
 
-export const PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN = 250;
-export const PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MAX = 450;
-export const PERFORMANCE_PROMPT_GRACE_WINDOW_RATIO = 0.35;
-
 interface PerformancePromptControllerDeps {
   state: {
     currentPrompt: Prompt | null;
@@ -47,21 +43,6 @@ interface PerformancePromptControllerDeps {
 
 export function createPerformancePromptController(deps: PerformancePromptControllerDeps) {
   let runToken = 0;
-
-  function getPerformancePromptDeadlineMs(prompt: Prompt) {
-    const durationMs =
-      typeof prompt.melodyEventDurationMs === 'number' && Number.isFinite(prompt.melodyEventDurationMs)
-        ? Math.max(1, Math.round(prompt.melodyEventDurationMs))
-        : 700;
-    const graceWindowMs = Math.max(
-      PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MIN,
-      Math.min(
-        PERFORMANCE_PROMPT_GRACE_WINDOW_MS_MAX,
-        Math.round(durationMs * PERFORMANCE_PROMPT_GRACE_WINDOW_RATIO)
-      )
-    );
-    return durationMs + graceWindowMs;
-  }
 
   function invalidatePendingAdvance() {
     runToken += 1;
@@ -142,6 +123,18 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     recordOutcome(true, elapsedSeconds, { skipVisualUpdate: true });
   }
 
+  function resolveMissed() {
+    if (deps.getTrainingMode() !== 'performance' || !deps.state.currentPrompt || deps.state.performancePromptResolved) {
+      return;
+    }
+
+    deps.state.performancePromptResolved = true;
+    deps.state.performancePromptMatched = false;
+    deps.recordPerformanceTimelineMissed(deps.state.currentPrompt);
+    recordOutcome(false, 0);
+    deps.setResultMessage('Missed event.', 'error');
+  }
+
   function scheduleAdvance(prompt: Prompt) {
     if (deps.getTrainingMode() !== 'performance') return;
 
@@ -149,8 +142,6 @@ export function createPerformancePromptController(deps: PerformancePromptControl
       typeof prompt.melodyEventDurationMs === 'number' && Number.isFinite(prompt.melodyEventDurationMs)
         ? Math.max(1, Math.round(prompt.melodyEventDurationMs))
         : 700;
-    const deadlineMs = getPerformancePromptDeadlineMs(prompt);
-    const graceWindowMs = Math.max(0, deadlineMs - durationMs);
     const promptRunToken = ++runToken;
 
     resetPromptResolution();
@@ -166,34 +157,12 @@ export function createPerformancePromptController(deps: PerformancePromptControl
           return;
         }
 
-        if (!deps.state.performancePromptHadAttempt || graceWindowMs <= 0) {
-          deps.state.performancePromptResolved = true;
-          deps.state.performancePromptMatched = false;
-          deps.recordPerformanceTimelineMissed(prompt);
-          recordOutcome(false, 0);
-          deps.setResultMessage('Missed event.', 'error');
-          deps.nextPrompt();
-          return;
-        }
-
-        deps.scheduleSessionTimeout(
-          graceWindowMs,
-          () => {
-            if (!deps.state.isListening || deps.getTrainingMode() !== 'performance') return;
-            if (promptRunToken !== runToken) return;
-            if (deps.state.currentPrompt !== prompt) return;
-            if (!deps.state.performancePromptResolved) {
-              deps.state.performancePromptResolved = true;
-              deps.state.performancePromptMatched = false;
-              deps.recordPerformanceTimelineMissed(prompt);
-              recordOutcome(false, 0);
-              deps.setResultMessage('Missed event.', 'error');
-            }
-
-            deps.nextPrompt();
-          },
-          'performance nextPrompt grace'
-        );
+        deps.state.performancePromptResolved = true;
+        deps.state.performancePromptMatched = false;
+        deps.recordPerformanceTimelineMissed(prompt);
+        recordOutcome(false, 0);
+        deps.setResultMessage('Missed event.', 'error');
+        deps.nextPrompt();
       },
       'performance nextPrompt'
     );
@@ -203,6 +172,7 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     invalidatePendingAdvance,
     markPromptAttempt,
     resetPromptResolution,
+    resolveMissed,
     resolveSuccess,
     scheduleAdvance,
   };

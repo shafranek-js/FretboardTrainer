@@ -44,6 +44,7 @@ interface MicSettingsControllerDeps {
   ensureAudioRuntime(state: MicSettingsControllerState, options: { audioInputDeviceId: string | null }): Promise<void>;
   refreshAudioInputDeviceOptions(): Promise<void>;
   refreshMicPolyphonicDetectorAudioInfoUi(): void;
+  refreshMicPerformanceReadinessUi(): void;
   saveSettings(): void;
   setResultMessage(message: string, tone?: 'success' | 'error'): void;
   formatUserFacingError(prefix: string, error: unknown): string;
@@ -127,6 +128,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     deps.state.micSensitivityPreset = normalizeMicSensitivityPreset(deps.dom.micSensitivityPreset.value);
     deps.dom.micSensitivityPreset.value = deps.state.micSensitivityPreset;
     updateNoiseGateInfo();
+    deps.refreshMicPerformanceReadinessUi();
     deps.saveSettings();
   }
 
@@ -136,6 +138,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     );
     deps.dom.micNoteAttackFilter.value = deps.state.micNoteAttackFilterPreset;
     updateNoiseGateInfo();
+    deps.refreshMicPerformanceReadinessUi();
     deps.saveSettings();
   }
 
@@ -143,6 +146,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     deps.state.micNoteHoldFilterPreset = normalizeMicNoteHoldFilterPreset(deps.dom.micNoteHoldFilter.value);
     deps.dom.micNoteHoldFilter.value = deps.state.micNoteHoldFilterPreset;
     updateNoiseGateInfo();
+    deps.refreshMicPerformanceReadinessUi();
     deps.saveSettings();
   }
 
@@ -164,6 +168,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     deps.state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = 0;
     updateNoiseGateInfo();
     deps.refreshMicPolyphonicDetectorAudioInfoUi();
+    deps.refreshMicPerformanceReadinessUi();
     deps.saveSettings();
   }
 
@@ -186,6 +191,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
       deps.dom.micSensitivityPreset.value = 'auto';
       updateNoiseGateInfo();
       deps.refreshMicPolyphonicDetectorAudioInfoUi();
+      deps.refreshMicPerformanceReadinessUi();
       deps.saveSettings();
       deps.setResultMessage(
         `Room noise calibrated. Auto threshold is now based on ${noiseFloorRms.toFixed(4)} RMS.`,
@@ -193,6 +199,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
       );
     } catch (error) {
       updateNoiseGateInfo();
+      deps.refreshMicPerformanceReadinessUi();
       deps.showNonBlockingError(deps.formatUserFacingError('Failed to calibrate room noise floor', error));
     } finally {
       deps.dom.calibrateNoiseFloorBtn.disabled = false;

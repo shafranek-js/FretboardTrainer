@@ -3,6 +3,8 @@ export interface StabilityTrackingState {
   lastNote: string | null;
   lastDetectedChord: string;
   stableChordCounter: number;
+  monophonicConfidenceEma: number;
+  monophonicVoicingEma: number;
 }
 
 export interface PromptCycleTrackingState extends StabilityTrackingState {
@@ -19,6 +21,8 @@ export function createStabilityTrackingResetState(): StabilityTrackingState {
     lastNote: null,
     lastDetectedChord: '',
     stableChordCounter: 0,
+    monophonicConfidenceEma: 0,
+    monophonicVoicingEma: 0,
   };
 }
 

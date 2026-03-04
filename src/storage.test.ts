@@ -63,6 +63,8 @@ const mocked = vi.hoisted(() => {
     relaxPerformanceOctaveCheck: { checked: true } as HTMLInputElement,
     performanceMicTolerancePreset: createSelect('normal', ['strict', 'normal', 'forgiving']) as unknown as HTMLSelectElement,
     performanceTimingLeniencyPreset: createSelect('normal', ['strict', 'normal', 'forgiving']) as unknown as HTMLSelectElement,
+    performanceMicLatencyCompensation: { value: '0' } as HTMLInputElement,
+    performanceMicLatencyCompensationValue: { textContent: '' } as HTMLElement,
     instrumentSelector: createSelect('guitar', ['guitar', 'ukulele']) as unknown as HTMLSelectElement,
     tuningPreset: createSelect('standard', ['standard']) as unknown as HTMLSelectElement,
     difficulty: createSelect('natural', ['natural', 'all']) as unknown as HTMLSelectElement,
@@ -144,6 +146,7 @@ const mocked = vi.hoisted(() => {
     relaxPerformanceOctaveCheck: true,
     performanceMicTolerancePreset: 'normal',
     performanceTimingLeniencyPreset: 'normal',
+    performanceMicLatencyCompensationMs: 0,
   };
 
   const panelState = {
@@ -292,6 +295,8 @@ function resetMockState() {
   mocked.dom.relaxPerformanceOctaveCheck.checked = true;
   mocked.dom.performanceMicTolerancePreset.value = 'normal';
   mocked.dom.performanceTimingLeniencyPreset.value = 'normal';
+  mocked.dom.performanceMicLatencyCompensation.value = '0';
+  mocked.dom.performanceMicLatencyCompensationValue.textContent = '';
   mocked.dom.difficulty.value = 'natural';
   mocked.dom.noteNaming.value = 'sharps';
   mocked.dom.startFret.value = '0';
@@ -353,6 +358,7 @@ function resetMockState() {
   mocked.state.relaxPerformanceOctaveCheck = true;
   mocked.state.performanceMicTolerancePreset = 'normal';
   mocked.state.performanceTimingLeniencyPreset = 'normal';
+  mocked.state.performanceMicLatencyCompensationMs = 0;
   mocked.panelState.practiceSetupCollapsed = false;
   mocked.panelState.melodySetupCollapsed = false;
   mocked.panelState.sessionToolsCollapsed = true;
@@ -377,6 +383,7 @@ describe('storage', () => {
     mocked.state.showScrollingTabPanel = false;
     mocked.state.melodyPlaybackBpmById = { 'builtin:guitar:ode_to_joy_intro': 108 };
     mocked.dom.performanceTimingLeniencyPreset.value = 'forgiving';
+    mocked.dom.performanceMicLatencyCompensation.value = '135';
     mocked.panelState.practiceSetupCollapsed = true;
     mocked.panelState.melodySetupCollapsed = true;
     mocked.panelState.sessionToolsCollapsed = false;
@@ -395,6 +402,7 @@ describe('storage', () => {
       melodyPlaybackBpmById: { 'builtin:guitar:ode_to_joy_intro': 108 },
       selectedMelodyId: 'ode-to-joy',
       performanceTimingLeniencyPreset: 'forgiving',
+      performanceMicLatencyCompensationMs: 135,
       practiceSetupCollapsed: true,
       melodySetupCollapsed: true,
       sessionToolsCollapsed: false,
@@ -418,6 +426,7 @@ describe('storage', () => {
           relaxPerformanceOctaveCheck: false,
           performanceMicTolerancePreset: 'forgiving',
           performanceTimingLeniencyPreset: 'strict',
+          performanceMicLatencyCompensationMs: 125,
           noteNaming: 'flats',
           selectedMelodyId: 'ode-to-joy',
           melodyPlaybackBpmById: { 'builtin:guitar:ode_to_joy_intro': 108 },
@@ -446,11 +455,14 @@ describe('storage', () => {
     expect(mocked.dom.relaxPerformanceOctaveCheck.checked).toBe(false);
     expect(mocked.dom.performanceMicTolerancePreset.value).toBe('forgiving');
     expect(mocked.dom.performanceTimingLeniencyPreset.value).toBe('strict');
+    expect(mocked.dom.performanceMicLatencyCompensation.value).toBe('125');
+    expect(mocked.dom.performanceMicLatencyCompensationValue.textContent).toBe('125 ms');
     expect(mocked.dom.noteNaming.value).toBe('flats');
     expect(mocked.state.melodyTimelineZoomPercent).toBe(145);
     expect(mocked.state.showMelodyTabTimeline).toBe(false);
     expect(mocked.state.showScrollingTabPanel).toBe(false);
     expect(mocked.state.melodyPlaybackBpmById).toEqual({ 'builtin:guitar:ode_to_joy_intro': 108 });
+    expect(mocked.state.performanceMicLatencyCompensationMs).toBe(125);
     expect(mocked.panelState.practiceSetupCollapsed).toBe(true);
     expect(mocked.panelState.melodySetupCollapsed).toBe(true);
     expect(mocked.panelState.sessionToolsCollapsed).toBe(false);

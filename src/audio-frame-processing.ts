@@ -103,6 +103,8 @@ export interface MonophonicFrameInput {
   lastPitches: number[];
   lastNote: string | null;
   stableNoteCounter: number;
+  previousConfidenceEma: number;
+  previousVoicingEma: number;
   requiredStableFrames: number;
   targetNote: string | null;
   noteResolver: (frequency: number) => string | null;
@@ -112,11 +114,98 @@ export interface MonophonicFrameResult {
   withinRange: boolean;
   detectedNote: string | null;
   smoothedFrequency: number | null;
+  pitchSpreadCents: number | null;
+  confidence: number;
+  rawConfidence: number;
+  isConfident: boolean;
+  nextConfidenceEma: number;
+  voicingConfidence: number;
+  rawVoicingConfidence: number;
+  isVoiced: boolean;
+  nextVoicingEma: number;
   nextLastPitches: number[];
   nextLastNote: string | null;
   nextStableNoteCounter: number;
   isStableMatch: boolean;
   isStableMismatch: boolean;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function frequencyToCents(referenceFrequency: number, frequency: number) {
+  if (
+    !Number.isFinite(referenceFrequency) ||
+    !Number.isFinite(frequency) ||
+    referenceFrequency <= 0 ||
+    frequency <= 0
+  ) {
+    return 0;
+  }
+  return 1200 * Math.log2(frequency / referenceFrequency);
+}
+
+export function computeMonophonicPitchConfidence(input: {
+  lastPitches: number[];
+  smoothedFrequency: number;
+  nextStableNoteCounter: number;
+  requiredStableFrames: number;
+}) {
+  const pitchSpreadCents =
+    input.lastPitches.length <= 1
+      ? 0
+      : Math.max(
+          ...input.lastPitches.map((pitch) =>
+            Math.abs(frequencyToCents(input.smoothedFrequency, pitch))
+          )
+        );
+  const stabilityScore = clamp(
+    input.nextStableNoteCounter / Math.max(1, input.requiredStableFrames),
+    0,
+    1
+  );
+  const spreadScore = clamp(1 - Math.max(0, pitchSpreadCents - 8) / 40, 0, 1);
+  const confidence = Number((stabilityScore * 0.6 + spreadScore * 0.4).toFixed(3));
+
+  return {
+    pitchSpreadCents,
+    confidence,
+    isConfident: confidence >= 0.58,
+  };
+}
+
+export function computeMonophonicVoicingConfidence(input: {
+  detectedNote: string | null;
+  confidence: number;
+  pitchSpreadCents: number | null;
+  nextStableNoteCounter: number;
+  requiredStableFrames: number;
+}) {
+  if (!input.detectedNote) {
+    return {
+      confidence: 0,
+      isVoiced: false,
+    };
+  }
+
+  const stabilityScore = clamp(
+    input.nextStableNoteCounter / Math.max(1, input.requiredStableFrames),
+    0,
+    1
+  );
+  const spreadScore =
+    typeof input.pitchSpreadCents === 'number'
+      ? clamp(1 - Math.max(0, input.pitchSpreadCents - 6) / 55, 0, 1)
+      : 0;
+  const confidence = Number(
+    (input.confidence * 0.55 + stabilityScore * 0.25 + spreadScore * 0.2).toFixed(3)
+  );
+
+  return {
+    confidence,
+    isVoiced: confidence >= 0.6,
+  };
 }
 
 export function analyzeMonophonicFrame({
@@ -127,6 +216,8 @@ export function analyzeMonophonicFrame({
   lastPitches,
   lastNote,
   stableNoteCounter,
+  previousConfidenceEma,
+  previousVoicingEma,
   requiredStableFrames,
   targetNote,
   noteResolver,
@@ -136,6 +227,15 @@ export function analyzeMonophonicFrame({
       withinRange: false,
       detectedNote: null,
       smoothedFrequency: null,
+      pitchSpreadCents: null,
+      confidence: 0,
+      rawConfidence: 0,
+      isConfident: false,
+      nextConfidenceEma: Number((previousConfidenceEma * 0.6).toFixed(3)),
+      voicingConfidence: 0,
+      rawVoicingConfidence: 0,
+      isVoiced: false,
+      nextVoicingEma: Number((previousVoicingEma * 0.55).toFixed(3)),
       nextLastPitches: lastPitches,
       nextLastNote: lastNote,
       nextStableNoteCounter: stableNoteCounter,
@@ -154,6 +254,15 @@ export function analyzeMonophonicFrame({
       withinRange: true,
       detectedNote: null,
       smoothedFrequency,
+      pitchSpreadCents: null,
+      confidence: 0,
+      rawConfidence: 0,
+      isConfident: false,
+      nextConfidenceEma: Number((previousConfidenceEma * 0.7).toFixed(3)),
+      voicingConfidence: 0,
+      rawVoicingConfidence: 0,
+      isVoiced: false,
+      nextVoicingEma: Number((previousVoicingEma * 0.6).toFixed(3)),
       nextLastPitches,
       nextLastNote: lastNote,
       nextStableNoteCounter: stableNoteCounter,
@@ -165,11 +274,47 @@ export function analyzeMonophonicFrame({
   const nextStableNoteCounter = detectedNote === lastNote ? stableNoteCounter + 1 : 1;
   const isStable = nextStableNoteCounter >= requiredStableFrames;
   const isStableMatch = isStable && detectedNote === targetNote;
+  const confidenceMetrics = computeMonophonicPitchConfidence({
+    lastPitches: nextLastPitches,
+    smoothedFrequency,
+    nextStableNoteCounter,
+    requiredStableFrames,
+  });
+  const nextConfidenceEma = Number(
+    (
+      previousConfidenceEma * 0.68 +
+      confidenceMetrics.confidence * 0.32
+    ).toFixed(3)
+  );
+  const confidenceThreshold = previousConfidenceEma >= 0.58 ? 0.5 : 0.64;
+  const voicingMetrics = computeMonophonicVoicingConfidence({
+    detectedNote,
+    confidence: confidenceMetrics.confidence,
+    pitchSpreadCents: confidenceMetrics.pitchSpreadCents,
+    nextStableNoteCounter,
+    requiredStableFrames,
+  });
+  const nextVoicingEma = Number(
+    (
+      previousVoicingEma * 0.7 +
+      voicingMetrics.confidence * 0.3
+    ).toFixed(3)
+  );
+  const voicingThreshold = previousVoicingEma >= 0.6 ? 0.48 : 0.6;
 
   return {
     withinRange: true,
     detectedNote,
     smoothedFrequency,
+    pitchSpreadCents: confidenceMetrics.pitchSpreadCents,
+    confidence: nextConfidenceEma,
+    rawConfidence: confidenceMetrics.confidence,
+    isConfident: nextConfidenceEma >= confidenceThreshold,
+    nextConfidenceEma,
+    voicingConfidence: nextVoicingEma,
+    rawVoicingConfidence: voicingMetrics.confidence,
+    isVoiced: nextVoicingEma >= voicingThreshold,
+    nextVoicingEma,
     nextLastPitches,
     nextLastNote: detectedNote,
     nextStableNoteCounter,

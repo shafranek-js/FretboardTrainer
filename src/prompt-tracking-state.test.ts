@@ -11,6 +11,8 @@ describe('createStabilityTrackingResetState', () => {
       lastNote: null,
       lastDetectedChord: '',
       stableChordCounter: 0,
+      monophonicConfidenceEma: 0,
+      monophonicVoicingEma: 0,
     });
   });
 });
@@ -22,6 +24,8 @@ describe('createPromptCycleTrackingResetState', () => {
       lastNote: null,
       lastDetectedChord: '',
       stableChordCounter: 0,
+      monophonicConfidenceEma: 0,
+      monophonicVoicingEma: 0,
       consecutiveSilence: 0,
       lastPitches: [],
       performancePromptResolved: false,

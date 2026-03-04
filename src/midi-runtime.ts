@@ -95,6 +95,7 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   dom.micNoiseCalibrationRow.classList.toggle('hidden', usingMidi);
   dom.audioInputInfo.classList.toggle('hidden', usingMidi);
   dom.micNoiseGateInfo.classList.toggle('hidden', usingMidi);
+  dom.micPerformanceInfo.classList.toggle('hidden', usingMidi);
   dom.midiInputRow.classList.toggle('hidden', !usingMidi);
   dom.midiInputInfo.classList.toggle('hidden', !usingMidi);
   updateSessionInputStatusHud();
