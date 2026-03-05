@@ -58,6 +58,8 @@ describe('createSessionStopResetState', () => {
       performancePromptMatched: false,
       performancePromptHadAttempt: false,
       performancePromptHadWrongAttempt: false,
+      performanceTimelineFeedbackKey: null,
+      performanceTimelineFeedbackByEvent: {},
       performanceTimingByEvent: {},
       performanceOnsetRejectsByEvent: {},
       performanceCaptureTelemetryByEvent: {},
