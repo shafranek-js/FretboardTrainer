@@ -9,6 +9,7 @@ export interface ProcessAudioFramePreflightInput {
   volume: number;
   volumeThreshold: number;
   consecutiveSilence: number;
+  silenceResetAfterFrames?: number;
   isCalibrating: boolean;
   trainingMode: string;
   hasMode: boolean;
@@ -27,6 +28,7 @@ export function buildProcessAudioFramePreflightPlan({
   volume,
   volumeThreshold,
   consecutiveSilence,
+  silenceResetAfterFrames,
   isCalibrating,
   trainingMode,
   hasMode,
@@ -36,6 +38,7 @@ export function buildProcessAudioFramePreflightPlan({
     volume,
     volumeThreshold,
     consecutiveSilence,
+    resetAfterFrames: silenceResetAfterFrames,
   });
 
   if (silenceGate.isBelowThreshold) {

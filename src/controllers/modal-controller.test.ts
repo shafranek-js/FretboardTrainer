@@ -17,7 +17,6 @@ const mockLocation = { reload: locationReload };
 
 const harness = vi.hoisted(() => {
   const dom = {
-    helpBtn: createEventTargetStub(),
     settingsBtn: createEventTargetStub(),
     closeSettingsBtn: createEventTargetStub(),
     settingsModal: createEventTargetStub(),
@@ -51,6 +50,9 @@ const harness = vi.hoisted(() => {
     sessionSummaryAccuracy: { textContent: '' } as HTMLElement,
     sessionSummaryCorrect: { textContent: '' } as HTMLElement,
     sessionSummaryWrong: { textContent: '' } as HTMLElement,
+    sessionSummaryTimingAccuracy: { textContent: '' } as HTMLElement,
+    sessionSummaryTimingOffset: { textContent: '' } as HTMLElement,
+    sessionSummaryTimingBreakdown: { textContent: '' } as HTMLElement,
     sessionSummaryAvgTime: { textContent: '' } as HTMLElement,
     sessionSummaryBestStreak: { textContent: '' } as HTMLElement,
     sessionSummaryCoachTip: { textContent: '' } as HTMLElement,
@@ -58,6 +60,8 @@ const harness = vi.hoisted(() => {
     openSummaryStatsBtn: createEventTargetStub(),
     closeSummaryFooterBtn: createEventTargetStub(),
     openStatsBtn: createEventTargetStub(),
+    openSessionSummaryBtn: createEventTargetStub(),
+    openHelpBtn: createEventTargetStub(),
     closeStatsBtn: createEventTargetStub(),
     statsModal: createEventTargetStub(),
     resetStatsBtn: createEventTargetStub(),
@@ -87,6 +91,16 @@ const harness = vi.hoisted(() => {
     sessionGoal: { value: 'none' } as HTMLSelectElement,
     showAllNotes: { checked: false } as HTMLInputElement,
     instrumentSelector: { value: 'guitar' } as HTMLSelectElement,
+    melodyStudyStart: { value: '1' } as HTMLInputElement,
+    melodyStudyEnd: { value: '8' } as HTMLInputElement,
+    melodyDemoBpm: { value: '90' } as HTMLInputElement,
+    melodySelector: { value: 'melody-1' } as HTMLSelectElement,
+    audioInputDevice: {
+      selectedOptions: [{ textContent: 'Default microphone' }],
+    } as unknown as HTMLSelectElement,
+    midiInputDevice: {
+      selectedOptions: [{ textContent: 'Default midi' }],
+    } as unknown as HTMLSelectElement,
   };
 
   return {
@@ -94,9 +108,32 @@ const harness = vi.hoisted(() => {
     state: {
       isListening: false,
       lastSessionStats: null,
+      lastSessionPerformanceNoteLog: null,
+      lastSessionAnalysisBundle: null,
+      lastSessionAnalysisAutoDownloadKey: null,
       currentInstrument: { name: 'guitar', STRING_ORDER: ['E', 'A', 'D', 'G', 'B', 'e'] },
       currentTuningPresetKey: 'standard',
       showingAllNotes: false,
+      inputSource: 'microphone',
+      micSensitivityPreset: 'normal',
+      micNoteAttackFilterPreset: 'balanced',
+      micNoteHoldFilterPreset: '80ms',
+      micPolyphonicDetectorProvider: 'spectrum',
+      performanceMicTolerancePreset: 'normal',
+      performanceTimingLeniencyPreset: 'normal',
+      performanceMicLatencyCompensationMs: 0,
+      performanceTimingBiasMs: 0,
+      micLastInputRms: 0,
+      micLastMonophonicConfidence: null,
+      micLastMonophonicPitchSpreadCents: null,
+      micPerformanceSuggestedLatencyMs: null,
+      micPerformanceJudgmentCount: 0,
+      micPerformanceJudgmentTotalLatencyMs: 0,
+      micPerformanceJudgmentLastLatencyMs: null,
+      micPerformanceOnsetRejectedWeakAttackCount: 0,
+      micPerformanceOnsetRejectedLowConfidenceCount: 0,
+      micPerformanceOnsetRejectedLowVoicingCount: 0,
+      micPerformanceOnsetRejectedShortHoldCount: 0,
     },
     startListening: vi.fn(),
     cancelCalibration: vi.fn(),
@@ -250,6 +287,7 @@ describe('modal-controller', () => {
     harness.dom.importUserDataFileInput.files = null;
     harness.dom.importUserDataFileInput.value = '';
     locationReload.mockClear();
+    (URL.createObjectURL as unknown as { mockClear?: () => void }).mockClear?.();
   });
 
   it('opens settings in section-hub mode', async () => {
@@ -292,12 +330,13 @@ describe('modal-controller', () => {
     expect(harness.setModalVisible).toHaveBeenCalledWith('userData', true);
   });
 
-  it('opens help from the toolbar and routes into the guide modal', async () => {
+  it('opens help from settings tools and routes into the guide modal', async () => {
     registerModalControls();
 
-    await harness.dom.helpBtn.listeners.click?.();
+    await harness.dom.openHelpBtn.listeners.click?.();
     await harness.dom.openGuideBtn.listeners.click?.();
 
+    expect(harness.setModalVisible).toHaveBeenCalledWith('settings', false);
     expect(harness.setModalVisible).toHaveBeenCalledWith('help', true);
     expect(harness.setModalVisible).toHaveBeenCalledWith('help', false);
     expect(harness.setModalVisible).toHaveBeenCalledWith('guide', true);
@@ -311,6 +350,158 @@ describe('modal-controller', () => {
     expect(harness.setModalVisible).toHaveBeenCalledWith('sessionSummary', false);
     expect(harness.displayStats).toHaveBeenCalledTimes(1);
     expect(harness.setModalVisible).toHaveBeenCalledWith('stats', true);
+  });
+
+  it('auto-exports session analysis bundle from session summary', async () => {
+    registerModalControls();
+    harness.state.lastSessionAnalysisBundle = {
+      schemaVersion: 1,
+      generatedAtIso: '2026-03-05T10:00:00.000Z',
+      sessionStats: null,
+      performanceNoteLog: null,
+      performanceFeedbackByEvent: {},
+      performanceTimingByEvent: {},
+      performanceOnsetRejectsByEvent: {},
+      performanceCaptureTelemetryByEvent: {},
+      context: {
+        selectedMelodyId: 'melody-1',
+        melodyTempoBpm: 90,
+        melodyStudyRange: { startIndex: 0, endIndex: 7 },
+        inputSource: 'microphone',
+        inputDeviceLabel: 'Default microphone',
+        isDirectInputMode: false,
+        micSensitivityPreset: 'normal',
+        micNoteAttackFilterPreset: 'balanced',
+        micNoteHoldFilterPreset: '80ms',
+        micPolyphonicDetectorProvider: 'spectrum',
+        performanceMicTolerancePreset: 'normal',
+        performanceTimingLeniencyPreset: 'normal',
+        performanceMicLatencyCompensationMs: 0,
+        performanceTimingBiasMs: 0,
+        activeAudioTrack: {
+          requestedContentHint: null,
+          appliedContentHint: null,
+          settings: {
+            sampleRate: null,
+            channelCount: null,
+            echoCancellation: null,
+            noiseSuppression: null,
+            autoGainControl: null,
+          },
+        },
+      },
+      diagnostics: {
+        micLastInputRms: 0,
+        micLastMonophonicConfidence: null,
+        micLastMonophonicPitchSpreadCents: null,
+        micPerformanceSuggestedLatencyMs: null,
+        micPerformanceJudgmentCount: 0,
+        micPerformanceJudgmentAvgLatencyMs: null,
+        micPerformanceJudgmentLastLatencyMs: null,
+        micPerformanceOnsetRejected: {
+          weakAttack: 0,
+          lowConfidence: 0,
+          lowVoicing: 0,
+          shortHold: 0,
+        },
+        micPerformanceOnsetGate: {
+          status: 'idle',
+          reason: null,
+          atMs: null,
+        },
+        micPolyphonicTelemetry: {
+          frames: 0,
+          totalLatencyMs: 0,
+          maxLatencyMs: 0,
+          lastLatencyMs: null,
+          fallbackFrames: 0,
+          warningFrames: 0,
+          providerUsed: null,
+          fallbackFrom: null,
+          warning: null,
+          windowStartedAtMs: 0,
+        },
+      },
+    };
+    harness.state.lastSessionStats = {
+      modeKey: 'performance',
+      modeLabel: 'Performance (Full Run)',
+      startedAtMs: 1,
+      endedAtMs: 2,
+      instrumentName: 'guitar',
+      tuningPresetKey: 'standard',
+      inputSource: 'microphone',
+      inputDeviceLabel: 'Default microphone',
+      stringOrder: [],
+      enabledStrings: [],
+      minFret: 0,
+      maxFret: 12,
+      totalAttempts: 10,
+      correctAttempts: 7,
+      performanceWrongAttempts: 2,
+      performanceMissedNoInputAttempts: 1,
+      totalTime: 0,
+      currentCorrectStreak: 0,
+      bestCorrectStreak: 0,
+      noteStats: {},
+      targetZoneStats: {},
+      rhythmStats: {
+        totalJudged: 0,
+        onBeat: 0,
+        early: 0,
+        late: 0,
+        totalAbsOffsetMs: 0,
+        bestAbsOffsetMs: null,
+      },
+      performanceTimingStats: {
+        totalGraded: 0,
+        perfect: 0,
+        aBitEarly: 0,
+        early: 0,
+        tooEarly: 0,
+        aBitLate: 0,
+        late: 0,
+        tooLate: 0,
+        weightedScoreTotal: 0,
+        totalAbsOffsetMs: 0,
+      },
+    };
+
+    await harness.dom.closeSessionSummaryBtn.listeners.click?.();
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(harness.setResultMessage).toHaveBeenCalledWith('Session analysis bundle saved.', 'success');
+  });
+
+  it('does not auto-export bundle when there is no last session stats', async () => {
+    registerModalControls();
+    harness.state.lastSessionStats = null;
+    harness.state.lastSessionAnalysisBundle = null;
+
+    await harness.dom.closeSessionSummaryBtn.listeners.click?.();
+
+    expect(harness.setResultMessage).not.toHaveBeenCalledWith('Session analysis bundle saved.', 'success');
+  });
+
+  it('opens session summary from settings tools when last-session data exists', async () => {
+    registerModalControls();
+    harness.state.lastSessionStats = { modeKey: 'performance' };
+
+    await harness.dom.openSessionSummaryBtn.listeners.click?.();
+
+    expect(harness.setModalVisible).toHaveBeenCalledWith('settings', false);
+    expect(harness.setModalVisible).toHaveBeenCalledWith('sessionSummary', true);
+  });
+
+  it('shows a hint when session summary is requested before any finished session', async () => {
+    registerModalControls();
+    harness.state.lastSessionStats = null;
+
+    await harness.dom.openSessionSummaryBtn.listeners.click?.();
+
+    expect(harness.setResultMessage).toHaveBeenCalledWith(
+      'No session summary yet. Finish a session first.'
+    );
   });
 
   it('clears saved settings and reloads defaults after confirmation', async () => {

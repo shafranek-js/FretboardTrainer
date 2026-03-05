@@ -1204,6 +1204,14 @@ export function registerSessionControls() {
     state.relaxPerformanceOctaveCheck = dom.relaxPerformanceOctaveCheck.checked;
     saveSettings();
   });
+  dom.micDirectInputMode.addEventListener('change', () => {
+    state.isDirectInputMode = dom.micDirectInputMode.checked;
+    if (state.isDirectInputMode) {
+      state.ignorePromptAudioUntilMs = 0;
+    }
+    refreshMicPerformanceReadinessUi();
+    saveSettings();
+  });
   dom.performanceMicTolerancePreset.addEventListener('change', () => {
     state.performanceMicTolerancePreset = normalizePerformanceMicTolerancePreset(
       dom.performanceMicTolerancePreset.value
@@ -1220,24 +1228,35 @@ export function registerSessionControls() {
     refreshMicPerformanceReadinessUi();
     saveSettings();
   });
-  dom.performanceMicLatencyCompensation.addEventListener('input', () => {
+
+  const applyPerformanceMicLatencyCompensation = (value: unknown) => {
     state.performanceMicLatencyCompensationMs = normalizePerformanceMicLatencyCompensationMs(
-      dom.performanceMicLatencyCompensation.value
+      value
     );
     dom.performanceMicLatencyCompensation.value = String(state.performanceMicLatencyCompensationMs);
+    dom.performanceMicLatencyCompensationExact.value = String(state.performanceMicLatencyCompensationMs);
     dom.performanceMicLatencyCompensationValue.textContent = `${state.performanceMicLatencyCompensationMs} ms`;
     refreshMicPerformanceReadinessUi();
     saveSettings();
+  };
+
+  dom.performanceMicLatencyCompensation.addEventListener('input', () => {
+    applyPerformanceMicLatencyCompensation(dom.performanceMicLatencyCompensation.value);
+  });
+  dom.performanceMicLatencyCompensationExact.addEventListener('input', () => {
+    const rawValue = dom.performanceMicLatencyCompensationExact.value.trim();
+    if (rawValue.length === 0) return;
+    applyPerformanceMicLatencyCompensation(rawValue);
+  });
+  dom.performanceMicLatencyCompensationExact.addEventListener('blur', () => {
+    if (dom.performanceMicLatencyCompensationExact.value.trim().length > 0) return;
+    dom.performanceMicLatencyCompensationExact.value = String(state.performanceMicLatencyCompensationMs);
   });
   dom.applySuggestedMicLatencyBtn.addEventListener('click', () => {
     const suggestedMs = normalizePerformanceMicLatencyCompensationMs(
       state.micPerformanceSuggestedLatencyMs
     );
-    state.performanceMicLatencyCompensationMs = suggestedMs;
-    dom.performanceMicLatencyCompensation.value = String(suggestedMs);
-    dom.performanceMicLatencyCompensationValue.textContent = `${suggestedMs} ms`;
-    refreshMicPerformanceReadinessUi();
-    saveSettings();
+    applyPerformanceMicLatencyCompensation(suggestedMs);
   });
   dom.startMicLatencyCalibrationBtn.addEventListener('click', () => {
     state.micPerformanceLatencyCalibrationActive = true;

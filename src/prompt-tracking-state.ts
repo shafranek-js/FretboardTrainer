@@ -13,6 +13,7 @@ export interface PromptCycleTrackingState extends StabilityTrackingState {
   performancePromptResolved: boolean;
   performancePromptMatched: boolean;
   performancePromptHadAttempt: boolean;
+  performancePromptHadWrongAttempt: boolean;
 }
 
 export function createStabilityTrackingResetState(): StabilityTrackingState {
@@ -34,5 +35,6 @@ export function createPromptCycleTrackingResetState(): PromptCycleTrackingState 
     performancePromptResolved: false,
     performancePromptMatched: false,
     performancePromptHadAttempt: false,
+    performancePromptHadWrongAttempt: false,
   };
 }

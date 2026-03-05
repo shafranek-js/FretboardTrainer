@@ -1,6 +1,11 @@
 import { dom, state } from './state';
-import type { RhythmSessionStats, SessionStats } from './types';
-import { LAST_SESSION_STATS_KEY, STATS_KEY } from './app-storage-keys';
+import type { PerformanceTimingStats, RhythmSessionStats, SessionStats } from './types';
+import type { SessionAnalysisBundle } from './session-analysis-bundle';
+import {
+  LAST_SESSION_ANALYSIS_BUNDLE_KEY,
+  LAST_SESSION_STATS_KEY,
+  STATS_KEY,
+} from './app-storage-keys';
 import { createDefaultRhythmSessionStats } from './storage-profiles';
 import {
   readStorageJson,
@@ -26,6 +31,21 @@ function scheduleStatsSave() {
   }, STATS_SAVE_DEBOUNCE_MS);
 }
 
+function createDefaultPerformanceTimingStats(): PerformanceTimingStats {
+  return {
+    totalGraded: 0,
+    perfect: 0,
+    aBitEarly: 0,
+    early: 0,
+    tooEarly: 0,
+    aBitLate: 0,
+    late: 0,
+    tooLate: 0,
+    weightedScoreTotal: 0,
+    totalAbsOffsetMs: 0,
+  };
+}
+
 export function saveStats() {
   writeStorageJson(localStorage, STATS_KEY, state.stats);
 }
@@ -44,9 +64,20 @@ export function saveLastSessionStats() {
   writeStorageJson(localStorage, LAST_SESSION_STATS_KEY, state.lastSessionStats);
 }
 
+export function saveLastSessionAnalysisBundle() {
+  if (!state.lastSessionAnalysisBundle) {
+    removeStorageValue(localStorage, LAST_SESSION_ANALYSIS_BUNDLE_KEY);
+    return;
+  }
+  writeStorageJson(localStorage, LAST_SESSION_ANALYSIS_BUNDLE_KEY, state.lastSessionAnalysisBundle);
+}
+
 export function loadStats() {
   clearPendingStatsSave();
   state.lastSessionStats = null;
+  state.lastSessionPerformanceNoteLog = null;
+  state.lastSessionAnalysisBundle = null;
+  state.lastSessionAnalysisAutoDownloadKey = null;
   const loadedStats = readStorageJson(
     localStorage,
     STATS_KEY,
@@ -100,6 +131,14 @@ export function loadStats() {
         typeof loadedLastSession.bestCorrectStreak === 'number'
           ? loadedLastSession.bestCorrectStreak
           : 0,
+      performanceWrongAttempts:
+        typeof loadedLastSession.performanceWrongAttempts === 'number'
+          ? Math.max(0, loadedLastSession.performanceWrongAttempts)
+          : 0,
+      performanceMissedNoInputAttempts:
+        typeof loadedLastSession.performanceMissedNoInputAttempts === 'number'
+          ? Math.max(0, loadedLastSession.performanceMissedNoInputAttempts)
+          : 0,
       rhythmStats:
         loadedLastSession.rhythmStats &&
         typeof loadedLastSession.rhythmStats === 'object' &&
@@ -109,8 +148,34 @@ export function loadStats() {
               ...(loadedLastSession.rhythmStats as Partial<RhythmSessionStats>),
             } satisfies RhythmSessionStats)
           : createDefaultRhythmSessionStats(),
+      performanceTimingStats:
+        loadedLastSession.performanceTimingStats &&
+        typeof loadedLastSession.performanceTimingStats === 'object' &&
+        typeof (loadedLastSession.performanceTimingStats as Partial<PerformanceTimingStats>)
+          .totalGraded === 'number'
+          ? ({
+              ...createDefaultPerformanceTimingStats(),
+              ...(loadedLastSession.performanceTimingStats as Partial<PerformanceTimingStats>),
+            } satisfies PerformanceTimingStats)
+          : createDefaultPerformanceTimingStats(),
     };
   }
+
+  const loadedLastSessionAnalysisBundle = readStorageJson(
+    localStorage,
+    LAST_SESSION_ANALYSIS_BUNDLE_KEY,
+    (value): value is SessionAnalysisBundle =>
+      typeof value === 'object' &&
+      value !== null &&
+      typeof (value as { schemaVersion?: unknown }).schemaVersion === 'number' &&
+      typeof (value as { generatedAtIso?: unknown }).generatedAtIso === 'string',
+    null,
+    (error) => {
+      console.error('Failed to load last session analysis bundle:', error);
+      removeStorageValue(localStorage, LAST_SESSION_ANALYSIS_BUNDLE_KEY);
+    }
+  );
+  state.lastSessionAnalysisBundle = loadedLastSessionAnalysisBundle;
 }
 
 export function resetStats() {
@@ -123,9 +188,13 @@ export function resetStats() {
     noteStats: {},
   };
   state.lastSessionStats = null;
+  state.lastSessionPerformanceNoteLog = null;
+  state.lastSessionAnalysisBundle = null;
+  state.lastSessionAnalysisAutoDownloadKey = null;
   state.activeSessionStats = null;
   saveStats();
   removeStorageValue(localStorage, LAST_SESSION_STATS_KEY);
+  removeStorageValue(localStorage, LAST_SESSION_ANALYSIS_BUNDLE_KEY);
 }
 
 export function updateStats(isCorrect: boolean, time: number) {

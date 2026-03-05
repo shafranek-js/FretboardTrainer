@@ -41,4 +41,20 @@ describe('session-pace', () => {
       getPromptAudioInputIgnoreMs('ultra')
     );
   });
+
+  it('caps prompt-audio ignore window by event duration', () => {
+    // 16th-note-ish duration at 140 BPM: ~107ms -> capped ignore should be ~45ms.
+    expect(getPromptAudioInputIgnoreMs('ultra', 107)).toBe(45);
+
+    // Fast/normal pace should also be clamped for short events.
+    expect(getPromptAudioInputIgnoreMs('fast', 214)).toBe(90);
+    expect(getPromptAudioInputIgnoreMs('normal', 214)).toBe(90);
+  });
+
+  it('falls back to base ignore window when event duration is missing/invalid', () => {
+    expect(getPromptAudioInputIgnoreMs('normal', null)).toBe(380);
+    expect(getPromptAudioInputIgnoreMs('normal', undefined)).toBe(380);
+    expect(getPromptAudioInputIgnoreMs('normal', 0)).toBe(380);
+    expect(getPromptAudioInputIgnoreMs('normal', -15)).toBe(380);
+  });
 });

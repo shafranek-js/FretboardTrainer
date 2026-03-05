@@ -74,4 +74,21 @@ describe('buildProcessAudioFramePreflightPlan', () => {
     expect(plan.nextConsecutiveSilence).toBe(0);
     expect(plan.shouldResetTracking).toBe(false);
   });
+
+  it('honors custom silence reset frame count', () => {
+    const plan = buildProcessAudioFramePreflightPlan({
+      volume: 0.0001,
+      volumeThreshold: 0.001,
+      consecutiveSilence: 2,
+      silenceResetAfterFrames: 5,
+      isCalibrating: false,
+      trainingMode: 'performance',
+      hasMode: true,
+      hasCurrentPrompt: true,
+    });
+
+    expect(plan.kind).toBe('silence_wait');
+    expect(plan.nextConsecutiveSilence).toBe(3);
+    expect(plan.shouldResetTracking).toBe(false);
+  });
 });

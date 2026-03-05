@@ -56,6 +56,7 @@ import {
   flushPendingStatsSave,
   loadStats,
   resetStats,
+  saveLastSessionAnalysisBundle,
   saveLastSessionStats,
   saveStats,
   updateStats,
@@ -75,6 +76,7 @@ export {
   getDefaultMelodyIdForInstrument,
   saveStats,
   flushPendingStatsSave,
+  saveLastSessionAnalysisBundle,
   saveLastSessionStats,
   loadStats,
   resetStats,
@@ -120,6 +122,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     micSensitivityPreset: state.micSensitivityPreset,
     micNoteAttackFilter: state.micNoteAttackFilterPreset,
     micNoteHoldFilter: state.micNoteHoldFilterPreset,
+    isDirectInputMode: dom.micDirectInputMode.checked,
     micPolyphonicDetectorProvider: state.micPolyphonicDetectorProvider,
     micAutoNoiseFloorRms: state.micAutoNoiseFloorRms,
     midiInputDeviceId: state.preferredMidiInputDeviceId,
@@ -202,6 +205,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
       safeSettings.performanceMicLatencyCompensationMs
     );
     dom.performanceMicLatencyCompensation.value = String(state.performanceMicLatencyCompensationMs);
+    dom.performanceMicLatencyCompensationExact.value = String(state.performanceMicLatencyCompensationMs);
     dom.performanceMicLatencyCompensationValue.textContent = `${state.performanceMicLatencyCompensationMs} ms`;
     dom.difficulty.value = safeSettings.difficulty ?? 'natural';
     dom.noteNaming.value = normalizeNoteNamingPreference(safeSettings.noteNaming);
@@ -221,6 +225,11 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.micNoteAttackFilter.value = state.micNoteAttackFilterPreset;
     state.micNoteHoldFilterPreset = normalizeMicNoteHoldFilterPreset(safeSettings.micNoteHoldFilter);
     dom.micNoteHoldFilter.value = state.micNoteHoldFilterPreset;
+    state.isDirectInputMode = Boolean(safeSettings.isDirectInputMode);
+    dom.micDirectInputMode.checked = state.isDirectInputMode;
+    if (state.isDirectInputMode) {
+      state.ignorePromptAudioUntilMs = 0;
+    }
     state.micPolyphonicDetectorProvider = normalizeMicPolyphonicDetectorProvider(
       safeSettings.micPolyphonicDetectorProvider
     );
@@ -309,6 +318,8 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.performanceMicLatencyCompensationMs = normalizePerformanceMicLatencyCompensationMs(
       dom.performanceMicLatencyCompensation.value
     );
+    state.isDirectInputMode = dom.micDirectInputMode.checked;
+    dom.performanceMicLatencyCompensationExact.value = String(state.performanceMicLatencyCompensationMs);
     dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
 
     // If instrument changed, load new sounds. Otherwise, this is very fast.

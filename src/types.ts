@@ -32,12 +32,15 @@ export interface SessionStats {
   maxFret: number;
   totalAttempts: number;
   correctAttempts: number;
+  performanceWrongAttempts: number;
+  performanceMissedNoInputAttempts: number;
   totalTime: number;
   currentCorrectStreak: number;
   bestCorrectStreak: number;
   noteStats: { [key: string]: NoteStat };
   targetZoneStats: { [key: string]: NoteStat };
   rhythmStats: RhythmSessionStats;
+  performanceTimingStats?: PerformanceTimingStats;
 }
 
 export interface RhythmSessionStats {
@@ -47,6 +50,19 @@ export interface RhythmSessionStats {
   late: number;
   totalAbsOffsetMs: number;
   bestAbsOffsetMs: number | null;
+}
+
+export interface PerformanceTimingStats {
+  totalGraded: number;
+  perfect: number;
+  aBitEarly: number;
+  early: number;
+  tooEarly: number;
+  aBitLate: number;
+  late: number;
+  tooLate: number;
+  weightedScoreTotal: number;
+  totalAbsOffsetMs: number;
 }
 
 export type ChordNote = { note: string; string: string; fret: number; finger?: number };

@@ -26,6 +26,11 @@ function createInput(overrides: Partial<Parameters<typeof buildMicPerformanceRea
     judgmentLastLatencyMs: null,
     judgmentMaxLatencyMs: 0,
     latencyCalibrationActive: false,
+    appliedEchoCancellation: false,
+    appliedNoiseSuppression: false,
+    appliedAutoGainControl: false,
+    appliedChannelCount: 1,
+    appliedContentHint: 'music',
     nowMs: 0,
     ...overrides,
   };
@@ -142,5 +147,76 @@ describe('mic-performance-readiness', () => {
     );
     expect(result.latencyCalibrationProgressText).toContain('5/5');
     expect(result.text).toContain('Latency calibration collected enough judged notes');
+  });
+
+  it('includes onset-gate rejection reason for live performance diagnostics', () => {
+    const result = buildMicPerformanceReadinessView(
+      createInput({
+        isListening: true,
+        onsetGateStatus: 'rejected',
+        onsetGateReason: 'Reason: weak attack (peak 0.025 < 0.032).',
+        onsetGateAtMs: 1100,
+        nowMs: 1200,
+      })
+    );
+
+    expect(result.text).toContain('Onset gate: rejected.');
+    expect(result.text).toContain('weak attack');
+  });
+
+  it('falls back to waiting message when onset-gate data is stale', () => {
+    const result = buildMicPerformanceReadinessView(
+      createInput({
+        isListening: true,
+        onsetGateStatus: 'accepted',
+        onsetGateReason: 'Peak 0.043, conf 0.59, voicing 0.57.',
+        onsetGateAtMs: 1000,
+        nowMs: 4000,
+      })
+    );
+
+    expect(result.text).toContain('Onset gate: waiting for next clean attack.');
+  });
+
+  it('warns when browser/device keeps voice processing enabled', () => {
+    const result = buildMicPerformanceReadinessView(
+      createInput({
+        isListening: true,
+        appliedEchoCancellation: true,
+        appliedNoiseSuppression: true,
+        appliedAutoGainControl: true,
+      })
+    );
+
+    expect(result.tone).toBe('warning');
+    expect(result.text).toContain('voice processing is still enabled');
+  });
+
+  it('warns when contentHint is not music in active listening mode', () => {
+    const result = buildMicPerformanceReadinessView(
+      createInput({
+        isListening: true,
+        appliedContentHint: 'speech',
+      })
+    );
+
+    expect(result.tone).toBe('warning');
+    expect(result.text).toContain('content hint is "speech"');
+  });
+
+  it('includes onset reject telemetry with top reason for diagnostics', () => {
+    const result = buildMicPerformanceReadinessView(
+      createInput({
+        isListening: true,
+        onsetRejectedWeakAttackCount: 9,
+        onsetRejectedLowConfidenceCount: 3,
+        onsetRejectedLowVoicingCount: 1,
+        onsetRejectedShortHoldCount: 2,
+      })
+    );
+
+    expect(result.text).toContain('Onset rejects (recent): 15.');
+    expect(result.text).toContain('Top reason: weak attack (9).');
+    expect(result.text).toContain('low confidence 3');
   });
 });

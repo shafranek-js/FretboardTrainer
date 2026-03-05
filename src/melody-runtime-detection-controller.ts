@@ -6,7 +6,11 @@ import {
   isLowConfidenceMicPolyphonicResult,
 } from './mic-polyphonic-low-confidence';
 import { shouldForgivePerformanceTimingBoundaryAttempt } from './performance-timing-forgiveness';
-import { resolveLatencyCompensatedPromptStartedAtMs } from './performance-mic-latency-compensation';
+import {
+  normalizePerformanceMicLatencyCompensationMs,
+  resolveLatencyCompensatedPromptStartedAtMs,
+} from './performance-mic-latency-compensation';
+import { evaluatePerformanceTimingGrade, type PerformanceTimingGrade } from './performance-timing-grade';
 
 interface MicPolyphonicResult {
   detectedNotesText: string;
@@ -35,6 +39,8 @@ interface MelodyRuntimeDetectionControllerDeps {
     performancePromptResolved: boolean;
     performanceTimingLeniencyPreset?: 'strict' | 'normal' | 'forgiving';
     performanceMicLatencyCompensationMs?: number;
+    performanceTimingBiasMs?: number;
+    inputSource?: 'microphone' | 'midi';
     startTime: number;
     micPolyphonicDetectorProvider: string;
   };
@@ -61,7 +67,7 @@ interface MelodyRuntimeDetectionControllerDeps {
   setResultMessage(message: string, tone?: 'neutral' | 'success' | 'error'): void;
   recordPerformanceTimelineWrongAttempt(detectedNote: string): void;
   markPerformancePromptAttempt(): void;
-  performanceResolveSuccess(elapsedSeconds: number): void;
+  performanceResolveSuccess(elapsedSeconds: number, timingGrade?: PerformanceTimingGrade | null): void;
   displayResult(correct: boolean, elapsedSeconds: number): void;
   handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, context: string): void;
   handleStableMonophonicDetectedNote(detectedNote: string): void;
@@ -88,6 +94,27 @@ function setsEqual<T>(a: Set<T>, b: Set<T>) {
 
 export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetectionControllerDeps) {
   let lastLowConfidenceMessageAtMs = 0;
+
+  function resolvePerformanceTimingGrade(nowMs: number) {
+    const latencyCompensationMs =
+      deps.state.inputSource === 'microphone'
+        ? normalizePerformanceMicLatencyCompensationMs(
+            deps.state.performanceMicLatencyCompensationMs ?? 0
+          )
+        : 0;
+    const timingBiasMs =
+      deps.state.inputSource === 'microphone'
+        ? Math.round(deps.state.performanceTimingBiasMs ?? 0)
+        : 0;
+    const referenceStartedAtMs = deps.state.startTime;
+    const judgedAtMs = nowMs - latencyCompensationMs;
+    return evaluatePerformanceTimingGrade({
+      signedOffsetMs: judgedAtMs - referenceStartedAtMs - timingBiasMs,
+      preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
+      eventDurationMs: deps.state.currentPrompt?.melodyEventDurationMs,
+      inputSource: deps.state.inputSource,
+    });
+  }
 
   function handleMicrophonePolyphonicMelodyFrame(frameVolumeRms: number) {
     const prompt = deps.state.currentPrompt;
@@ -167,8 +194,9 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
         preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
       });
       if (polyphonicResult.isStableMatch) {
-        const elapsed = (deps.now() - deps.state.startTime) / 1000;
-        deps.performanceResolveSuccess(elapsed);
+        const nowMs = deps.now();
+        const elapsed = (nowMs - deps.state.startTime) / 1000;
+        deps.performanceResolveSuccess(elapsed, resolvePerformanceTimingGrade(nowMs));
         return true;
       }
 
@@ -264,8 +292,9 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
       }
 
       if (areMidiHeldNotesMatchingTargetChord(heldNoteNames, targetPitchClasses)) {
-        const elapsed = (deps.now() - deps.state.startTime) / 1000;
-        deps.performanceResolveSuccess(elapsed);
+        const nowMs = deps.now();
+        const elapsed = (nowMs - deps.state.startTime) / 1000;
+        deps.performanceResolveSuccess(elapsed, resolvePerformanceTimingGrade(nowMs));
         return;
       }
 

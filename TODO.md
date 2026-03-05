@@ -194,18 +194,36 @@
   - [x] Add structured note-level melody editor with undo/redo.
   - [x] Add MIDI export for edited custom melodies.
   - [x] Add separate MIDI export for the current practice-adjusted melody (`transpose` / `string shift` / demo BPM applied).
+- [x] Add exact numeric mic latency compensation input (1 ms precision) and sync it with slider + suggested value actions.
+- [ ] Improve high-BPM microphone performance capture reliability.
+  - [x] Analyze latest 77/120/140 BPM exports and verify `shortHold` dominates misses on 140 BPM runs.
+  - [x] Reduce adaptive performance hold requirement for short/medium events in performance mode (`eventDuration`-capped hold tuning).
+  - [x] Revalidate 140 BPM runs after hold-cap tuning: score improved (`45/62 -> 47/62`, missed `17 -> 15`) at `17 ms` compensation; `shortHold` counter still high (`18`) and needs event-level reason logging.
+  - [x] Extend analysis export with per-event onset gate rejection reasons to separate true no-input misses from gating misses.
+  - [x] Extend analysis export with per-event capture telemetry (`stable detections`, `prompt attempts`, `uncertain frames/reasons`) to diagnose misses without onset rejects.
+  - [x] Align `wrong` vs `missed` classification between `sessionStats` and `performanceNoteLog` by tracking true `hadWrongAttempt` separately from generic `hadAttempt`.
+  - [x] Extend capture telemetry for `no-stable` diagnosis (`preStableSeen`, voiced/confident/detected-note frame counts, max stable run, peak/avg RMS).
+  - [x] Extend onset-reject event logs with hold debug fields (`eventDurationMs`, `holdRequiredMs`, `holdElapsedMs`, runtime calibration level).
+  - [x] Speed up runtime short-hold calibration ramp so `mild`/`strong` can apply earlier in a session.
+  - [x] Make prompt-audio mic ignore window adaptive to event duration so high-BPM short notes are not fully muted by playback echo suppression.
+  - [x] Add optional `Headphones / Direct Input` mode that disables prompt-audio mute (`0 ms`) and persist the setting in profiles.
+  - [x] Include `context.isDirectInputMode` in session analysis export for reliable ON/OFF A/B comparisons.
 - [ ] Rework microphone-driven `Performance` transport so playback timing follows a continuous song clock instead of prompt/attempt/grace timing.
   - [x] Stop letting microphone attempts or grace windows delay advancement to the next melody event.
   - [x] Keep tolerance/leniency logic only in judging/scoring, not in transport progression.
   - [ ] Move `Performance` toward the `FretFlow` model where transport time is continuous and detection only marks `correct/wrong/missed`.
   - [x] Add onset-gated monophonic mic judging so a sustained tail is not re-judged as fresh performance input every frame.
   - [x] Add an explicit `uncertain/noise` bucket so weak/noisy mic frames do not become `wrong note` feedback.
-  - [ ] Upgrade monophonic mic judging with stronger voiced/confidence smoothing (`YIN/pYIN`-style post-processing) instead of only stable-frame heuristics.
+  - [x] Split unresolved `Performance` failures into `Wrong attempt` vs `Missed (No Input)` counters in session stats/summary.
+  - [x] Soften microphone `Performance` voiced/confidence thresholds and apply adaptive hold timing for cleaner built-in mic coverage.
+  - [x] Upgrade monophonic mic judging with stronger voiced/confidence smoothing (`YIN/pYIN`-style post-processing) instead of only stable-frame heuristics.
     - [x] Add pitch-history confidence smoothing so unstable monophonic frames are downgraded to `uncertain` instead of becoming `wrong`.
     - [x] Add EMA + hysteresis smoothing for monophonic confidence so one shaky frame does not immediately drop a previously voiced, stable single-note signal.
     - [x] Add a separate voiced/unvoiced EMA + hysteresis layer so weakly voiced single-note frames are downgraded to `uncertain` instead of becoming `wrong`.
+    - [x] Add performance-adaptive mic attack gating and short dropout grace so weak webcam microphones lose fewer onsets.
   - [x] Add input-quality / latency-calibration UX for microphone performance mode (device, buffer, interface/Hi-Z guidance).
     - [x] Add a live `mic performance readiness` diagnostic panel that warns about Bluetooth/headset latency, missing room-noise calibration, overly strict mic filters, detector fallback/warnings, and unstable live monophonic confidence.
+    - [x] Add live onset-gate diagnostics (`accepted/rejected` + reason) so users can see whether attack/hold/confidence/voicing is blocking mic judgments.
     - [x] Add a user-facing `Mic Latency Compensation` control (ms) in settings for microphone performance mode.
     - [x] Persist `Mic Latency Compensation` in profile/default settings and restore it on load.
     - [x] Apply latency compensation to performance mic judging windows so onset-gate and uncertain/noise checks use an adjusted prompt start time instead of raw `startTime`.
@@ -215,6 +233,24 @@
     - [x] Add a one-click `Use Suggested Latency` action so measured readiness recommendations can be applied directly to the compensation control.
     - [x] Gate latency-compensation recommendations behind a minimum number of judged notes so calibration suggestions are only shown after enough live samples have been collected.
     - [x] Add an explicit `Start/Restart Latency Calibration` flow that resets live latency samples and shows calibration progress until enough judged notes have been collected.
+  - [x] Apply music-oriented microphone capture defaults and verify actual applied track settings.
+    - [x] Request `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`, `channelCount: 1` for performance sessions.
+    - [x] Set audio track `contentHint = "music"` when supported.
+    - [x] Surface applied capture settings in runtime diagnostics (`audioInputInfo`) so users can see when browsers ignore requested constraints.
+  - [x] Reduce `Missed (No Input)` on built-in microphones without inflating false positives.
+    - [x] Add a performance-only adaptive mic volume threshold (separate from generic noise gate preset threshold).
+    - [x] Further soften performance attack/hold gating with confidence-aware adaptive thresholds.
+    - [x] Tune monophonic stability requirements for microphone performance mode and validate via manual runs.
+    - [x] Add short-note-aware adaptive gating (same-note re-attack rearm + event-duration-based silence/dropout handling).
+  - [ ] Remove remaining tempo-dependence in microphone `Performance` note capture at high BPM.
+    - [x] Add a low-latency analyser profile for microphone performance sessions (`fftSize 2048`, lower smoothing).
+    - [x] Add target-frequency-aware `YIN` search window with safe broad-range fallback when focused detection fails.
+    - [ ] Move monophonic microphone detection from `requestAnimationFrame` to `AudioWorklet` fixed-hop processing.
+    - [ ] Split monophonic microphone detection into `onset detector -> pitch tracker` instead of one frame gate.
+    - [ ] Validate 60/90/120/140/160 BPM runs and tune thresholds from exported telemetry snapshots.
+  - [x] Extend readiness diagnostics with explicit rejection telemetry.
+    - [x] Count recent onset-gate rejections by reason (`weak attack`, `low confidence`, `low voicing`, `short hold`).
+    - [x] Show top rejection reason in `Mic performance readiness` guidance.
 - [x] Add microphone polyphonic detection support for true simultaneous-note/chord verification in melody practice (separate from MIDI note events) using the existing spectrum-based detector path.
   - [x] Extract a pluggable mic polyphonic detector provider interface (`spectrum` baseline first, external engine adapters next).
   - [x] Add an experimental `Essentia.js` (`MultiPitchKlapuri` / `MultiPitchMelodia`) provider spike behind a feature flag (license/CPU review required).

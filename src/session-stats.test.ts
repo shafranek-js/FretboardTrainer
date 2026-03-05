@@ -3,9 +3,12 @@ import {
   buildSessionStatsNoteKey,
   createSessionStats,
   finalizeSessionStats,
+  recordPerformancePromptResolution,
+  recordPerformanceTimingAttempt,
   recordRhythmTimingAttempt,
   recordSessionAttempt,
 } from './session-stats';
+import { evaluatePerformanceTimingGrade } from './performance-timing-grade';
 import type { Prompt } from './types';
 
 function createPrompt(partial: Partial<Prompt>): Prompt {
@@ -57,6 +60,7 @@ describe('session-stats', () => {
     expect(stats.currentCorrectStreak).toBe(1);
     expect(stats.bestCorrectStreak).toBe(1);
     expect(stats.rhythmStats.totalJudged).toBe(0);
+    expect(stats.performanceTimingStats?.totalGraded).toBe(0);
     expect(stats.targetZoneStats['G:7']).toEqual({
       attempts: 2,
       correct: 1,
@@ -89,6 +93,7 @@ describe('session-stats', () => {
     expect(finalized?.noteStats).not.toBe(stats.noteStats);
     expect(finalized?.targetZoneStats).not.toBe(stats.targetZoneStats);
     expect(finalized?.rhythmStats).not.toBe(stats.rhythmStats);
+    expect(finalized?.performanceTimingStats).not.toBe(stats.performanceTimingStats);
     expect(finalized?.noteStats['A-E']).toEqual({ attempts: 1, correct: 1, totalTime: 0.8 });
     expect(finalized?.targetZoneStats['E:5']).toEqual({ attempts: 1, correct: 1, totalTime: 0.8 });
     expect(finalized?.bestCorrectStreak).toBe(1);
@@ -137,5 +142,66 @@ describe('session-stats', () => {
 
     expect(stats.currentCorrectStreak).toBe(1);
     expect(stats.bestCorrectStreak).toBe(2);
+  });
+
+  it('records performance timing grade buckets independently of correct/wrong stats', () => {
+    const stats = createSessionStats({
+      modeKey: 'performance',
+      modeLabel: 'Performance',
+      stringOrder: ['E'],
+      enabledStrings: ['E'],
+    });
+
+    recordPerformanceTimingAttempt(stats, evaluatePerformanceTimingGrade({ signedOffsetMs: 0 }));
+    recordPerformanceTimingAttempt(stats, evaluatePerformanceTimingGrade({ signedOffsetMs: -90 }));
+    recordPerformanceTimingAttempt(stats, evaluatePerformanceTimingGrade({ signedOffsetMs: 190 }));
+
+    expect(stats.performanceTimingStats).toEqual({
+      totalGraded: 3,
+      perfect: 1,
+      aBitEarly: 1,
+      early: 0,
+      tooEarly: 0,
+      aBitLate: 0,
+      late: 1,
+      tooLate: 0,
+      weightedScoreTotal: 2.65,
+      totalAbsOffsetMs: 280,
+    });
+    expect(stats.totalAttempts).toBe(0);
+    expect(stats.correctAttempts).toBe(0);
+  });
+
+  it('counts wrong only for true wrong-attempt prompts', () => {
+    const stats = createSessionStats({
+      modeKey: 'performance',
+      modeLabel: 'Performance',
+      stringOrder: ['E'],
+      enabledStrings: ['E'],
+    });
+
+    recordPerformancePromptResolution(stats, {
+      correct: false,
+      hadAttempt: true,
+      hadWrongAttempt: true,
+    });
+    recordPerformancePromptResolution(stats, {
+      correct: false,
+      hadAttempt: true,
+      hadWrongAttempt: false,
+    });
+    recordPerformancePromptResolution(stats, {
+      correct: false,
+      hadAttempt: false,
+      hadWrongAttempt: false,
+    });
+    recordPerformancePromptResolution(stats, {
+      correct: true,
+      hadAttempt: true,
+      hadWrongAttempt: true,
+    });
+
+    expect(stats.performanceWrongAttempts).toBe(1);
+    expect(stats.performanceMissedNoInputAttempts).toBe(2);
   });
 });

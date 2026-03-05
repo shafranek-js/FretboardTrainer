@@ -1,3 +1,5 @@
+import { resolvePerformanceMicOnsetWindowMs } from './performance-mic-onset-gate';
+
 export interface PerformanceMicUncertainInput {
   detectedNote: string;
   noteFirstDetectedAtMs: number | null;
@@ -9,6 +11,8 @@ export interface PerformanceMicUncertainInput {
   voicingAccepted?: boolean;
   lastReportedOnsetNote: string | null;
   lastReportedOnsetAtMs: number | null;
+  eventDurationMs?: number | null;
+  leniencyPreset?: 'strict' | 'normal' | 'forgiving';
   earlyWindowMs?: number;
   maxOnsetAgeMs?: number;
 }
@@ -26,8 +30,12 @@ export function shouldReportPerformanceMicUncertainFrame(input: PerformanceMicUn
   const onsetAtMs = input.noteFirstDetectedAtMs;
   if (onsetAtMs === null) return false;
 
-  const earlyWindowMs = Math.max(0, input.earlyWindowMs ?? 90);
-  const maxOnsetAgeMs = Math.max(1, input.maxOnsetAgeMs ?? 450);
+  const defaultWindow = resolvePerformanceMicOnsetWindowMs({
+    eventDurationMs: input.eventDurationMs,
+    leniencyPreset: input.leniencyPreset,
+  });
+  const earlyWindowMs = Math.max(0, input.earlyWindowMs ?? defaultWindow.earlyWindowMs);
+  const maxOnsetAgeMs = Math.max(1, input.maxOnsetAgeMs ?? defaultWindow.maxOnsetAgeMs);
   if (onsetAtMs < input.promptStartedAtMs - earlyWindowMs) return false;
   if (input.nowMs - onsetAtMs > maxOnsetAgeMs) return false;
 

@@ -37,14 +37,6 @@
             </div>
           </div>
           <button
-            id="helpBtn"
-            class="bg-slate-600 hover:bg-slate-500 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
-            aria-label="Open help"
-            title="Help"
-          >
-            ?
-          </button>
-          <button
             id="settingsBtn"
             class="bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
             aria-label="Open app settings"
@@ -580,6 +572,17 @@
                     value="0"
                     class="w-20 accent-cyan-400"
                   />
+                  <input
+                    id="performanceMicLatencyCompensationExact"
+                    type="number"
+                    min="0"
+                    max="250"
+                    step="1"
+                    value="0"
+                    inputmode="numeric"
+                    class="w-14 rounded border border-slate-500 bg-slate-800 px-1 py-0.5 text-[11px] text-slate-100"
+                    aria-label="Mic Latency exact milliseconds"
+                  />
                   <span id="performanceMicLatencyCompensationValue" class="min-w-[44px] text-center">0 ms</span>
                 </label>
               </div>
@@ -970,6 +973,21 @@
                 </select>
               </div>
               <div
+                id="micDirectInputRow"
+                class="field-tooltip-host flex flex-col items-stretch md:col-span-2"
+                data-field-hint="Headphones / Direct Input"
+              >
+                <label for="micDirectInputMode" class="field-tooltip-label">Headphones / Direct Input</label>
+                <label class="inline-flex items-center gap-2 rounded-md border border-slate-500 bg-slate-700/60 px-3 py-2 text-slate-200">
+                  <input
+                    id="micDirectInputMode"
+                    type="checkbox"
+                    class="h-4 w-4 accent-cyan-500"
+                  />
+                  <span>Disable prompt-audio mute for fastest detection (use with headphones or direct interface).</span>
+                </label>
+              </div>
+              <div
                 id="micPolyphonicDetectorRow"
                 class="mic-polyphonic-detector-selector field-tooltip-host flex flex-col items-stretch md:col-span-2"
                 data-field-hint="Mic Polyphonic Detector"
@@ -1168,6 +1186,18 @@
               >
                 My Stats
               </button>
+              <button
+                id="openSessionSummaryBtn"
+                class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+              >
+                Session Summary
+              </button>
+              <button
+                id="openHelpBtn"
+                class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+              >
+                Help
+              </button>
             </div>
           </section>
 
@@ -1342,6 +1372,10 @@
             <div class="text-slate-400">Accuracy</div>
             <div id="sessionSummaryAccuracy" class="text-white font-medium">-</div>
           </div>
+          <div class="rounded-md bg-indigo-900/25 border border-indigo-700/35 px-3 py-2">
+            <div class="text-indigo-200/70">Overall Score</div>
+            <div id="sessionSummaryOverallScore" class="text-indigo-100 font-semibold">-</div>
+          </div>
           <div class="rounded-md bg-emerald-900/25 border border-emerald-700/35 px-3 py-2">
             <div class="text-emerald-200/70">Correct</div>
             <div id="sessionSummaryCorrect" class="text-emerald-100 font-semibold">-</div>
@@ -1350,6 +1384,18 @@
             <div class="text-red-200/70">Wrong</div>
             <div id="sessionSummaryWrong" class="text-red-100 font-semibold">-</div>
           </div>
+          <div class="rounded-md bg-amber-900/25 border border-amber-700/35 px-3 py-2">
+            <div class="text-amber-200/70">Missed (No Input)</div>
+            <div id="sessionSummaryMissedNoInput" class="text-amber-100 font-semibold">-</div>
+          </div>
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Timing Accuracy</div>
+            <div id="sessionSummaryTimingAccuracy" class="text-white font-medium">-</div>
+          </div>
+          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Avg. Timing Offset</div>
+            <div id="sessionSummaryTimingOffset" class="text-white font-medium">-</div>
+          </div>
           <div class="rounded-md bg-slate-800/55 px-3 py-2">
             <div class="text-slate-400">Avg. Time / Correct</div>
             <div id="sessionSummaryAvgTime" class="text-white font-medium">-</div>
@@ -1357,6 +1403,10 @@
           <div class="rounded-md bg-slate-800/55 px-3 py-2">
             <div class="text-slate-400">Best Streak</div>
             <div id="sessionSummaryBestStreak" class="text-white font-medium">-</div>
+          </div>
+          <div class="sm:col-span-2 rounded-md bg-slate-800/55 px-3 py-2">
+            <div class="text-slate-400">Timing Breakdown</div>
+            <div id="sessionSummaryTimingBreakdown" class="text-white font-medium text-xs leading-4">-</div>
           </div>
         </div>
         <div

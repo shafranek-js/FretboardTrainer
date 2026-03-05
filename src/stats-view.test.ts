@@ -7,6 +7,8 @@ function createStats(partial: Partial<Stats> = {}): Stats {
     highScore: 0,
     totalAttempts: 0,
     correctAttempts: 0,
+    performanceWrongAttempts: 0,
+    performanceMissedNoInputAttempts: 0,
     totalTime: 0,
     noteStats: {},
     ...partial,
@@ -121,8 +123,11 @@ describe('buildStatsViewModel', () => {
     expect(model.lastSession?.durationText).toBe('1m 5s');
     expect(model.lastSession?.attemptsText).toBe('3/5 correct');
     expect(model.lastSession?.accuracyText).toBe('60.0%');
+    expect(model.lastSession?.overallPerformanceScoreText).toBe('60.0%');
     expect(model.lastSession?.avgTimeText).toBe('1.50s');
     expect(model.lastSession?.bestStreakText).toBe('0');
+    expect(model.lastSession?.wrongAttemptsText).toBe('2');
+    expect(model.lastSession?.missedNoInputAttemptsText).toBe('-');
     expect(model.lastSession?.coachTipText).toContain('Short session');
     expect(model.lastSession?.weakSpots).toHaveLength(2);
     expect(model.lastSession?.weakSpots[0].key).toBe('F-E');
@@ -166,5 +171,40 @@ describe('buildStatsViewModel', () => {
     expect(model.lastSession?.rhythmSummary?.bestOffsetText).toBe('8 ms');
     expect(model.lastSession?.bestStreakText).toBe('4');
     expect(model.lastSession?.coachTipText).toContain('Rhythm:');
+  });
+
+  it('shows performance timing coverage so timing accuracy is not misread', () => {
+    const model = buildStatsViewModel(
+      createStats(),
+      3,
+      createSessionStats({
+        modeKey: 'performance',
+        modeLabel: 'Performance (Full Run)',
+        totalAttempts: 62,
+        correctAttempts: 10,
+        performanceWrongAttempts: 17,
+        performanceMissedNoInputAttempts: 35,
+        performanceTimingStats: {
+          totalGraded: 10,
+          perfect: 7,
+          aBitEarly: 0,
+          early: 0,
+          tooEarly: 0,
+          aBitLate: 0,
+          late: 1,
+          tooLate: 2,
+          weightedScoreTotal: 8.85,
+          totalAbsOffsetMs: 1930,
+        },
+      })
+    );
+
+    expect(model.lastSession?.performanceTimingSummary?.timingAccuracyText).toBe('88.5% (10/62 graded)');
+    expect(model.lastSession?.wrongAttemptsText).toBe('17');
+    expect(model.lastSession?.missedNoInputAttemptsText).toBe('35');
+    expect(model.lastSession?.performanceTimingSummary?.breakdownText).toContain(
+      'Timing judged on 10/62 attempts.'
+    );
+    expect(model.lastSession?.overallPerformanceScoreText).toBe('15.7%');
   });
 });

@@ -15,6 +15,9 @@ import {
   formatAppUserDataSnapshotFileName,
   parseAppUserDataSnapshot,
 } from '../user-data-transfer';
+import {
+  formatSessionAnalysisBundleFileName,
+} from '../session-analysis-bundle';
 
 function downloadTextFile(fileName: string, text: string, mimeType: string) {
   const blob = new Blob([text], { type: mimeType });
@@ -45,7 +48,16 @@ export function registerModalControls() {
     setModalVisible('settings', false);
   };
 
-  dom.helpBtn.addEventListener('click', () => {
+  dom.openSessionSummaryBtn.addEventListener('click', () => {
+    if (!state.lastSessionStats) {
+      setResultMessage('No session summary yet. Finish a session first.');
+      return;
+    }
+    closeSettingsModal();
+    setModalVisible('sessionSummary', true);
+  });
+  dom.openHelpBtn.addEventListener('click', () => {
+    closeSettingsModal();
     setModalVisible('help', true);
   });
   dom.closeHelpBtn.addEventListener('click', () => setModalVisible('help', false));
@@ -91,7 +103,24 @@ export function registerModalControls() {
   dom.userDataModal.addEventListener('click', (e) => {
     if (e.target === dom.userDataModal) setModalVisible('userData', false);
   });
-  const closeSessionSummaryModal = () => setModalVisible('sessionSummary', false);
+  function maybeAutoExportSessionAnalysisBundle() {
+    const bundle = state.lastSessionAnalysisBundle;
+    if (!bundle) return;
+    const autoDownloadKey = bundle.generatedAtIso;
+    if (state.lastSessionAnalysisAutoDownloadKey === autoDownloadKey) return;
+    downloadTextFile(
+      formatSessionAnalysisBundleFileName(),
+      `${JSON.stringify(bundle, null, 2)}\n`,
+      'application/json'
+    );
+    state.lastSessionAnalysisAutoDownloadKey = autoDownloadKey;
+    setResultMessage('Session analysis bundle saved.', 'success');
+  }
+
+  const closeSessionSummaryModal = () => {
+    maybeAutoExportSessionAnalysisBundle();
+    setModalVisible('sessionSummary', false);
+  };
   dom.closeSessionSummaryBtn.addEventListener('click', closeSessionSummaryModal);
   dom.closeSummaryFooterBtn.addEventListener('click', closeSessionSummaryModal);
   dom.sessionSummaryModal.addEventListener('click', (e) => {

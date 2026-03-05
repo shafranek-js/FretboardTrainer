@@ -138,6 +138,8 @@ describe('storage-stats', () => {
       tuningPresetKey: '',
       currentCorrectStreak: 0,
       bestCorrectStreak: 0,
+      performanceWrongAttempts: 0,
+      performanceMissedNoInputAttempts: 0,
       rhythmStats: {
         totalJudged: 0,
         onBeat: 0,

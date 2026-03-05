@@ -31,6 +31,7 @@ describe('createPromptCycleTrackingResetState', () => {
       performancePromptResolved: false,
       performancePromptMatched: false,
       performancePromptHadAttempt: false,
+      performancePromptHadWrongAttempt: false,
     });
   });
 

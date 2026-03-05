@@ -7,6 +7,12 @@ function getProviderLabel(provider: MicPolyphonicDetectorProvider | null) {
   return 'Unknown';
 }
 
+function formatToggleSetting(value: boolean | null | undefined) {
+  if (value === true) return 'on';
+  if (value === false) return 'off';
+  return 'n/a';
+}
+
 export function buildMicPolyphonicDetectorAudioInfoText() {
   const configured = getProviderLabel(state.micPolyphonicDetectorProvider);
   const runtime = getProviderLabel(state.lastMicPolyphonicDetectorProviderUsed);
@@ -23,6 +29,24 @@ export function buildMicPolyphonicDetectorAudioInfoText() {
   }
   if (state.lastMicPolyphonicDetectorWarning) {
     parts.push(state.lastMicPolyphonicDetectorWarning);
+  }
+  if (state.activeAudioInputTrackSettings) {
+    const settings = state.activeAudioInputTrackSettings;
+    const channelCountText =
+      typeof settings.channelCount === 'number' ? String(settings.channelCount) : 'n/a';
+    const sampleRateText =
+      typeof settings.sampleRate === 'number' ? `${Math.round(settings.sampleRate)} Hz` : 'n/a';
+    const hint =
+      typeof state.activeAudioInputTrackContentHint === 'string' &&
+      state.activeAudioInputTrackContentHint.trim().length > 0
+        ? state.activeAudioInputTrackContentHint.trim()
+        : 'n/a';
+    parts.push(
+      `Mic capture (applied): EC ${formatToggleSetting(settings.echoCancellation)}, ` +
+        `NS ${formatToggleSetting(settings.noiseSuppression)}, ` +
+        `AGC ${formatToggleSetting(settings.autoGainControl)}, ` +
+        `channels ${channelCountText}, sample rate ${sampleRateText}, hint ${hint}.`
+    );
   }
   if (state.micPolyphonicDetectorTelemetryFrames > 0) {
     const frames = state.micPolyphonicDetectorTelemetryFrames;

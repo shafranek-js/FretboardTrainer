@@ -418,8 +418,13 @@ function renderSessionSummaryView(sessionSummary: LastSessionViewModel | null) {
     dom.sessionSummaryInput.textContent = '-';
     dom.sessionSummaryDuration.textContent = '-';
     dom.sessionSummaryAccuracy.textContent = '-';
+    dom.sessionSummaryOverallScore.textContent = '-';
     dom.sessionSummaryCorrect.textContent = '-';
     dom.sessionSummaryWrong.textContent = '-';
+    dom.sessionSummaryMissedNoInput.textContent = '-';
+    dom.sessionSummaryTimingAccuracy.textContent = '-';
+    dom.sessionSummaryTimingOffset.textContent = '-';
+    dom.sessionSummaryTimingBreakdown.textContent = '-';
     dom.sessionSummaryAvgTime.textContent = '-';
     dom.sessionSummaryBestStreak.textContent = '-';
     dom.sessionSummaryCoachTip.textContent = '-';
@@ -433,8 +438,13 @@ function renderSessionSummaryView(sessionSummary: LastSessionViewModel | null) {
   dom.sessionSummaryInput.title = sessionSummary.inputText;
   dom.sessionSummaryDuration.textContent = sessionSummary.durationText;
   dom.sessionSummaryAccuracy.textContent = sessionSummary.accuracyText;
+  dom.sessionSummaryOverallScore.textContent = sessionSummary.overallPerformanceScoreText;
   dom.sessionSummaryCorrect.textContent = `${sessionSummary.correctAttemptsText} / ${sessionSummary.totalAttemptsText}`;
   dom.sessionSummaryWrong.textContent = sessionSummary.wrongAttemptsText;
+  dom.sessionSummaryMissedNoInput.textContent = sessionSummary.missedNoInputAttemptsText;
+  dom.sessionSummaryTimingAccuracy.textContent = sessionSummary.performanceTimingSummary?.timingAccuracyText ?? '-';
+  dom.sessionSummaryTimingOffset.textContent = sessionSummary.performanceTimingSummary?.avgOffsetText ?? '-';
+  dom.sessionSummaryTimingBreakdown.textContent = sessionSummary.performanceTimingSummary?.breakdownText ?? '-';
   dom.sessionSummaryAvgTime.textContent = sessionSummary.avgTimeText;
   dom.sessionSummaryBestStreak.textContent = sessionSummary.bestStreakText;
   dom.sessionSummaryCoachTip.textContent = formatMusicText(sessionSummary.coachTipText ?? '');
@@ -619,7 +629,6 @@ export function bindUiSignals() {
     dom.startBtn.disabled = sessionButtonsSignal.get().startDisabled || isLoading;
     dom.instrumentSelector.disabled = isLoading;
     dom.settingsBtn.disabled = isLoading;
-    dom.helpBtn.disabled = isLoading;
     syncSessionToggleButton();
 
     if (isLoading) {

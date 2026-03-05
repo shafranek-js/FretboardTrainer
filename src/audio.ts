@@ -10,6 +10,12 @@ import { setLoadingState } from './ui';
 import { detectPitchYin } from './dsp/pitch';
 import { showNonBlockingInfo } from './app-feedback';
 import { getPromptAudioInputIgnoreMs } from './session-pace';
+import {
+  DEFAULT_YIN_MAX_FREQUENCY,
+  DEFAULT_YIN_MIN_FREQUENCY,
+  resolvePitchYinOptions,
+  type PitchDetectionOptions,
+} from './pitch-detection-options';
 
 /** Converts a frequency in Hz to the closest musical note name. */
 export function freqToNoteName(freq: number): string | null {
@@ -22,9 +28,25 @@ export function freqToScientificNoteName(freq: number): string | null {
 }
 
 /** Detects pitch in monophonic input (YIN algorithm). */
-export function detectPitch(buffer: Float32Array, sampleRate: number, volumeThreshold = VOLUME_THRESHOLD): number {
+export function detectPitch(
+  buffer: Float32Array,
+  sampleRate: number,
+  volumeThreshold = VOLUME_THRESHOLD,
+  options: PitchDetectionOptions = {}
+): number {
   const rms = Math.sqrt(buffer.reduce((acc, val) => acc + val * val, 0) / buffer.length);
   if (rms < volumeThreshold) return 0;
+
+  const focusedOptions = resolvePitchYinOptions(options);
+  const focusedFrequency = detectPitchYin(buffer, sampleRate, focusedOptions);
+  if (focusedFrequency > 0) return focusedFrequency;
+
+  if (
+    focusedOptions.minFrequency === DEFAULT_YIN_MIN_FREQUENCY &&
+    focusedOptions.maxFrequency === DEFAULT_YIN_MAX_FREQUENCY
+  ) {
+    return 0;
+  }
   return detectPitchYin(buffer, sampleRate);
 }
 
@@ -79,7 +101,13 @@ export function playSound(notesToPlay: string | string[]) {
 
   try {
     if (state.isListening && !state.isCalibrating && state.inputSource !== 'midi') {
-      state.ignorePromptAudioUntilMs = Date.now() + getPromptAudioInputIgnoreMs(state.sessionPace);
+      if (state.isDirectInputMode) {
+        state.ignorePromptAudioUntilMs = 0;
+      } else {
+        const eventDurationMs = state.currentPrompt?.melodyEventDurationMs ?? null;
+        state.ignorePromptAudioUntilMs =
+          Date.now() + getPromptAudioInputIgnoreMs(state.sessionPace, eventDurationMs);
+      }
     }
 
     const time = state.audioContext.currentTime;

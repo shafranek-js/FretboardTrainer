@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPerformancePromptController } from './performance-prompt-controller';
 import type { Prompt } from './types';
+import type { PerformanceTimingGrade } from './performance-timing-grade';
 
 function createPrompt(overrides?: Partial<Prompt>): Prompt {
   return {
@@ -22,6 +23,7 @@ function createDeps(options?: { prompt?: Prompt | null; mode?: string; showingAl
     performancePromptResolved: false,
     performancePromptMatched: false,
     performancePromptHadAttempt: false,
+    performancePromptHadWrongAttempt: false,
     pendingTimeoutIds: new Set<number>(),
     isListening: true,
     showingAllNotes: options?.showingAllNotes ?? false,
@@ -37,8 +39,11 @@ function createDeps(options?: { prompt?: Prompt | null; mode?: string; showingAl
     recordPerformanceTimelineSuccess: vi.fn(),
     recordPerformanceTimelineMissed: vi.fn(),
     recordSessionAttempt: vi.fn(),
+    recordPerformancePromptResolution: vi.fn(),
     updateStats: vi.fn(),
     updateSessionGoalProgress: vi.fn(),
+    recordPerformanceTimingAttempt: vi.fn(),
+    recordPerformanceTimingByEvent: vi.fn(),
     setInfoSlots: vi.fn(),
     redrawFretboard: vi.fn(),
     drawFretboard: vi.fn(),
@@ -73,8 +78,15 @@ describe('performance-prompt-controller', () => {
     expect(deps.clearWrongDetectedHighlight).toHaveBeenCalledTimes(1);
     expect(deps.recordPerformanceTimelineSuccess).toHaveBeenCalledWith(prompt, false);
     expect(deps.recordSessionAttempt).toHaveBeenCalledWith({}, prompt, true, 1.25, {});
+    expect(deps.recordPerformancePromptResolution).toHaveBeenCalledWith({}, {
+      correct: true,
+      hadAttempt: false,
+      hadWrongAttempt: false,
+    });
     expect(deps.updateStats).toHaveBeenCalledWith(true, 1.25);
     expect(deps.updateSessionGoalProgress).toHaveBeenCalledTimes(1);
+    expect(deps.recordPerformanceTimingAttempt).toHaveBeenCalledWith({}, null);
+    expect(deps.recordPerformanceTimingByEvent).toHaveBeenCalledWith(null);
     expect(deps.drawFretboard).not.toHaveBeenCalled();
     expect(deps.setResultMessage).not.toHaveBeenCalled();
     expect(deps.nextPrompt).not.toHaveBeenCalled();
@@ -84,6 +96,24 @@ describe('performance-prompt-controller', () => {
     controller.resolveSuccess(2);
     expect(deps.recordSessionAttempt).not.toHaveBeenCalled();
     expect(deps.nextPrompt).not.toHaveBeenCalled();
+  });
+
+  it('shows timing-grade feedback and records timing stats on success', () => {
+    const prompt = createPrompt();
+    const { deps } = createDeps({ prompt });
+    const controller = createPerformancePromptController(deps);
+    const timingGrade: PerformanceTimingGrade = {
+      bucket: 'aBitLate',
+      label: 'A bit late',
+      weight: 0.9,
+      signedOffsetMs: 82,
+    };
+
+    controller.resolveSuccess(0.9, timingGrade);
+
+    expect(deps.recordPerformanceTimingAttempt).toHaveBeenCalledWith({}, timingGrade);
+    expect(deps.recordPerformanceTimingByEvent).toHaveBeenCalledWith(timingGrade);
+    expect(deps.setResultMessage).toHaveBeenCalledWith('A bit late', 'success');
   });
 
   it('keeps the nominal deadline active after success so performance stays time-driven', () => {
@@ -120,6 +150,11 @@ describe('performance-prompt-controller', () => {
     expect(state.performancePromptHadAttempt).toBe(false);
     expect(deps.recordPerformanceTimelineMissed).toHaveBeenCalledWith(prompt);
     expect(deps.recordSessionAttempt).toHaveBeenCalledWith({}, prompt, false, 0, {});
+    expect(deps.recordPerformancePromptResolution).toHaveBeenCalledWith({}, {
+      correct: false,
+      hadAttempt: false,
+      hadWrongAttempt: false,
+    });
     expect(deps.setResultMessage).toHaveBeenCalledWith('Missed event.', 'error');
     expect(deps.redrawFretboard).not.toHaveBeenCalled();
     expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
@@ -140,6 +175,11 @@ describe('performance-prompt-controller', () => {
     expect(state.performancePromptMatched).toBe(false);
     expect(state.performancePromptHadAttempt).toBe(true);
     expect(deps.recordPerformanceTimelineMissed).toHaveBeenCalledWith(prompt);
+    expect(deps.recordPerformancePromptResolution).toHaveBeenCalledWith({}, {
+      correct: false,
+      hadAttempt: true,
+      hadWrongAttempt: false,
+    });
     expect(deps.nextPrompt).toHaveBeenCalledTimes(1);
     expect(deps.scheduleSessionTimeout).toHaveBeenCalledTimes(1);
   });
@@ -164,11 +204,13 @@ describe('performance-prompt-controller', () => {
     state.performancePromptResolved = true;
     state.performancePromptMatched = true;
     state.performancePromptHadAttempt = true;
+    state.performancePromptHadWrongAttempt = true;
 
     controller.resetPromptResolution();
 
     expect(state.performancePromptResolved).toBe(false);
     expect(state.performancePromptMatched).toBe(false);
     expect(state.performancePromptHadAttempt).toBe(false);
+    expect(state.performancePromptHadWrongAttempt).toBe(false);
   });
 });

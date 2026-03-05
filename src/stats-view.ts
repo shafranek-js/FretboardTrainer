@@ -23,13 +23,16 @@ export interface LastSessionViewModel {
   attemptsText: string;
   correctAttemptsText: string;
   wrongAttemptsText: string;
+  missedNoInputAttemptsText: string;
   totalAttemptsText: string;
   accuracyText: string;
+  overallPerformanceScoreText: string;
   avgTimeText: string;
   bestStreakText: string;
   coachTipText: string | null;
   weakSpots: ProblemNoteView[];
   rhythmSummary: LastSessionRhythmSummaryView | null;
+  performanceTimingSummary: LastSessionPerformanceTimingSummaryView | null;
   heatmap: LastSessionHeatmapView | null;
 }
 
@@ -39,6 +42,39 @@ export interface LastSessionRhythmSummaryView {
   lateText: string;
   avgOffsetText: string;
   bestOffsetText: string;
+}
+
+export interface LastSessionPerformanceTimingSummaryView {
+  timingAccuracyText: string;
+  breakdownText: string;
+  avgOffsetText: string;
+}
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function buildOverallPerformanceScoreText(input: {
+  modeKey: string;
+  noteAccuracyRatio: number;
+  totalAttempts: number;
+  totalGraded: number;
+  timingWeightedScoreTotal: number;
+}) {
+  const noteAccuracyRatio = clamp01(input.noteAccuracyRatio);
+  if (input.modeKey !== 'performance') {
+    return `${(noteAccuracyRatio * 100).toFixed(1)}%`;
+  }
+
+  if (input.totalAttempts <= 0 || input.totalGraded <= 0) {
+    return `${(noteAccuracyRatio * 100).toFixed(1)}%`;
+  }
+
+  const timingQualityRatio = clamp01(input.timingWeightedScoreTotal / input.totalGraded);
+  const timingCoverageRatio = clamp01(input.totalGraded / input.totalAttempts);
+  const effectiveTimingRatio = timingQualityRatio * timingCoverageRatio;
+  const scoreRatio = clamp01(noteAccuracyRatio * 0.75 + effectiveTimingRatio * 0.25);
+  return `${(scoreRatio * 100).toFixed(1)}%`;
 }
 
 export interface LastSessionHeatmapCellView {
@@ -232,6 +268,8 @@ export function buildLastSessionViewModel(
     sessionStats.totalAttempts > 0
       ? (sessionStats.correctAttempts / sessionStats.totalAttempts) * 100
       : 0;
+  const noteAccuracyRatio =
+    sessionStats.totalAttempts > 0 ? sessionStats.correctAttempts / sessionStats.totalAttempts : 0;
   const avgTime = sessionStats.correctAttempts > 0 ? sessionStats.totalTime / sessionStats.correctAttempts : 0;
   const rhythmStats = sessionStats.rhythmStats ?? {
     totalJudged: 0,
@@ -241,7 +279,38 @@ export function buildLastSessionViewModel(
     totalAbsOffsetMs: 0,
     bestAbsOffsetMs: null,
   };
+  const performanceTimingStats = sessionStats.performanceTimingStats ?? {
+    totalGraded: 0,
+    perfect: 0,
+    aBitEarly: 0,
+    early: 0,
+    tooEarly: 0,
+    aBitLate: 0,
+    late: 0,
+    tooLate: 0,
+    weightedScoreTotal: 0,
+    totalAbsOffsetMs: 0,
+  };
   const heatmap = buildLastSessionHeatmapView(sessionStats);
+  const totalIncorrectAttempts = Math.max(0, sessionStats.totalAttempts - sessionStats.correctAttempts);
+  const isPerformanceMode = sessionStats.modeKey === 'performance';
+  const normalizedPerformanceWrongAttempts = Math.max(
+    0,
+    Math.min(totalIncorrectAttempts, sessionStats.performanceWrongAttempts ?? totalIncorrectAttempts)
+  );
+  const normalizedPerformanceMissedNoInputAttempts = Math.max(
+    0,
+    Math.min(
+      totalIncorrectAttempts - normalizedPerformanceWrongAttempts,
+      sessionStats.performanceMissedNoInputAttempts ?? 0
+    )
+  );
+  const wrongAttemptsText = isPerformanceMode
+    ? String(normalizedPerformanceWrongAttempts)
+    : String(totalIncorrectAttempts);
+  const missedNoInputAttemptsText = isPerformanceMode
+    ? String(normalizedPerformanceMissedNoInputAttempts)
+    : '-';
 
   return {
     modeLabel: sessionStats.modeLabel,
@@ -249,9 +318,17 @@ export function buildLastSessionViewModel(
     durationText: formatDurationMs(durationMs),
     attemptsText: `${sessionStats.correctAttempts}/${sessionStats.totalAttempts} correct`,
     correctAttemptsText: String(sessionStats.correctAttempts),
-    wrongAttemptsText: String(Math.max(0, sessionStats.totalAttempts - sessionStats.correctAttempts)),
+    wrongAttemptsText,
+    missedNoInputAttemptsText,
     totalAttemptsText: String(sessionStats.totalAttempts),
     accuracyText: `${accuracy.toFixed(1)}%`,
+    overallPerformanceScoreText: buildOverallPerformanceScoreText({
+      modeKey: sessionStats.modeKey,
+      noteAccuracyRatio,
+      totalAttempts: sessionStats.totalAttempts,
+      totalGraded: performanceTimingStats.totalGraded,
+      timingWeightedScoreTotal: performanceTimingStats.weightedScoreTotal,
+    }),
     avgTimeText: `${avgTime.toFixed(2)}s`,
     bestStreakText: String(Math.max(0, sessionStats.bestCorrectStreak ?? 0)),
     coachTipText: buildLastSessionCoachTip(sessionStats, accuracy, avgTime, heatmap),
@@ -265,6 +342,41 @@ export function buildLastSessionViewModel(
             avgOffsetText: `${(rhythmStats.totalAbsOffsetMs / rhythmStats.totalJudged).toFixed(0)} ms`,
             bestOffsetText:
               rhythmStats.bestAbsOffsetMs === null ? '-' : `${rhythmStats.bestAbsOffsetMs} ms`,
+          }
+        : null,
+    performanceTimingSummary:
+      sessionStats.modeKey === 'performance' && performanceTimingStats.totalGraded > 0
+        ? {
+            timingAccuracyText: (() => {
+              const gradedAttempts = performanceTimingStats.totalGraded;
+              const totalAttempts = Math.max(0, sessionStats.totalAttempts);
+              const accuracyPercent =
+                (performanceTimingStats.weightedScoreTotal / gradedAttempts) * 100;
+              const coverageSuffix =
+                totalAttempts > 0 ? ` (${gradedAttempts}/${totalAttempts} graded)` : '';
+              return `${accuracyPercent.toFixed(1)}%${coverageSuffix}`;
+            })(),
+            breakdownText: (() => {
+              const gradedAttempts = performanceTimingStats.totalGraded;
+              const totalAttempts = Math.max(0, sessionStats.totalAttempts);
+              const coverageHint =
+                totalAttempts > gradedAttempts
+                  ? `Timing judged on ${gradedAttempts}/${totalAttempts} attempts. `
+                  : '';
+              return (
+                coverageHint +
+                `Perfect ${performanceTimingStats.perfect}, ` +
+                `A bit early ${performanceTimingStats.aBitEarly}, ` +
+                `Early ${performanceTimingStats.early}, ` +
+                `Too early ${performanceTimingStats.tooEarly}, ` +
+                `A bit late ${performanceTimingStats.aBitLate}, ` +
+                `Late ${performanceTimingStats.late}, ` +
+                `Too late ${performanceTimingStats.tooLate}`
+              );
+            })(),
+            avgOffsetText: `${(
+              performanceTimingStats.totalAbsOffsetMs / performanceTimingStats.totalGraded
+            ).toFixed(0)} ms`,
           }
         : null,
     heatmap,

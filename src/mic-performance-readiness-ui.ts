@@ -61,6 +61,18 @@ export function refreshMicPerformanceReadinessUi(nowMs = Date.now()) {
     judgmentLastLatencyMs: state.micPerformanceJudgmentLastLatencyMs,
     judgmentMaxLatencyMs: state.micPerformanceJudgmentMaxLatencyMs,
     latencyCalibrationActive: state.micPerformanceLatencyCalibrationActive,
+    onsetGateStatus: state.micPerformanceOnsetGateStatus,
+    onsetGateReason: state.micPerformanceOnsetGateReason,
+    onsetGateAtMs: state.micPerformanceOnsetGateAtMs,
+    appliedEchoCancellation: state.activeAudioInputTrackSettings?.echoCancellation ?? null,
+    appliedNoiseSuppression: state.activeAudioInputTrackSettings?.noiseSuppression ?? null,
+    appliedAutoGainControl: state.activeAudioInputTrackSettings?.autoGainControl ?? null,
+    appliedChannelCount: state.activeAudioInputTrackSettings?.channelCount ?? null,
+    appliedContentHint: state.activeAudioInputTrackContentHint ?? null,
+    onsetRejectedWeakAttackCount: state.micPerformanceOnsetRejectedWeakAttackCount,
+    onsetRejectedLowConfidenceCount: state.micPerformanceOnsetRejectedLowConfidenceCount,
+    onsetRejectedLowVoicingCount: state.micPerformanceOnsetRejectedLowVoicingCount,
+    onsetRejectedShortHoldCount: state.micPerformanceOnsetRejectedShortHoldCount,
     nowMs,
   });
 

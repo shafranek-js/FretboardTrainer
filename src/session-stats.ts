@@ -1,5 +1,12 @@
 import type { IInstrument } from './instruments/instrument';
-import type { NoteStat, Prompt, RhythmSessionStats, SessionStats } from './types';
+import type {
+  NoteStat,
+  PerformanceTimingStats,
+  Prompt,
+  RhythmSessionStats,
+  SessionStats,
+} from './types';
+import type { PerformanceTimingGrade } from './performance-timing-grade';
 
 function ensureNoteStat(map: Record<string, NoteStat>, key: string) {
   if (!map[key]) {
@@ -16,6 +23,21 @@ function createEmptyRhythmStats(): RhythmSessionStats {
     late: 0,
     totalAbsOffsetMs: 0,
     bestAbsOffsetMs: null,
+  };
+}
+
+function createEmptyPerformanceTimingStats(): PerformanceTimingStats {
+  return {
+    totalGraded: 0,
+    perfect: 0,
+    aBitEarly: 0,
+    early: 0,
+    tooEarly: 0,
+    aBitLate: 0,
+    late: 0,
+    tooLate: 0,
+    weightedScoreTotal: 0,
+    totalAbsOffsetMs: 0,
   };
 }
 
@@ -80,12 +102,15 @@ export function createSessionStats({
     maxFret,
     totalAttempts: 0,
     correctAttempts: 0,
+    performanceWrongAttempts: 0,
+    performanceMissedNoInputAttempts: 0,
     totalTime: 0,
     currentCorrectStreak: 0,
     bestCorrectStreak: 0,
     noteStats: {},
     targetZoneStats: {},
     rhythmStats: createEmptyRhythmStats(),
+    performanceTimingStats: createEmptyPerformanceTimingStats(),
   };
 }
 
@@ -154,9 +179,45 @@ export function finalizeSessionStats(sessionStats: SessionStats | null, endedAtM
     noteStats: { ...sessionStats.noteStats },
     targetZoneStats: { ...sessionStats.targetZoneStats },
     rhythmStats: { ...sessionStats.rhythmStats },
+    performanceTimingStats: sessionStats.performanceTimingStats
+      ? { ...sessionStats.performanceTimingStats }
+      : createEmptyPerformanceTimingStats(),
     stringOrder: [...sessionStats.stringOrder],
     enabledStrings: [...sessionStats.enabledStrings],
   } satisfies SessionStats;
+}
+
+export function recordPerformancePromptResolution(
+  sessionStats: SessionStats | null,
+  input: {
+    correct: boolean;
+    hadAttempt: boolean;
+    hadWrongAttempt: boolean;
+  }
+) {
+  if (!sessionStats) return;
+  if (sessionStats.modeKey !== 'performance') return;
+  if (input.correct) return;
+
+  if (input.hadWrongAttempt) {
+    sessionStats.performanceWrongAttempts++;
+    return;
+  }
+
+  sessionStats.performanceMissedNoInputAttempts++;
+}
+
+export function recordPerformanceTimingAttempt(
+  sessionStats: SessionStats | null,
+  grade: PerformanceTimingGrade | null | undefined
+) {
+  if (!sessionStats || !grade) return;
+  const stats = sessionStats.performanceTimingStats ?? createEmptyPerformanceTimingStats();
+  sessionStats.performanceTimingStats = stats;
+  stats.totalGraded++;
+  stats.weightedScoreTotal += grade.weight;
+  stats.totalAbsOffsetMs += Math.abs(grade.signedOffsetMs);
+  stats[grade.bucket]++;
 }
 
 export function recordRhythmTimingAttempt(

@@ -52,6 +52,7 @@ function createDeps(
       stableChordCounter: 0,
       currentMelodyEventFoundNotes: new Set<string>(),
       performancePromptResolved: false,
+      inputSource: 'microphone' as const,
       startTime: 0,
       micPolyphonicDetectorProvider: 'spectrum',
     },
@@ -125,8 +126,88 @@ describe('melody-runtime-detection-controller', () => {
 
     controller.handleMicrophonePolyphonicMelodyFrame(0.3);
 
-    expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(2);
+    expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(2, expect.any(Object));
     expect(deps.displayResult).not.toHaveBeenCalled();
+  });
+
+  it('applies mic latency compensation in performance timing grade', () => {
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        inputSource: 'microphone',
+        startTime: 1000,
+        performanceMicLatencyCompensationMs: 100,
+      },
+      detectMicPolyphonicFrame: vi.fn(() => ({
+        detectedNotesText: 'C E',
+        detectedNoteNames: ['C', 'E'],
+        nextStableChordCounter: 3,
+        isStableMatch: true,
+        isStableMismatch: false,
+      })),
+      now: vi.fn(() => 1160),
+    });
+    const controller = createMelodyRuntimeDetectionController(deps);
+
+    controller.handleMicrophonePolyphonicMelodyFrame(0.3);
+
+    const timingGrade = deps.performanceResolveSuccess.mock.calls[0]?.[1];
+    expect(timingGrade?.signedOffsetMs).toBe(60);
+    expect(timingGrade?.bucket).toBe('perfect');
+  });
+
+  it('does not apply mic latency compensation to MIDI timing grade', () => {
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        inputSource: 'midi',
+        startTime: 1000,
+        performanceMicLatencyCompensationMs: 100,
+      },
+      now: vi.fn(() => 1160),
+    });
+    const controller = createMelodyRuntimeDetectionController(deps);
+
+    controller.handleMidiMelodyUpdate(
+      createMidiEvent({
+        heldNoteNames: ['C', 'E'],
+        heldNoteNumbers: [60, 64],
+      })
+    );
+
+    const timingGrade = deps.performanceResolveSuccess.mock.calls[0]?.[1];
+    expect(timingGrade?.signedOffsetMs).toBe(160);
+    expect(timingGrade?.bucket).toBe('late');
+  });
+
+  it('applies adaptive timing bias in performance timing grade', () => {
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        inputSource: 'microphone',
+        startTime: 1000,
+        performanceMicLatencyCompensationMs: 100,
+        performanceTimingBiasMs: 80,
+      },
+      detectMicPolyphonicFrame: vi.fn(() => ({
+        detectedNotesText: 'C E',
+        detectedNoteNames: ['C', 'E'],
+        nextStableChordCounter: 3,
+        isStableMatch: true,
+        isStableMismatch: false,
+      })),
+      now: vi.fn(() => 1160),
+    });
+    const controller = createMelodyRuntimeDetectionController(deps);
+
+    controller.handleMicrophonePolyphonicMelodyFrame(0.3);
+
+    const timingGrade = deps.performanceResolveSuccess.mock.calls[0]?.[1];
+    expect(timingGrade?.signedOffsetMs).toBe(-20);
+    expect(timingGrade?.bucket).toBe('perfect');
   });
 
   it('delegates monophonic MIDI melody notes to the stable monophonic handler', () => {

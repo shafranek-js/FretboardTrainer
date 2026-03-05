@@ -64,6 +64,7 @@ const mocked = vi.hoisted(() => {
     performanceMicTolerancePreset: createSelect('normal', ['strict', 'normal', 'forgiving']) as unknown as HTMLSelectElement,
     performanceTimingLeniencyPreset: createSelect('normal', ['strict', 'normal', 'forgiving']) as unknown as HTMLSelectElement,
     performanceMicLatencyCompensation: { value: '0' } as HTMLInputElement,
+    performanceMicLatencyCompensationExact: { value: '0' } as HTMLInputElement,
     performanceMicLatencyCompensationValue: { textContent: '' } as HTMLElement,
     instrumentSelector: createSelect('guitar', ['guitar', 'ukulele']) as unknown as HTMLSelectElement,
     tuningPreset: createSelect('standard', ['standard']) as unknown as HTMLSelectElement,
@@ -75,6 +76,7 @@ const mocked = vi.hoisted(() => {
     micSensitivityPreset: createSelect('normal', ['quiet_room', 'normal', 'noisy_room', 'auto']) as unknown as HTMLSelectElement,
     micNoteAttackFilter: createSelect('balanced', ['off', 'balanced', 'strong']) as unknown as HTMLSelectElement,
     micNoteHoldFilter: createSelect('40ms', ['off', '40ms', '80ms', '120ms']) as unknown as HTMLSelectElement,
+    micDirectInputMode: { checked: false } as HTMLInputElement,
     micPolyphonicDetectorProvider: createSelect('auto', ['auto', 'basic']) as unknown as HTMLSelectElement,
     startFret: { value: '0' } as HTMLInputElement,
     endFret: { value: '20' } as HTMLInputElement,
@@ -119,6 +121,7 @@ const mocked = vi.hoisted(() => {
     showMelodyTimelineSteps: false,
     showMelodyTimelineDetails: false,
     inputSource: 'microphone',
+    isDirectInputMode: false,
     preferredAudioInputDeviceId: null,
     micSensitivityPreset: 'normal',
     micNoteAttackFilterPreset: 'balanced',
@@ -296,6 +299,7 @@ function resetMockState() {
   mocked.dom.performanceMicTolerancePreset.value = 'normal';
   mocked.dom.performanceTimingLeniencyPreset.value = 'normal';
   mocked.dom.performanceMicLatencyCompensation.value = '0';
+  mocked.dom.performanceMicLatencyCompensationExact.value = '0';
   mocked.dom.performanceMicLatencyCompensationValue.textContent = '';
   mocked.dom.difficulty.value = 'natural';
   mocked.dom.noteNaming.value = 'sharps';
@@ -332,6 +336,7 @@ function resetMockState() {
   mocked.state.showMelodyTimelineSteps = false;
   mocked.state.showMelodyTimelineDetails = false;
   mocked.state.inputSource = 'microphone';
+  mocked.state.isDirectInputMode = false;
   mocked.state.preferredAudioInputDeviceId = null;
   mocked.state.micSensitivityPreset = 'normal';
   mocked.state.micNoteAttackFilterPreset = 'balanced';
@@ -359,6 +364,7 @@ function resetMockState() {
   mocked.state.performanceMicTolerancePreset = 'normal';
   mocked.state.performanceTimingLeniencyPreset = 'normal';
   mocked.state.performanceMicLatencyCompensationMs = 0;
+  mocked.dom.micDirectInputMode.checked = false;
   mocked.panelState.practiceSetupCollapsed = false;
   mocked.panelState.melodySetupCollapsed = false;
   mocked.panelState.sessionToolsCollapsed = true;
@@ -384,6 +390,7 @@ describe('storage', () => {
     mocked.state.melodyPlaybackBpmById = { 'builtin:guitar:ode_to_joy_intro': 108 };
     mocked.dom.performanceTimingLeniencyPreset.value = 'forgiving';
     mocked.dom.performanceMicLatencyCompensation.value = '135';
+    mocked.dom.micDirectInputMode.checked = true;
     mocked.panelState.practiceSetupCollapsed = true;
     mocked.panelState.melodySetupCollapsed = true;
     mocked.panelState.sessionToolsCollapsed = false;
@@ -403,6 +410,7 @@ describe('storage', () => {
       selectedMelodyId: 'ode-to-joy',
       performanceTimingLeniencyPreset: 'forgiving',
       performanceMicLatencyCompensationMs: 135,
+      isDirectInputMode: true,
       practiceSetupCollapsed: true,
       melodySetupCollapsed: true,
       sessionToolsCollapsed: false,
@@ -427,6 +435,7 @@ describe('storage', () => {
           performanceMicTolerancePreset: 'forgiving',
           performanceTimingLeniencyPreset: 'strict',
           performanceMicLatencyCompensationMs: 125,
+          isDirectInputMode: true,
           noteNaming: 'flats',
           selectedMelodyId: 'ode-to-joy',
           melodyPlaybackBpmById: { 'builtin:guitar:ode_to_joy_intro': 108 },
@@ -456,13 +465,16 @@ describe('storage', () => {
     expect(mocked.dom.performanceMicTolerancePreset.value).toBe('forgiving');
     expect(mocked.dom.performanceTimingLeniencyPreset.value).toBe('strict');
     expect(mocked.dom.performanceMicLatencyCompensation.value).toBe('125');
+    expect(mocked.dom.performanceMicLatencyCompensationExact.value).toBe('125');
     expect(mocked.dom.performanceMicLatencyCompensationValue.textContent).toBe('125 ms');
+    expect(mocked.dom.micDirectInputMode.checked).toBe(true);
     expect(mocked.dom.noteNaming.value).toBe('flats');
     expect(mocked.state.melodyTimelineZoomPercent).toBe(145);
     expect(mocked.state.showMelodyTabTimeline).toBe(false);
     expect(mocked.state.showScrollingTabPanel).toBe(false);
     expect(mocked.state.melodyPlaybackBpmById).toEqual({ 'builtin:guitar:ode_to_joy_intro': 108 });
     expect(mocked.state.performanceMicLatencyCompensationMs).toBe(125);
+    expect(mocked.state.isDirectInputMode).toBe(true);
     expect(mocked.panelState.practiceSetupCollapsed).toBe(true);
     expect(mocked.panelState.melodySetupCollapsed).toBe(true);
     expect(mocked.panelState.sessionToolsCollapsed).toBe(false);

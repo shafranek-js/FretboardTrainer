@@ -4,6 +4,8 @@ import type { Prompt } from './types';
 import { shouldForgivePerformanceTimingBoundaryAttempt } from './performance-timing-forgiveness';
 import { shouldJudgePerformanceMicOnset } from './performance-mic-onset-gate';
 import { resolveLatencyCompensatedPromptStartedAtMs } from './performance-mic-latency-compensation';
+import { evaluatePerformanceTimingGrade, type PerformanceTimingGrade } from './performance-timing-grade';
+import { normalizePerformanceMicLatencyCompensationMs } from './performance-mic-latency-compensation';
 
 type ResultTone = 'neutral' | 'success' | 'error';
 
@@ -19,6 +21,8 @@ interface StableMonophonicDetectionControllerDeps {
     performancePromptResolved: boolean;
     performanceTimingLeniencyPreset?: 'strict' | 'normal' | 'forgiving';
     performanceMicLatencyCompensationMs?: number;
+    performanceTimingBiasMs?: number;
+    inputSource?: 'microphone' | 'midi';
     startTime: number;
     micMonophonicFirstDetectedAtMs: number | null;
     performanceMicLastJudgedOnsetNote: string | null;
@@ -42,7 +46,7 @@ interface StableMonophonicDetectionControllerDeps {
     detectedNote: string,
     detectedFrequency?: number | null
   ): OctaveMismatch | null;
-  performanceResolveSuccess(elapsedSeconds: number): void;
+  performanceResolveSuccess(elapsedSeconds: number, timingGrade?: PerformanceTimingGrade | null): void;
   handleMelodyPolyphonicMismatch(prompt: Prompt, detectedText: string, context: string): void;
   displayResult(correct: boolean, elapsedSeconds: number): void;
   setResultMessage(message: string, tone?: ResultTone): void;
@@ -85,6 +89,27 @@ function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
 export function createStableMonophonicDetectionController(
   deps: StableMonophonicDetectionControllerDeps
 ) {
+  function resolvePerformanceTimingGrade(nowMs: number, onsetAtMs: number | null) {
+    const latencyCompensationMs =
+      deps.state.inputSource === 'microphone'
+        ? normalizePerformanceMicLatencyCompensationMs(
+            deps.state.performanceMicLatencyCompensationMs ?? 0
+          )
+        : 0;
+    const timingBiasMs =
+      deps.state.inputSource === 'microphone'
+        ? Math.round(deps.state.performanceTimingBiasMs ?? 0)
+        : 0;
+    const referenceStartedAtMs = deps.state.startTime;
+    const judgedAtMs = (onsetAtMs ?? nowMs) - latencyCompensationMs;
+    return evaluatePerformanceTimingGrade({
+      signedOffsetMs: judgedAtMs - referenceStartedAtMs - timingBiasMs,
+      preset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
+      eventDurationMs: deps.state.currentPrompt?.melodyEventDurationMs,
+      inputSource: deps.state.inputSource,
+    });
+  }
+
   function handleDetectedNote(detectedNote: string, detectedFrequency?: number | null) {
     const trainingMode = deps.getTrainingMode();
     const prompt = deps.state.currentPrompt;
@@ -157,6 +182,8 @@ export function createStableMonophonicDetectionController(
           nowMs,
           lastJudgedOnsetNote: deps.state.performanceMicLastJudgedOnsetNote,
           lastJudgedOnsetAtMs: deps.state.performanceMicLastJudgedOnsetAtMs,
+          eventDurationMs: prompt.melodyEventDurationMs ?? null,
+          leniencyPreset: deps.state.performanceTimingLeniencyPreset ?? 'normal',
         })
       ) {
         return;
@@ -164,10 +191,11 @@ export function createStableMonophonicDetectionController(
       deps.markPerformancePromptAttempt();
 
       if (deps.isPerformancePitchWithinTolerance(detectedFrequency)) {
+        const timingGrade = resolvePerformanceTimingGrade(nowMs, onsetAtMs);
         deps.markPerformanceMicOnsetJudged(detectedNote, onsetAtMs ?? nowMs);
         deps.recordPerformanceMicJudgmentLatency(onsetAtMs ?? nowMs, nowMs);
         const elapsed = (nowMs - deps.state.startTime) / 1000;
-        deps.performanceResolveSuccess(elapsed);
+        deps.performanceResolveSuccess(elapsed, timingGrade);
         return;
       }
 
@@ -188,10 +216,11 @@ export function createStableMonophonicDetectionController(
       }
 
       if (prompt.targetNote && detectedNote === prompt.targetNote) {
+        const timingGrade = resolvePerformanceTimingGrade(nowMs, onsetAtMs);
         deps.markPerformanceMicOnsetJudged(detectedNote, onsetAtMs ?? nowMs);
         deps.recordPerformanceMicJudgmentLatency(onsetAtMs ?? nowMs, nowMs);
         const elapsed = (nowMs - deps.state.startTime) / 1000;
-        deps.performanceResolveSuccess(elapsed);
+        deps.performanceResolveSuccess(elapsed, timingGrade);
         return;
       }
 

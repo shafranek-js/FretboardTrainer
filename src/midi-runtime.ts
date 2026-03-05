@@ -91,6 +91,7 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   dom.micSensitivityRow.classList.toggle('hidden', usingMidi);
   dom.micAttackFilterRow.classList.toggle('hidden', usingMidi);
   dom.micHoldFilterRow.classList.toggle('hidden', usingMidi);
+  dom.micDirectInputRow.classList.toggle('hidden', usingMidi);
   dom.micPolyphonicDetectorRow.classList.toggle('hidden', usingMidi);
   dom.micNoiseCalibrationRow.classList.toggle('hidden', usingMidi);
   dom.audioInputInfo.classList.toggle('hidden', usingMidi);

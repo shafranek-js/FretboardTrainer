@@ -129,7 +129,7 @@ describe('stable-monophonic-detection-controller', () => {
 
     controller.handleDetectedNote('A', 440);
 
-    expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(2);
+    expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(2, expect.any(Object));
     expect(deps.markPerformanceMicOnsetJudged).toHaveBeenCalledWith('A', 2200);
     expect(deps.recordPerformanceMicJudgmentLatency).toHaveBeenCalledWith(2200, 2300);
     expect(deps.displayResult).not.toHaveBeenCalled();
@@ -151,10 +151,55 @@ describe('stable-monophonic-detection-controller', () => {
 
     controller.handleDetectedNote('G#', 432);
 
-    expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(1);
+    expect(deps.performanceResolveSuccess).toHaveBeenCalledWith(1, expect.any(Object));
     expect(deps.markPerformanceMicOnsetJudged).toHaveBeenCalledWith('G#', 1200);
     expect(deps.recordPerformanceMicJudgmentLatency).toHaveBeenCalledWith(1200, 1600);
     expect(deps.recordPerformanceTimelineWrongAttempt).not.toHaveBeenCalled();
+  });
+
+  it('applies mic latency compensation in monophonic performance timing grade', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1300);
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        inputSource: 'microphone',
+        performanceMicLatencyCompensationMs: 100,
+        startTime: 1000,
+        micMonophonicFirstDetectedAtMs: 1160,
+        currentPrompt: createPrompt({ targetNote: 'A' }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('A', 440);
+
+    const timingGrade = deps.performanceResolveSuccess.mock.calls[0]?.[1];
+    expect(timingGrade?.signedOffsetMs).toBe(60);
+    expect(timingGrade?.bucket).toBe('perfect');
+  });
+
+  it('applies adaptive timing bias in monophonic performance timing grade', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1300);
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'performance'),
+      state: {
+        ...createDeps().state,
+        inputSource: 'microphone',
+        performanceMicLatencyCompensationMs: 100,
+        performanceTimingBiasMs: 80,
+        startTime: 1000,
+        micMonophonicFirstDetectedAtMs: 1160,
+        currentPrompt: createPrompt({ targetNote: 'A' }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('A', 440);
+
+    const timingGrade = deps.performanceResolveSuccess.mock.calls[0]?.[1];
+    expect(timingGrade?.signedOffsetMs).toBe(-20);
+    expect(timingGrade?.bucket).toBe('perfect');
   });
 
   it('records performance wrong-note attempts for off-target notes', () => {

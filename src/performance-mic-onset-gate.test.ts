@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { shouldJudgePerformanceMicOnset } from './performance-mic-onset-gate';
+import {
+  resolvePerformanceMicOnsetWindowMs,
+  shouldJudgePerformanceMicOnset,
+} from './performance-mic-onset-gate';
 
 describe('performance-mic-onset-gate', () => {
   it('accepts a fresh onset inside the prompt window', () => {
@@ -65,5 +68,53 @@ describe('performance-mic-onset-gate', () => {
         lastJudgedOnsetAtMs: null,
       })
     ).toBe(true);
+  });
+
+  it('scales onset window from event duration and leniency preset', () => {
+    expect(
+      resolvePerformanceMicOnsetWindowMs({ eventDurationMs: 250, leniencyPreset: 'strict' })
+    ).toEqual({
+      earlyWindowMs: 63,
+      maxOnsetAgeMs: 288,
+    });
+    expect(
+      resolvePerformanceMicOnsetWindowMs({ eventDurationMs: 250, leniencyPreset: 'normal' })
+    ).toEqual({
+      earlyWindowMs: 105,
+      maxOnsetAgeMs: 388,
+    });
+    expect(
+      resolvePerformanceMicOnsetWindowMs({ eventDurationMs: 250, leniencyPreset: 'forgiving' })
+    ).toEqual({
+      earlyWindowMs: 138,
+      maxOnsetAgeMs: 500,
+    });
+  });
+
+  it('accepts earlier onsets for forgiving preset on short events', () => {
+    expect(
+      shouldJudgePerformanceMicOnset({
+        detectedNote: 'A',
+        noteFirstDetectedAtMs: 870,
+        promptStartedAtMs: 1000,
+        nowMs: 1020,
+        lastJudgedOnsetNote: null,
+        lastJudgedOnsetAtMs: null,
+        eventDurationMs: 250,
+        leniencyPreset: 'forgiving',
+      })
+    ).toBe(true);
+    expect(
+      shouldJudgePerformanceMicOnset({
+        detectedNote: 'A',
+        noteFirstDetectedAtMs: 870,
+        promptStartedAtMs: 1000,
+        nowMs: 1020,
+        lastJudgedOnsetNote: null,
+        lastJudgedOnsetAtMs: null,
+        eventDurationMs: 250,
+        leniencyPreset: 'strict',
+      })
+    ).toBe(false);
   });
 });

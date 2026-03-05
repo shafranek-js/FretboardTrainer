@@ -29,6 +29,18 @@ export interface MicPerformanceReadinessInput {
   judgmentLastLatencyMs: number | null;
   judgmentMaxLatencyMs: number;
   latencyCalibrationActive: boolean;
+  onsetGateStatus?: 'idle' | 'accepted' | 'rejected';
+  onsetGateReason?: string | null;
+  onsetGateAtMs?: number | null;
+  appliedEchoCancellation?: boolean | null;
+  appliedNoiseSuppression?: boolean | null;
+  appliedAutoGainControl?: boolean | null;
+  appliedChannelCount?: number | null;
+  appliedContentHint?: string | null;
+  onsetRejectedWeakAttackCount?: number;
+  onsetRejectedLowConfidenceCount?: number;
+  onsetRejectedLowVoicingCount?: number;
+  onsetRejectedShortHoldCount?: number;
   nowMs: number;
 }
 
@@ -85,6 +97,62 @@ function formatLiveSignalSummary(input: MicPerformanceReadinessInput) {
   return 'Live signal: confident single-note detection.';
 }
 
+function formatOnsetGateSummary(input: MicPerformanceReadinessInput) {
+  if (!input.isListening || input.inputSource !== 'microphone' || input.trainingMode !== 'performance') {
+    return null;
+  }
+
+  if (
+    input.onsetGateStatus === 'idle' ||
+    input.onsetGateAtMs === null ||
+    !Number.isFinite(input.onsetGateAtMs) ||
+    input.nowMs - input.onsetGateAtMs > 2500
+  ) {
+    return 'Onset gate: waiting for next clean attack.';
+  }
+
+  if (input.onsetGateStatus === 'accepted') {
+    const details = input.onsetGateReason ? ` ${input.onsetGateReason}` : '';
+    return `Onset gate: accepted.${details}`;
+  }
+
+  const details = input.onsetGateReason ? ` ${input.onsetGateReason}` : '';
+  return `Onset gate: rejected.${details}`;
+}
+
+function formatOnsetGateRejectTelemetrySummary(input: MicPerformanceReadinessInput) {
+  if (input.inputSource !== 'microphone' || input.trainingMode !== 'performance') return null;
+
+  const weakAttackCount = Math.max(0, Math.round(input.onsetRejectedWeakAttackCount ?? 0));
+  const lowConfidenceCount = Math.max(0, Math.round(input.onsetRejectedLowConfidenceCount ?? 0));
+  const lowVoicingCount = Math.max(0, Math.round(input.onsetRejectedLowVoicingCount ?? 0));
+  const shortHoldCount = Math.max(0, Math.round(input.onsetRejectedShortHoldCount ?? 0));
+  const totalRejects = weakAttackCount + lowConfidenceCount + lowVoicingCount + shortHoldCount;
+  if (totalRejects <= 0) return null;
+
+  const breakdown: Array<{ label: string; value: number }> = [
+    { label: 'weak attack', value: weakAttackCount },
+    { label: 'low confidence', value: lowConfidenceCount },
+    { label: 'low voicing', value: lowVoicingCount },
+    { label: 'short hold', value: shortHoldCount },
+  ];
+  const topReason = breakdown.reduce((best, item) => (item.value > best.value ? item : best), breakdown[0]);
+  const topReasonTip =
+    topReason.label === 'weak attack'
+      ? 'Tip: lower attack strictness (Balanced/Off), keep Auto sensitivity, and move closer to the mic.'
+      : topReason.label === 'low confidence'
+        ? 'Tip: mute unused strings and play cleaner single-note attacks.'
+        : topReason.label === 'low voicing'
+          ? 'Tip: reduce background noise and avoid headset/Bluetooth mic paths.'
+          : 'Tip: slightly longer note holds improve onset acceptance.';
+  return (
+    `Onset rejects (recent): ${totalRejects}. ` +
+    `Top reason: ${topReason.label} (${topReason.value}). ` +
+    `Breakdown: weak attack ${weakAttackCount}, low confidence ${lowConfidenceCount}, ` +
+    `low voicing ${lowVoicingCount}, short hold ${shortHoldCount}. ${topReasonTip}`
+  );
+}
+
 export function buildMicPerformanceReadinessView(
   input: MicPerformanceReadinessInput
 ): MicPerformanceReadinessView {
@@ -112,6 +180,39 @@ export function buildMicPerformanceReadinessView(
   ) {
     if (tone === 'success') tone = 'warning';
     issues.push('Built-in/default mic can work, but a close wired mic or audio interface usually improves attack detection.');
+  }
+
+  if (input.isListening) {
+    const voiceProcessingEnabled =
+      input.appliedEchoCancellation === true ||
+      input.appliedNoiseSuppression === true ||
+      input.appliedAutoGainControl === true;
+    if (voiceProcessingEnabled) {
+      if (tone !== 'error') tone = 'warning';
+      issues.push(
+        'Microphone voice processing is still enabled (EC/NS/AGC). Disable it or use a browser/device path that allows raw music capture.'
+      );
+    } else if (
+      input.appliedEchoCancellation === false &&
+      input.appliedNoiseSuppression === false &&
+      input.appliedAutoGainControl === false
+    ) {
+      issues.push('Mic capture path reports EC/NS/AGC disabled (music-friendly).');
+    }
+
+    if (typeof input.appliedContentHint === 'string' && input.appliedContentHint.trim().length > 0) {
+      if (input.appliedContentHint !== 'music') {
+        if (tone !== 'error') tone = 'warning';
+        issues.push(
+          `Track content hint is "${input.appliedContentHint}". "music" is preferred for guitar detection.`
+        );
+      }
+    }
+
+    if (typeof input.appliedChannelCount === 'number' && input.appliedChannelCount > 1) {
+      if (tone !== 'error') tone = 'warning';
+      issues.push('Multi-channel mic capture detected. Mono input is usually more stable for note attacks.');
+    }
   }
 
   if (input.micSensitivityPreset !== 'auto' || input.micAutoNoiseFloorRms === null) {
@@ -206,6 +307,14 @@ export function buildMicPerformanceReadinessView(
 
   if (liveSignalSummary) {
     issues.push(liveSignalSummary);
+  }
+  const onsetGateSummary = formatOnsetGateSummary(input);
+  if (onsetGateSummary) {
+    issues.push(onsetGateSummary);
+  }
+  const onsetGateRejectTelemetrySummary = formatOnsetGateRejectTelemetrySummary(input);
+  if (onsetGateRejectTelemetrySummary) {
+    issues.push(onsetGateRejectTelemetrySummary);
   }
 
   const prefix =

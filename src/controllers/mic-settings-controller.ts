@@ -4,6 +4,7 @@ import { normalizeMicNoteAttackFilterPreset } from '../mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from '../mic-note-hold-filter';
 import { normalizeMicPolyphonicDetectorProvider } from '../mic-polyphonic-detector';
 import { normalizeMicSensitivityPreset } from '../mic-input-sensitivity';
+import { resolvePerformanceMicVolumeThreshold } from '../performance-mic-volume-threshold';
 
 interface MicSettingsControllerState {
   isListening: boolean;
@@ -57,6 +58,11 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
       deps.state.micSensitivityPreset as never,
       deps.state.micAutoNoiseFloorRms
     );
+    const performanceThreshold = resolvePerformanceMicVolumeThreshold({
+      baseThreshold: threshold,
+      sensitivityPreset: deps.state.micSensitivityPreset as never,
+      autoNoiseFloorRms: deps.state.micAutoNoiseFloorRms,
+    });
     const polyProviderLabel =
       deps.dom.micPolyphonicDetectorProvider.selectedOptions[0]?.textContent?.trim() ??
       'Spectrum (Fast baseline)';
@@ -69,6 +75,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
       const holdLabel = deps.dom.micNoteHoldFilter.selectedOptions[0]?.textContent?.trim() ?? '80 ms';
       deps.dom.micNoiseGateInfo.textContent =
         `Mic noise gate threshold: ${threshold.toFixed(4)} (Auto; room noise floor ${noiseFloorText} RMS). ` +
+        `Performance adaptive threshold: ${performanceThreshold.toFixed(4)}. ` +
         `Attack: ${attackLabel}; Hold: ${holdLabel}. Poly detector: ${polyProviderLabel}.`;
       return;
     }
@@ -78,6 +85,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     const holdLabel = deps.dom.micNoteHoldFilter.selectedOptions[0]?.textContent?.trim() ?? '80 ms';
     deps.dom.micNoiseGateInfo.textContent =
       `Mic noise gate threshold: ${threshold.toFixed(4)} (${presetLabel} preset). ` +
+      `Performance adaptive threshold: ${performanceThreshold.toFixed(4)}. ` +
       `Attack: ${attackLabel}; Hold: ${holdLabel}. Poly detector: ${polyProviderLabel}. Use Auto calibration for noisy rooms.`;
   }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getMicNoteAttackPeakMultiplier,
   normalizeMicNoteAttackFilterPreset,
+  resolveMicNoteAttackRequiredPeak,
   shouldAcceptMicNoteByAttackStrength,
 } from './mic-note-attack-filter';
 
@@ -39,5 +40,42 @@ describe('mic-note-attack-filter', () => {
         volumeThreshold: 0.03,
       })
     ).toBe(false);
+  });
+
+  it('softens required peak in performance adaptive mode', () => {
+    const baseRequiredPeak = resolveMicNoteAttackRequiredPeak({
+      preset: 'balanced',
+      volumeThreshold: 0.03,
+    });
+    const adaptiveRequiredPeak = resolveMicNoteAttackRequiredPeak({
+      preset: 'balanced',
+      volumeThreshold: 0.03,
+      performanceAdaptive: true,
+    });
+    const adaptiveWithHighConfidenceRequiredPeak = resolveMicNoteAttackRequiredPeak({
+      preset: 'balanced',
+      volumeThreshold: 0.03,
+      performanceAdaptive: true,
+      smoothedConfidence: 0.6,
+      smoothedVoicing: 0.56,
+    });
+
+    expect(adaptiveRequiredPeak).toBeLessThan(baseRequiredPeak);
+    expect(adaptiveWithHighConfidenceRequiredPeak).toBeLessThan(adaptiveRequiredPeak);
+    expect(
+      shouldAcceptMicNoteByAttackStrength({
+        preset: 'balanced',
+        peakVolume: 0.038,
+        volumeThreshold: 0.03,
+      })
+    ).toBe(false);
+    expect(
+      shouldAcceptMicNoteByAttackStrength({
+        preset: 'balanced',
+        peakVolume: 0.038,
+        volumeThreshold: 0.03,
+        performanceAdaptive: true,
+      })
+    ).toBe(true);
   });
 });

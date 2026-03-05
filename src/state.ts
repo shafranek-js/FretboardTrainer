@@ -10,11 +10,20 @@ import { instruments } from './instruments';
 import type { SessionPace } from './session-pace';
 import type { MicSensitivityPreset } from './mic-input-sensitivity';
 import type { MicNoteAttackFilterPreset } from './mic-note-attack-filter';
-import type { MicNoteHoldFilterPreset } from './mic-note-hold-filter';
+import type { MicNoteHoldFilterPreset, PerformanceMicHoldCalibrationLevel } from './mic-note-hold-filter';
 import type { MicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
 import type { PerformanceTimelineFeedbackByEvent } from './performance-timeline-feedback';
+import type { PerformanceSessionNoteLogSnapshot } from './performance-session-note-log';
+import type {
+  MicPerformanceOnsetRejectReasonKey,
+  PerformanceCaptureEventTelemetry,
+  PerformanceOnsetRejectEventLogEntry,
+  PerformanceTimingEventLogEntry,
+  SessionAnalysisBundle,
+} from './session-analysis-bundle';
 import type { PerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import type { PerformanceTimingLeniencyPreset } from './performance-timing-forgiveness';
+import type { AudioInputProcessingSettings } from './audio-runtime';
 
 function requireElementById<T extends Element>(id: string): T {
   const element = document.getElementById(id);
@@ -41,6 +50,9 @@ export const dom = {
   performanceMicTolerancePreset: requireElementById<HTMLSelectElement>('performanceMicTolerancePreset'),
   performanceTimingLeniencyPreset: requireElementById<HTMLSelectElement>('performanceTimingLeniencyPreset'),
   performanceMicLatencyCompensation: requireElementById<HTMLInputElement>('performanceMicLatencyCompensation'),
+  performanceMicLatencyCompensationExact: requireElementById<HTMLInputElement>(
+    'performanceMicLatencyCompensationExact'
+  ),
   performanceMicLatencyCompensationValue: requireElementById<HTMLElement>('performanceMicLatencyCompensationValue'),
   instrumentSelector: requireElementById<HTMLSelectElement>('instrumentSelector'),
   inputSource: requireElementById<HTMLSelectElement>('inputSource'),
@@ -58,6 +70,8 @@ export const dom = {
   micNoteAttackFilter: requireElementById<HTMLSelectElement>('micNoteAttackFilter'),
   micHoldFilterRow: requireElementById<HTMLElement>('micHoldFilterRow'),
   micNoteHoldFilter: requireElementById<HTMLSelectElement>('micNoteHoldFilter'),
+  micDirectInputRow: requireElementById<HTMLElement>('micDirectInputRow'),
+  micDirectInputMode: requireElementById<HTMLInputElement>('micDirectInputMode'),
   micPolyphonicDetectorRow: requireElementById<HTMLElement>('micPolyphonicDetectorRow'),
   micPolyphonicDetectorProvider: requireElementById<HTMLSelectElement>('micPolyphonicDetectorProvider'),
   micNoiseCalibrationRow: requireElementById<HTMLElement>('micNoiseCalibrationRow'),
@@ -171,7 +185,6 @@ export const dom = {
   updateProfileBtn: requireElementById<HTMLButtonElement>('updateProfileBtn'),
   deleteProfileBtn: requireElementById<HTMLButtonElement>('deleteProfileBtn'),
   hintBtn: requireElementById<HTMLButtonElement>('hintBtn'),
-  helpBtn: requireElementById<HTMLButtonElement>('helpBtn'),
   settingsBtn: requireElementById<HTMLButtonElement>('settingsBtn'),
   practiceSetupToggleBtn: requireElementById<HTMLButtonElement>('practiceSetupToggleBtn'),
   practiceSetupChevron: requireElementById<HTMLElement>('practiceSetupChevron'),
@@ -254,6 +267,8 @@ export const dom = {
   openUserDataBtn: requireElementById<HTMLButtonElement>('openUserDataBtn'),
   openCalibrateBtn: requireElementById<HTMLButtonElement>('openCalibrateBtn'),
   openStatsBtn: requireElementById<HTMLButtonElement>('openStatsBtn'),
+  openSessionSummaryBtn: requireElementById<HTMLButtonElement>('openSessionSummaryBtn'),
+  openHelpBtn: requireElementById<HTMLButtonElement>('openHelpBtn'),
   openGuideBtn: requireElementById<HTMLButtonElement>('openGuideBtn'),
   openLinksBtn: requireElementById<HTMLButtonElement>('openLinksBtn'),
   userDataModal: requireElementById<HTMLElement>('userDataModal'),
@@ -272,8 +287,13 @@ export const dom = {
   sessionSummaryInput: requireElementById<HTMLElement>('sessionSummaryInput'),
   sessionSummaryDuration: requireElementById<HTMLElement>('sessionSummaryDuration'),
   sessionSummaryAccuracy: requireElementById<HTMLElement>('sessionSummaryAccuracy'),
+  sessionSummaryOverallScore: requireElementById<HTMLElement>('sessionSummaryOverallScore'),
   sessionSummaryCorrect: requireElementById<HTMLElement>('sessionSummaryCorrect'),
   sessionSummaryWrong: requireElementById<HTMLElement>('sessionSummaryWrong'),
+  sessionSummaryMissedNoInput: requireElementById<HTMLElement>('sessionSummaryMissedNoInput'),
+  sessionSummaryTimingAccuracy: requireElementById<HTMLElement>('sessionSummaryTimingAccuracy'),
+  sessionSummaryTimingOffset: requireElementById<HTMLElement>('sessionSummaryTimingOffset'),
+  sessionSummaryTimingBreakdown: requireElementById<HTMLElement>('sessionSummaryTimingBreakdown'),
   sessionSummaryAvgTime: requireElementById<HTMLElement>('sessionSummaryAvgTime'),
   sessionSummaryBestStreak: requireElementById<HTMLElement>('sessionSummaryBestStreak'),
   sessionSummaryCoachTip: requireElementById<HTMLElement>('sessionSummaryCoachTip'),
@@ -335,6 +355,9 @@ export const state = {
   microphone: null as MediaStreamAudioSourceNode | null,
   mediaStream: null as MediaStream | null,
   activeAudioInputDeviceId: null as string | null,
+  activeAudioInputTrackSettings: null as AudioInputProcessingSettings | null,
+  activeAudioInputTrackContentHint: null as string | null,
+  requestedAudioInputContentHint: null as string | null,
   dataArray: null as Float32Array | null, // For monophonic (time domain)
   frequencyDataArray: null as Float32Array | null, // For polyphonic (frequency domain)
   isListening: false,
@@ -362,6 +385,8 @@ export const state = {
   performanceMicTolerancePreset: 'normal' as PerformanceMicTolerancePreset,
   performanceTimingLeniencyPreset: 'normal' as PerformanceTimingLeniencyPreset,
   performanceMicLatencyCompensationMs: 0,
+  performanceTimingBiasMs: 0,
+  performanceTimingBiasSampleCount: 0,
   showMelodyTimelineSteps: false,
   showMelodyTimelineDetails: false,
   cooldown: false,
@@ -379,8 +404,12 @@ export const state = {
   performancePromptResolved: false,
   performancePromptMatched: false,
   performancePromptHadAttempt: false,
+  performancePromptHadWrongAttempt: false,
   performanceTimelineFeedbackKey: null as string | null,
   performanceTimelineFeedbackByEvent: {} as PerformanceTimelineFeedbackByEvent,
+  performanceTimingByEvent: {} as Record<number, PerformanceTimingEventLogEntry[]>,
+  performanceOnsetRejectsByEvent: {} as Record<number, PerformanceOnsetRejectEventLogEntry[]>,
+  performanceCaptureTelemetryByEvent: {} as Record<number, PerformanceCaptureEventTelemetry>,
   showSessionSummaryOnStop: false,
   melodyTransposeSemitones: 0,
   melodyTransposeById: {} as Record<string, number>,
@@ -436,16 +465,22 @@ export const state = {
   } as Stats,
   activeSessionStats: null as SessionStats | null,
   lastSessionStats: null as SessionStats | null,
+  lastSessionPerformanceNoteLog: null as PerformanceSessionNoteLogSnapshot | null,
+  lastSessionAnalysisBundle: null as SessionAnalysisBundle | null,
+  lastSessionAnalysisAutoDownloadKey: null as string | null,
   currentInstrument: instruments.guitar as IInstrument,
   currentTuningPresetKey: 'standard',
   inputSource: 'microphone' as 'microphone' | 'midi',
+  isDirectInputMode: false,
   preferredAudioInputDeviceId: null as string | null,
   micSensitivityPreset: 'normal' as MicSensitivityPreset,
   micNoteAttackFilterPreset: 'balanced' as MicNoteAttackFilterPreset,
   micNoteHoldFilterPreset: '80ms' as MicNoteHoldFilterPreset,
+  performanceMicHoldCalibrationLevel: 'off' as PerformanceMicHoldCalibrationLevel,
   micAutoNoiseFloorRms: null as number | null,
   micMonophonicAttackTrackedNote: null as string | null,
   micMonophonicAttackPeakVolume: 0,
+  micMonophonicAttackLastVolume: 0,
   micMonophonicFirstDetectedAtMs: null as number | null,
   micLastInputRms: 0,
   micLastMonophonicConfidence: null as number | null,
@@ -458,6 +493,16 @@ export const state = {
   micPerformanceJudgmentMaxLatencyMs: 0,
   micPerformanceSuggestedLatencyMs: null as number | null,
   micPerformanceLatencyCalibrationActive: false,
+  micPerformanceOnsetGateStatus: 'idle' as 'idle' | 'accepted' | 'rejected',
+  micPerformanceOnsetGateReason: null as string | null,
+  micPerformanceOnsetGateAtMs: null as number | null,
+  micPerformanceOnsetRejectedWeakAttackCount: 0,
+  micPerformanceOnsetRejectedLowConfidenceCount: 0,
+  micPerformanceOnsetRejectedLowVoicingCount: 0,
+  micPerformanceOnsetRejectedShortHoldCount: 0,
+  micPerformanceOnsetLastRejectedNote: null as string | null,
+  micPerformanceOnsetLastRejectedAtMs: null as number | null,
+  micPerformanceOnsetLastRejectedReasonKey: null as MicPerformanceOnsetRejectReasonKey | null,
   performanceMicLastJudgedOnsetNote: null as string | null,
     performanceMicLastJudgedOnsetAtMs: null as number | null,
     performanceMicLastUncertainOnsetNote: null as string | null,

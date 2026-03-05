@@ -61,6 +61,7 @@ export interface ProfileSettings {
   micSensitivityPreset?: 'quiet_room' | 'normal' | 'noisy_room' | 'auto';
   micNoteAttackFilter?: 'off' | 'balanced' | 'strong';
   micNoteHoldFilter?: 'off' | '40ms' | '80ms' | '120ms';
+  isDirectInputMode?: boolean;
   micPolyphonicDetectorProvider?: string;
   micAutoNoiseFloorRms?: number | null;
   midiInputDeviceId?: string | null;

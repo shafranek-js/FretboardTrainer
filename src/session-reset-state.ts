@@ -1,4 +1,10 @@
 import type { Prompt } from './types';
+import type {
+  MicPerformanceOnsetRejectReasonKey,
+  PerformanceCaptureEventTelemetry,
+  PerformanceOnsetRejectEventLogEntry,
+  PerformanceTimingEventLogEntry,
+} from './session-analysis-bundle';
 import { createPromptCycleTrackingResetState } from './prompt-tracking-state';
 
 export interface SessionStopResetState {
@@ -26,11 +32,16 @@ export interface SessionStopResetState {
   performancePromptResolved: boolean;
   performancePromptMatched: boolean;
   performancePromptHadAttempt: boolean;
+  performancePromptHadWrongAttempt: boolean;
+  performanceTimingByEvent: Record<number, PerformanceTimingEventLogEntry[]>;
+  performanceOnsetRejectsByEvent: Record<number, PerformanceOnsetRejectEventLogEntry[]>;
+  performanceCaptureTelemetryByEvent: Record<number, PerformanceCaptureEventTelemetry>;
   monophonicConfidenceEma: number;
   performanceMicLastJudgedOnsetNote: string | null;
   performanceMicLastJudgedOnsetAtMs: number | null;
   performanceMicLastUncertainOnsetNote: string | null;
   performanceMicLastUncertainOnsetAtMs: number | null;
+  micMonophonicAttackLastVolume: number;
   micLastInputRms: number;
   micLastMonophonicConfidence: number | null;
   micLastMonophonicPitchSpreadCents: number | null;
@@ -42,6 +53,18 @@ export interface SessionStopResetState {
   micPerformanceJudgmentMaxLatencyMs: number;
   micPerformanceSuggestedLatencyMs: number | null;
   micPerformanceLatencyCalibrationActive: boolean;
+  micPerformanceOnsetGateStatus: 'idle' | 'accepted' | 'rejected';
+  micPerformanceOnsetGateReason: string | null;
+  micPerformanceOnsetGateAtMs: number | null;
+  micPerformanceOnsetRejectedWeakAttackCount: number;
+  micPerformanceOnsetRejectedLowConfidenceCount: number;
+  micPerformanceOnsetRejectedLowVoicingCount: number;
+  micPerformanceOnsetRejectedShortHoldCount: number;
+  micPerformanceOnsetLastRejectedNote: string | null;
+  micPerformanceOnsetLastRejectedAtMs: number | null;
+  micPerformanceOnsetLastRejectedReasonKey:
+    | MicPerformanceOnsetRejectReasonKey
+    | null;
   performancePrerollLeadInVisible: boolean;
   performancePrerollStartedAtMs: number | null;
   performancePrerollDurationMs: number;
@@ -79,11 +102,16 @@ export function createSessionStopResetState() {
     performancePromptResolved: false,
     performancePromptMatched: false,
     performancePromptHadAttempt: false,
+    performancePromptHadWrongAttempt: false,
+    performanceTimingByEvent: {},
+    performanceOnsetRejectsByEvent: {},
+    performanceCaptureTelemetryByEvent: {},
     monophonicConfidenceEma: 0,
     performanceMicLastJudgedOnsetNote: null,
     performanceMicLastJudgedOnsetAtMs: null,
     performanceMicLastUncertainOnsetNote: null,
     performanceMicLastUncertainOnsetAtMs: null,
+    micMonophonicAttackLastVolume: 0,
     micLastInputRms: 0,
     micLastMonophonicConfidence: null,
     micLastMonophonicPitchSpreadCents: null,
@@ -95,6 +123,16 @@ export function createSessionStopResetState() {
     micPerformanceJudgmentMaxLatencyMs: 0,
     micPerformanceSuggestedLatencyMs: null,
     micPerformanceLatencyCalibrationActive: false,
+    micPerformanceOnsetGateStatus: 'idle',
+    micPerformanceOnsetGateReason: null,
+    micPerformanceOnsetGateAtMs: null,
+    micPerformanceOnsetRejectedWeakAttackCount: 0,
+    micPerformanceOnsetRejectedLowConfidenceCount: 0,
+    micPerformanceOnsetRejectedLowVoicingCount: 0,
+    micPerformanceOnsetRejectedShortHoldCount: 0,
+    micPerformanceOnsetLastRejectedNote: null,
+    micPerformanceOnsetLastRejectedAtMs: null,
+    micPerformanceOnsetLastRejectedReasonKey: null,
     performancePrerollLeadInVisible: false,
     performancePrerollStartedAtMs: null,
     performancePrerollDurationMs: 0,

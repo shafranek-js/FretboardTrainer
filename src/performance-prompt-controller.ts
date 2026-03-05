@@ -1,5 +1,6 @@
 import { buildSuccessInfoSlots } from './session-result';
 import type { Prompt } from './types';
+import type { PerformanceTimingGrade } from './performance-timing-grade';
 
 interface PerformancePromptControllerDeps {
   state: {
@@ -7,6 +8,7 @@ interface PerformancePromptControllerDeps {
     performancePromptResolved: boolean;
     performancePromptMatched: boolean;
     performancePromptHadAttempt: boolean;
+    performancePromptHadWrongAttempt: boolean;
     pendingTimeoutIds: Set<number>;
     isListening: boolean;
     showingAllNotes: boolean;
@@ -25,8 +27,14 @@ interface PerformancePromptControllerDeps {
     elapsedSeconds: number,
     instrument: unknown
   ): void;
+  recordPerformancePromptResolution(
+    activeSessionStats: unknown,
+    input: { correct: boolean; hadAttempt: boolean; hadWrongAttempt: boolean }
+  ): void;
   updateStats(correct: boolean, elapsedSeconds: number): void;
   updateSessionGoalProgress(): void;
+  recordPerformanceTimingAttempt(activeSessionStats: unknown, grade: PerformanceTimingGrade | null): void;
+  recordPerformanceTimingByEvent(grade: PerformanceTimingGrade | null): void;
   setInfoSlots(slot1?: string, slot2?: string, slot3?: string): void;
   redrawFretboard(): void;
   drawFretboard(
@@ -52,6 +60,7 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     deps.state.performancePromptResolved = false;
     deps.state.performancePromptMatched = false;
     deps.state.performancePromptHadAttempt = false;
+    deps.state.performancePromptHadWrongAttempt = false;
   }
 
   function markPromptAttempt() {
@@ -78,6 +87,11 @@ export function createPerformancePromptController(deps: PerformancePromptControl
       elapsedSeconds,
       deps.state.currentInstrument
     );
+    deps.recordPerformancePromptResolution(deps.state.activeSessionStats, {
+      correct,
+      hadAttempt: deps.state.performancePromptHadAttempt,
+      hadWrongAttempt: deps.state.performancePromptHadWrongAttempt,
+    });
     deps.updateStats(correct, elapsedSeconds);
     deps.updateSessionGoalProgress();
 
@@ -111,7 +125,7 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     deps.drawFretboard(false, prompt.targetNote, prompt.targetString);
   }
 
-  function resolveSuccess(elapsedSeconds: number) {
+  function resolveSuccess(elapsedSeconds: number, timingGrade: PerformanceTimingGrade | null = null) {
     if (deps.getTrainingMode() !== 'performance' || !deps.state.currentPrompt || deps.state.performancePromptResolved) {
       return;
     }
@@ -120,6 +134,11 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     deps.state.performancePromptResolved = true;
     deps.state.performancePromptMatched = true;
     deps.recordPerformanceTimelineSuccess(deps.state.currentPrompt, false);
+    deps.recordPerformanceTimingAttempt(deps.state.activeSessionStats, timingGrade);
+    deps.recordPerformanceTimingByEvent(timingGrade);
+    if (timingGrade) {
+      deps.setResultMessage(timingGrade.label, 'success');
+    }
     recordOutcome(true, elapsedSeconds, { skipVisualUpdate: true });
   }
 
