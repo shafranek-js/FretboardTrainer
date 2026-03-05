@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clampMelodyPlaybackBpm,
   computeTimelineDurationLayout,
+  getMelodyEventPlaybackDurationExactMs,
   getMelodyEventPlaybackDurationMs,
   getEventDurationBeats,
 } from './melody-timeline-duration';
@@ -88,5 +89,13 @@ describe('melody-timeline-duration', () => {
     expect(getMelodyEventPlaybackDurationMs(melody.events[0]!, 120, melody)).toBe(250);
     expect(getMelodyEventPlaybackDurationMs(melody.events[1]!, 120, melody)).toBe(500);
     expect(getMelodyEventPlaybackDurationMs(melody.events[2]!, 120, melody)).toBe(1000);
+  });
+
+  it('preserves exact beat math to avoid long-form drift', () => {
+    const sixteenth = { notes: [], durationBeats: 0.25 };
+    const bpm = 140;
+    const beatMs = 60000 / bpm;
+    const exactSixteenthMs = getMelodyEventPlaybackDurationExactMs(sixteenth, bpm);
+    expect(exactSixteenthMs * 4).toBeCloseTo(beatMs, 6);
   });
 });

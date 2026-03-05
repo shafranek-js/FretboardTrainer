@@ -76,6 +76,7 @@ export interface ProfileSettings {
   sessionToolsCollapsed?: boolean;
   metronomeEnabled?: boolean;
   metronomeBpm?: string;
+  metronomeVolume?: string;
   rhythmTimingWindow?: string;
   selectedScale?: string;
   selectedChord?: string;

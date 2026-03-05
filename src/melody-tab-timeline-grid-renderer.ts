@@ -5,7 +5,7 @@ import { appendGridTimelinePlayedFeedback } from './melody-tab-timeline-performa
 import {
   createCellNoteChip,
   getFingerColor,
-  getPrimaryCellFingerColor,
+  getPrimaryEventFingerColor,
   scaleTimelinePixels,
   withAlpha,
 } from './melody-tab-timeline-render-utils';
@@ -65,6 +65,9 @@ export function renderGridTimeline(
   activeTimelineNoteDragSource: { eventIndex: number; noteIndex: number } | null,
   deps: GridRendererDeps
 ) {
+  const eventAccentColors = Array.from({ length: model.totalEvents }, (_, eventIndex) =>
+    getPrimaryEventFingerColor(model.rows, eventIndex)
+  );
   const table = document.createElement('table');
   table.className = 'min-w-max border-separate border-spacing-px text-[10px] font-mono text-slate-200';
   table.style.fontSize = `${scaleTimelinePixels(10, zoomScale, 8)}px`;
@@ -86,7 +89,7 @@ export function renderGridTimeline(
       step.dataset.eventIndex = String(eventIndex);
       const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
       const isInStudyRange = rangeCell?.isInStudyRange ?? false;
-      const accentColor = getPrimaryCellFingerColor(rangeCell?.notes ?? []);
+      const accentColor = eventAccentColors[eventIndex] ?? '#67e8f9';
       step.className =
         'px-1.5 py-0.5 border rounded text-center whitespace-nowrap ' +
         (model.activeEventIndex === eventIndex
@@ -101,12 +104,12 @@ export function renderGridTimeline(
       step.style.setProperty('--timeline-grid-base-bg', isInStudyRange ? 'rgba(120,53,15,0.2)' : 'rgba(30,41,59,0.55)');
       step.style.setProperty('--timeline-grid-base-color', isInStudyRange ? '#fef3c7' : '#64748b');
       step.style.setProperty('--timeline-grid-playhead-border', withAlpha(accentColor, 0.88));
-      step.style.setProperty('--timeline-grid-playhead-bg', withAlpha(accentColor, 0.2));
+      step.style.setProperty('--timeline-grid-playhead-bg', withAlpha(accentColor, 0.28));
       step.style.setProperty('--timeline-grid-playhead-color', '#f8fafc');
       step.style.setProperty('--timeline-grid-playhead-box-shadow', `inset 0 0 0 1px ${withAlpha(accentColor, 0.16)}`);
       if (model.activeEventIndex === eventIndex) {
         step.style.borderColor = withAlpha(accentColor, 0.88);
-        step.style.backgroundColor = withAlpha(accentColor, 0.26);
+        step.style.backgroundColor = withAlpha(accentColor, 0.34);
         step.style.boxShadow = `inset 0 0 0 1px ${withAlpha(accentColor, 0.18)}`;
       }
       if (barGrouping.barStartEventIndexes.has(eventIndex)) {
@@ -133,7 +136,7 @@ export function renderGridTimeline(
 
     row.cells.forEach((cell, eventIndex) => {
       const widthPx = scaleTimelinePixels(durationLayout.cellPixelWidths[eventIndex] ?? 28, zoomScale, 18);
-      const accentColor = getPrimaryCellFingerColor(cell.notes);
+      const accentColor = eventAccentColors[eventIndex] ?? '#67e8f9';
       const td = document.createElement('td');
       td.dataset.timelineGridCell = 'true';
       td.dataset.eventIndex = String(eventIndex);
@@ -160,12 +163,12 @@ export function renderGridTimeline(
       );
       td.style.setProperty('--timeline-grid-base-color', cell.isInStudyRange ? '#fef3c7' : '#94a3b8');
       td.style.setProperty('--timeline-grid-playhead-border', withAlpha(accentColor, 0.88));
-      td.style.setProperty('--timeline-grid-playhead-bg', withAlpha(accentColor, 0.16));
+      td.style.setProperty('--timeline-grid-playhead-bg', withAlpha(accentColor, 0.24));
       td.style.setProperty('--timeline-grid-playhead-color', '#f8fafc');
       td.style.setProperty('--timeline-grid-playhead-box-shadow', `inset 0 0 0 1px ${withAlpha(accentColor, 0.14)}`);
       if (cell.isActive) {
         td.style.borderColor = withAlpha(accentColor, 0.88);
-        td.style.backgroundColor = withAlpha(accentColor, 0.16);
+        td.style.backgroundColor = withAlpha(accentColor, 0.24);
         td.style.boxShadow = `inset 0 0 0 1px ${withAlpha(accentColor, 0.18)}`;
       }
       if (barGrouping.barStartEventIndexes.has(eventIndex)) {

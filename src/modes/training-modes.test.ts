@@ -342,9 +342,9 @@ describe('MelodyPracticeMode', () => {
 
     expect(first?.targetNote).toBe('C');
     expect(first?.targetString).toBe('A');
-    expect(first?.displayText).toContain('[1/2]');
+    expect(first?.displayText).toBe('Melody: Test Melody');
     expect(second?.targetNote).toBe('D');
-    expect(second?.displayText).toContain('[2/2]');
+    expect(second?.displayText).toBe('Melody: Test Melody');
   });
 
   it('returns null and queues completion feedback after the last step', () => {
@@ -389,10 +389,9 @@ describe('MelodyPracticeMode', () => {
     const third = mode.generatePrompt();
 
     expect(first?.targetNote).toBe('D');
-    expect(first?.displayText).toContain('[1/2]');
-    expect(first?.displayText).toContain('Steps 2-3');
+    expect(first?.displayText).toBe('Melody: Test Melody');
     expect(second?.targetNote).toBe('E');
-    expect(second?.displayText).toContain('[2/2]');
+    expect(second?.displayText).toBe('Melody: Test Melody');
     expect(third).toBeNull();
     expect(mockState.pendingSessionStopResultMessage).toEqual({
       text: 'Study range complete! (Test Melody, Steps 2-3)',
@@ -400,7 +399,7 @@ describe('MelodyPracticeMode', () => {
     });
   });
 
-  it('hides note hint text when melodyShowNote is disabled', () => {
+  it('keeps melody prompt text static even when note hint is disabled', () => {
     mockDom.melodyShowNote.checked = false;
     getMelodyByIdMock.mockReturnValue({
       id: 'builtin:test',
@@ -413,10 +412,9 @@ describe('MelodyPracticeMode', () => {
 
     expect(prompt).not.toBeNull();
     expect(prompt?.targetNote).toBe('C');
-    expect(prompt?.displayText).toContain('play the next note');
+    expect(prompt?.displayText).toBe('Melody: Test Melody');
     expect(prompt?.displayText).not.toContain('C');
     expect(prompt?.displayText).not.toContain('fret 3');
-    expect(prompt?.displayText).not.toContain('Test Melody');
   });
 
   it('creates a polyphonic melody event prompt from one tab column', () => {
@@ -485,7 +483,7 @@ describe('MelodyPracticeMode', () => {
     const prompt = mode.generatePrompt();
 
     expect(prompt).not.toBeNull();
-    expect(prompt?.displayText).toContain('Performance');
+    expect(prompt?.displayText).toBe('Performance: Performance Test');
     expect(prompt?.targetNote).toBe('C');
     expect(prompt?.melodyEventDurationMs).toBe(667);
   });

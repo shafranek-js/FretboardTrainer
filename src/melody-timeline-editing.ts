@@ -15,6 +15,10 @@ export interface MelodyTimelineEditingSelection {
 
 type TimelineEditingInstrument = Pick<IInstrument, 'STRING_ORDER' | 'getNoteWithOctave'>;
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 export function cloneMelodyEventsDraft(events: MelodyEvent[]) {
   return events.map((event) => ({
     ...event,
@@ -255,6 +259,20 @@ export function updateSelectedMelodyTimelineEditingNotePosition(
   note.stringName = stringName;
   note.fret = fret;
   note.note = stripScientificOctave(noteWithOctave);
+}
+
+export function setSelectedMelodyTimelineEditingNoteFinger(
+  session: MelodyTimelineEditingSession,
+  selection: MelodyTimelineEditingSelection,
+  finger: number | null
+) {
+  const selected = getSelectedMelodyTimelineEditingNote(session, selection);
+  if (!selected) return;
+  if (typeof finger !== 'number' || !Number.isFinite(finger)) {
+    delete selected.note.finger;
+    return;
+  }
+  selected.note.finger = clamp(Math.round(finger), 0, 4);
 }
 
 export function resolveEquivalentStringFretForTimelineNote(
@@ -615,7 +633,7 @@ export function redoMelodyTimelineEditingMutation(
 }
 
 function toNoteSignature(note: MelodyEventNote) {
-  return `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`;
+  return `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}|${note.finger ?? '-'}`;
 }
 
 function parseScientificNoteToMidiValue(noteWithOctave: string) {

@@ -1,4 +1,5 @@
 import type { ScrollingTabPanelEvent, ScrollingTabPanelModel } from './scrolling-tab-panel-model';
+import { sampleScrollingTabPanelTrajectoryY } from './scrolling-tab-panel-trajectory';
 
 export interface ScrollingTabPanelLayout {
   width: number;
@@ -25,10 +26,6 @@ export interface ScrollingTabPanelGeometryInput {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
 }
 
 function getEventMidpointY(event: ScrollingTabPanelEvent | null, stringYs: number[]) {
@@ -80,9 +77,12 @@ export function computeScrollingTabPanelLayout(
     const progress = clamp((input.model.currentTimeSec - currentEvent.startTimeSec) / span, 0, 1);
     const startY = getEventMidpointY(currentEvent, stringYs);
     const endY = getEventMidpointY(nextEvent, stringYs);
-    const arcHeight = 30 + currentEvent.durationSec * 40;
-    playheadY =
-      lerp(startY, endY, progress) - (4 * arcHeight * progress * (1 - progress));
+    playheadY = sampleScrollingTabPanelTrajectoryY({
+      startY,
+      endY,
+      durationSec: currentEvent.durationSec,
+      progress,
+    });
   }
   playheadY = clamp(
     playheadY,

@@ -49,4 +49,32 @@ describe('resolvePerformanceMicJudgingThresholds', () => {
     expect(result.confidenceAccepted).toBe(false);
     expect(result.voicingAccepted).toBe(false);
   });
+
+  it('accepts early strong-attack frames with moderate raw confidence/voicing', () => {
+    const result = resolvePerformanceMicJudgingThresholds({
+      smoothedConfidence: 0.25,
+      rawConfidence: 0.44,
+      smoothedVoicing: 0.26,
+      rawVoicing: 0.43,
+      attackPeakVolume: 0.041,
+      attackRequiredPeak: 0.036,
+    });
+
+    expect(result.confidenceAccepted).toBe(true);
+    expect(result.voicingAccepted).toBe(true);
+  });
+
+  it('keeps rejecting when attack is strong but raw confidence/voicing are too weak', () => {
+    const result = resolvePerformanceMicJudgingThresholds({
+      smoothedConfidence: 0.23,
+      rawConfidence: 0.36,
+      smoothedVoicing: 0.22,
+      rawVoicing: 0.35,
+      attackPeakVolume: 0.041,
+      attackRequiredPeak: 0.036,
+    });
+
+    expect(result.confidenceAccepted).toBe(false);
+    expect(result.voicingAccepted).toBe(false);
+  });
 });

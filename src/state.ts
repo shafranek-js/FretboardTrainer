@@ -122,6 +122,8 @@ export const dom = {
   metronomeToggleBtn: requireElementById<HTMLButtonElement>('metronomeToggleBtn'),
   melodyDemoBpm: requireElementById<HTMLInputElement>('melodyDemoBpm'),
   melodyDemoBpmValue: requireElementById<HTMLElement>('melodyDemoBpmValue'),
+  metronomeVolume: requireElementById<HTMLInputElement>('metronomeVolume'),
+  metronomeVolumeValue: requireElementById<HTMLElement>('metronomeVolumeValue'),
   melodyTabTimelinePanel: requireElementById<HTMLElement>('melodyTabTimelinePanel'),
   scrollingTabPanel: requireElementById<HTMLElement>('scrollingTabPanel'),
   scrollingTabPanelMeta: requireElementById<HTMLElement>('scrollingTabPanelMeta'),

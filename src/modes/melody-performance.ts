@@ -4,7 +4,6 @@ import { getMelodyById, type MelodyEvent } from '../melody-library';
 import { getMelodyFingeredEvent } from '../melody-fingering';
 import {
   formatMelodyStudyRange,
-  formatMelodyStudyStepLabel,
   isDefaultMelodyStudyRange,
   normalizeMelodyStudyRange,
 } from '../melody-study-range';
@@ -13,22 +12,8 @@ import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationMs } from '../mel
 import type { Prompt } from '../types';
 import { ITrainingMode, DetectionType } from './training-mode';
 
-function formatMelodyEventHint(event: MelodyEvent) {
-  return event.notes
-    .map((note) => {
-      if (note.stringName !== null && typeof note.fret === 'number') {
-        return `${note.note} (${note.stringName}, fret ${note.fret})`;
-      }
-      return note.note;
-    })
-    .join(' + ');
-}
-
-function formatPerformancePromptText(stepLabel: string, event: MelodyEvent, showNoteHint: boolean) {
-  if (!showNoteHint) {
-    return `Performance ${stepLabel}: keep the run going`;
-  }
-  return `Performance ${stepLabel}: ${formatMelodyEventHint(event)}`;
+function formatPerformancePromptText(melodyName: string) {
+  return `Performance: ${melodyName}`;
 }
 
 function toMelodyEventChordNotes(event: MelodyEvent) {
@@ -43,18 +28,15 @@ export function buildPerformancePromptForEvent(input: {
   melody: ReturnType<typeof getMelodyWithPracticeAdjustments>;
   studyRange: { startIndex: number; endIndex: number };
   eventIndex: number;
-  showNoteHint: boolean;
   bpm: number;
 }): Prompt | null {
-  const { melody, studyRange, eventIndex, showNoteHint, bpm } = input;
+  const { melody, studyRange, eventIndex, bpm } = input;
   if (eventIndex < studyRange.startIndex || eventIndex > studyRange.endIndex) {
     return null;
   }
 
   const event = melody.events[eventIndex];
   if (!event) return null;
-  const currentEventIndexInRange = eventIndex - studyRange.startIndex;
-  const totalEventsInRange = studyRange.endIndex - studyRange.startIndex + 1;
   const firstNote = event.notes[0] ?? null;
   const melodyEventFingering = getMelodyFingeredEvent(melody.events, eventIndex);
   const targetPitchClasses = toMelodyEventChordNotes(event);
@@ -67,16 +49,7 @@ export function buildPerformancePromptForEvent(input: {
       : null;
 
   return {
-    displayText: formatPerformancePromptText(
-      formatMelodyStudyStepLabel(
-        currentEventIndexInRange,
-        totalEventsInRange,
-        studyRange,
-        melody.events.length
-      ),
-      event,
-      showNoteHint
-    ),
+    displayText: formatPerformancePromptText(melody.name),
     targetNote: isPolyphonicEvent
       ? melodyEventFingering.length <= 1
         ? (fallbackSingleNoteTarget?.note ?? null)
@@ -157,7 +130,6 @@ export class MelodyPerformanceMode implements ITrainingMode {
       melody,
       studyRange,
       eventIndex: state.currentMelodyEventIndex,
-      showNoteHint: dom.melodyShowNote.checked,
       bpm: getPerformanceBpmFromUi(),
     });
   }

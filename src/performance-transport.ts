@@ -1,5 +1,5 @@
 import type { MelodyDefinition } from './melody-library';
-import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
+import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 
 export interface PerformanceTransportFrame {
   activeEventIndex: number | null;
@@ -31,7 +31,7 @@ function buildEventStartOffsetsSec(
     startOffsetsSec.push(elapsedSec);
     const event = melody.events[index];
     if (!event) continue;
-    elapsedSec += getMelodyEventPlaybackDurationMs(event, bpm, melody) / 1000;
+    elapsedSec += getMelodyEventPlaybackDurationExactMs(event, bpm, melody) / 1000;
   }
   return {
     startOffsetsSec,

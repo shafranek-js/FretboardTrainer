@@ -27,6 +27,7 @@ function cloneEventNote(note: MelodyEventNote): MelodyEventNote {
     note: note.note,
     stringName: note.stringName,
     fret: note.fret,
+    finger: note.finger,
   };
 }
 
@@ -68,7 +69,7 @@ function buildMelodyContentSignature(melody: Pick<MelodyDefinition, 'events'>) {
     hash ^= (event.column ?? -1) + 31;
     hash = Math.imul(hash, 16777619);
     for (const note of event.notes) {
-      const text = `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`;
+      const text = `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}|${note.finger ?? '-'}`;
       for (let index = 0; index < text.length; index++) {
         hash ^= text.charCodeAt(index);
         hash = Math.imul(hash, 16777619);
@@ -150,6 +151,7 @@ function shiftMelodyEvents(
         note: note.note,
         stringName: targetStringName,
         fret: targetFret,
+        finger: note.finger,
       });
     }
 

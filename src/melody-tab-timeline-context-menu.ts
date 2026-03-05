@@ -1,10 +1,17 @@
 import type { MelodyDefinition } from './melody-library';
+import { getFingerColor } from './melody-tab-timeline-render-utils';
 
 export type MelodyTimelineContextAction =
   | 'fret-down'
   | 'fret-up'
   | 'duration-down'
   | 'duration-up'
+  | 'finger-auto'
+  | 'finger-0'
+  | 'finger-1'
+  | 'finger-2'
+  | 'finger-3'
+  | 'finger-4'
   | 'add-note'
   | 'add-event'
   | 'duplicate-event'
@@ -135,10 +142,10 @@ function areToolbarEventNotesEquivalent(
   if (!left || !right) return false;
   if (left.notes.length !== right.notes.length) return false;
   const leftSignature = left.notes
-    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`)
+    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}|${note.finger ?? '-'}`)
     .sort();
   const rightSignature = right.notes
-    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`)
+    .map((note) => `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}|${note.finger ?? '-'}`)
     .sort();
   return leftSignature.every((value, index) => value === rightSignature[index]);
 }
@@ -165,6 +172,14 @@ export function renderTimelineContextMenu(
   const selectedEvent = melody.events[targetEventIndex] ?? null;
   if (!selectedEvent || selectedEventIndex === null || selectedEventIndex !== targetEventIndex) return;
   const hasSelectedNote = activeTimelineContextMenu.noteIndex !== null;
+  const selectedNote =
+    hasSelectedNote && activeTimelineContextMenu.noteIndex !== null
+      ? selectedEvent.notes[activeTimelineContextMenu.noteIndex] ?? null
+      : null;
+  const selectedNoteFinger =
+    typeof selectedNote?.finger === 'number' && Number.isFinite(selectedNote.finger)
+      ? Math.max(0, Math.min(4, Math.round(selectedNote.finger)))
+      : null;
   const stepNoun = selectedEvent.notes.length > 1 ? 'Chord' : 'Note';
 
   const menu = document.createElement('div');
@@ -172,13 +187,14 @@ export function renderTimelineContextMenu(
   menu.dataset.timelineNoPan = 'true';
   menu.setAttribute('role', 'menu');
   menu.title =
-    `Change fret: ArrowUp/ArrowDown. Decrease duration: -. Increase duration: = or +. Add next ${stepNoun.toLowerCase()}: Insert or Enter. Add note to current step: Shift+Insert. Duplicate ${stepNoun.toLowerCase()}: Shift+D. Split ${stepNoun.toLowerCase()}: Shift+S. Merge with next ${stepNoun.toLowerCase()}: Shift+M. Delete selected note: Delete/Backspace. Delete ${stepNoun.toLowerCase()}: Shift+Delete. Undo: Ctrl/Cmd+Z. Redo: Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y.`;
+    `Change fret: ArrowUp/ArrowDown. Decrease duration: -. Increase duration: = or +. Add next ${stepNoun.toLowerCase()}: Insert or Enter. Add note to current step: Shift+Insert. Duplicate ${stepNoun.toLowerCase()}: Shift+D. Split ${stepNoun.toLowerCase()}: Shift+S. Merge with next ${stepNoun.toLowerCase()}: Shift+M. Delete selected note: Delete/Backspace. Delete ${stepNoun.toLowerCase()}: Shift+Delete. Reassign finger/color: context menu Finger section. Undo: Ctrl/Cmd+Z. Redo: Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y.`;
   const addItem = (
     label: string,
     shortcut: string,
     description: string,
     action: MelodyTimelineContextAction,
-    disabled: boolean
+    disabled: boolean,
+    options?: { accentColor?: string }
   ) => {
     const button = document.createElement('button');
     button.type = 'button';
@@ -191,6 +207,9 @@ export function renderTimelineContextMenu(
     const title = document.createElement('span');
     title.className = 'timeline-context-menu-title';
     title.textContent = label;
+    if (options?.accentColor) {
+      title.style.color = options.accentColor;
+    }
     const subtitle = document.createElement('span');
     subtitle.className = 'timeline-context-menu-description';
     subtitle.textContent = description;
@@ -226,6 +245,31 @@ export function renderTimelineContextMenu(
   addItem('Raise Fret', 'ArrowUp', 'Move the selected note one fret higher.', 'fret-up', !hasSelectedNote);
   addItem('Shorter Duration', '-', `Shorten the selected ${stepNoun.toLowerCase()} by one timing unit.`, 'duration-down', false);
   addItem('Longer Duration', '= / +', `Lengthen the selected ${stepNoun.toLowerCase()} by one timing unit.`, 'duration-up', false);
+  addSeparator();
+
+  addSectionLabel('Finger / Color');
+  addItem(
+    'Auto Fingering',
+    '',
+    'Use computed fingering from note positions.',
+    'finger-auto',
+    !hasSelectedNote || selectedNoteFinger === null
+  );
+  addItem('Open String (0)', '', 'Assign gray/open-string color.', 'finger-0', !hasSelectedNote || selectedNoteFinger === 0, {
+    accentColor: getFingerColor(0),
+  });
+  addItem('Index (1)', '', 'Assign index finger color.', 'finger-1', !hasSelectedNote || selectedNoteFinger === 1, {
+    accentColor: getFingerColor(1),
+  });
+  addItem('Middle (2)', '', 'Assign middle finger color.', 'finger-2', !hasSelectedNote || selectedNoteFinger === 2, {
+    accentColor: getFingerColor(2),
+  });
+  addItem('Ring (3)', '', 'Assign ring finger color.', 'finger-3', !hasSelectedNote || selectedNoteFinger === 3, {
+    accentColor: getFingerColor(3),
+  });
+  addItem('Pinky (4)', '', 'Assign pinky finger color.', 'finger-4', !hasSelectedNote || selectedNoteFinger === 4, {
+    accentColor: getFingerColor(4),
+  });
   addSeparator();
 
   addSectionLabel('Timing');

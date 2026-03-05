@@ -9,66 +9,68 @@
   <body class="text-slate-100 font-sans">
     <div class="app-shell w-full h-full overflow-hidden bg-slate-800 flex flex-col gap-y-3">
       <div
-        class="session-area text-center relative shrink-0 flex flex-row flex-wrap justify-center items-center gap-x-2.5 sm:gap-x-4 gap-y-1 px-2 sm:px-3 pr-20 sm:pr-32 pt-1 pb-0.5 bg-slate-700 rounded-lg"
+        class="session-area text-center shrink-0 flex flex-col gap-y-1.5 px-2 sm:px-3 pt-1 pb-0.5 bg-slate-700 rounded-lg"
       >
-        <div class="timed-info hidden absolute top-1 left-2 sm:top-1.5 sm:left-3 flex gap-1.5 sm:gap-2.5" id="timedInfo">
-          <div class="info-box bg-slate-800 px-2 sm:px-3 py-0.5 rounded-lg">
-            <span class="info-label block text-[10px] text-slate-400">Time</span>
-            <span id="timer" class="info-value text-lg sm:text-xl font-bold text-white">60</span>
-          </div>
-          <div class="info-box bg-slate-800 px-2 sm:px-3 py-0.5 rounded-lg">
-            <span class="info-label block text-[10px] text-slate-400">Score</span>
-            <span id="score" class="info-value text-lg sm:text-xl font-bold text-white">0</span>
-          </div>
-        </div>
-
-        <div class="session-toolbar absolute top-1 right-2 sm:top-1.5 sm:right-3 flex items-center gap-1.5">
-          <div
-            class="session-status flex flex-col sm:flex-row sm:items-center items-start gap-0 sm:gap-2 bg-slate-800/90 border border-slate-600 rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px]"
-            role="status"
-          >
-            <div class="flex items-center gap-1">
-              <span id="statusBar" class="text-slate-200 font-semibold">Ready</span>
-            </div>
-            <div class="flex items-center gap-1 text-[10px]">
-              <span id="inputStatusBar" class="text-slate-400 truncate max-w-[100px] sm:max-w-[138px]">
-                Mic: Default
-              </span>
-            </div>
-          </div>
-          <button
-            id="settingsBtn"
-            class="bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
-            aria-label="Open app settings"
-            title="App Settings"
-          >
-            &#9881;&#65039;
-          </button>
-        </div>
-
-        <div class="prompt-container flex items-center justify-center gap-2 sm:gap-3">
-          <div
-            class="prompt text-lg sm:text-2xl md:text-[1.7rem] font-bold min-h-[30px] sm:min-h-[34px] min-w-0 flex items-center justify-center text-center px-1.5 leading-tight"
-            id="prompt"
-            aria-live="polite"
-          ></div>
-          <button
-            id="playSoundBtn"
-            class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
-            disabled
-            aria-label="Play note sound"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              class="w-5 h-5 sm:w-6 sm:h-6"
+        <div class="w-full grid grid-cols-1 sm:grid-cols-[auto,minmax(0,1fr),auto] items-center gap-1.5 sm:gap-3">
+          <div class="prompt-container order-1 sm:order-2 min-w-0 flex items-center justify-center gap-2 sm:gap-3">
+            <div
+              class="prompt text-lg sm:text-2xl md:text-[1.7rem] font-bold min-h-[30px] sm:min-h-[34px] min-w-0 flex items-center justify-center text-center px-1.5 leading-tight"
+              id="prompt"
+              aria-live="polite"
+            ></div>
+            <button
+              id="playSoundBtn"
+              class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
+              disabled
+              aria-label="Play note sound"
             >
-              <path
-                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-              ></path>
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="w-5 h-5 sm:w-6 sm:h-6"
+              >
+                <path
+                  d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                ></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="timed-info order-2 sm:order-1 hidden justify-self-center sm:justify-self-start flex gap-1.5 sm:gap-2.5" id="timedInfo">
+            <div class="info-box bg-slate-800 px-2 sm:px-3 py-0.5 rounded-lg">
+              <span class="info-label block text-[10px] text-slate-400">Time</span>
+              <span id="timer" class="info-value text-lg sm:text-xl font-bold text-white">60</span>
+            </div>
+            <div class="info-box bg-slate-800 px-2 sm:px-3 py-0.5 rounded-lg">
+              <span class="info-label block text-[10px] text-slate-400">Score</span>
+              <span id="score" class="info-value text-lg sm:text-xl font-bold text-white">0</span>
+            </div>
+          </div>
+
+          <div class="session-toolbar order-3 flex items-center justify-self-center sm:justify-self-end gap-1.5">
+            <div
+              class="session-status min-w-[190px] sm:min-w-[320px] flex flex-col sm:flex-row sm:items-center items-start gap-0 sm:gap-2 bg-slate-800/90 border border-slate-600 rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px]"
+              role="status"
+            >
+              <div class="flex items-center gap-1 min-w-0">
+                <span id="statusBar" class="text-slate-200 font-semibold truncate max-w-[150px] sm:max-w-[190px]">Ready</span>
+              </div>
+              <div class="flex items-center gap-1 text-[10px] min-w-0">
+                <span id="inputStatusBar" class="text-slate-400 truncate max-w-[100px] sm:max-w-[138px]">
+                  Mic: Default
+                </span>
+              </div>
+            </div>
+            <button
+              id="settingsBtn"
+              class="bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
+              aria-label="Open app settings"
+              title="App Settings"
+            >
+              &#9881;&#65039;
+            </button>
+          </div>
         </div>
 
         <div class="controls-row w-full max-w-[70rem] mx-auto grid grid-cols-[auto,minmax(0,1fr)] gap-1.5 sm:gap-3 items-center">
@@ -115,11 +117,20 @@
               <button
                 id="metronomeToggleBtn"
                 type="button"
-                class="h-9 rounded-md border border-amber-500/60 bg-slate-700 px-2.5 text-[11px] font-semibold text-amber-100 transition-colors hover:bg-slate-600"
+                class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-md border border-amber-500/60 bg-slate-700 text-amber-100 transition-colors hover:bg-slate-600"
                 aria-pressed="false"
                 aria-label="Toggle metronome click"
+                title="Metronome off (click to turn on)"
               >
-                Click Off
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="h-4 w-4 sm:h-5 sm:w-5"
+                  aria-hidden="true"
+                >
+                  <path d="M13 2h-2l-1 4h4l-1-4ZM7 8h10l2 12H5L7 8Zm5 2a1 1 0 0 0-1 1v6h2v-6a1 1 0 0 0-1-1Zm4.1-4.7-1.4-1.4-2 2 1.4 1.4 2-2Zm-8.8 0 2 2L10.7 5.9l-2-2-1.4 1.4Z"/>
+                </svg>
               </button>
               <label for="melodyDemoBpm" class="field-tooltip-label">Tempo</label>
               <input
@@ -129,7 +140,7 @@
                 max="220"
                 step="1"
                 value="90"
-                class="w-24 sm:w-32 accent-cyan-400"
+                class="w-44 sm:w-72 accent-cyan-400"
                 aria-label="Tempo BPM"
               />
               <span
@@ -147,6 +158,22 @@
                 ></span>
                 <span id="metronomeBeatLabel" class="text-[10px] text-slate-300 min-w-[1.25em] text-center">-</span>
               </div>
+              <label for="metronomeVolume" class="field-tooltip-label">Click</label>
+              <input
+                type="range"
+                id="metronomeVolume"
+                min="0"
+                max="400"
+                step="1"
+                value="100"
+                class="w-16 sm:w-20 accent-amber-300"
+                aria-label="Metronome volume"
+              />
+              <span
+                id="metronomeVolumeValue"
+                class="min-w-[2.7rem] text-center text-[11px] sm:text-[10px] font-semibold text-amber-200 px-1 py-0.5"
+                >100%</span
+              >
               <input type="checkbox" id="metronomeEnabled" class="hidden" />
               <input type="range" id="metronomeBpm" min="40" max="220" step="1" value="80" class="hidden" aria-hidden="true" tabindex="-1" />
               <span id="metronomeBpmValue" class="hidden" aria-hidden="true">80</span>
@@ -400,7 +427,7 @@
                       id="melodyTimelineZoom"
                       type="range"
                       min="70"
-                      max="170"
+                      max="250"
                       step="5"
                       value="100"
                       class="flex-1 accent-cyan-500"

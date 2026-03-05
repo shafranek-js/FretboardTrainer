@@ -16,6 +16,7 @@ type PreviewMetadata = {
   sourceTrackName?: string;
   sourceScoreTitle?: string;
   sourceTempoBpm?: number;
+  sourceTimeSignature?: string;
 };
 
 type PreviewRenderOptions = {
@@ -86,6 +87,7 @@ function cloneParsedEvents(events: MelodyEvent[]): MelodyEvent[] {
       note: note.note,
       stringName: note.stringName,
       fret: note.fret,
+      finger: note.finger,
     })),
   }));
 }
@@ -107,6 +109,7 @@ function getMidiPreviewMetadata(imported: MidiImportedMelody): PreviewMetadata {
     sourceTrackName: imported.metadata.trackName ?? undefined,
     sourceScoreTitle: imported.metadata.midiName ?? undefined,
     sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
+    sourceTimeSignature: imported.metadata.timeSignatureText ?? undefined,
   };
 }
 

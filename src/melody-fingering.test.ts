@@ -27,6 +27,19 @@ describe('melody-fingering', () => {
     expect(fingered[2][0]?.finger).toBe(4);
   });
 
+  it('prepares descending phrase by avoiding early index-finger lock on higher fret', () => {
+    const events: MelodyEvent[] = [
+      { notes: [{ note: 'G', stringName: 'E', fret: 3 }] },
+      { notes: [{ note: 'G', stringName: 'E', fret: 3 }] },
+      { notes: [{ note: 'F', stringName: 'E', fret: 1 }] },
+    ];
+
+    const fingered = buildMelodyFingeredEvents(events);
+    expect(fingered[0][0]?.finger).toBe(2);
+    expect(fingered[1][0]?.finger).toBe(2);
+    expect(fingered[2][0]?.finger).toBe(1);
+  });
+
   it('assigns fingers for polyphonic event notes from one hand position', () => {
     const events: MelodyEvent[] = [
       {

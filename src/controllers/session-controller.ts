@@ -36,11 +36,17 @@ import {
 import { getEnabledStrings } from '../fretboard-ui-state';
 import { type CurriculumPresetKey } from '../curriculum-presets';
 import {
+  clampMetronomeVolumePercent,
+  DEFAULT_METRONOME_BEATS_PER_BAR,
+  setMetronomeMeter,
   setMetronomeTempo,
+  setMetronomeVolume,
   startMetronome,
   stopMetronome,
+  isMetronomeRunning,
   subscribeMetronomeBeat,
 } from '../metronome';
+import { resolveMelodyMetronomeMeterProfile } from '../melody-meter';
 import { setNoteNamingPreference } from '../note-display';
 import {
   normalizeAudioInputDeviceId,
@@ -161,6 +167,20 @@ function getSelectedBaseMelody() {
   return selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
 }
 
+function syncMetronomeMeterFromSelectedMelody() {
+  if (!isMelodyWorkflowMode(dom.trainingMode.value)) {
+    setMetronomeMeter({
+      beatsPerBar: DEFAULT_METRONOME_BEATS_PER_BAR,
+      beatUnitDenominator: 4,
+      secondaryAccentBeatIndices: [],
+    });
+    return;
+  }
+  const selectedMelody = getSelectedBaseMelody();
+  const profile = resolveMelodyMetronomeMeterProfile(selectedMelody);
+  setMetronomeMeter(profile);
+}
+
 function cloneMelodyEventsDraft(events: MelodyEvent[]) {
   return cloneMelodyEventsDraftModel(events);
 }
@@ -206,6 +226,7 @@ const renderMelodyEditorPreviewFromEvents = (
       sourceTrackName?: string;
       sourceScoreTitle?: string;
       sourceTempoBpm?: number;
+      sourceTimeSignature?: string;
     };
   }
 ) => melodyEventEditorController.renderPreviewFromEvents(parsedEvents, options);
@@ -363,6 +384,8 @@ const syncMelodyTimelineEditingState = (_statusText?: string) => melodyTimelineE
 const moveSelectedMelodyTimelineEditingNoteToString = (targetStringName: string, options?: { commit?: boolean }) =>
   melodyTimelineEditingOrchestrator.moveSelectedNoteToString(targetStringName, options);
 const addMelodyTimelineEditingNote = () => melodyTimelineEditingOrchestrator.addNote();
+const setSelectedMelodyTimelineEditingNoteFinger = (finger: number | null) =>
+  melodyTimelineEditingOrchestrator.setSelectedNoteFinger(finger);
 const deleteSelectedMelodyTimelineEditingNote = () => melodyTimelineEditingOrchestrator.deleteNote();
 const adjustSelectedMelodyTimelineEventDuration = (direction: -1 | 1) =>
   melodyTimelineEditingOrchestrator.adjustDuration(direction);
@@ -465,6 +488,9 @@ melodyDemoController = createMelodyDemoController({
     redrawFretboard,
     onStateChange: melodyDemoPresentationController.renderButtonState,
     setResultMessage,
+    onBeforePlaybackStart: async (playbackAnchorPerfMs) => {
+      await startMelodyMetronomeIfEnabled({ alignToPerformanceTimeMs: playbackAnchorPerfMs });
+    },
     onPlaybackCursorChange: (cursor) => {
       state.melodyDemoRuntimeActive = cursor.active;
       state.melodyDemoRuntimePaused = cursor.paused;
@@ -480,20 +506,25 @@ melodyDemoController = createMelodyDemoController({
       state.melodyDemoRuntimeAnchorStartedAtMs = null;
       state.melodyDemoRuntimePausedOffsetSec = 0;
       scheduleMelodyTimelineRenderFromState();
+      void syncMelodyMetronomeRuntime();
     },
   });
 
 function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
   melodyDemoController.stopPlayback(options);
   dom.melodyTabTimelineGrid.scrollLeft = 0;
+  void syncMelodyMetronomeRuntime();
 }
 
 function pauseMelodyDemoPlayback() {
   melodyDemoController.pausePlayback();
+  void syncMelodyMetronomeRuntime();
 }
 
 async function resumeMelodyDemoPlayback() {
-  await melodyDemoController.resumePlayback();
+  const resumeAnchorPerfMs = performance.now() + 20;
+  await startMelodyMetronomeIfEnabled({ alignToPerformanceTimeMs: resumeAnchorPerfMs });
+  await melodyDemoController.resumePlayback(resumeAnchorPerfMs);
 }
 
 function shouldToggleMelodyPlaybackFromBackgroundClick(target: Element) {
@@ -766,6 +797,15 @@ const syncMetronomeBpmDisplay = () => metronomeController.syncBpmDisplay();
 const getClampedMetronomeBpmFromInput = () => metronomeController.getClampedBpmFromInput();
 const resetMetronomeVisualIndicator = () => metronomeController.resetVisualIndicator();
 
+function syncMetronomeVolumeDisplayAndRuntime() {
+  const clampedVolumePercent = clampMetronomeVolumePercent(
+    Number.parseInt(dom.metronomeVolume.value, 10)
+  );
+  dom.metronomeVolume.value = String(clampedVolumePercent);
+  dom.metronomeVolumeValue.textContent = `${clampedVolumePercent}%`;
+  setMetronomeVolume(clampedVolumePercent);
+}
+
 const curriculumPresetController = createCurriculumPresetController({
   dom: {
     curriculumPreset: dom.curriculumPreset,
@@ -942,6 +982,7 @@ const melodyTimelineEditingController = createMelodyTimelineEditingController({
   moveSelectedEventToIndex: moveSelectedMelodyTimelineEventToIndex,
   adjustDuration: adjustSelectedMelodyTimelineEventDuration,
   addNote: addMelodyTimelineEditingNote,
+  setSelectedNoteFinger: setSelectedMelodyTimelineEditingNoteFinger,
   addNoteAtEventString: (eventIndex, stringName) =>
     melodyTimelineEditingOrchestrator.addNoteAtEventString(eventIndex, stringName),
   addEventAfterSelection: addMelodyTimelineEditingEventAfterSelection,
@@ -964,15 +1005,10 @@ const melodyTimelineEditingController = createMelodyTimelineEditingController({
 });
 
 async function startSessionFromUi() {
-  if (!(await ensureRhythmModeMetronome())) return;
   state.melodyTimelinePreviewIndex = null;
   state.melodyTimelinePreviewLabel = null;
   refreshMelodyTimelineUi();
   await startListening();
-}
-
-async function ensureRhythmModeMetronome() {
-  return metronomeController.ensureRhythmModeMetronome();
 }
 
 function syncMelodyTempoFromMetronomeIfLinked() {
@@ -1021,16 +1057,65 @@ function syncHiddenMetronomeTempoFromSharedTempo() {
 
 async function syncMetronomeTempoFromMelodyIfLinked() {
   syncHiddenMetronomeTempoFromSharedTempo();
-  if (!dom.metronomeEnabled.checked) {
+  await syncMelodyMetronomeRuntime();
+}
+
+function isMelodyTransportRunningForMetronome() {
+  const demoPlaying = melodyDemoController?.isPlaying() ?? false;
+  const melodySessionRunning =
+    state.isListening &&
+    isMelodyWorkflowMode(dom.trainingMode.value) &&
+    (dom.trainingMode.value !== 'performance' ||
+      (state.performanceRuntimeStartedAtMs !== null && !state.performancePrerollLeadInVisible));
+  return demoPlaying || melodySessionRunning;
+}
+
+async function startMelodyMetronomeIfEnabled(options?: { alignToPerformanceTimeMs?: number | null }) {
+  syncMetronomeMeterFromSelectedMelody();
+  syncHiddenMetronomeTempoFromSharedTempo();
+  if (!dom.metronomeEnabled.checked || !isMelodyWorkflowMode(dom.trainingMode.value)) {
+    stopMetronome();
+    resetMetronomeVisualIndicator();
     return;
   }
-  await metronomeController.handleBpmInput();
+  const bpm = getClampedMetronomeBpmFromInput();
+  try {
+    await startMetronome(bpm, {
+      alignToPerformanceTimeMs: options?.alignToPerformanceTimeMs ?? null,
+    });
+  } catch (error) {
+    showNonBlockingError(formatUserFacingError('Failed to synchronize metronome timing', error));
+  }
+}
+
+async function syncMelodyMetronomeRuntime() {
+  syncMetronomeMeterFromSelectedMelody();
+  syncHiddenMetronomeTempoFromSharedTempo();
+  if (!dom.metronomeEnabled.checked || !isMelodyTransportRunningForMetronome()) {
+    stopMetronome();
+    resetMetronomeVisualIndicator();
+    return;
+  }
+  const bpm = getClampedMetronomeBpmFromInput();
+  try {
+    if (isMetronomeRunning()) {
+      await setMetronomeTempo(bpm);
+    } else {
+      await startMetronome(bpm);
+    }
+  } catch (error) {
+    showNonBlockingError(formatUserFacingError('Failed to synchronize metronome timing', error));
+  }
 }
 
 function renderMetronomeToggleButton() {
   const enabled = dom.metronomeEnabled.checked;
-  dom.metronomeToggleBtn.textContent = enabled ? 'Click On' : 'Click Off';
+  const label = enabled
+    ? 'Metronome on (click to turn off)'
+    : 'Metronome off (click to turn on)';
   dom.metronomeToggleBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  dom.metronomeToggleBtn.setAttribute('aria-label', label);
+  dom.metronomeToggleBtn.title = label;
   dom.metronomeToggleBtn.classList.toggle('bg-amber-700', enabled);
   dom.metronomeToggleBtn.classList.toggle('border-amber-400', enabled);
   dom.metronomeToggleBtn.classList.toggle('text-white', enabled);
@@ -1069,8 +1154,10 @@ export function registerSessionControls() {
   dom.showTimelineDetails.checked = state.showMelodyTimelineDetails;
   syncMelodyTimelineZoomDisplay();
   syncScrollingTabZoomDisplay();
+  syncMetronomeMeterFromSelectedMelody();
   syncHiddenMetronomeTempoFromSharedTempo();
   syncMetronomeBpmDisplay();
+  syncMetronomeVolumeDisplayAndRuntime();
   melodyDemoPresentationController.syncBpmDisplay();
   refreshMelodyOptionsForCurrentInstrument();
   setMelodyTimelineStudyRangeCommitHandler(({ melodyId, range }) => {
@@ -1339,6 +1426,7 @@ export function registerSessionControls() {
     markCurriculumPresetAsCustom();
     handleModeChange();
     syncHiddenMetronomeTempoFromSharedTempo();
+    void syncMelodyMetronomeRuntime();
     updatePracticeSetupSummary();
     refreshMicPerformanceReadinessUi();
     saveSettings();
@@ -1387,24 +1475,30 @@ export function registerSessionControls() {
   dom.metronomeToggleBtn.addEventListener('click', async () => {
     dom.metronomeEnabled.checked = !dom.metronomeEnabled.checked;
     syncHiddenMetronomeTempoFromSharedTempo();
-    await metronomeController.handleEnabledChange();
+    await syncMelodyMetronomeRuntime();
     renderMetronomeToggleButton();
     saveSettings();
   });
   dom.metronomeEnabled.addEventListener('change', async () => {
     syncHiddenMetronomeTempoFromSharedTempo();
-    await metronomeController.handleEnabledChange();
+    await syncMelodyMetronomeRuntime();
     renderMetronomeToggleButton();
     saveSettings();
   });
   dom.metronomeBpm.addEventListener('input', async () => {
-    await metronomeController.handleBpmInput();
-    syncMelodyTempoFromMetronomeIfLinked();
+    await syncMelodyTempoFromMetronomeIfLinked();
     saveSettings();
   });
   dom.metronomeBpm.addEventListener('change', async () => {
-    await metronomeController.handleBpmInput();
-    syncMelodyTempoFromMetronomeIfLinked();
+    await syncMelodyTempoFromMetronomeIfLinked();
+    saveSettings();
+  });
+  dom.metronomeVolume.addEventListener('input', () => {
+    syncMetronomeVolumeDisplayAndRuntime();
+    saveSettings();
+  });
+  dom.metronomeVolume.addEventListener('change', () => {
+    syncMetronomeVolumeDisplayAndRuntime();
     saveSettings();
   });
   dom.rhythmTimingWindow.addEventListener('change', () => {
@@ -1429,6 +1523,7 @@ export function registerSessionControls() {
     hydrateMelodyStringShiftForSelectedMelody();
     hydrateMelodyStudyRangeForSelectedMelody();
     hydrateMelodyTempoForSelectedMelody();
+    syncMetronomeMeterFromSelectedMelody();
     melodyDemoController.clearPreviewState();
     updateMelodyActionButtonsForSelection();
     if (state.isListening && isMelodyWorkflowMode(dom.trainingMode.value)) {

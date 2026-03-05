@@ -77,7 +77,16 @@ import {
   recordRhythmTimingAttempt,
   recordSessionAttempt,
 } from './session-stats';
-import { getMetronomeTimingSnapshot } from './metronome';
+import {
+  DEFAULT_METRONOME_BEATS_PER_BAR,
+  getMetronomeBpm,
+  setMetronomeMeter,
+  getMetronomeTimingSnapshot,
+  isMetronomeRunning,
+  setMetronomeTempo,
+  startMetronome,
+  stopMetronome,
+} from './metronome';
 import { formatUserFacingError, showNonBlockingError } from './app-feedback';
 import { evaluateRhythmTiming, formatRhythmFeedback } from './rhythm-timing';
 import {
@@ -166,8 +175,9 @@ import { buildSessionInitialTimelinePreview } from './session-initial-timeline-p
 import { shouldIgnorePerformanceOctaveMismatch } from './performance-octave-policy';
 import { isPerformancePitchWithinTolerance as isPerformancePitchWithinToleranceHelper } from './performance-pitch-tolerance';
 import { getMelodyById } from './melody-library';
-import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
+import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
+import { resolveMelodyMetronomeMeterProfile } from './melody-meter';
 import { formatMelodyStudyRange, isDefaultMelodyStudyRange, normalizeMelodyStudyRange } from './melody-study-range';
 import { resolvePerformanceTransportFrame } from './performance-transport';
 import {
@@ -498,7 +508,7 @@ function getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex: number) {
   for (let index = rangeStart; index < clampedTargetIndex; index += 1) {
     const event = melody.events[index];
     if (!event) continue;
-    totalSec += getMelodyEventPlaybackDurationMs(event, Number(dom.melodyDemoBpm.value), melody) / 1000;
+    totalSec += getMelodyEventPlaybackDurationExactMs(event, Number(dom.melodyDemoBpm.value), melody) / 1000;
   }
   return totalSec;
 }
@@ -1278,6 +1288,7 @@ function processAudio() {
           requiredStableFrames,
           targetNote: state.currentPrompt.targetNote,
           noteResolver: freqToNoteName,
+          emaPreset: performanceAdaptiveMicInput ? 'performance_fast' : 'default',
         });
         state.micLastMonophonicConfidence = monophonicResult.confidence;
         state.micLastMonophonicPitchSpreadCents = monophonicResult.pitchSpreadCents;
@@ -1367,6 +1378,8 @@ function processAudio() {
                     rawConfidence: monophonicResult.rawConfidence,
                     smoothedVoicing: monophonicResult.voicingConfidence,
                     rawVoicing: monophonicResult.rawVoicingConfidence,
+                    attackPeakVolume: state.micMonophonicAttackPeakVolume,
+                    attackRequiredPeak,
                   })
                 : null;
             const confidenceAccepted =
@@ -1822,6 +1835,7 @@ export function stopListening(keepStreamOpen = false) {
   }
   state.activeSessionStats = null;
   state.isListening = false;
+  stopMetronome();
   if (state.animationId) cancelAnimationFrame(state.animationId);
   stopPerformanceTransportLoop();
   clearTrackedTimeouts(state.pendingTimeoutIds);
@@ -2006,7 +2020,6 @@ function nextPrompt() {
           melody: performanceContext.melody,
           studyRange: performanceContext.studyRange,
           eventIndex: performanceEventIndex,
-          showNoteHint: dom.melodyShowNote.checked,
           bpm: performanceContext.bpm,
         });
       }
@@ -2036,6 +2049,7 @@ function nextPrompt() {
         scheduleMelodyTimelineRenderFromState();
         configurePromptAudio();
         state.startTime = Date.now();
+        void syncMelodySessionMetronomeToPromptStart();
         if (trainingMode !== 'performance') {
           performancePromptController.scheduleAdvance(nextPrompt);
         }
@@ -2047,6 +2061,58 @@ function nextPrompt() {
     if (executionResult !== 'prompt_applied') return;
   } catch (error) {
     handleSessionRuntimeError('nextPrompt', error);
+  }
+}
+
+async function syncMelodySessionMetronomeToPromptStart() {
+  if (!state.isListening) return;
+  if (!isMelodyWorkflowMode(dom.trainingMode.value)) return;
+
+  const selectedMelodyId = dom.melodySelector.value.trim();
+  const selectedBaseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+  const selectedMelody =
+    selectedBaseMelody === null
+      ? null
+      : getMelodyWithPracticeAdjustments(
+          selectedBaseMelody,
+          state.melodyTransposeSemitones,
+          state.melodyStringShift,
+          state.currentInstrument
+        );
+  const meterProfile =
+    selectedMelody === null
+      ? {
+          beatsPerBar: DEFAULT_METRONOME_BEATS_PER_BAR,
+          beatUnitDenominator: 4,
+          secondaryAccentBeatIndices: [],
+        }
+      : resolveMelodyMetronomeMeterProfile(selectedMelody);
+  setMetronomeMeter(meterProfile);
+
+  if (dom.trainingMode.value === 'performance') {
+    if (state.performanceRuntimeStartedAtMs === null || state.performancePrerollLeadInVisible) {
+      return;
+    }
+  }
+
+  if (!dom.metronomeEnabled.checked) {
+    if (isMetronomeRunning()) {
+      stopMetronome();
+    }
+    return;
+  }
+
+  const bpm = clampMelodyPlaybackBpm(dom.melodyDemoBpm.value);
+  try {
+    if (isMetronomeRunning()) {
+      if (getMetronomeBpm() !== bpm) {
+        await setMetronomeTempo(bpm);
+      }
+      return;
+    }
+    await startMetronome(bpm);
+  } catch (error) {
+    showNonBlockingError(formatUserFacingError('Failed to synchronize metronome timing', error));
   }
 }
 

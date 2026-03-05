@@ -24,6 +24,7 @@ interface MelodyTimelineEditingControllerDeps {
   moveSelectedEventToIndex(targetIndex: number): void;
   adjustDuration(direction: -1 | 1): void;
   addNote(): void;
+  setSelectedNoteFinger(finger: number | null): void;
   addNoteAtEventString(eventIndex: number, stringName: string): void;
   addEventAfterSelection(): void;
   duplicateEvent(): void;
@@ -105,6 +106,24 @@ export function createMelodyTimelineEditingController(deps: MelodyTimelineEditin
         return;
       case 'add-note':
         deps.addNote();
+        return;
+      case 'finger-auto':
+        deps.setSelectedNoteFinger(null);
+        return;
+      case 'finger-0':
+        deps.setSelectedNoteFinger(0);
+        return;
+      case 'finger-1':
+        deps.setSelectedNoteFinger(1);
+        return;
+      case 'finger-2':
+        deps.setSelectedNoteFinger(2);
+        return;
+      case 'finger-3':
+        deps.setSelectedNoteFinger(3);
+        return;
+      case 'finger-4':
+        deps.setSelectedNoteFinger(4);
         return;
       case 'add-event':
         deps.addEventAfterSelection();

@@ -1,7 +1,10 @@
 import { buildPromptAudioPlan } from '../prompt-audio-plan';
 import { getMelodyFingeredEvent } from '../melody-fingering';
-import { formatMelodyStudyStepLabel, type MelodyStudyRange } from '../melody-study-range';
-import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationMs } from '../melody-timeline-duration';
+import type { MelodyStudyRange } from '../melody-study-range';
+import {
+  clampMelodyPlaybackBpm,
+  getMelodyEventPlaybackDurationExactMs,
+} from '../melody-timeline-duration';
 import type { MelodyDefinition, MelodyEvent } from '../melody-library';
 import type { IInstrument } from '../instruments/instrument';
 import type { ChordNote, Prompt } from '../types';
@@ -48,39 +51,18 @@ interface MelodyDemoPresentationControllerDeps {
   findPlayableStringForNote(note: string): string | null;
 }
 
-function formatMelodyDemoEventHint(event: MelodyEvent) {
-  return event.notes
-    .map((note) => {
-      if (note.stringName !== null && typeof note.fret === 'number') {
-        return `${note.note} (${note.stringName}, fret ${note.fret})`;
-      }
-      return note.note;
-    })
-    .join(' + ');
-}
-
 function buildMelodyDemoPrompt(
   melodyName: string,
   event: MelodyEvent,
-  eventIndexInRange: number,
-  totalEventsInRange: number,
-  studyRange: MelodyStudyRange,
-  totalMelodyEvents: number,
   fingering: ChordNote[],
   options?: { label?: string }
 ): Prompt {
   const isPolyphonic = event.notes.length > 1;
   const first = event.notes[0] ?? null;
-  const stepLabel = formatMelodyStudyStepLabel(
-    eventIndexInRange,
-    totalEventsInRange,
-    studyRange,
-    totalMelodyEvents
-  );
   const prefixLabel = options?.label ?? 'Playback';
 
   return {
-    displayText: `${prefixLabel} ${stepLabel}: ${formatMelodyDemoEventHint(event)} (${melodyName})`,
+    displayText: `${prefixLabel}: ${melodyName}`,
     targetNote: isPolyphonic ? null : (first?.note ?? null),
     targetString: isPolyphonic ? null : (first?.stringName ?? null),
     targetChordNotes: isPolyphonic ? [...new Set(event.notes.map((note) => note.note))] : [],
@@ -159,7 +141,7 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
   }
 
   function getStepDelayMs(event: MelodyEvent, melodyEvents: MelodyEvent[]) {
-    return getMelodyEventPlaybackDurationMs(event, getClampedBpmFromInput(), melodyEvents);
+    return getMelodyEventPlaybackDurationExactMs(event, getClampedBpmFromInput(), melodyEvents);
   }
 
   function previewEvent(
@@ -167,8 +149,8 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
     melodyName: string,
     event: MelodyEvent,
     eventIndex: number,
-    totalEventsInRange: number,
-    studyRange: MelodyStudyRange,
+    _totalEventsInRange: number,
+    _studyRange: MelodyStudyRange,
     options?: { label?: string; autoplaySound?: boolean }
   ) {
     deps.state.melodyTimelinePreviewIndex = eventIndex;
@@ -177,10 +159,6 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
     const prompt = buildMelodyDemoPrompt(
       melodyName,
       event,
-      eventIndex - studyRange.startIndex,
-      totalEventsInRange,
-      studyRange,
-      melodyEvents.length,
       fingering,
       { label: options?.label }
     );

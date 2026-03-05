@@ -10,8 +10,9 @@ export interface TimelineDurationLayout {
   cellPixelWidths: number[];
 }
 
-export const MELODY_PLAYBACK_MIN_STEP_MS = 160;
-export const MELODY_PLAYBACK_MAX_STEP_MS = 1800;
+// Keep a wide safety envelope so beat-based timing stays musically accurate.
+export const MELODY_PLAYBACK_MIN_STEP_MS = 40;
+export const MELODY_PLAYBACK_MAX_STEP_MS = 12000;
 export const MELODY_PLAYBACK_FALLBACK_STEP_MS = 700;
 export const MELODY_PLAYBACK_COLUMN_MS = 95;
 export const MELODY_PLAYBACK_MIN_BPM = 40;
@@ -86,11 +87,19 @@ export function getMelodyEventPlaybackDurationMs(
   bpm: number,
   melody?: Pick<MelodyDefinition, 'events'> | MelodyDefinition['events']
 ) {
+  return Math.round(getMelodyEventPlaybackDurationExactMs(event, bpm, melody));
+}
+
+export function getMelodyEventPlaybackDurationExactMs(
+  event: MelodyDefinition['events'][number],
+  bpm: number,
+  melody?: Pick<MelodyDefinition, 'events'> | MelodyDefinition['events']
+) {
   const beats = getEventDurationBeats(event);
   if (beats !== null) {
     const beatMs = 60000 / clampMelodyPlaybackBpm(bpm);
     return clamp(
-      Math.round(beats * beatMs),
+      beats * beatMs,
       MELODY_PLAYBACK_MIN_STEP_MS,
       MELODY_PLAYBACK_MAX_STEP_MS
     );
@@ -100,14 +109,14 @@ export function getMelodyEventPlaybackDurationMs(
   if (derivedBeats !== null) {
     const beatMs = 60000 / clampMelodyPlaybackBpm(bpm);
     return clamp(
-      Math.round(derivedBeats * beatMs),
+      derivedBeats * beatMs,
       MELODY_PLAYBACK_MIN_STEP_MS,
       MELODY_PLAYBACK_MAX_STEP_MS
     );
   }
 
   const durationColumns = Math.max(1, event.durationColumns ?? 0);
-  const computed = Math.round(durationColumns * MELODY_PLAYBACK_COLUMN_MS);
+  const computed = durationColumns * MELODY_PLAYBACK_COLUMN_MS;
   return clamp(
     computed || MELODY_PLAYBACK_FALLBACK_STEP_MS,
     MELODY_PLAYBACK_MIN_STEP_MS,

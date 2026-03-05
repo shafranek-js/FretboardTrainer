@@ -65,4 +65,20 @@ describe('scrolling-tab-panel-geometry', () => {
     expect(layout.playheadY).toBeLessThan(linearMidpoint);
     expect(layout.playheadY).toBeLessThan(layout.stringYs[0] ?? Number.POSITIVE_INFINITY);
   });
+
+  it('anchors playhead Y to the current event midpoint at event start time', () => {
+    const startTimeModel: ScrollingTabPanelModel = {
+      ...model,
+      currentTimeSec: model.events[0]?.startTimeSec ?? 0,
+    };
+    const layout = computeScrollingTabPanelLayout({
+      width: 800,
+      height: 160,
+      stringCount: 6,
+      model: startTimeModel,
+      zoomScale: 1,
+    });
+
+    expect(layout.playheadY).toBeCloseTo(layout.stringYs[0] ?? 0, 6);
+  });
 });

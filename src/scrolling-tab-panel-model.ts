@@ -1,5 +1,5 @@
 import type { MelodyDefinition } from './melody-library';
-import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
+import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 import { buildMelodyFingeredEvents } from './melody-fingering';
 import type {
   PerformanceTimelineAttemptStatus,
@@ -92,7 +92,7 @@ export function buildScrollingTabPanelModel(
   for (let index = rangeStart; index <= rangeEnd; index += 1) {
     const melodyEvent = input.melody.events[index];
     const durationSec =
-      getMelodyEventPlaybackDurationMs(melodyEvent, input.bpm, input.melody) / 1000;
+      getMelodyEventPlaybackDurationExactMs(melodyEvent, input.bpm, input.melody) / 1000;
     const playedNotes = input.performanceFeedbackByEvent?.[index] ?? [];
     const matchedPlayedNoteIndexes = new Set<number>();
     const notes = melodyEvent.notes

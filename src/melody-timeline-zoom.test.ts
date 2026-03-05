@@ -13,7 +13,7 @@ describe('melody timeline zoom helpers', () => {
 
   it('clamps values to the supported range', () => {
     expect(normalizeMelodyTimelineZoomPercent(20)).toBe(70);
-    expect(normalizeMelodyTimelineZoomPercent(240)).toBe(170);
+    expect(normalizeMelodyTimelineZoomPercent(260)).toBe(250);
   });
 
   it('formats and scales normalized values', () => {

@@ -42,6 +42,7 @@ import {
   setPreferredMidiInputDeviceId,
 } from './midi-runtime';
 import { normalizeMelodyTimelineZoomPercent } from './melody-timeline-zoom';
+import { clampMetronomeVolumePercent, setMetronomeVolume } from './metronome';
 import {
   getActiveProfileName,
   getDefaultMelodyIdForInstrument,
@@ -137,6 +138,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     sessionToolsCollapsed: getSessionToolsCollapsed(),
     metronomeEnabled: dom.metronomeEnabled.checked,
     metronomeBpm: dom.metronomeBpm.value,
+    metronomeVolume: dom.metronomeVolume.value,
     rhythmTimingWindow: dom.rhythmTimingWindow.value,
     selectedScale: dom.scaleSelector.value,
     selectedChord: dom.chordSelector.value,
@@ -253,6 +255,12 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.metronomeEnabled.checked = safeSettings.metronomeEnabled ?? false;
     dom.metronomeBpm.value = safeSettings.metronomeBpm ?? '80';
     dom.metronomeBpmValue.textContent = dom.metronomeBpm.value;
+    const resolvedMetronomeVolume = clampMetronomeVolumePercent(
+      Number.parseInt(safeSettings.metronomeVolume ?? '100', 10)
+    );
+    dom.metronomeVolume.value = String(resolvedMetronomeVolume);
+    dom.metronomeVolumeValue.textContent = `${resolvedMetronomeVolume}%`;
+    setMetronomeVolume(resolvedMetronomeVolume);
     dom.rhythmTimingWindow.value = safeSettings.rhythmTimingWindow ?? 'normal';
     const selectedTrainingModeOption = dom.trainingMode.selectedOptions[0];
     if (selectedTrainingModeOption?.disabled) {

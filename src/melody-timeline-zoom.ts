@@ -1,6 +1,6 @@
 const DEFAULT_MELODY_TIMELINE_ZOOM_PERCENT = 100;
 const MIN_MELODY_TIMELINE_ZOOM_PERCENT = 70;
-const MAX_MELODY_TIMELINE_ZOOM_PERCENT = 170;
+const MAX_MELODY_TIMELINE_ZOOM_PERCENT = 250;
 
 export function normalizeMelodyTimelineZoomPercent(value: unknown) {
   const parsed =

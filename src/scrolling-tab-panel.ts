@@ -36,6 +36,26 @@ let cachedStaticCanvas: HTMLCanvasElement | null = null;
 let cachedMovingCanvas: HTMLCanvasElement | null = null;
 const BASE_SCROLLING_TAB_PANEL_VIEWPORT_HEIGHT = 196;
 
+let cachedScrollingTabViewportWidth = 320;
+let scrollingTabViewportObserver: ResizeObserver | null = null;
+
+function ensureScrollingTabViewportObserver() {
+  if (typeof ResizeObserver === 'undefined') {
+    cachedScrollingTabViewportWidth = Math.max(320, dom.scrollingTabPanelViewport.clientWidth);
+    return;
+  }
+  if (scrollingTabViewportObserver) return;
+  cachedScrollingTabViewportWidth = Math.max(320, dom.scrollingTabPanelViewport.clientWidth);
+  scrollingTabViewportObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.target === dom.scrollingTabPanelViewport) {
+        cachedScrollingTabViewportWidth = Math.max(320, entry.contentRect.width);
+      }
+    }
+  });
+  scrollingTabViewportObserver.observe(dom.scrollingTabPanelViewport);
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -95,14 +115,17 @@ function drawScrollingTabPanel(
     hasRuntimeCursor: boolean;
     structuralRenderKey: string;
     feedbackSignature: string;
+    performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null;
     editingEnabled: boolean;
     selectedEventIndex: number | null;
     selectedNoteIndex: number | null;
   }
 ) {
+  ensureScrollingTabViewportObserver();
   bindScrollingTabPanelInteractions();
   if (dom.scrollingTabPanel.classList.contains('hidden')) {
     dom.scrollingTabPanel.classList.remove('hidden');
+    cachedScrollingTabViewportWidth = Math.max(320, dom.scrollingTabPanelViewport.clientWidth);
   }
   const targetViewportHeight = clamp(
     Math.round(BASE_SCROLLING_TAB_PANEL_VIEWPORT_HEIGHT * options.zoomScale),
@@ -112,7 +135,7 @@ function drawScrollingTabPanel(
   if (dom.scrollingTabPanelViewport.style.height !== `${targetViewportHeight}px`) {
     dom.scrollingTabPanelViewport.style.height = `${targetViewportHeight}px`;
   }
-  const viewportWidth = Math.max(320, dom.scrollingTabPanelViewport.clientWidth);
+  const viewportWidth = cachedScrollingTabViewportWidth;
   const viewportHeight = Math.max(140, targetViewportHeight);
   const zoomScaleText = String(options.zoomScale);
   if (dom.scrollingTabPanel.style.getPropertyValue('--melody-timeline-zoom-scale') !== zoomScaleText) {
@@ -169,7 +192,6 @@ function drawScrollingTabPanel(
   const canvasConfigKey = `${viewportWidth}x${viewportHeight}|${sceneWidth}@${pixelRatio}`;
   const movingRenderKey = JSON.stringify({
     structuralRenderKey: options.structuralRenderKey,
-    feedbackSignature: options.feedbackSignature,
     sceneWidth,
     viewportHeight,
     pixelRatio,
@@ -222,18 +244,18 @@ function drawScrollingTabPanel(
       currentScrollX: 0,
     };
     renderScrollingTabPanelMovingLayer(cachedMovingCtx, model, movingLayout);
-    renderScrollingTabPanelFeedback(
-      cachedMovingCtx,
-      model,
-      movingLayout,
-      lastRenderContext?.performanceFeedbackByEvent
-    );
   }
   if (cachedStaticCanvas && cachedMovingCanvas) {
     drawCtx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     drawCtx.clearRect(0, 0, viewportWidth, viewportHeight);
     drawCtx.drawImage(cachedStaticCanvas, 0, 0, viewportWidth, viewportHeight);
     renderScrollingTabPanelViewport(drawCtx, cachedMovingCanvas, viewportLayout, pixelRatio);
+    renderScrollingTabPanelFeedback(
+      drawCtx,
+      model,
+      viewportLayout,
+      options.performanceFeedbackByEvent
+    );
     renderScrollingTabPanelSelection(drawCtx, model, viewportLayout, {
       editingEnabled: options.editingEnabled,
       selectedEventIndex: options.selectedEventIndex,
@@ -272,6 +294,7 @@ export function updateScrollingTabPanelRuntime(currentTimeSec: number | null) {
     hasRuntimeCursor: typeof currentTimeSec === 'number',
     structuralRenderKey: lastStructuralRenderKey,
     feedbackSignature: getPerformanceFeedbackSignature(lastRenderContext.performanceFeedbackByEvent),
+    performanceFeedbackByEvent: lastRenderContext.performanceFeedbackByEvent,
     editingEnabled: lastRenderContext.editingEnabled,
     selectedEventIndex: lastRenderContext.selectedEventIndex,
     selectedNoteIndex: lastRenderContext.selectedNoteIndex,
@@ -346,6 +369,7 @@ export function renderScrollingTabPanel(
     hasRuntimeCursor: typeof options.currentTimeSec === 'number',
     structuralRenderKey,
     feedbackSignature: renderFeedbackSignature,
+    performanceFeedbackByEvent: options.performanceFeedbackByEvent,
     editingEnabled: options.editingEnabled,
     selectedEventIndex: options.selectedEventIndex,
     selectedNoteIndex: options.selectedNoteIndex,

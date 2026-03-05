@@ -9,6 +9,7 @@ interface MelodyEventEditorMetadata {
   sourceTrackName?: string;
   sourceScoreTitle?: string;
   sourceTempoBpm?: number;
+  sourceTimeSignature?: string;
 }
 
 interface GpLikeImportedMelody {
@@ -34,6 +35,7 @@ interface MidiLikeImportedMelody {
     trackName?: string | null;
     midiName?: string | null;
     tempoBpm?: number | null;
+    timeSignatureText?: string | null;
   };
 }
 
@@ -129,6 +131,7 @@ export function createMelodyLibraryActionsController(deps: MelodyLibraryActionsC
       sourceTrackName: imported.metadata.trackName ?? undefined,
       sourceScoreTitle: imported.metadata.midiName ?? undefined,
       sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
+      sourceTimeSignature: imported.metadata.timeSignatureText ?? undefined,
     };
     const melodyId = deps.saveCustomEventMelody(
       melodyName,
@@ -230,6 +233,7 @@ export function createMelodyLibraryActionsController(deps: MelodyLibraryActionsC
         sourceTrackName: melody.sourceTrackName,
         sourceScoreTitle: melody.sourceScoreTitle,
         sourceTempoBpm: deps.getPracticeAdjustedBakeBpm(adjustedMelody),
+        sourceTimeSignature: melody.sourceTimeSignature,
       }
     );
 

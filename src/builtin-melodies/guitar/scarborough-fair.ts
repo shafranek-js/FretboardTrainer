@@ -55,4 +55,5 @@ export const GUITAR_SCARBOROUGH_FAIR_MELODY: BuiltinAsciiTabMelodySpec = {
   tabText: GUITAR_SCARBOROUGH_FAIR_TAB_TEXT,
   events: GUITAR_SCARBOROUGH_FAIR_EVENTS,
   sourceTempoBpm: 72,
+  sourceTimeSignature: '3/4',
 };

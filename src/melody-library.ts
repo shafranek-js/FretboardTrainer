@@ -10,6 +10,7 @@ export interface MelodyEventNote {
   note: string;
   stringName: string | null;
   fret: number | null;
+  finger?: number | null;
 }
 
 export interface MelodyEvent {
@@ -34,6 +35,7 @@ export interface MelodyDefinition {
   sourceTrackName?: string;
   sourceScoreTitle?: string;
   sourceTempoBpm?: number;
+  sourceTimeSignature?: string;
 }
 
 export type MelodySourceFormat = NonNullable<MelodyDefinition['sourceFormat']>;
@@ -57,6 +59,7 @@ interface StoredCustomEventMelody extends StoredCustomMelodyBase {
   sourceTrackName?: string;
   sourceScoreTitle?: string;
   sourceTempoBpm?: number;
+  sourceTimeSignature?: string;
   events: MelodyEvent[];
 }
 
@@ -86,13 +89,19 @@ function writeCustomMelodiesToStorage(entries: StoredCustomMelody[]) {
 }
 
 function isMelodyEventNote(value: unknown): value is MelodyEventNote {
+  const rawFinger = (value as { finger?: unknown }).finger;
+  const hasValidFinger =
+    typeof rawFinger === 'undefined' ||
+    rawFinger === null ||
+    (typeof rawFinger === 'number' && Number.isFinite(rawFinger) && rawFinger >= 0 && rawFinger <= 4);
   return (
     !!value &&
     typeof value === 'object' &&
     typeof (value as { note?: unknown }).note === 'string' &&
     (((value as { stringName?: unknown }).stringName === null) ||
       typeof (value as { stringName?: unknown }).stringName === 'string') &&
-    (((value as { fret?: unknown }).fret === null) || typeof (value as { fret?: unknown }).fret === 'number')
+    (((value as { fret?: unknown }).fret === null) || typeof (value as { fret?: unknown }).fret === 'number') &&
+    hasValidFinger
   );
 }
 
@@ -170,6 +179,7 @@ function cloneMelodyEvents(events: MelodyEvent[]): MelodyEvent[] {
       note: note.note,
       stringName: note.stringName,
       fret: note.fret,
+      finger: typeof note.finger === 'number' ? Math.max(0, Math.min(4, Math.round(note.finger))) : note.finger ?? undefined,
     })),
   }));
 }
@@ -194,6 +204,7 @@ function mapStoredCustomMelodyToDefinition(
         sourceTrackName: entry.sourceTrackName,
         sourceScoreTitle: entry.sourceScoreTitle,
         sourceTempoBpm: entry.sourceTempoBpm,
+        sourceTimeSignature: entry.sourceTimeSignature,
       };
     }
 
@@ -270,6 +281,7 @@ function mapBuiltinAsciiTabMelodyToDefinition(
       tabText: spec.tabText,
       sourceFormat: 'ascii',
       sourceTempoBpm: spec.sourceTempoBpm,
+      sourceTimeSignature: spec.sourceTimeSignature,
     };
   } catch (error) {
     console.warn(`Failed to parse built-in melody "${spec.name}" for ${spec.instrumentName}:`, error);
@@ -355,6 +367,7 @@ export function saveCustomEventMelody(
     sourceTrackName?: string;
     sourceScoreTitle?: string;
     sourceTempoBpm?: number;
+    sourceTimeSignature?: string;
   }
 ) {
   const trimmedName = name.trim();
@@ -384,6 +397,10 @@ export function saveCustomEventMelody(
     sourceTempoBpm:
       typeof options?.sourceTempoBpm === 'number' && Number.isFinite(options.sourceTempoBpm)
         ? Math.round(options.sourceTempoBpm)
+        : undefined,
+    sourceTimeSignature:
+      typeof options?.sourceTimeSignature === 'string' && options.sourceTimeSignature.trim().length > 0
+        ? options.sourceTimeSignature.trim()
         : undefined,
     events: resolvedEvents,
     createdAtMs: Date.now(),
@@ -452,6 +469,7 @@ export function updateCustomEventMelody(
     sourceTrackName?: string;
     sourceScoreTitle?: string;
     sourceTempoBpm?: number;
+    sourceTimeSignature?: string;
   }
 ) {
   if (!isCustomMelodyId(melodyId)) {
@@ -499,6 +517,10 @@ export function updateCustomEventMelody(
       typeof options?.sourceTempoBpm === 'number' && Number.isFinite(options.sourceTempoBpm)
         ? Math.round(options.sourceTempoBpm)
         : target.sourceTempoBpm,
+    sourceTimeSignature:
+      typeof options?.sourceTimeSignature === 'string' && options.sourceTimeSignature.trim().length > 0
+        ? options.sourceTimeSignature.trim()
+        : target.sourceTimeSignature,
     events: resolvedEvents,
   };
 

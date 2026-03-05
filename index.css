@@ -275,7 +275,8 @@ input[type='number'] {
 }
 
 .session-area #melodyDemoQuickControls input[type='range'] {
-  width: 5rem;
+  width: clamp(10rem, 22vw, 17rem);
+  min-width: 10rem;
 }
 
 .session-area #melodyDemoQuickControls > span {
@@ -284,7 +285,6 @@ input[type='number'] {
 }
 
 .session-area #melodyPlaybackControls button,
-.session-area #metronomeToggleBtn,
 .session-area #sessionToggleBtn,
 .session-area #hintBtn {
   height: var(--ff-control-h-md);
@@ -297,7 +297,15 @@ input[type='number'] {
 }
 
 .session-area #metronomeToggleBtn {
-  min-width: 5.2rem;
+  width: var(--ff-control-h-md);
+  min-width: var(--ff-control-h-md);
+  height: var(--ff-control-h-md);
+  padding: 0;
+}
+
+.session-area #metronomeToggleBtn svg {
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .session-area #sessionToggleBtn {
@@ -388,6 +396,7 @@ input[type='number'] {
 }
 
 #metronomeBpmValue,
+#metronomeVolumeValue,
 #melodyTransposeValue,
 #melodyStudyValue,
 #melodyDemoBpmValue {
@@ -398,7 +407,8 @@ input[type='number'] {
   min-width: 0 !important;
 }
 
-#metronomeBpmValue {
+#metronomeBpmValue,
+#metronomeVolumeValue {
   color: rgba(251, 191, 36, 0.78) !important;
 }
 
@@ -1972,6 +1982,17 @@ body.timeline-pan-active * {
 }
 
 @media (max-width: 639px) {
+  .session-area #melodyDemoQuickControls input[type='range'] {
+    width: clamp(8.5rem, 42vw, 11.5rem);
+    min-width: 8.5rem;
+  }
+
+  .session-area #metronomeToggleBtn {
+    width: 1.8rem;
+    min-width: 1.8rem;
+    height: 1.8rem;
+  }
+
   .session-area #prompt {
     min-height: 1.5rem;
     font-size: 0.74rem !important;

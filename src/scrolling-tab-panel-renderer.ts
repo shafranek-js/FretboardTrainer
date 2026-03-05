@@ -63,14 +63,6 @@ function getEventX(event: ScrollingTabPanelEvent, layout: ScrollingTabPanelLayou
   return layout.playheadX + event.startTimeSec * layout.pixelsPerSecond - layout.currentScrollX;
 }
 
-function getEventMidpointY(event: ScrollingTabPanelEvent, layout: ScrollingTabPanelLayout) {
-  if (event.notes.length === 0) {
-    return layout.stringYs[Math.floor(layout.stringYs.length / 2)] ?? layout.height / 2;
-  }
-  const ys = event.notes.map((note) => layout.stringYs[note.stringIndex] ?? layout.stringYs[0] ?? layout.height / 2);
-  return (Math.min(...ys) + Math.max(...ys)) / 2;
-}
-
 function getNoteColors(
   note: ScrollingTabPanelModel['events'][number]['notes'][number]
 ) {
@@ -217,37 +209,6 @@ export function renderScrollingTabPanelMovingLayer(
 ) {
   ctx.clearRect(0, 0, layout.width, layout.height);
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-  ctx.lineWidth = 2;
-  for (let index = 0; index < model.events.length - 1; index += 1) {
-    const currentEvent = model.events[index];
-    const nextEvent = model.events[index + 1];
-    const currentWidth =
-      layout.baseNoteWidth + Math.max(0, (currentEvent.durationSec - model.minDurationSec) * layout.pixelsPerSecond);
-    const nextWidth =
-      layout.baseNoteWidth + Math.max(0, (nextEvent.durationSec - model.minDurationSec) * layout.pixelsPerSecond);
-    const currentX = getEventX(currentEvent, layout) + currentWidth / 2;
-    const nextX = getEventX(nextEvent, layout) + nextWidth / 2;
-    if (nextX < -32 || currentX > layout.width + 32) continue;
-    const currentY = getEventMidpointY(currentEvent, layout);
-    const nextY = getEventMidpointY(nextEvent, layout);
-    const controlX = (currentX + nextX) / 2;
-    const arcHeight = 30 + currentEvent.durationSec * 40;
-    const controlY = Math.min(currentY, nextY) - arcHeight;
-    ctx.beginPath();
-    ctx.moveTo(currentX, currentY);
-    ctx.quadraticCurveTo(controlX, controlY, nextX, nextY);
-    const arcGradient = ctx.createLinearGradient(currentX, 0, nextX, 0);
-    arcGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-    arcGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.5)');
-    arcGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.save();
-    ctx.setLineDash([3, 5]);
-    ctx.strokeStyle = arcGradient;
-    ctx.stroke();
-    ctx.restore();
-  }
-
   ctx.strokeStyle = 'rgba(244, 114, 182, 0.34)';
   ctx.lineWidth = 1;
   for (const marker of model.barMarkers) {
@@ -378,7 +339,7 @@ export function renderScrollingTabPanelPlayhead(
   ctx.fillStyle = 'white';
   ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
   ctx.shadowBlur = 12;
-  const playheadRadius = Math.max(2.5, Math.min(4.5, layout.noteHeight * 0.18));
+  const playheadRadius = Math.max(5, Math.min(9, layout.noteHeight * 0.36));
   ctx.beginPath();
   ctx.arc(layout.playheadX, layout.playheadY, playheadRadius, 0, Math.PI * 2);
   ctx.fill();

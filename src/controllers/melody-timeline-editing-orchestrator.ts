@@ -18,6 +18,7 @@ import {
   pushMelodyTimelineEditingHistory,
   redoMelodyTimelineEditingMutation,
   resetMelodyTimelineEditingSession,
+  setSelectedMelodyTimelineEditingNoteFinger,
   splitSelectedMelodyTimelineEvent,
   type MelodyTimelineEditingSelection,
   type MelodyTimelineEditingSession,
@@ -57,6 +58,7 @@ interface MelodyTimelineEditingOrchestratorDeps {
       sourceTrackName?: string;
       sourceScoreTitle?: string;
       sourceTempoBpm?: number;
+      sourceTimeSignature?: string;
     }
   ): string | null;
   clearPracticeAdjustmentCaches(): void;
@@ -243,6 +245,14 @@ export function createMelodyTimelineEditingOrchestrator(deps: MelodyTimelineEdit
     });
   }
 
+  function setSelectedNoteFinger(finger: number | null) {
+    commitMutation(() => {
+      withModels((session, selection) => {
+        setSelectedMelodyTimelineEditingNoteFinger(session, selection, finger);
+      });
+    }, finger === null ? 'Finger reset to auto' : `Finger reassigned to ${Math.max(0, Math.min(4, Math.round(finger)))}`);
+  }
+
   function addNoteAtEventString(eventIndex: number, stringName: string) {
     commitMutation(() => {
       withModels((session, selection) => {
@@ -355,6 +365,7 @@ export function createMelodyTimelineEditingOrchestrator(deps: MelodyTimelineEdit
     moveSelectedNoteToString,
     adjustSelectedNoteFret,
     addNote,
+    setSelectedNoteFinger,
     addNoteAtEventString,
     deleteNote,
     adjustDuration,

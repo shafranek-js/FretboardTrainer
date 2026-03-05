@@ -24,6 +24,40 @@ interface RenderTimelineMinimapCallbacks {
   onMelodyStudyRangeCommit: ((payload: { melodyId: string; range: MelodyStudyRange }) => void) | null;
 }
 
+let cachedMinimapPlayhead: HTMLElement | null = null;
+let cachedMinimapProgressFill: HTMLElement | null = null;
+let cachedMinimapActiveRatiosByEvent: number[] | null = null;
+
+export function clearTimelineMinimapRuntimeCache() {
+  cachedMinimapPlayhead = null;
+  cachedMinimapProgressFill = null;
+  cachedMinimapActiveRatiosByEvent = null;
+}
+
+export function updateTimelineMinimapRuntime(activeEventIndex: number | null) {
+  if (!cachedMinimapPlayhead || !cachedMinimapProgressFill || !cachedMinimapActiveRatiosByEvent) return;
+  if (
+    activeEventIndex === null ||
+    !Number.isInteger(activeEventIndex) ||
+    activeEventIndex < 0 ||
+    activeEventIndex >= cachedMinimapActiveRatiosByEvent.length
+  ) {
+    cachedMinimapPlayhead.style.display = 'none';
+    cachedMinimapProgressFill.style.display = 'none';
+    return;
+  }
+  const activeRatio = cachedMinimapActiveRatiosByEvent[activeEventIndex];
+  if (typeof activeRatio !== 'number' || !Number.isFinite(activeRatio)) {
+    cachedMinimapPlayhead.style.display = 'none';
+    cachedMinimapProgressFill.style.display = 'none';
+    return;
+  }
+  cachedMinimapPlayhead.style.display = 'block';
+  cachedMinimapPlayhead.style.left = `${activeRatio * 100}%`;
+  cachedMinimapProgressFill.style.display = 'block';
+  cachedMinimapProgressFill.style.width = `${activeRatio * 100}%`;
+}
+
 export function renderTimelineMinimap(
   melody: MelodyDefinition,
   stringOrder: string[],
@@ -33,6 +67,7 @@ export function renderTimelineMinimap(
   options: RenderTimelineMinimapOptions,
   callbacks: RenderTimelineMinimapCallbacks
 ) {
+  clearTimelineMinimapRuntimeCache();
   dom.melodyTabTimelineMinimap.innerHTML = '';
   if (durationLayout.weights.length === 0 || melody.events.length === 0) {
     dom.melodyTabTimelineMinimapDock.classList.add('hidden');
@@ -63,12 +98,15 @@ export function renderTimelineMinimap(
   track.style.inset = `${scaleTimelinePixels(3, options.zoomScale, 2)}px ${scaleTimelinePixels(4, options.zoomScale, 3)}px`;
   shell.appendChild(track);
 
+  const progressFill = document.createElement('div');
+  progressFill.className = 'timeline-minimap-progress-fill';
   if (layout.activeRatio !== null) {
-    const progressFill = document.createElement('div');
-    progressFill.className = 'timeline-minimap-progress-fill';
     progressFill.style.width = `${layout.activeRatio * 100}%`;
-    track.appendChild(progressFill);
+  } else {
+    progressFill.style.display = 'none';
   }
+  track.appendChild(progressFill);
+  cachedMinimapProgressFill = progressFill;
 
   const rowHeightPercent = 100 / layout.rowCount;
   layout.noteRects.forEach((noteRect) => {
@@ -140,12 +178,19 @@ export function renderTimelineMinimap(
 
   applyRangeVisuals(normalizedStudyRange);
 
+  const playhead = document.createElement('div');
+  playhead.className = 'timeline-minimap-playhead';
   if (layout.activeRatio !== null) {
-    const playhead = document.createElement('div');
-    playhead.className = 'timeline-minimap-playhead';
     playhead.style.left = `${layout.activeRatio * 100}%`;
-    track.appendChild(playhead);
+  } else {
+    playhead.style.display = 'none';
   }
+  track.appendChild(playhead);
+  cachedMinimapPlayhead = playhead;
+  cachedMinimapActiveRatiosByEvent = layout.eventSegments.map(
+    (eventSegment) =>
+      eventSegment.startRatio + (eventSegment.endRatio - eventSegment.startRatio) / 2
+  );
 
   const resolveSeekTargetIndex = (clientX: number) => {
     const rect = track.getBoundingClientRect();

@@ -35,7 +35,9 @@ class FakeClassList {
 }
 
 function createDeps(overrides?: { trainingMode?: string; enabled?: boolean }) {
-  const beatHandlers: Array<(payload: { beatInBar: number; accented: boolean }) => void> = [];
+  const beatHandlers: Array<
+    (payload: { beatInBar: number; accented: boolean; secondaryAccented?: boolean }) => void
+  > = [];
   const deps = {
     dom: {
       trainingMode: { value: overrides?.trainingMode ?? 'rhythm' } as HTMLSelectElement,

@@ -57,6 +57,7 @@ function createDeps(options?: {
           sourceTrackName?: string;
           sourceScoreTitle?: string;
           sourceTempoBpm?: number;
+          sourceTimeSignature?: string;
         }
       ) => {
         if (selectedMelody) {
@@ -70,6 +71,7 @@ function createDeps(options?: {
             sourceTrackName: metadata?.sourceTrackName ?? selectedMelody.sourceTrackName,
             sourceScoreTitle: metadata?.sourceScoreTitle ?? selectedMelody.sourceScoreTitle,
             sourceTempoBpm: metadata?.sourceTempoBpm ?? selectedMelody.sourceTempoBpm,
+            sourceTimeSignature: metadata?.sourceTimeSignature ?? selectedMelody.sourceTimeSignature,
           };
         }
         return melodyId;
@@ -200,6 +202,12 @@ describe('melody-timeline-editing-orchestrator', () => {
         name: 'add note',
         run: (orchestrator: ReturnType<typeof createMelodyTimelineEditingOrchestrator>) => {
           orchestrator.addNote();
+        },
+      },
+      {
+        name: 'set selected note finger override',
+        run: (orchestrator: ReturnType<typeof createMelodyTimelineEditingOrchestrator>) => {
+          orchestrator.setSelectedNoteFinger(4);
         },
       },
       {
@@ -352,5 +360,20 @@ describe('melody-timeline-editing-orchestrator', () => {
       stringName: 'A',
       fret: 4,
     });
+  });
+
+  it('sets and clears selected note finger override', () => {
+    const melody = createCustomMelody([
+      { durationBeats: 1, notes: [{ note: 'C', stringName: 'A', fret: 3 }] },
+    ]);
+    const harness = createDeps({ melody });
+    const orchestrator = createMelodyTimelineEditingOrchestrator(harness.deps);
+
+    orchestrator.syncState();
+    orchestrator.setSelectedNoteFinger(2);
+    expect(harness.getSelectedMelody()?.events[0]?.notes[0]?.finger).toBe(2);
+
+    orchestrator.setSelectedNoteFinger(null);
+    expect(harness.getSelectedMelody()?.events[0]?.notes[0]?.finger).toBeUndefined();
   });
 });

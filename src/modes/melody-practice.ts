@@ -4,7 +4,6 @@ import { getMelodyById, type MelodyEvent } from '../melody-library';
 import { getMelodyFingeredEvent } from '../melody-fingering';
 import {
   formatMelodyStudyRange,
-  formatMelodyStudyStepLabel,
   isDefaultMelodyStudyRange,
   normalizeMelodyStudyRange,
 } from '../melody-study-range';
@@ -12,26 +11,8 @@ import { getMelodyWithPracticeAdjustments } from '../melody-string-shift';
 import type { Prompt } from '../types';
 import { ITrainingMode, DetectionType } from './training-mode';
 
-function formatMelodyEventHint(event: MelodyEvent) {
-  return event.notes
-    .map((note) => {
-      if (note.stringName !== null && typeof note.fret === 'number') {
-        return `${note.note} (${note.stringName}, fret ${note.fret})`;
-      }
-      return note.note;
-    })
-    .join(' + ');
-}
-
-function formatMelodyPromptText(
-  stepLabel: string,
-  event: MelodyEvent,
-  showNoteHint: boolean
-) {
-  if (!showNoteHint) {
-    return `Melody ${stepLabel}: play the next note`;
-  }
-  return `Melody ${stepLabel}: ${formatMelodyEventHint(event)}`;
+function formatMelodyPromptText(melodyName: string) {
+  return `Melody: ${melodyName}`;
 }
 
 function toMelodyEventChordNotes(event: MelodyEvent) {
@@ -70,7 +51,6 @@ export class MelodyPracticeMode implements ITrainingMode {
     }
 
     const studyRange = normalizeMelodyStudyRange(state.melodyStudyRangeById?.[melody.id], melody.events.length);
-    const totalEventsInRange = studyRange.endIndex - studyRange.startIndex + 1;
 
     if (state.currentMelodyId !== melody.id) {
       state.currentMelodyId = melody.id;
@@ -95,7 +75,6 @@ export class MelodyPracticeMode implements ITrainingMode {
 
     const event = melody.events[state.currentMelodyEventIndex];
     const currentEventIndex = state.currentMelodyEventIndex;
-    const currentEventIndexInRange = currentEventIndex - studyRange.startIndex;
     state.currentMelodyEventIndex++;
     state.currentMelodyEventFoundNotes.clear();
 
@@ -112,14 +91,7 @@ export class MelodyPracticeMode implements ITrainingMode {
 
     return {
       displayText: formatMelodyPromptText(
-        formatMelodyStudyStepLabel(
-          currentEventIndexInRange,
-          totalEventsInRange,
-          studyRange,
-          melody.events.length
-        ),
-        event,
-        dom.melodyShowNote.checked
+        melody.name
       ),
       // Keep a visual fallback target even for degraded polyphonic imports that have only one playable position.
       targetNote: isPolyphonicEvent

@@ -139,7 +139,7 @@ describe('melody-demo-presentation-controller', () => {
 
     expect(state.melodyTimelinePreviewIndex).toBe(0);
     expect(state.melodyTimelinePreviewLabel).toBe('Playback');
-    expect(deps.setPromptText).toHaveBeenCalledWith('Playback [1/1]: C (A, fret 3) (Romanza)');
+    expect(deps.setPromptText).toHaveBeenCalledWith('Playback: Romanza');
     expect(deps.redrawFretboard).toHaveBeenCalledTimes(1);
     expect(deps.renderTimeline).toHaveBeenCalledTimes(1);
     expect(deps.drawFretboard).not.toHaveBeenCalled();

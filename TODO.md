@@ -1,273 +1,46 @@
 # TODO
 
-## Sprint 1 (Done)
+## Current Priorities
 
-- [x] Add `ESLint` with a flat config and project scripts (`lint`, `lint:fix`).
-- [x] Add `Prettier` config and scripts (`format`, `format:check`).
-- [x] Add `Vitest` and baseline unit tests for pure logic:
-  - [x] music note conversion
-  - [x] interval naming utilities
-  - [x] instrument note/octave mapping
-- [x] Replace `any` around Soundfont usage with typed declarations.
-- [x] Run `lint`, `test`, `build` and fix blocking issues.
+- [ ] `P0` Performance mic (140+ BPM): move monophonic detection from `requestAnimationFrame` to `AudioWorklet` fixed-hop processing.
+- [ ] `P0` Performance mic (140+ BPM): split monophonic path into `onset detector -> pitch tracker` to reduce missed short notes and jitter sensitivity.
+- [ ] `P0` Performance mic (140+ BPM): run a validation matrix (`60/90/120/140/160 BPM`) with `Direct Input ON/OFF`, compare exported telemetry, and retune thresholds.
+- [ ] `P0` Performance transport: finish continuous song-clock model (`FretFlow` style) so detection affects scoring only and never blocks timeline progression.
+- [ ] `P1` Polyphonic mic detector: collect representative desktop/laptop/mobile telemetry snapshots and retune latency/threshold defaults.
+- [ ] `P1` Scrolling TAB panel: finish extended manual QA (`resize`, long-song runtime performance, zoom/tempo synchronization).
 
-## Sprint 2 (Done)
+## Architecture Backlog
 
-- [x] Improve monophonic pitch detection algorithm (YIN/MPM evaluation).
-- [x] Improve polyphonic chord detection robustness.
-- [x] Add loading overlay for soundfont initialization.
-- [x] Add resilient offline mode with `vite-plugin-pwa`.
+- [ ] `P2` Continue decomposing `src/logic.ts` into focused executors/orchestrators.
+- [ ] `P2` Split global app state into domain slices (`audio`, `session`, `melody`, `ui`).
+- [ ] `P2` Incrementally reshape flat `src/` layout into domain folders once boundaries are stable.
 
-## Sprint 3 (Done)
+## Recently Completed (March 2026)
 
-- [x] Gradual UI architecture migration to reactive components.
-  - [x] Decompose `index.tsx` listeners into focused controllers (`session`, `profiles`, `modals`, `resize`).
-  - [x] Introduce first reactive UI signal (`statusBar`) and route status updates through it.
-  - [x] Move `prompt/result` rendering to signal-driven updates and remove direct writes.
-  - [x] Move `timer/score/timed panel` and `info slots` to signal-driven updates.
-  - [x] Move session controls (`start/stop/hint/play`) and tuner visibility to signal-driven updates.
-  - [x] Move calibration modal/status/progress updates to signal-driven state.
-  - [x] Move mode-specific control visibility (`scale/chord/progression/arpeggio`, hint button) to signal-driven state.
-  - [x] Extract mode-specific control visibility mapping into pure `training-mode-ui` helper with tests.
-  - [x] Move loading overlay and control lock (`start/instrument/settings`) to signal-driven state.
-  - [x] Move audio meter updates to signal-driven state and remove direct DOM writes from `logic.ts`.
-  - [x] Move `settings/stats/guide/links/profileName` modal visibility to signal-driven state.
-  - [x] Move profile action button state (`update/delete`) to signal-driven state.
-  - [x] Move tuner needle/cents rendering to signal-driven state with pure `computeTunerView` logic and tests.
-  - [x] Extract stats view-model calculations from `displayStats` into pure tested module.
-  - [x] Move stats modal field/list rendering to signal-driven state.
-  - [x] Consolidate enabled-string selection reads via shared `getEnabledStrings` helper across controllers/modes/logic/storage.
-  - [x] Consolidate fret-range parsing in training modes via shared `getSelectedFretRange` helper.
-  - [x] Centralize training-mode group classification (`chord/hint/audio/progression/arpeggio`) with shared helpers and tests.
-  - [x] Extract prompt audio target/frequency resolution from `logic.ts` into pure `prompt-audio` helpers with tests.
-  - [x] Extract frame-level audio processing logic (`rms`, calibration sample, mono/poly stability) from `logic.ts` into pure tested helpers.
-  - [x] Add `audio-detection-handlers` orchestration layer (silence gate + mono/poly/calibration handler wrappers) and wire `processAudio` through it.
-  - [x] Extract prompt audio orchestration from `logic.ts` into tested `prompt-audio-plan` builder.
-  - [x] Extract result presentation helpers (`success info slots`, `timed points`) from `logic.ts` into tested `session-result` module.
-  - [x] Extract reusable prompt/session tracking reset-state factories and wire them into audio/session flow.
-  - [x] Extract `startListening` preflight planning (`timed/progression/arpeggio/button state`) into tested `session-start-preflight`.
-  - [x] Extract WebAudio runtime lifecycle (`AudioContext`/`Analyser`/`MediaStream`) from `logic.ts` into tested `audio-runtime` module.
-  - [x] Extract `displayResult` success-branch flow planning (`arpeggio/timed/standard`) into tested `session-success-plan`.
-  - [x] Extract `nextPrompt` mode/prompt/tuner decision flow into tested `session-next-prompt-plan`.
-  - [x] Extract calibration math/tuning parsing from `logic.ts` into tested `calibration-utils`.
-  - [x] Extract full stop-session reset payload from `logic.ts` into tested `session-reset-state` factory.
-  - [x] Extract timed-session finalization (`handleTimeUp` score/high-score decision) into tested `session-timeup-plan`.
-  - [x] Add runtime safety guards in session loop/timeouts (`processAudio`, `displayResult`, `nextPrompt`, calibration/timed callbacks) to avoid full app crash on uncaught errors.
-  - [x] Add global runtime error/rejection handlers in app bootstrap for clearer failure reporting.
-- [x] Add broader unit tests for core training mode prompt generation (`random`, `interval`, `scale`).
-- [x] Add broader unit tests for chord-based mode prompt generation (`chords`, `progressions`, `arpeggios`).
-- [x] Evaluate replacing Canvas fretboard rendering with SVG.
-  - [x] Extract renderer-agnostic `fretboard render plan` model with unit tests.
-  - [x] Extract shared SVG rendering helpers (`enabled strings`, `fret range`, layout, string-label positioning).
-  - [x] Migrate to SVG-only rendering and remove Canvas fallback/feature flag.
-
-## Sprint 4 (In Progress)
-
-- [x] Replace blocking `alert()` calls in core session start/prompt flow with non-blocking in-app error messaging.
-- [x] Replace blocking metronome start `alert()` calls in session controls with non-blocking in-app error messaging.
-- [x] Replace blocking `alert()` calls in profile controller and soundfont loading with non-blocking in-app messaging.
-- [x] Replace direct runtime `alert()` calls in `modes/*` with a feedback port wired to in-app messaging.
-- [x] Replace direct `confirm()` calls in controllers with a confirm port (native fallback for now).
-- [x] Implement in-app confirmation UX and wire the confirm port to non-blocking modal dialogs.
-- [x] Fix melody practice completion UX so "Melody complete" feedback remains visible after session auto-stop.
-- [x] Persist selected melody in profile settings and restore it after reload/profile switch.
-- [x] Add in-session melody TAB timeline panel with active-step highlight and finger-color note chips synchronized with demo/session step progression.
-- [x] Add DAW-style melody study-range editing with draggable timeline handles and movable selected range bar.
-- [x] Add `Loop Range` toggle for melody demo playback over the selected study fragment.
-- [x] Tighten training-mode contract so `generatePrompt()` stays side-effect free (no direct UI writes on completion/error paths).
-- [x] Reduce `src/logic.ts` orchestration size by extracting session lifecycle/error-reporting helpers.
-  - [x] Extract rhythm timing evaluation/formatting helpers into `src/rhythm-timing.ts` with unit tests.
-  - [x] Extract session goal mapping/formatting helpers into `src/session-goal.ts` with unit tests.
-  - [x] Extract timeout/cooldown registry helpers into `src/session-timeouts.ts` with unit tests.
-  - [x] Extract free-play live note highlight helpers into `src/live-detected-highlight.ts` with unit tests.
-  - [x] Extract session runtime error handler (with reentrancy guard) into `src/session-runtime-error-handler.ts` with unit tests.
-  - [x] Extract monophonic/MIDI reaction planners into `src/session-detection-reactions.ts` with unit tests.
-  - [x] Extract `displayResult()` success-plan branch executor into `src/session-success-executor.ts` with unit tests.
-  - [x] Extract `displayResult()` success/goal orchestration into `src/display-result-success-flow-executor.ts` with unit tests.
-  - [x] Extract `nextPrompt()` plan execution branch into `src/session-next-prompt-executor.ts` with unit tests.
-  - [x] Extract calibration finish/cancel flow helpers into `src/calibration-session-flow.ts` with unit tests.
-  - [x] Extract `configurePromptAudio()` side-effect executor into `src/prompt-audio-executor.ts` with unit tests.
-  - [x] Extend `session-detection-reactions` with audio polyphonic/monophonic/calibration frame planners and wire them into `processAudio()`.
-  - [x] Extract `processAudio()` post-volume silence/mode preflight planning into `src/process-audio-frame-preflight.ts` with unit tests.
-  - [x] Extract post-input session activation/startup side effects from `startListening()` into `src/session-runtime-activation-executor.ts` with unit tests.
-  - [x] Extract MIDI session message routing callback factory from `startListening()` into `src/midi-session-message-handler.ts` with unit tests.
-  - [x] Extract timed session interval tick callback from `startListening()` into `src/timed-session-interval-handler.ts` with unit tests.
-  - [x] Extract performance prompt lifecycle (`resolve success`, scheduled miss/advance, run-token invalidation) into `src/performance-prompt-controller.ts` with unit tests.
-  - [x] Extract wrong-note highlight / octave-mismatch helpers into `src/detected-note-feedback.ts` with unit tests.
-  - [x] Extract polyphonic melody mismatch feedback/cooldown handling into `src/melody-polyphonic-feedback-controller.ts` with unit tests.
-  - [x] Extract stable monophonic note handling (free/rhythm/performance/polyphonic-melody branches) into `src/stable-monophonic-detection-controller.ts` with unit tests.
-  - [x] Extract polyphonic melody runtime detection (`mic` + `MIDI` branches) into `src/melody-runtime-detection-controller.ts` with unit tests.
-  - [x] Extract polyphonic chord runtime detection (`audio` + `MIDI` chord branches) into `src/polyphonic-chord-detection-controller.ts` with unit tests.
-- [x] Continue reducing `src/controllers/session-controller.ts` into orchestration-only wiring.
-  - [x] Extract melody timeline editing model/controller/orchestrator stack with direct unit tests.
-  - [x] Extract melody demo runtime controller with direct unit tests.
-  - [x] Extract melody import preview controller with direct unit tests.
-  - [x] Extract melody event editor controller with direct unit tests.
-  - [x] Extract melody import modal controller with direct unit tests.
-  - [x] Extract melody library actions controller with direct unit tests.
-  - [x] Extract melody practice settings controller with direct unit tests.
-  - [x] Extract melody setup UI controller with direct unit tests.
-  - [x] Extract practice setup summary controller with direct unit tests.
-  - [x] Extract curriculum preset controller with direct unit tests.
-  - [x] Extract metronome / rhythm preflight controller with direct unit tests.
-  - [x] Extract mic settings / noise gate / calibration controller with direct unit tests.
-  - [x] Extract audio input / MIDI input / input-source switching controller with direct unit tests.
-  - [x] Extract melody practice action side effects (`transpose`, `string shift`, `study range`, batch transpose) with direct unit tests.
-  - [x] Extract melody demo helper/presentation cluster (`prompt` building, BPM sync/clamp, preview rendering, audio-ready preflight).
-  - [x] Re-evaluate remaining `session-controller` code and stop extracting once only true cross-feature orchestration remains.
-- [x] Harden DOM binding initialization (`src/state.ts`) with explicit missing-element assertions instead of unchecked casts.
-  - [x] Add DOM require-helpers and convert critical session/tuner/feedback/confirm elements to explicit startup assertions.
-  - [x] Expand `requireElementById` / `requireQuerySelector` usage across the full `dom` registry.
-- [x] Fix post-import / parser regressions from code review.
-  - [x] Prevent ASCII count lines (starting with digits) from being parsed as tab string rows.
-  - [x] Preserve `e` vs `E` disambiguation for lettered guitar tabs.
-  - [x] Re-apply saved melody selection on profile switch.
-  - [x] Skip/warn unresolved MIDI notes instead of saving `null` fret/string positions into imported melody events.
-- [x] Consolidate tablature position optimization into a shared DP/Viterbi module (`src/tablature-optimizer.ts`) and route MIDI import through it.
-  - [x] Keep duplicated pitch classes as distinct playable notes (no collapsing) when events are polyphonic.
-  - [x] Improve ergonomic cost model (stretch/high-fret penalties, softer open-string bonus for polyphony).
-  - [x] Reuse the same optimizer for event-melody import/storage fallback when explicit string/fret constraints are missing.
-- [x] Fix post-refactor melody timeline editing regressions.
-  - [x] Clear stale structural timeline metadata (`barIndex` / `column`) after event-level add/duplicate/move/split/merge/delete mutations so timeline regrouping stays correct.
-  - [x] Stop active melody playback before committing event drag-reorder operations on the timeline.
-
-## Future / Backlog
-
-- [ ] Add a dedicated scrolling tablature panel for melody/performance practice, separate from the existing `TAB Timeline`.
-  - [x] Reuse existing `MelodyDefinition.events` plus `melody-timeline-duration` as the timing source instead of inventing a second song model.
-  - [x] Build a canvas-based renderer with fixed string lanes, right-to-left note motion, and a fixed playhead.
-  - [x] Keep the scrolling panel synchronized with existing melody demo/performance runtime time, not an independent playback clock.
-  - [x] Support note width by duration, chord stacks, fixed playhead X, and Y movement between strings/events.
-  - [x] Add an MVP integration path for `Melodies (Follow the Notes)` and `Performance` only.
-  - [x] Wire performance hit-feedback/scoring into the new panel without introducing a second playback clock.
-  - [x] Add scroller-specific visibility toggle and independent zoom control.
-  - [x] Add note selection, note drag, event drag, empty-lane add, and context-menu parity with `TAB Timeline`.
-  - [x] Fix scroller show/hide lifecycle regressions (re-render after re-enable, overlay/context menu clipping).
-  - [ ] Validate resize behavior, long-song performance, and zoom/tempo synchronization in extended manual browser runs.
-- [x] Refactor built-in melody definitions out of `src/melody-library.ts` into a dedicated module tree so the library can grow without turning one file into a monolith.
-  - [x] Split built-in melody tab/event sources by instrument (`guitar`, `ukulele`).
-  - [x] Split built-in melody sources further by song once the library grows beyond the current per-instrument modules.
-  - [x] Keep shared built-in registry/index wiring separate from the large literal tab blobs.
-- [x] Further decompose melody timeline rendering so `src/ui.ts` and `src/melody-tab-timeline.ts` stay changeable as TAB features grow.
-  - [x] Extract melody timeline state/preview resolution out of `src/ui.ts` into focused helper module.
-  - [x] Separate Classic TAB rendering, Grid rendering, preroll rendering, and performance-feedback rendering into focused helpers/modules.
-    - [x] Extract `Classic TAB` rendering into a dedicated renderer module.
-    - [x] Extract `Grid` rendering into a dedicated renderer module.
-    - [x] Extract study-range bar rendering into a dedicated renderer module.
-    - [x] Extract minimap rendering into a dedicated renderer module while keeping shared zoom wiring.
-    - [x] Extract preroll rendering into a dedicated helper module.
-    - [x] Extract performance-feedback rendering helpers out of the Classic/Grid renderer modules.
-  - [x] Reduce cross-coupling between timeline zoom, study-range UI, active-step preview, and performance overlays.
-    - [x] Extract timeline scroll/centering/drag-pan orchestration out of `src/melody-tab-timeline.ts`.
-    - [x] Extract timeline context-menu state/rendering out of `src/melody-tab-timeline.ts` while preserving the existing public API.
-    - [x] Extract note/event drag interaction state out of `src/melody-tab-timeline.ts` while preserving renderer callbacks.
-    - [x] Extract background-copy and selection-clear interaction wiring out of `src/melody-tab-timeline.ts`.
-    - [x] Extract melody content signature and bar-grouping helpers out of `src/melody-tab-timeline.ts`.
-    - [x] Extract render-option normalization plus timeline render-key/meta-text assembly out of `src/melody-tab-timeline.ts`.
-    - [x] Extract timeline seek/study-range/empty-cell handler registry out of `src/melody-tab-timeline.ts`.
-  - [x] Restore soft runtime-follow for `TAB Timeline` without reintroducing the old fixed-line playhead model.
-  - [x] Add keyboard restart for melody playback (`Enter`) and keep pause/stop hotkeys intact.
-- [x] Refactor persistence/storage code into clearer feature-oriented modules before more saved settings are added.
-  - [x] Separate profile persistence/default-profile plumbing out of `src/storage.ts`.
-  - [x] Separate stats persistence/reset/update lifecycle out of `src/storage.ts`.
-  - [x] Separate melody-specific settings normalization/apply helpers out of `src/storage.ts`.
-  - [x] Separate profile persistence, user-data import/export, reset/defaults, and melody-specific overrides from the current `src/storage.ts`.
-  - [x] Keep one explicit schema boundary for app-owned localStorage data so future migrations are safer.
-- [ ] Continue decomposing `src/logic.ts` so it stops acting as the central procedural hub for audio loop, session lifecycle, and UI coordination.
-  - [ ] Extract the remaining mixed session/audio/UI orchestration branches into focused domain executors/orchestrators.
-  - [ ] Keep extending the existing `plan -> executor` pattern instead of adding new side effects directly back into `src/logic.ts`.
-  - [ ] Re-evaluate `src/logic.ts` after each extraction pass and stop only when the file is mostly cross-domain wiring.
-- [ ] Split the global app state into smaller domain-specific slices before more runtime state is added.
-  - [ ] Define explicit slices for `audio`, `session`, `melody`, and `ui` state instead of continuing to grow one monolithic global object.
-  - [ ] Reduce reliance on the giant cached `dom` registry in new code paths by preferring narrower bindings/selectors where practical.
-  - [ ] Expand signal-driven state updates where they remove manual DOM synchronization and make state transitions easier to reason about.
-- [ ] Reshape the flat `src/` layout incrementally into domain-driven folders once module boundaries are already explicit.
-  - [ ] Start with landing zones for newly extracted code such as `src/audio/`, `src/melody/`, `src/session/`, and `src/ui/`.
-  - [ ] Move modules by domain in small passes after the seams are established; avoid a one-shot mechanical tree shuffle.
-- [x] Harden E2E tests against UI layout refactors by adding shared Playwright helpers/selectors instead of hardcoding full modal navigation in each spec.
-  - [x] Add small page-object/helpers for `App Settings`, `Stats`, and melody tempo interactions.
-  - [x] Reduce direct dependence on exact modal section structure where the product contract is really behavioral.
-- [x] Port selected melody workflow upgrades from legacy `fretflow`.
-  - [x] Add per-melody `String Shift` with feasibility guardrails and synchronized TAB/fretboard/demo rendering.
-  - [x] Add `Performance Mode` for uninterrupted full-song runs with dedicated scoring.
-  - [x] Add compact melody `Minimap` / overview navigation with seek + viewport drag.
-  - [x] Add structured note-level melody editor with undo/redo.
-  - [x] Add MIDI export for edited custom melodies.
-  - [x] Add separate MIDI export for the current practice-adjusted melody (`transpose` / `string shift` / demo BPM applied).
-- [x] Add exact numeric mic latency compensation input (1 ms precision) and sync it with slider + suggested value actions.
-- [ ] Improve high-BPM microphone performance capture reliability.
-  - [x] Analyze latest 77/120/140 BPM exports and verify `shortHold` dominates misses on 140 BPM runs.
-  - [x] Reduce adaptive performance hold requirement for short/medium events in performance mode (`eventDuration`-capped hold tuning).
-  - [x] Revalidate 140 BPM runs after hold-cap tuning: score improved (`45/62 -> 47/62`, missed `17 -> 15`) at `17 ms` compensation; `shortHold` counter still high (`18`) and needs event-level reason logging.
-  - [x] Extend analysis export with per-event onset gate rejection reasons to separate true no-input misses from gating misses.
-  - [x] Extend analysis export with per-event capture telemetry (`stable detections`, `prompt attempts`, `uncertain frames/reasons`) to diagnose misses without onset rejects.
-  - [x] Align `wrong` vs `missed` classification between `sessionStats` and `performanceNoteLog` by tracking true `hadWrongAttempt` separately from generic `hadAttempt`.
-  - [x] Extend capture telemetry for `no-stable` diagnosis (`preStableSeen`, voiced/confident/detected-note frame counts, max stable run, peak/avg RMS).
-  - [x] Extend onset-reject event logs with hold debug fields (`eventDurationMs`, `holdRequiredMs`, `holdElapsedMs`, runtime calibration level).
-  - [x] Speed up runtime short-hold calibration ramp so `mild`/`strong` can apply earlier in a session.
-  - [x] Make prompt-audio mic ignore window adaptive to event duration so high-BPM short notes are not fully muted by playback echo suppression.
-  - [x] Add optional `Headphones / Direct Input` mode that disables prompt-audio mute (`0 ms`) and persist the setting in profiles.
-  - [x] Include `context.isDirectInputMode` in session analysis export for reliable ON/OFF A/B comparisons.
-- [ ] Rework microphone-driven `Performance` transport so playback timing follows a continuous song clock instead of prompt/attempt/grace timing.
-  - [x] Stop letting microphone attempts or grace windows delay advancement to the next melody event.
-  - [x] Keep tolerance/leniency logic only in judging/scoring, not in transport progression.
-  - [ ] Move `Performance` toward the `FretFlow` model where transport time is continuous and detection only marks `correct/wrong/missed`.
-  - [x] Add onset-gated monophonic mic judging so a sustained tail is not re-judged as fresh performance input every frame.
-  - [x] Add an explicit `uncertain/noise` bucket so weak/noisy mic frames do not become `wrong note` feedback.
-  - [x] Split unresolved `Performance` failures into `Wrong attempt` vs `Missed (No Input)` counters in session stats/summary.
-  - [x] Soften microphone `Performance` voiced/confidence thresholds and apply adaptive hold timing for cleaner built-in mic coverage.
-  - [x] Upgrade monophonic mic judging with stronger voiced/confidence smoothing (`YIN/pYIN`-style post-processing) instead of only stable-frame heuristics.
-    - [x] Add pitch-history confidence smoothing so unstable monophonic frames are downgraded to `uncertain` instead of becoming `wrong`.
-    - [x] Add EMA + hysteresis smoothing for monophonic confidence so one shaky frame does not immediately drop a previously voiced, stable single-note signal.
-    - [x] Add a separate voiced/unvoiced EMA + hysteresis layer so weakly voiced single-note frames are downgraded to `uncertain` instead of becoming `wrong`.
-    - [x] Add performance-adaptive mic attack gating and short dropout grace so weak webcam microphones lose fewer onsets.
-  - [x] Add input-quality / latency-calibration UX for microphone performance mode (device, buffer, interface/Hi-Z guidance).
-    - [x] Add a live `mic performance readiness` diagnostic panel that warns about Bluetooth/headset latency, missing room-noise calibration, overly strict mic filters, detector fallback/warnings, and unstable live monophonic confidence.
-    - [x] Add live onset-gate diagnostics (`accepted/rejected` + reason) so users can see whether attack/hold/confidence/voicing is blocking mic judgments.
-    - [x] Add a user-facing `Mic Latency Compensation` control (ms) in settings for microphone performance mode.
-    - [x] Persist `Mic Latency Compensation` in profile/default settings and restore it on load.
-    - [x] Apply latency compensation to performance mic judging windows so onset-gate and uncertain/noise checks use an adjusted prompt start time instead of raw `startTime`.
-    - [x] Apply latency compensation to performance timing-boundary forgiveness so microphone judging is aligned to the compensated event window.
-    - [x] Extend mic readiness diagnostics to recommend a latency-compensation value from measured `attack -> judgment` latency telemetry.
-    - [x] Add/refresh unit tests covering latency-compensated onset gating, uncertain/noise routing, persistence, and readiness recommendations.
-    - [x] Add a one-click `Use Suggested Latency` action so measured readiness recommendations can be applied directly to the compensation control.
-    - [x] Gate latency-compensation recommendations behind a minimum number of judged notes so calibration suggestions are only shown after enough live samples have been collected.
-    - [x] Add an explicit `Start/Restart Latency Calibration` flow that resets live latency samples and shows calibration progress until enough judged notes have been collected.
-  - [x] Apply music-oriented microphone capture defaults and verify actual applied track settings.
-    - [x] Request `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`, `channelCount: 1` for performance sessions.
-    - [x] Set audio track `contentHint = "music"` when supported.
-    - [x] Surface applied capture settings in runtime diagnostics (`audioInputInfo`) so users can see when browsers ignore requested constraints.
-  - [x] Reduce `Missed (No Input)` on built-in microphones without inflating false positives.
-    - [x] Add a performance-only adaptive mic volume threshold (separate from generic noise gate preset threshold).
-    - [x] Further soften performance attack/hold gating with confidence-aware adaptive thresholds.
-    - [x] Tune monophonic stability requirements for microphone performance mode and validate via manual runs.
-    - [x] Add short-note-aware adaptive gating (same-note re-attack rearm + event-duration-based silence/dropout handling).
-  - [ ] Remove remaining tempo-dependence in microphone `Performance` note capture at high BPM.
-    - [x] Add a low-latency analyser profile for microphone performance sessions (`fftSize 2048`, lower smoothing).
-    - [x] Add target-frequency-aware `YIN` search window with safe broad-range fallback when focused detection fails.
-    - [ ] Move monophonic microphone detection from `requestAnimationFrame` to `AudioWorklet` fixed-hop processing.
-    - [ ] Split monophonic microphone detection into `onset detector -> pitch tracker` instead of one frame gate.
-    - [ ] Validate 60/90/120/140/160 BPM runs and tune thresholds from exported telemetry snapshots.
-  - [x] Extend readiness diagnostics with explicit rejection telemetry.
-    - [x] Count recent onset-gate rejections by reason (`weak attack`, `low confidence`, `low voicing`, `short hold`).
-    - [x] Show top rejection reason in `Mic performance readiness` guidance.
-- [x] Add microphone polyphonic detection support for true simultaneous-note/chord verification in melody practice (separate from MIDI note events) using the existing spectrum-based detector path.
-  - [x] Extract a pluggable mic polyphonic detector provider interface (`spectrum` baseline first, external engine adapters next).
-  - [x] Add an experimental `Essentia.js` (`MultiPitchKlapuri` / `MultiPitchMelodia`) provider spike behind a feature flag (license/CPU review required).
-  - [x] Evaluate `Basic Pitch` (`basic-pitch-ts`) as an offline/analysis import path (not suitable for low-latency live session verification). See `docs/basic-pitch-evaluation.md`.
-  - [x] Evaluate `ONNX Runtime Web` (`wasm` / `webgpu`) runtime path for custom multi-pitch models. Keep it as a future experimental provider, not the default live path. See `docs/onnx-runtime-web-evaluation.md`.
-  - [x] Improve algorithm quality/tradeoffs (e.g., harmonic product spectrum, spectral peak clustering, multi-pitch estimation) for browser/WebAudio constraints.
-    - [x] Add local-peak filtering in `spectrumToNoteEnergies()` so shoulder bins do not smear energy into adjacent note classes.
-    - [x] Add local peak-prominence filtering so tiny noisy wiggles are ignored instead of becoming fake note candidates.
-    - [x] Add a harmonic-clustering layer that reinforces a fundamental note class when multiple aligned harmonics are stronger than the direct fundamental peak.
-    - [x] Add spectral peak clustering so a smeared partial is consolidated before note mapping instead of splitting energy across adjacent note classes.
-    - [x] Add harmonic-product-style candidate scoring so coherent harmonic stacks contribute an extra fundamental-confidence layer beyond direct peak energy.
-    - [x] Reject near-match chords when dominant non-target peaks remain too strong relative to target-note energy.
-  - [x] Define UX fallback when confidence is low (avoid false chord matches from noise/room echo) by suppressing noisy mismatch feedback on warning/fallback frames and showing a neutral in-app hint instead.
-  - [ ] Benchmark latency/CPU on typical devices and tune thresholds for stability.
-    - [x] Add an in-app synthetic benchmark harness for the selected mic polyphonic detector provider.
-    - [x] Add runtime telemetry UI for mic poly detector (frames / avg/last/max latency / fallback count / warning count).
-    - [x] Add JSON export for runtime telemetry snapshots so real-device measurements can be compared outside the app.
-    - [x] Add a `Reset Poly Telemetry` action so live detector measurements can be captured in clean per-run windows before export.
-    - [x] Include detector configuration and derived rates in telemetry exports so real-device snapshots are reproducible for threshold tuning.
-    - [ ] Collect representative desktop/laptop/mobile telemetry snapshots and tune detector thresholds from measured data.
+- [x] Adaptive prompt-audio ignore window by event duration.
+- [x] `Headphones / Direct Input` mode (`ignorePromptAudioUntilMs = 0`).
+- [x] Persisted `isDirectInputMode` in profile settings.
+- [x] Added `context.isDirectInputMode` to session analysis export for ON/OFF A/B comparisons.
+- [x] Added faster `performance_fast` monophonic EMA profile for performance-adaptive mic input.
+- [x] Added a strong-attack fast acceptance path in performance mic judging thresholds to reduce early-frame `low_confidence/low_voicing` rejects.
+- [x] Added event-level onset reject logging + capture telemetry for `no-stable` diagnostics.
+- [x] Improved runtime short-hold calibration ramp for earlier in-session adaptation.
+- [x] Added mic latency UX: exact ms input, suggestion/apply action, calibration loop.
+- [x] Added low-latency analyser profile (`fftSize 2048`) + focused YIN search window with safe fallback.
+- [x] Aligned `Wrong` vs `Missed (No Input)` classification across session stats and performance note log.
+- [x] Removed Windows timer-step jitter from timeline follow by switching to `performance.now()` soft-follow smoothing in `resolveSmoothedScrollingRuntimeTime`.
+- [x] Optimized TAB Timeline repaint path with DOM cell caches (`classicCellCache`, `timelineCellByEventCache`) and O(1) event-cell lookups.
+- [x] Removed `scrollWidth/clientWidth` from runtime points cache key and added explicit cache invalidation on `resize`.
+- [x] Removed per-frame fretboard layout reads from render path by caching fretboard size via `ResizeObserver` in `drawFretboardSvg`.
+- [x] Removed `activeEventIndex`/feedback dependency from scrolling-panel moving-layer cache key so giant scene canvas is not rebuilt on every session hit.
+- [x] Moved scrolling-panel performance feedback rendering to lightweight viewport overlay pass instead of scene-canvas rebuilds.
+- [x] Added same-frame guard in `resolveSmoothedScrollingRuntimeTime` to avoid double-applying smoothing during note-hit UI updates.
+- [x] Removed minimap runtime full re-layout on `activeEventIndex` changes by caching event midpoint ratios and updating only playhead/progress styles.
+- [x] Made melody prompt text static (`Playback/Melody/Performance: <melody name>`) to avoid per-note prompt reflow from note/fret text churn.
+- [x] Reworked top session header into a stable grid layout and fixed status block width/ellipsis so prompt/status text changes do not squeeze neighboring controls.
+- [x] Widened top tempo slider for finer BPM tuning and replaced `Click Off/On` text button with a metronome icon toggle.
+- [x] Added timeline context-menu finger/color reassignment (`Auto`, `0..4`) with persisted note-level finger override and undo/redo support.
+- [x] Restored `Scarborough Fair` built-in meter metadata to `3/4` for bar-accent alignment with the melody phrasing.
+- [x] Aligned melody demo metronome start/resume to a shared `performance.now()` playback anchor to remove initial phase offset.
+- [x] Stopped metronome phase resets on runtime sync when BPM is unchanged and added lag catch-up beat-index compensation.
+- [x] Unified Scroller arc rendering and playhead trajectory math (single quadratic model + onset-aligned arc anchors) to remove wrong note-to-note flight paths.

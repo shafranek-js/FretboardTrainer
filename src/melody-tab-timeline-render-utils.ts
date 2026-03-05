@@ -1,4 +1,5 @@
 import type { TimelineCell, TimelineNoteChip } from './melody-tab-timeline-model';
+import type { TimelineRow } from './melody-tab-timeline-model';
 import type { PerformanceTimelineAttempt } from './performance-timeline-feedback';
 
 const FINGER_COLORS: Record<number, string> = {
@@ -88,6 +89,16 @@ export function getPrimaryCellFingerColor(notes: TimelineNoteChip[]) {
   return getFingerColor(notes[0]?.finger ?? 0);
 }
 
+export function getPrimaryEventFingerColor(rows: TimelineRow[], eventIndex: number) {
+  for (const row of rows) {
+    const notes = row.cells[eventIndex]?.notes ?? [];
+    if (notes.length > 0) {
+      return getPrimaryCellFingerColor(notes);
+    }
+  }
+  return '#67e8f9';
+}
+
 export function getClassicCellTextRaw(notes: TimelineNoteChip[]) {
   if (notes.length === 0) return '';
   return notes.map((note) => String(note.fret)).join('/');
@@ -103,6 +114,53 @@ export function getClassicCellText(notes: TimelineNoteChip[], width: number) {
   if (!raw) return '-'.repeat(width);
   if (raw.length >= width) return raw;
   return `${raw}${'-'.repeat(width - raw.length)}`;
+}
+
+export function getClassicFingeredCellSignature(notes: TimelineNoteChip[], width: number) {
+  if (notes.length === 0) return `empty:${width}`;
+  return `${notes.map((note) => `${note.fret}:${note.finger}`).join('/')}|${width}`;
+}
+
+export function renderClassicFingeredCellText(cellElement: HTMLElement, notes: TimelineNoteChip[], width: number) {
+  cellElement.textContent = '';
+  if (notes.length === 0) {
+    const empty = document.createElement('span');
+    empty.textContent = '-'.repeat(width);
+    empty.style.color = '#94a3b8';
+    empty.style.fontWeight = '500';
+    cellElement.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  let renderedLength = 0;
+
+  notes.forEach((note, noteIndex) => {
+    if (noteIndex > 0) {
+      const separator = document.createElement('span');
+      separator.textContent = '/';
+      fragment.appendChild(separator);
+      renderedLength += 1;
+    }
+
+    const fretText = String(note.fret);
+    const fretToken = document.createElement('span');
+    fretToken.textContent = fretText;
+    fretToken.style.color = getFingerColor(note.finger);
+    fretToken.style.fontWeight = '700';
+    fragment.appendChild(fretToken);
+    renderedLength += fretText.length;
+  });
+
+  if (renderedLength < width) {
+    const padding = document.createElement('span');
+    padding.textContent = '-'.repeat(width - renderedLength);
+    padding.style.color = '#94a3b8';
+    padding.style.fontWeight = '500';
+    fragment.appendChild(padding);
+  }
+
+  cellElement.appendChild(fragment);
 }
 
 export function resolveClassicCellFeedbackTone(cell: TimelineCell) {
@@ -145,7 +203,7 @@ export function applyClassicCellFeedbackStyles(
     return;
   }
   if (cellElement.dataset.activeEvent === 'true') {
-    cellElement.style.backgroundColor = withAlpha(accentColor, 0.28);
+    cellElement.style.backgroundColor = withAlpha(accentColor, 0.36);
     cellElement.style.color = '#f8fafc';
   }
 }

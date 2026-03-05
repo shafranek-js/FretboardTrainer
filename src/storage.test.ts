@@ -86,6 +86,8 @@ const mocked = vi.hoisted(() => {
     metronomeEnabled: { checked: false } as HTMLInputElement,
     metronomeBpm: { value: '80' } as HTMLInputElement,
     metronomeBpmValue: { textContent: '' } as HTMLElement,
+    metronomeVolume: { value: '100' } as HTMLInputElement,
+    metronomeVolumeValue: { textContent: '100%' } as HTMLElement,
     rhythmTimingWindow: createSelect('normal', ['strict', 'normal', 'loose']) as unknown as HTMLSelectElement,
     scaleSelector: createSelect('C Major', ['C Major']) as unknown as HTMLSelectElement,
     chordSelector: createSelect('C', ['C']) as unknown as HTMLSelectElement,
@@ -309,6 +311,8 @@ function resetMockState() {
   mocked.dom.sessionGoal.value = 'none';
   mocked.dom.metronomeEnabled.checked = false;
   mocked.dom.metronomeBpm.value = '80';
+  mocked.dom.metronomeVolume.value = '100';
+  mocked.dom.metronomeVolumeValue.textContent = '100%';
   mocked.dom.rhythmTimingWindow.value = 'normal';
   mocked.dom.scaleSelector.value = 'C Major';
   mocked.dom.chordSelector.value = 'C';

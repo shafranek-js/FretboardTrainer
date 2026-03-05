@@ -35,6 +35,7 @@ interface MelodyDemoControllerDeps {
   redrawFretboard(): void;
   onStateChange(): void;
   setResultMessage(message: string, type?: 'success' | 'error'): void;
+  onBeforePlaybackStart?(playbackAnchorPerfMs: number): Promise<void> | void;
   onPlaybackCursorChange(cursor: {
     active: boolean;
     paused: boolean;
@@ -116,7 +117,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     deps.setResultMessage('Melody playback paused.');
   }
 
-  async function resumePlayback() {
+  async function resumePlayback(resumeAnchorPerfMs?: number) {
     const selection = deps.getSelection();
     if (!selection || !isPaused) return;
 
@@ -134,7 +135,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     });
     deps.onStateChange();
     deps.setResultMessage(`Resumed playback: ${selection.melody.name}`);
-    startPlaybackFromIndex(selection, nextEventIndex);
+    startPlaybackFromIndex(selection, nextEventIndex, resumeAnchorPerfMs);
   }
 
   function getElapsedSecondsBeforeEvent(selection: MelodyDemoSelection, targetIndex: number) {
@@ -145,6 +146,19 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
       elapsedSec += deps.getStepDelayMs(event, selection.melody.events) / 1000;
     }
     return elapsedSec;
+  }
+
+  function buildEventOffsetsFromIndexMs(selection: MelodyDemoSelection, startIndex: number) {
+    const offsetsMs = [0];
+    let elapsedMs = 0;
+    for (let index = startIndex; index <= selection.studyRange.endIndex; index += 1) {
+      const event = selection.melody.events[index];
+      if (event) {
+        elapsedMs += deps.getStepDelayMs(event, selection.melody.events);
+      }
+      offsetsMs.push(elapsedMs);
+    }
+    return offsetsMs;
   }
 
   function seekToEvent(eventIndex: number, options?: { commit?: boolean }) {
@@ -274,6 +288,8 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     clearPreviewState();
 
     await deps.ensureAudioReady();
+    const playbackAnchorPerfMs = performance.now() + 20;
+    await deps.onBeforePlaybackStart?.(playbackAnchorPerfMs);
 
     isPlaying = true;
     isPaused = false;
@@ -284,22 +300,34 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         deps.getLoopRangeEnabled() ? ', loop' : ''
       })`
     );
-    startPlaybackFromIndex(selection, studyRange.startIndex);
+    startPlaybackFromIndex(selection, studyRange.startIndex, playbackAnchorPerfMs);
   }
 
-  function startPlaybackFromIndex(selection: MelodyDemoSelection, startIndex: number) {
+  function startPlaybackFromIndex(
+    selection: MelodyDemoSelection,
+    startIndex: number,
+    playbackAnchorPerfMsOverride?: number
+  ) {
     const playbackToken = ++runToken;
     const { melody, studyRange } = selection;
     const totalEventsInRange = deps.getStudyRangeLength(studyRange, melody.events.length);
+    const clampedStartIndex = Math.max(studyRange.startIndex, Math.min(studyRange.endIndex, startIndex));
+    const baseElapsedBeforeStartSec = getElapsedSecondsBeforeEvent(selection, clampedStartIndex);
+    const eventOffsetsFromStartMs = buildEventOffsetsFromIndexMs(selection, clampedStartIndex);
+    const playbackAnchorPerfMs =
+      typeof playbackAnchorPerfMsOverride === 'number' && Number.isFinite(playbackAnchorPerfMsOverride)
+        ? playbackAnchorPerfMsOverride
+        : performance.now();
 
-    const playStep = (index: number) => {
+    const playStep = (localIndex: number) => {
       if (!isPlaying || isPaused || playbackToken !== runToken) return;
+      const index = clampedStartIndex + localIndex;
 
       if (index > studyRange.endIndex) {
         if (deps.getLoopRangeEnabled()) {
           timeoutId = null;
           nextEventIndex = studyRange.startIndex;
-          playStep(studyRange.startIndex);
+          startPlaybackFromIndex(selection, studyRange.startIndex);
           return;
         }
         timeoutId = null;
@@ -322,7 +350,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
 
       nextEventIndex = index + 1;
       const event = melody.events[index];
-      playbackBaseTimeSec = getElapsedSecondsBeforeEvent(selection, index);
+      playbackBaseTimeSec = baseElapsedBeforeStartSec + (eventOffsetsFromStartMs[localIndex] ?? 0) / 1000;
       pausedOffsetSec = 0;
       currentEventStartedAtMs = Date.now();
       deps.onPlaybackCursorChange({
@@ -337,13 +365,23 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         autoplaySound: true,
       });
 
-      const stepDelayMs = deps.getStepDelayMs(event, melody.events);
+      const nextLocalIndex = localIndex + 1;
+      const nextStepTargetAtMs = playbackAnchorPerfMs + (eventOffsetsFromStartMs[nextLocalIndex] ?? 0);
+      const stepDelayMs = Math.max(0, nextStepTargetAtMs - performance.now());
       timeoutId = setTimeout(() => {
-        playStep(index + 1);
+        playStep(nextLocalIndex);
       }, stepDelayMs);
     };
 
-    playStep(Math.max(studyRange.startIndex, Math.min(studyRange.endIndex, startIndex)));
+    const firstStepDelayMs = Math.max(0, Math.round(playbackAnchorPerfMs - performance.now()));
+    if (firstStepDelayMs <= 0) {
+      playStep(0);
+      return;
+    }
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      playStep(0);
+    }, firstStepDelayMs);
   }
 
   function shouldHandleHotkeys() {

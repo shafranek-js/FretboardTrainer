@@ -7,9 +7,11 @@ import {
   applyClassicCellFeedbackStyles,
   getClassicCellText,
   getClassicCellTextRaw,
+  getClassicFingeredCellSignature,
   getClassicPlayedCellTextRaw,
   getFingerColor,
-  getPrimaryCellFingerColor,
+  getPrimaryEventFingerColor,
+  renderClassicFingeredCellText,
   resolveClassicCellFeedbackTone,
   scaleTimelinePixels,
   withAlpha,
@@ -109,6 +111,9 @@ export function renderClassicTimeline(
     );
     return Math.max(3, widestRaw, durationWidth);
   });
+  const eventAccentColors = Array.from({ length: model.totalEvents }, (_, eventIndex) =>
+    getPrimaryEventFingerColor(model.rows, eventIndex)
+  );
   const prerollLayout = computeClassicTimelinePrerollLayout(eventWidths, showPrerollLeadIn);
 
   const buildLine = (labelText: string, segments: string[], options?: { isHeader?: boolean; isAnchorRow?: boolean }) => {
@@ -148,7 +153,7 @@ export function renderClassicTimeline(
         cell.dataset.timelineStepAnchor = 'true';
       }
       const rangeCell = model.rows[0]?.cells[eventIndex] ?? null;
-      const accentColor = getPrimaryCellFingerColor(rangeCell?.notes ?? []);
+      const accentColor = eventAccentColors[eventIndex] ?? '#67e8f9';
       const baseColor = isHeader
         ? '#64748b'
         : rangeCell?.isInStudyRange
@@ -166,12 +171,13 @@ export function renderClassicTimeline(
               : 'text-slate-500');
       cell.style.minWidth = `${eventWidths[eventIndex]}ch`;
       cell.style.width = `${eventWidths[eventIndex]}ch`;
+      cell.style.fontWeight = '500';
       cell.dataset.cellWidth = String(eventWidths[eventIndex]);
       cell.style.setProperty('--timeline-base-bg', baseBackground);
       cell.style.setProperty('--timeline-base-color', baseColor);
-      cell.style.setProperty('--timeline-active-bg', withAlpha(accentColor, 0.28));
+      cell.style.setProperty('--timeline-active-bg', withAlpha(accentColor, 0.36));
       cell.style.setProperty('--timeline-active-color', '#f8fafc');
-      cell.style.setProperty('--timeline-playhead-bg', withAlpha(accentColor, 0.22));
+      cell.style.setProperty('--timeline-playhead-bg', withAlpha(accentColor, 0.3));
       cell.style.setProperty('--timeline-playhead-color', '#f8fafc');
       let baseBoxShadow = 'none';
       const rowCell = model.rows.find((row) => row.stringName === labelText)?.cells[eventIndex] ?? null;
@@ -202,12 +208,22 @@ export function renderClassicTimeline(
       if (isDragSource) {
         cell.classList.add('timeline-note-drag-source');
       }
-      const displaySegment =
-        rowCell && rowCell.unmatchedPlayedNotes.length > 0
-          ? buildClassicTimelineFeedbackSegment(rowCell, eventWidths[eventIndex])
-          : segment;
-      cell.textContent = displaySegment;
       const feedbackTone = rowCell ? resolveClassicCellFeedbackTone(rowCell) : null;
+      const hasUnmatchedPlayedNotes = !!rowCell && rowCell.unmatchedPlayedNotes.length > 0;
+      if (rowCell && !hasUnmatchedPlayedNotes && feedbackTone === null) {
+        renderClassicFingeredCellText(cell, rowCell.notes, eventWidths[eventIndex]);
+        cell.dataset.timelineDisplaySignature = `fingered:${getClassicFingeredCellSignature(
+          rowCell.notes,
+          eventWidths[eventIndex]
+        )}`;
+      } else {
+        const fallbackSegment =
+          rowCell && hasUnmatchedPlayedNotes
+            ? buildClassicTimelineFeedbackSegment(rowCell, eventWidths[eventIndex])
+            : segment;
+        cell.textContent = fallbackSegment;
+        cell.dataset.timelineDisplaySignature = `plain:${fallbackSegment}`;
+      }
       cell.dataset.feedbackTone = feedbackTone ?? '';
       cell.style.setProperty('--timeline-base-box-shadow', baseBoxShadow);
       cell.style.setProperty(

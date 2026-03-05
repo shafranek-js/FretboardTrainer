@@ -278,4 +278,33 @@ describe('computeMonophonicPitchConfidence', () => {
     expect(result.voicingConfidence).toBeGreaterThan(0.68);
     expect(result.isVoiced).toBe(true);
   });
+
+  it('ramps confidence/voicing EMA faster in performance_fast mode', () => {
+    const baseInput = {
+      frequency: 440,
+      minFrequency: 50,
+      maxFrequency: 1000,
+      maxPitchWindow: 2,
+      lastPitches: [439.5],
+      lastNote: 'A',
+      stableNoteCounter: 1,
+      previousConfidenceEma: 0.2,
+      previousVoicingEma: 0.2,
+      requiredStableFrames: 2,
+      targetNote: 'A',
+      noteResolver: () => 'A',
+    } as const;
+
+    const defaultResult = analyzeMonophonicFrame({
+      ...baseInput,
+      emaPreset: 'default',
+    });
+    const performanceResult = analyzeMonophonicFrame({
+      ...baseInput,
+      emaPreset: 'performance_fast',
+    });
+
+    expect(performanceResult.nextConfidenceEma).toBeGreaterThan(defaultResult.nextConfidenceEma);
+    expect(performanceResult.nextVoicingEma).toBeGreaterThan(defaultResult.nextVoicingEma);
+  });
 });

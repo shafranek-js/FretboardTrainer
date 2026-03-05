@@ -1,6 +1,6 @@
 import type { MelodyDefinition } from './melody-library';
 import type { Prompt } from './types';
-import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
+import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 
 export interface ScrollingTabPanelRuntimeState {
   currentTimeSec: number | null;
@@ -44,7 +44,7 @@ function sumEventDurationsSec(
   for (let index = startIndex; index < endExclusiveIndex; index += 1) {
     const event = melody.events[index];
     if (!event) continue;
-    totalSec += getMelodyEventPlaybackDurationMs(event, bpm, melody) / 1000;
+    totalSec += getMelodyEventPlaybackDurationExactMs(event, bpm, melody) / 1000;
   }
   return totalSec;
 }

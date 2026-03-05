@@ -18,7 +18,7 @@ describe('melody-tab-timeline-render-state', () => {
     expect(resolved).toEqual({
       modeLabel: 'Session',
       viewMode: 'classic',
-      zoomScale: 1.7,
+      zoomScale: 2.5,
       bpm: null,
       studyRange: { startIndex: 2, endIndex: 5 },
       showStepNumbers: false,

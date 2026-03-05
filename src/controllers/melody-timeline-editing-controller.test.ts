@@ -102,6 +102,7 @@ function createDeps(overrides: Partial<Parameters<typeof createMelodyTimelineEdi
     moveSelectedEventToIndex: vi.fn(),
     adjustDuration: vi.fn(),
     addNote: vi.fn(),
+    setSelectedNoteFinger: vi.fn(),
     addNoteAtEventString: vi.fn(),
     addEventAfterSelection: vi.fn(),
     duplicateEvent: vi.fn(),
@@ -283,6 +284,8 @@ describe('melody-timeline-editing-controller', () => {
 
     testHarness.contextActionHandler?.({ melodyId: 'melody-1', action: 'split-event' });
     expect(deps.splitEvent).toHaveBeenCalledTimes(1);
+    testHarness.contextActionHandler?.({ melodyId: 'melody-1', action: 'finger-3' });
+    expect(deps.setSelectedNoteFinger).toHaveBeenCalledWith(3);
 
     testHarness.mockState.melodyTimelineSelectedEventIndex = 3;
     const moveLeft = createKeyEvent('ArrowLeft', {

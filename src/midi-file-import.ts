@@ -58,6 +58,7 @@ export interface MidiImportedMelody {
     midiName: string | null;
     trackName: string | null;
     tempoBpm: number | null;
+    timeSignatureText: string | null;
   };
 }
 
@@ -339,6 +340,10 @@ function convertMidiTrackSelectionToImportedMelody(
       : null;
   const midiName = (midi.name ?? midi.header?.name ?? '').trim() || null;
   const trackName = getTrackDisplayName(selection.track, selection.index);
+  const primaryTimeSignature = getPrimaryTimeSignature(midi.header);
+  const timeSignatureText = primaryTimeSignature
+    ? `${primaryTimeSignature.numerator}/${primaryTimeSignature.denominator}`
+    : null;
 
   const notes = normalizeMidiNotesForConversion(selection.notes, midi.header, ppq, quantize);
   const ticksPerBar = getTicksPerBar(ppq, midi.header);
@@ -438,6 +443,7 @@ function convertMidiTrackSelectionToImportedMelody(
       midiName,
       trackName,
       tempoBpm,
+      timeSignatureText,
     },
   };
 }

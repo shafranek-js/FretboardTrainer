@@ -61,6 +61,7 @@ describe('melody-demo-controller', () => {
     const controller = createMelodyDemoController(deps);
 
     await controller.startPlayback();
+    vi.advanceTimersByTime(25);
 
     expect(deps.ensureAudioReady).toHaveBeenCalledTimes(1);
     expect(deps.onStateChange).toHaveBeenCalled();

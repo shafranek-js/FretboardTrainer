@@ -46,7 +46,11 @@ import {
 } from './melody-tab-timeline-handlers';
 import { renderClassicTimeline } from './melody-tab-timeline-classic-renderer';
 import { renderGridTimeline } from './melody-tab-timeline-grid-renderer';
-import { renderTimelineMinimap } from './melody-tab-timeline-minimap-renderer';
+import {
+  clearTimelineMinimapRuntimeCache,
+  renderTimelineMinimap,
+  updateTimelineMinimapRuntime,
+} from './melody-tab-timeline-minimap-renderer';
 import {
   bindTimelineDragPan,
   bindTimelineScrollChrome,
@@ -62,7 +66,9 @@ import { buildClassicTimelineFeedbackSegment } from './melody-tab-timeline-perfo
 import {
   applyClassicCellFeedbackStyles,
   getClassicCellText,
-  getPrimaryCellFingerColor,
+  getClassicFingeredCellSignature,
+  getPrimaryEventFingerColor,
+  renderClassicFingeredCellText,
   resolveClassicCellFeedbackTone,
 } from './melody-tab-timeline-render-utils';
 import {
@@ -91,6 +97,37 @@ let lastRenderKey = '';
 let lastStructuralRenderKey = '';
 let lastClassicActiveEventIndex: number | null = null;
 let lastPlayheadEventIndex: number | null = null;
+
+let classicCellCache: Map<string, HTMLElement> | null = null;
+let timelineCellByEventCache: Map<number, HTMLElement[]> | null = null;
+
+function populateTimelineDOMCache(contentContainer: HTMLElement) {
+  classicCellCache = new Map();
+  timelineCellByEventCache = new Map();
+  const cells = contentContainer.querySelectorAll<HTMLElement>(
+    '[data-timeline-track-cell="true"], [data-timeline-grid-cell="true"]'
+  );
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    const eventIndexStr = cell.dataset.eventIndex;
+    if (!eventIndexStr) continue;
+    const eventIndex = Number.parseInt(eventIndexStr, 10);
+    
+    let list = timelineCellByEventCache.get(eventIndex);
+    if (!list) {
+      list = [];
+      timelineCellByEventCache.set(eventIndex, list);
+    }
+    list.push(cell);
+
+    if (cell.dataset.timelineTrackCell === 'true') {
+      const stringName = cell.closest<HTMLElement>('[data-timeline-string-name]')?.dataset.timelineStringName;
+      if (stringName) {
+        classicCellCache.set(`${stringName}-${eventIndex}`, cell);
+      }
+    }
+  }
+}
 
 function applyTimelinePlayheadCellVisualState(cell: HTMLElement, active: boolean) {
   cell.dataset.playheadActive = active ? 'true' : 'false';
@@ -126,9 +163,8 @@ function applyTimelinePlayheadCellVisualState(cell: HTMLElement, active: boolean
 
 function updateTimelinePlayheadEventCells(eventIndex: number | null, active: boolean) {
   if (eventIndex === null) return;
-  const cells = dom.melodyTabTimelineGrid.querySelectorAll<HTMLElement>(
-    `[data-event-index="${eventIndex}"][data-timeline-track-cell="true"], [data-event-index="${eventIndex}"][data-timeline-grid-cell="true"]`
-  );
+  const cells = timelineCellByEventCache?.get(eventIndex);
+  if (!cells) return;
   cells.forEach((cell) => {
     if ((cell.dataset.feedbackTone ?? '') !== '') return;
     applyTimelinePlayheadCellVisualState(cell, active);
@@ -163,10 +199,10 @@ function applyClassicTimelineTrackCellVisualState(
 
 function updateClassicTimelineEventCells(eventIndex: number | null, active: boolean) {
   if (eventIndex === null) return;
-  const cells = dom.melodyTabTimelineGrid.querySelectorAll<HTMLElement>(
-    `[data-timeline-track-cell="true"][data-event-index="${eventIndex}"]`
-  );
+  const cells = timelineCellByEventCache?.get(eventIndex);
+  if (!cells) return;
   cells.forEach((cell) => {
+    if (cell.dataset.timelineTrackCell !== 'true') return;
     if ((cell.dataset.feedbackTone ?? '') !== '') return;
     applyClassicTimelineTrackCellVisualState(cell, active, null);
   });
@@ -186,43 +222,64 @@ function followHighlightedTimelineEvent(eventIndex: number | null) {
 }
 
 function updateClassicTimelineFeedback(model: ReturnType<typeof buildMelodyTabTimelineViewModel>) {
+  if (!classicCellCache) return;
+  const eventAccentColors = Array.from({ length: model.totalEvents }, (_, eventIndex) =>
+    getPrimaryEventFingerColor(model.rows, eventIndex)
+  );
   model.rows.forEach((row) => {
-    const rowLine = dom.melodyTabTimelineGrid.querySelector<HTMLElement>(
-      `[data-timeline-string-name="${row.stringName}"]`
-    );
-    if (!rowLine) return;
     row.cells.forEach((rowCell, eventIndex) => {
-      const cell = rowLine.querySelector<HTMLElement>(`[data-event-index="${eventIndex}"]`);
+      const cell = classicCellCache!.get(`${row.stringName}-${eventIndex}`);
       if (!cell) return;
 
       const cellWidth = Number.parseInt(cell.dataset.cellWidth ?? '3', 10);
       const feedbackTone = resolveClassicCellFeedbackTone(rowCell);
-      const accentColor = getPrimaryCellFingerColor(rowCell.notes);
-      const displaySegment =
-        rowCell.unmatchedPlayedNotes.length > 0
-          ? buildClassicTimelineFeedbackSegment(rowCell, cellWidth)
-          : getClassicCellText(rowCell.notes, cellWidth);
+      const accentColor = eventAccentColors[eventIndex] ?? '#67e8f9';
+      const hasUnmatchedPlayedNotes = rowCell.unmatchedPlayedNotes.length > 0;
+      const shouldRenderFingerColors = !hasUnmatchedPlayedNotes && feedbackTone === null;
+      const plainDisplaySegment = hasUnmatchedPlayedNotes
+        ? buildClassicTimelineFeedbackSegment(rowCell, cellWidth)
+        : getClassicCellText(rowCell.notes, cellWidth);
+      const nextDisplaySignature = shouldRenderFingerColors
+        ? `fingered:${getClassicFingeredCellSignature(rowCell.notes, cellWidth)}`
+        : `plain:${plainDisplaySegment}`;
 
-      if (cell.textContent !== displaySegment) {
-        cell.textContent = displaySegment;
+      let changed = false;
+      if ((cell.dataset.timelineDisplaySignature ?? '') !== nextDisplaySignature) {
+        if (shouldRenderFingerColors) {
+          renderClassicFingeredCellText(cell, rowCell.notes, cellWidth);
+        } else {
+          cell.textContent = plainDisplaySegment;
+        }
+        cell.dataset.timelineDisplaySignature = nextDisplaySignature;
+        changed = true;
       }
 
-      cell.dataset.feedbackTone = feedbackTone ?? '';
-      cell.style.backgroundColor = '';
-      cell.style.color = '';
-      const baseBoxShadow = cell.style.getPropertyValue('--timeline-base-box-shadow');
-      cell.style.boxShadow = baseBoxShadow === 'none' ? '' : baseBoxShadow;
-      applyClassicTimelineTrackCellVisualState(cell, model.activeEventIndex === eventIndex, feedbackTone);
-      applyClassicCellFeedbackStyles(cell, feedbackTone, accentColor);
+      const nextTone = feedbackTone ?? '';
+      if (cell.dataset.feedbackTone !== nextTone) {
+        cell.dataset.feedbackTone = nextTone;
+        cell.style.backgroundColor = '';
+        cell.style.color = '';
+        const baseBoxShadow = cell.style.getPropertyValue('--timeline-base-box-shadow');
+        cell.style.boxShadow = baseBoxShadow === 'none' ? '' : baseBoxShadow;
+        changed = true;
+      }
+
+      if (changed) {
+        applyClassicTimelineTrackCellVisualState(cell, model.activeEventIndex === eventIndex, feedbackTone);
+        applyClassicCellFeedbackStyles(cell, feedbackTone, accentColor);
+      }
     });
   });
 }
 
 function clearGrid() {
   dom.melodyTabTimelineGrid.innerHTML = '';
+  classicCellCache = null;
+  timelineCellByEventCache = null;
 }
 
 export function hideMelodyTabTimeline() {
+  clearTimelineMinimapRuntimeCache();
   setMelodyTimelineBackgroundCopyPayload(null);
   dom.melodyTabTimelinePanel.classList.add('hidden');
   dom.melodyTabTimelineMinimapDock.classList.add('hidden');
@@ -286,7 +343,7 @@ export function renderMelodyTabTimeline(
       melody,
       stringOrder: instrument.STRING_ORDER,
       melodyContentSignature,
-      model: renderModel,
+      model: { activeEventIndex: null }, // Do not rebuild full DOM just because playhead moved
       barGrouping,
       durationLayout,
       studyRange: resolvedOptions.studyRange,
@@ -301,7 +358,7 @@ export function renderMelodyTabTimeline(
       melody,
       stringOrder: instrument.STRING_ORDER,
       melodyContentSignature,
-      model: { activeEventIndex: options.viewMode === 'classic' ? null : renderModel.activeEventIndex },
+      model: { activeEventIndex: null },
       barGrouping,
       durationLayout,
       studyRange: resolvedOptions.studyRange,
@@ -321,6 +378,10 @@ export function renderMelodyTabTimeline(
       renderModel.activeEventIndex === null ? '' : String(renderModel.activeEventIndex);
     updateClassicTimelineFeedback(renderModel);
     updateClassicTimelineActiveEvent(renderModel.activeEventIndex);
+    
+    // Update the minimap dynamically without full DOM rebuild
+    updateTimelineMinimapRuntime(renderModel.activeEventIndex);
+
     if (!runtimePlayheadActive && previousActiveEventIndex !== renderModel.activeEventIndex) {
       followHighlightedTimelineEvent(renderModel.activeEventIndex);
     }
@@ -483,6 +544,8 @@ export function renderMelodyTabTimeline(
     );
   }
 
+  populateTimelineDOMCache(content);
+
   const renderedMetrics = getRenderedTimelineStepMetrics(content);
   renderTimelineContextMenu(melody, resolvedOptions.selectedEventIndex, {
     editingEnabled: resolvedOptions.editingEnabled,
@@ -516,7 +579,6 @@ export function renderMelodyTabTimeline(
     dom.melodyTabTimelinePlayhead.style.opacity = '0';
   }
 
-  updateTimelineScrollChrome();
   window.requestAnimationFrame(() => {
     updateTimelineScrollChrome();
   });

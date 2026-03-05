@@ -16,6 +16,7 @@ import {
   moveSelectedMelodyTimelineEventToIndex,
   pushMelodyTimelineEditingHistory,
   redoMelodyTimelineEditingMutation,
+  setSelectedMelodyTimelineEditingNoteFinger,
   splitSelectedMelodyTimelineEvent,
   type MelodyTimelineEditingSelection,
   type MelodyTimelineEditingSession,
@@ -251,5 +252,19 @@ describe('melody-timeline-editing', () => {
     expect(selection).toEqual({ eventIndex: 0, noteIndex: 0 });
     expect(session.draft?.[0]?.barIndex).toBeUndefined();
     expect(session.draft?.[0]?.column).toBeUndefined();
+  });
+
+  it('applies and clears manual finger override for selected note', () => {
+    const events: MelodyEvent[] = [{ durationBeats: 1, notes: [{ note: 'C', stringName: 'A', fret: 3 }] }];
+    const session = createSession();
+    const selection = createSelection(0, 0);
+
+    ensureMelodyTimelineEditingDraftLoaded(session, 'melody:test', events);
+
+    setSelectedMelodyTimelineEditingNoteFinger(session, selection, 3);
+    expect(session.draft?.[0]?.notes[0]?.finger).toBe(3);
+
+    setSelectedMelodyTimelineEditingNoteFinger(session, selection, null);
+    expect(session.draft?.[0]?.notes[0]?.finger).toBeUndefined();
   });
 });

@@ -53,6 +53,7 @@ function cloneMelodyEventNote(note: MelodyEventNote): MelodyEventNote {
     note: note.note,
     stringName: note.stringName,
     fret: note.fret,
+    finger: note.finger,
   };
 }
 
@@ -65,6 +66,30 @@ function cloneMelodyEvents(events: MelodyEvent[]): MelodyEvent[] {
     durationBeats: event.durationBeats,
     notes: event.notes.map(cloneMelodyEventNote),
   }));
+}
+
+function buildMelodyContentSignature(melody: Pick<MelodyDefinition, 'events'>) {
+  let hash = 2166136261;
+  for (const event of melody.events) {
+    hash ^= (event.barIndex ?? -1) + 17;
+    hash = Math.imul(hash, 16777619);
+    hash ^= (event.column ?? -1) + 31;
+    hash = Math.imul(hash, 16777619);
+    hash ^= (event.durationColumns ?? -1) + 47;
+    hash = Math.imul(hash, 16777619);
+    hash ^= (event.durationCountSteps ?? -1) + 61;
+    hash = Math.imul(hash, 16777619);
+    hash ^= Math.round((event.durationBeats ?? -1) * 1000) + 79;
+    hash = Math.imul(hash, 16777619);
+    for (const note of event.notes) {
+      const text = `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}|${note.finger ?? '-'}`;
+      for (let index = 0; index < text.length; index++) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+    }
+  }
+  return (hash >>> 0).toString(16);
 }
 
 function parseScientificNoteToMidi(noteWithOctave: string): number | null {
@@ -259,6 +284,7 @@ export function transposeMelodyEvents(
         note: transposedPitchClass ?? note.note,
         stringName: null,
         fret: null,
+        finger: note.finger,
       });
     });
 
@@ -282,6 +308,7 @@ export function transposeMelodyEvents(
           note: assigned.pitchClass,
           stringName: assigned.assigned.stringName,
           fret: assigned.assigned.fret,
+          finger: note.finger,
         };
         const midi = getMidiFromInstrumentPosition(
           instrument,
@@ -302,6 +329,7 @@ export function transposeMelodyEvents(
         note: transposedPitchClass ?? note.note,
         stringName: null,
         fret: null,
+        finger: note.finger,
       };
     });
 
@@ -322,10 +350,8 @@ function buildTransposeCacheKey(
   instrument: Pick<IInstrument, 'name'>
 ) {
   const normalized = normalizeMelodyTransposeSemitones(semitones);
-  const firstNote = melody.events[0]?.notes[0]?.note ?? '';
-  const lastEvent = melody.events[melody.events.length - 1];
-  const lastNote = lastEvent?.notes[lastEvent.notes.length - 1]?.note ?? '';
-  return `${instrument.name}|${melody.id}|${normalized}|${melody.events.length}|${firstNote}|${lastNote}`;
+  const contentSignature = buildMelodyContentSignature(melody);
+  return `${instrument.name}|${melody.id}|${normalized}|${melody.events.length}|${contentSignature}`;
 }
 
 export function getMelodyWithTranspose(

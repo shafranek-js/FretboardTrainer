@@ -13,7 +13,9 @@ interface MetronomeControllerDeps {
   startMetronome(bpm: number): Promise<void>;
   stopMetronome(): void;
   setMetronomeTempo(bpm: number): Promise<void>;
-  subscribeMetronomeBeat(handler: (payload: { beatInBar: number; accented: boolean }) => void): void;
+  subscribeMetronomeBeat(
+    handler: (payload: { beatInBar: number; accented: boolean; secondaryAccented?: boolean }) => void
+  ): void;
   saveSettings(): void;
   formatUserFacingError(prefix: string, error: unknown): string;
   showNonBlockingError(message: string): void;
@@ -34,7 +36,12 @@ export function createMetronomeController(deps: MetronomeControllerDeps) {
 
   function resetVisualIndicator() {
     deps.dom.metronomeBeatLabel.textContent = '-';
-    deps.dom.metronomePulse.classList.remove('bg-amber-400', 'bg-amber-200', 'scale-125');
+    deps.dom.metronomePulse.classList.remove(
+      'bg-amber-400',
+      'bg-amber-300',
+      'bg-amber-200',
+      'scale-125'
+    );
     deps.dom.metronomePulse.classList.add('bg-slate-500');
   }
 
@@ -55,15 +62,21 @@ export function createMetronomeController(deps: MetronomeControllerDeps) {
   }
 
   function registerBeatIndicator() {
-    deps.subscribeMetronomeBeat(({ beatInBar, accented }) => {
+    deps.subscribeMetronomeBeat(({ beatInBar, accented, secondaryAccented }) => {
       deps.dom.metronomeBeatLabel.textContent = String(beatInBar);
       deps.dom.metronomePulse.classList.remove('bg-slate-500');
       deps.dom.metronomePulse.classList.toggle('bg-amber-400', accented);
-      deps.dom.metronomePulse.classList.toggle('bg-amber-200', !accented);
+      deps.dom.metronomePulse.classList.toggle('bg-amber-300', !accented && Boolean(secondaryAccented));
+      deps.dom.metronomePulse.classList.toggle('bg-amber-200', !accented && !secondaryAccented);
       deps.dom.metronomePulse.classList.add('scale-125');
 
       window.setTimeout(() => {
-        deps.dom.metronomePulse.classList.remove('bg-amber-400', 'bg-amber-200', 'scale-125');
+        deps.dom.metronomePulse.classList.remove(
+          'bg-amber-400',
+          'bg-amber-300',
+          'bg-amber-200',
+          'scale-125'
+        );
         deps.dom.metronomePulse.classList.add('bg-slate-500');
       }, 90);
     });

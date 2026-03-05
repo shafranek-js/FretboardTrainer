@@ -1,4 +1,5 @@
 import type { Prompt } from './types';
+import type { PerformanceTimelineFeedbackByEvent } from './performance-timeline-feedback';
 import type {
   MicPerformanceOnsetRejectReasonKey,
   PerformanceCaptureEventTelemetry,
@@ -33,6 +34,8 @@ export interface SessionStopResetState {
   performancePromptMatched: boolean;
   performancePromptHadAttempt: boolean;
   performancePromptHadWrongAttempt: boolean;
+  performanceTimelineFeedbackKey: string | null;
+  performanceTimelineFeedbackByEvent: PerformanceTimelineFeedbackByEvent;
   performanceTimingByEvent: Record<number, PerformanceTimingEventLogEntry[]>;
   performanceOnsetRejectsByEvent: Record<number, PerformanceOnsetRejectEventLogEntry[]>;
   performanceCaptureTelemetryByEvent: Record<number, PerformanceCaptureEventTelemetry>;
@@ -103,6 +106,8 @@ export function createSessionStopResetState() {
     performancePromptMatched: false,
     performancePromptHadAttempt: false,
     performancePromptHadWrongAttempt: false,
+    performanceTimelineFeedbackKey: null,
+    performanceTimelineFeedbackByEvent: {},
     performanceTimingByEvent: {},
     performanceOnsetRejectsByEvent: {},
     performanceCaptureTelemetryByEvent: {},

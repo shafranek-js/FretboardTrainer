@@ -85,7 +85,7 @@ export function resolveMelodyTimelineRenderOptions(
   return {
     modeLabel: options.modeLabel?.trim() ?? '',
     viewMode: options.viewMode ?? 'classic',
-    zoomScale: Math.max(0.7, Math.min(1.7, options.zoomScale ?? 1)),
+    zoomScale: Math.max(0.7, Math.min(2.5, options.zoomScale ?? 1)),
     bpm: typeof options.bpm === 'number' && Number.isFinite(options.bpm) ? options.bpm : null,
     studyRange,
     showStepNumbers: options.showStepNumbers ?? false,

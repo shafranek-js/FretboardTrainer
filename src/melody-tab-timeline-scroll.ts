@@ -1,5 +1,5 @@
 import { dom } from './state';
-import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
+import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 import type { MelodyDefinition } from './melody-library';
 import type { MelodyStudyRange } from './melody-study-range';
 import {
@@ -12,6 +12,8 @@ let timelineScrollChromeBound = false;
 let timelinePanBound = false;
 let lastRuntimePointsKey = '';
 let lastRuntimePoints: RuntimeTimelineEventPoint[] = [];
+let cachedMaxScrollLeft = 0;
+let cachedFollowThresholdX = 0;
 let timelineCenterAnimationFrameId: number | null = null;
 let timelineCenterAnimationTargetLeft = 0;
 let timelineRuntimeFollowFrameId: number | null = null;
@@ -21,6 +23,13 @@ const lastScrollChromeState = {
   scrollLeft: '',
   scrollRight: '',
 };
+
+export function invalidateRuntimePointsCache() {
+  lastRuntimePointsKey = '';
+  lastRuntimePoints = [];
+  cachedMaxScrollLeft = 0;
+  cachedFollowThresholdX = 0;
+}
 
 function cancelTimelineCenterAnimation() {
   if (timelineCenterAnimationFrameId !== null) {
@@ -134,8 +143,6 @@ export function followTimelineRuntimeCursor(
     bpm,
     studyRange,
     leadInSec,
-    scrollWidth: scroller.scrollWidth,
-    clientWidth: scroller.clientWidth,
   });
   let points = lastRuntimePoints;
   if (runtimePointsKey !== lastRuntimePointsKey) {
@@ -157,7 +164,7 @@ export function followTimelineRuntimeCursor(
       const anchor = anchorByEventIndex.get(eventIndex);
       const melodyEvent = melody.events[eventIndex];
       if (!anchor || !melodyEvent) continue;
-      const durationSec = getMelodyEventPlaybackDurationMs(melodyEvent, bpm, melody) / 1000;
+      const durationSec = getMelodyEventPlaybackDurationExactMs(melodyEvent, bpm, melody) / 1000;
       points.push({
         eventIndex,
         startTimeSec: cursorSec,
@@ -177,6 +184,8 @@ export function followTimelineRuntimeCursor(
       currentPoint.travelEndX = nextPoint.travelStartX;
     }
     lastRuntimePoints = points;
+    cachedMaxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    cachedFollowThresholdX = scroller.clientWidth * 0.5;
   }
   if (points.length === 0) {
     playhead.style.opacity = '0';
@@ -184,9 +193,7 @@ export function followTimelineRuntimeCursor(
   }
 
   const { centerX, activeEventIndex } = resolveTimelineRuntimeCursorState(currentTimeSec, leadInSec, points);
-  const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  const followThresholdX = scroller.clientWidth * 0.5;
-  const targetLeft = clamp(centerX - followThresholdX, 0, maxScrollLeft);
+  const targetLeft = clamp(centerX - cachedFollowThresholdX, 0, cachedMaxScrollLeft);
   if (Math.abs(scroller.scrollLeft - targetLeft) >= 0.5) {
     scroller.scrollLeft = targetLeft;
   }
@@ -211,8 +218,6 @@ export function followTimelineRuntimeScroll(
     bpm,
     studyRange,
     leadInSec,
-    scrollWidth: scroller.scrollWidth,
-    clientWidth: scroller.clientWidth,
   });
   let points = lastRuntimePoints;
   if (runtimePointsKey !== lastRuntimePointsKey) {
@@ -234,7 +239,7 @@ export function followTimelineRuntimeScroll(
       const anchor = anchorByEventIndex.get(eventIndex);
       const melodyEvent = melody.events[eventIndex];
       if (!anchor || !melodyEvent) continue;
-      const durationSec = getMelodyEventPlaybackDurationMs(melodyEvent, bpm, melody) / 1000;
+      const durationSec = getMelodyEventPlaybackDurationExactMs(melodyEvent, bpm, melody) / 1000;
       points.push({
         eventIndex,
         startTimeSec: cursorSec,
@@ -254,13 +259,13 @@ export function followTimelineRuntimeScroll(
       currentPoint.travelEndX = nextPoint.travelStartX;
     }
     lastRuntimePoints = points;
+    cachedMaxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    cachedFollowThresholdX = scroller.clientWidth * 0.5;
   }
   if (points.length === 0) return;
 
   const centerX = resolveTimelineRuntimeCenterX(currentTimeSec, leadInSec, points);
-  const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  const followThresholdX = scroller.clientWidth * 0.5;
-  const targetLeft = clamp(centerX - followThresholdX, 0, maxScrollLeft);
+  const targetLeft = clamp(centerX - cachedFollowThresholdX, 0, cachedMaxScrollLeft);
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     cancelTimelineRuntimeFollowAnimation();
     scroller.scrollLeft = targetLeft;
@@ -274,7 +279,8 @@ export function followTimelineRuntimeScroll(
 export function updateTimelineScrollChrome() {
   const viewport = dom.melodyTabTimelineViewport;
   const scroller = dom.melodyTabTimelineGrid;
-  const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+  // Fallback to reading if cache is empty (e.g. initial load), but mostly rely on the cache to avoid forced layouts
+  const maxScrollLeft = cachedMaxScrollLeft || Math.max(0, scroller.scrollWidth - scroller.clientWidth);
   const isScrollable = maxScrollLeft > 4;
   const hasLeftOverflow = isScrollable && scroller.scrollLeft > 2;
   const hasRightOverflow = isScrollable && scroller.scrollLeft < maxScrollLeft - 2;
@@ -312,6 +318,7 @@ export function bindTimelineScrollChrome() {
   window.addEventListener(
     'resize',
     () => {
+      invalidateRuntimePointsCache();
       updateTimelineScrollChrome();
     },
     { passive: true }

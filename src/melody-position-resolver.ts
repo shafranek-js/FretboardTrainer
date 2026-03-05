@@ -56,11 +56,17 @@ function stripOctaveSuffix(noteWithOctave: string) {
   return noteWithOctave.replace(/-?\d+$/, '');
 }
 
+function normalizeMelodyNoteFinger(finger: number | null | undefined) {
+  if (typeof finger !== 'number' || !Number.isFinite(finger)) return undefined;
+  return Math.max(0, Math.min(4, Math.round(finger)));
+}
+
 function cloneEventNote(note: MelodyEventNote): MelodyEventNote {
   return {
     note: note.note,
     stringName: note.stringName,
     fret: note.fret,
+    finger: normalizeMelodyNoteFinger(note.finger),
   };
 }
 
@@ -192,6 +198,7 @@ export function resolveMelodyEventPositions(
           note: resolved.pitchClass,
           stringName: resolved.assigned.stringName,
           fret: resolved.assigned.fret,
+          finger: normalizeMelodyNoteFinger(note.finger),
         };
       }
 

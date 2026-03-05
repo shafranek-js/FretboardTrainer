@@ -108,6 +108,7 @@ export interface MonophonicFrameInput {
   requiredStableFrames: number;
   targetNote: string | null;
   noteResolver: (frequency: number) => string | null;
+  emaPreset?: 'default' | 'performance_fast';
 }
 
 export interface MonophonicFrameResult {
@@ -221,6 +222,7 @@ export function analyzeMonophonicFrame({
   requiredStableFrames,
   targetNote,
   noteResolver,
+  emaPreset = 'default',
 }: MonophonicFrameInput): MonophonicFrameResult {
   if (frequency <= minFrequency || frequency >= maxFrequency) {
     return {
@@ -280,10 +282,11 @@ export function analyzeMonophonicFrame({
     nextStableNoteCounter,
     requiredStableFrames,
   });
+  const confidenceEmaAlpha = emaPreset === 'performance_fast' ? 0.5 : 0.32;
   const nextConfidenceEma = Number(
     (
-      previousConfidenceEma * 0.68 +
-      confidenceMetrics.confidence * 0.32
+      previousConfidenceEma * (1 - confidenceEmaAlpha) +
+      confidenceMetrics.confidence * confidenceEmaAlpha
     ).toFixed(3)
   );
   const confidenceThreshold = previousConfidenceEma >= 0.58 ? 0.5 : 0.64;
@@ -294,10 +297,11 @@ export function analyzeMonophonicFrame({
     nextStableNoteCounter,
     requiredStableFrames,
   });
+  const voicingEmaAlpha = emaPreset === 'performance_fast' ? 0.45 : 0.3;
   const nextVoicingEma = Number(
     (
-      previousVoicingEma * 0.7 +
-      voicingMetrics.confidence * 0.3
+      previousVoicingEma * (1 - voicingEmaAlpha) +
+      voicingMetrics.confidence * voicingEmaAlpha
     ).toFixed(3)
   );
   const voicingThreshold = previousVoicingEma >= 0.6 ? 0.48 : 0.6;

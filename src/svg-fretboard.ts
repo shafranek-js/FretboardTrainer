@@ -320,6 +320,30 @@ function appendFretboardDefs(svg: SVGSVGElement) {
   svg.appendChild(defs);
 }
 
+let cachedFretboardWidth = 0;
+let cachedFretboardHeight = 0;
+let fretboardResizeObserver: ResizeObserver | null = null;
+
+function ensureFretboardResizeObserver() {
+  if (typeof ResizeObserver === 'undefined') {
+    cachedFretboardWidth = dom.fretboard.clientWidth;
+    cachedFretboardHeight = dom.fretboard.clientHeight;
+    return;
+  }
+  if (fretboardResizeObserver) return;
+  cachedFretboardWidth = dom.fretboard.clientWidth;
+  cachedFretboardHeight = dom.fretboard.clientHeight;
+  fretboardResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.target === dom.fretboard) {
+        cachedFretboardWidth = entry.contentRect.width;
+        cachedFretboardHeight = entry.contentRect.height;
+      }
+    }
+  });
+  fretboardResizeObserver.observe(dom.fretboard);
+}
+
 /** Draws the fretboard using SVG primitives (feature-flagged from ui.ts). */
 export function drawFretboardSvg(
   showAll = false,
@@ -332,6 +356,7 @@ export function drawFretboardSvg(
   wrongDetectedString: string | null = null,
   wrongDetectedFret: number | null = null
 ) {
+  ensureFretboardResizeObserver();
   const svg = dom.fretboardSvg;
   const instrumentData = state.currentInstrument;
   const FRETBOARD = instrumentData.FRETBOARD;
@@ -341,8 +366,8 @@ export function drawFretboardSvg(
   const { maxFret: selectedMaxFret } = getSelectedFretRange(dom.startFret.value, dom.endFret.value);
   const renderFretCount = Math.max(MIN_RENDER_FRET_COUNT, Math.min(MAX_RENDER_FRET_COUNT, selectedMaxFret));
 
-  const width = dom.fretboard.clientWidth;
-  const height = dom.fretboard.clientHeight;
+  const width = cachedFretboardWidth;
+  const height = cachedFretboardHeight;
   if (width <= 0 || height <= 0) return;
 
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);

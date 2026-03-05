@@ -18,6 +18,7 @@ export interface BuiltinAsciiTabMelodySpec {
   tabText: string;
   events?: BuiltinMelodyEventSpec[];
   sourceTempoBpm?: number;
+  sourceTimeSignature?: string;
 }
 
 export type BuiltinMonophonicStepSpec = readonly [stringName: string, fret: number, durationBeats?: number];

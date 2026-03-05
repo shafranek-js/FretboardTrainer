@@ -110,6 +110,7 @@ export interface MonophonicDetectionInput {
   requiredStableFrames: number;
   targetNote: string | null;
   noteResolver: (frequency: number) => string | null;
+  emaPreset?: 'default' | 'performance_fast';
   minFrequency?: number;
   maxFrequency?: number;
   maxPitchWindow?: number;
@@ -125,6 +126,7 @@ export function detectMonophonicFrame({
   requiredStableFrames,
   targetNote,
   noteResolver,
+  emaPreset = 'default',
   minFrequency = DEFAULT_MIN_MONO_FREQUENCY,
   maxFrequency = DEFAULT_MAX_MONO_FREQUENCY,
   maxPitchWindow = DEFAULT_MONO_PITCH_WINDOW,
@@ -142,5 +144,6 @@ export function detectMonophonicFrame({
     requiredStableFrames,
     targetNote,
     noteResolver,
+    emaPreset,
   });
 }

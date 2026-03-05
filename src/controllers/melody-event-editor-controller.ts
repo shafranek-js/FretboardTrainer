@@ -8,6 +8,7 @@ type MelodyEventEditorMetadata = {
   sourceTrackName?: string;
   sourceScoreTitle?: string;
   sourceTempoBpm?: number;
+  sourceTimeSignature?: string;
 };
 
 interface MelodyEventEditorDom {

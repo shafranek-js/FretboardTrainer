@@ -26,7 +26,7 @@ export function buildMelodyContentSignature(melody: Pick<MelodyDefinition, 'even
     hash = Math.imul(hash, 16777619);
 
     for (const note of event.notes) {
-      const noteText = `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}`;
+      const noteText = `${note.note}|${note.stringName ?? '-'}|${note.fret ?? '-'}|${note.finger ?? '-'}`;
       for (let index = 0; index < noteText.length; index++) {
         hash ^= noteText.charCodeAt(index);
         hash = Math.imul(hash, 16777619);

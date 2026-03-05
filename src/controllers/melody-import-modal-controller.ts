@@ -35,6 +35,7 @@ interface MelodyImportModalControllerDeps {
         sourceTrackName?: string;
         sourceScoreTitle?: string;
         sourceTempoBpm?: number;
+        sourceTimeSignature?: string;
       };
     }
   ): void;

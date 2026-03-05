@@ -106,19 +106,33 @@ function resolveSmoothedScrollingRuntimeTime(
     return targetTimeSec;
   }
 
+  if (scrollingTabLastFrameTimestampMs !== null && nowMs - scrollingTabLastFrameTimestampMs < 2) {
+    // If called multiple times in the same frame, just return the already-smoothed value.
+    // This prevents applying the P-controller multiple times per frame.
+    return scrollingTabDisplayedTimeSec;
+  }
+
   const dtSec = Math.max(0, Math.min(0.05, (nowMs - scrollingTabLastFrameTimestampMs) / 1000));
   scrollingTabLastFrameTimestampMs = nowMs;
   scrollingTabLastRuntimeSignature = runtimeSignature;
 
   const previousTimeSec = scrollingTabDisplayedTimeSec;
-  if (targetTimeSec <= previousTimeSec) {
-    return previousTimeSec;
+  
+  // Ideally, we just move forward by the exact screen refresh time (dtSec)
+  let nextTimeSec = previousTimeSec + dtSec;
+
+  const distanceSec = targetTimeSec - nextTimeSec;
+
+  if (Math.abs(distanceSec) > 0.15) {
+    // Target is significantly out of sync (e.g., song reset, paused, or tab unfocused for a while). Snap immediately.
+    nextTimeSec = targetTimeSec;
+  } else {
+    // Use a continuous proportional controller (spring) to smoothly close the gap.
+    // This perfectly masks the ~15.6ms jitter of Windows Date.now(), prevents long-term drift,
+    // and eliminates the periodic micro-stutters caused by hard snapping.
+    nextTimeSec += distanceSec * 0.12;
   }
 
-  const expectedTimeSec = previousTimeSec + dtSec;
-  const catchupSec = Math.max(0, targetTimeSec - expectedTimeSec);
-  const maxCatchupSec = Math.max(0.03, dtSec * 6);
-  const nextTimeSec = Math.min(targetTimeSec, expectedTimeSec + Math.min(catchupSec, maxCatchupSec));
   scrollingTabDisplayedTimeSec = nextTimeSec;
   return nextTimeSec;
 }
