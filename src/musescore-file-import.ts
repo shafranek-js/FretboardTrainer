@@ -175,6 +175,20 @@ function parseDurationTicks(block: string, defaultBeatsPerBar: number) {
   return Math.max(1, Math.round(beats * dottedMultiplier * MUSESCORE_PPQ));
 }
 
+function extractTupletRatio(block: string) {
+  const normalNotes = getTagInt(block, 'normalNotes');
+  const actualNotes = getTagInt(block, 'actualNotes');
+  if (
+    normalNotes === null ||
+    actualNotes === null ||
+    normalNotes <= 0 ||
+    actualNotes <= 0
+  ) {
+    return null;
+  }
+  return normalNotes / actualNotes;
+}
+
 function buildSuggestedMelodyName(sourceFileName: string, scoreTitle: string | null, trackName: string | null) {
   const fileStem = sourceFileName.replace(/\.[^.]+$/, '').trim();
   const left = scoreTitle?.trim() || fileStem || 'Imported MuseScore Melody';
@@ -326,7 +340,7 @@ function parseChordNotes(
     const roundedPitch = Number.isFinite(pitch) ? Math.round(pitch as number) : null;
     const safeFret = fret !== null && fret >= 0 ? fret : null;
 
-    let stringName = museString !== null
+    const stringName = museString !== null
       ? mapMuseStringToInstrumentString(instrument, museString, {
         base: stringNumberBase,
         fret: safeFret,
@@ -380,7 +394,7 @@ function parseStaffTrack(
   const eventsByTick = new Map<number, { barIndex: number; endTick: number; notes: ParsedMusescoreNote[] }>();
   const measureRegex = /<Measure\b[^>]*>([\s\S]*?)<\/Measure>/gi;
   const voiceRegex = /<voice\b[^>]*>([\s\S]*?)<\/voice>/gi;
-  const tokenRegex = /<(tick|Chord|Rest)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  const tokenRegex = /<(tick|Chord|Rest|Tuplet)\b[^>]*>([\s\S]*?)<\/\1>|<(endTuplet)\s*\/>/gi;
   const { beatsPerBar } = extractTimeSignature(xmlStaffBody);
   const stringNumberBase: MuseStringNumberBase =
     /<string>\s*0\s*<\/string>/i.test(xmlStaffBody) ? 'zero-based' : 'one-based';
@@ -400,11 +414,12 @@ function parseStaffTrack(
     }
 
     let measureEndTick = measureStartTick;
-    voices.forEach((voiceBody, voiceIndex) => {
+    voices.forEach((voiceBody) => {
       let currentTick = measureStartTick;
+      const tupletRatioStack: number[] = [];
       let tokenMatch: RegExpExecArray | null;
       while ((tokenMatch = tokenRegex.exec(voiceBody))) {
-        const token = (tokenMatch[1] ?? '').toLowerCase();
+        const token = (tokenMatch[1] ?? tokenMatch[3] ?? '').toLowerCase();
         const tokenBody = tokenMatch[2] ?? '';
         if (token === 'tick') {
           const absoluteTick = Number.parseInt(stripXmlTags(tokenBody), 10);
@@ -414,7 +429,21 @@ function parseStaffTrack(
           continue;
         }
 
-        const durationTicks = parseDurationTicks(tokenBody, beatsPerBar);
+        if (token === 'tuplet') {
+          const ratio = extractTupletRatio(tokenBody);
+          if (ratio !== null) {
+            tupletRatioStack.push(ratio);
+          }
+          continue;
+        }
+
+        if (token === 'endtuplet') {
+          tupletRatioStack.pop();
+          continue;
+        }
+
+        const tupletRatio = tupletRatioStack.reduce((product, ratio) => product * ratio, 1);
+        const durationTicks = Math.max(1, Math.round(parseDurationTicks(tokenBody, beatsPerBar) * tupletRatio));
         if (token === 'rest') {
           currentTick += durationTicks;
           continue;

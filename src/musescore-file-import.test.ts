@@ -235,6 +235,64 @@ const MULTI_VOICE_PICKUP_MSCX = `<?xml version="1.0" encoding="UTF-8"?>
   </Score>
 </museScore>`;
 
+const TUPLET_TAB_MSCX = `<?xml version="1.0" encoding="UTF-8"?>
+<museScore version="4.60">
+  <Score>
+    <Part>
+      <trackName>Tuplet Tab</trackName>
+      <Staff id="1">
+        <StaffType group="tablature"/>
+      </Staff>
+    </Part>
+    <Staff id="1">
+      <Measure>
+        <voice>
+          <TimeSig>
+            <sigN>4</sigN>
+            <sigD>4</sigD>
+          </TimeSig>
+          <Tuplet>
+            <normalNotes>2</normalNotes>
+            <actualNotes>3</actualNotes>
+            <baseNote>eighth</baseNote>
+          </Tuplet>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note><pitch>57</pitch><string>2</string><fret>2</fret></Note>
+          </Chord>
+          <Chord>
+            <durationType>eighth</durationType>
+            <Note><pitch>57</pitch><string>2</string><fret>2</fret></Note>
+          </Chord>
+          <endTuplet/>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note><pitch>57</pitch><string>2</string><fret>2</fret></Note>
+          </Chord>
+          <Tuplet>
+            <normalNotes>2</normalNotes>
+            <actualNotes>3</actualNotes>
+            <baseNote>eighth</baseNote>
+          </Tuplet>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note><pitch>56</pitch><string>2</string><fret>1</fret></Note>
+          </Chord>
+          <Chord>
+            <durationType>eighth</durationType>
+            <Note><pitch>56</pitch><string>2</string><fret>1</fret></Note>
+          </Chord>
+          <endTuplet/>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note><pitch>56</pitch><string>2</string><fret>1</fret></Note>
+          </Chord>
+        </voice>
+      </Measure>
+    </Staff>
+  </Score>
+</museScore>`;
+
 describe('musescore-file-import', () => {
   it('loads MSCX tracks and converts selected track to melody events', async () => {
     const loaded = await loadMusescoreFileFromBytes(
@@ -370,6 +428,37 @@ describe('musescore-file-import', () => {
       { barIndex: 1, durationBeats: 2, notes: [{ note: 'A', stringName: 'G', fret: 2 }] },
       { barIndex: 1, durationBeats: 0.5, notes: [{ note: 'C#', stringName: 'B', fret: 2 }] },
       { barIndex: 1, durationBeats: 0.5, notes: [{ note: 'A', stringName: 'G', fret: 2 }] },
+    ]);
+  });
+
+  it('applies MuseScore tuplet ratios to tab event timing', async () => {
+    const loaded = await loadMusescoreFileFromBytes(
+      new TextEncoder().encode(TUPLET_TAB_MSCX),
+      'tuplet-tab.mscx',
+      instruments.guitar
+    );
+    const imported = convertLoadedMusescoreTrackToImportedMelody(
+      loaded,
+      instruments.guitar,
+      loaded.defaultTrackIndex ?? 0,
+      { quantize: 'off' }
+    );
+
+    expect(imported.events.map((event) => event.durationBeats)).toEqual([
+      2 / 3,
+      1 / 3,
+      1,
+      2 / 3,
+      1 / 3,
+      1,
+    ]);
+    expect(imported.events.map((event) => event.notes[0])).toEqual([
+      { note: 'A', stringName: 'G', fret: 2 },
+      { note: 'A', stringName: 'G', fret: 2 },
+      { note: 'A', stringName: 'G', fret: 2 },
+      { note: 'G#', stringName: 'G', fret: 1 },
+      { note: 'G#', stringName: 'G', fret: 1 },
+      { note: 'G#', stringName: 'G', fret: 1 },
     ]);
   });
 });
