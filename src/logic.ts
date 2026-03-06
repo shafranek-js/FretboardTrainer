@@ -63,7 +63,13 @@ import { createSessionStopResetState } from './session-reset-state';
 import { buildSessionStartPlan } from './session-start-preflight';
 import { ensureAudioRuntime, teardownAudioRuntime } from './audio-runtime';
 import { refreshAudioInputDeviceOptions } from './audio-input-devices';
-import { startMidiInput, stopMidiInput, type MidiNoteEvent } from './midi-runtime';
+import {
+  normalizeInputSource,
+  setInputSourcePreference,
+  startMidiInput,
+  stopMidiInput,
+  type MidiNoteEvent,
+} from './midi-runtime';
 import { buildSessionNextPromptPlan } from './session-next-prompt-plan';
 import {
   computeCalibratedA4FromSamples,
@@ -1529,6 +1535,18 @@ export async function startListening(forCalibration = false) {
     state.calibrationFrequencies = [];
   } else {
     const trainingMode = dom.trainingMode.value;
+    if (trainingMode === 'performance') {
+      // Defensive reset so every fresh performance session starts from preroll.
+      stopPerformanceTransportLoop();
+      clearTrackedTimeouts(state.pendingTimeoutIds);
+      performancePromptController.invalidatePendingAdvance();
+      state.performanceRuntimeStartedAtMs = null;
+      state.performancePrerollLeadInVisible = false;
+      state.performancePrerollStartedAtMs = null;
+      state.performancePrerollDurationMs = 0;
+      state.performancePrerollStepIndex = null;
+      state.performanceActiveEventIndex = null;
+    }
     const mode = modes[trainingMode];
     const startPlan = buildSessionStartPlan({
       trainingMode,
@@ -1591,6 +1609,11 @@ export async function startListening(forCalibration = false) {
     const initialPromptPlan = !forCalibration
       ? buildSessionInitialPromptPlan(dom.trainingMode.value)
       : { delayMs: 0, prepMessage: '', pulseCount: 0 };
+    if (!forCalibration) {
+      // Keep runtime source in sync with what the user currently selected in UI.
+      // This prevents starting a MIDI-only session while the UI shows microphone (or vice versa).
+      setInputSourcePreference(normalizeInputSource(dom.inputSource.value));
+    }
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
     state.performanceMicHoldCalibrationLevel = forCalibration
       ? 'off'
@@ -1650,6 +1673,19 @@ export async function startListening(forCalibration = false) {
       await refreshAudioInputDeviceOptions();
     }
 
+    if (state.audioContext?.state === 'suspended') {
+      try {
+        await state.audioContext.resume();
+      } catch (error) {
+        console.warn('Failed to resume AudioContext during session start:', error);
+      }
+    }
+    if (selectedInputSource !== 'midi' && state.audioContext?.state === 'suspended') {
+      throw new Error(
+        'Audio context is suspended. Click anywhere in the page and press Start Session again.'
+      );
+    }
+
     const selectedMode = !forCalibration ? dom.trainingMode.selectedOptions[0] : null;
     const fretRange = !forCalibration
       ? getSelectedFretRange(dom.startFret.value, dom.endFret.value)
@@ -1658,7 +1694,7 @@ export async function startListening(forCalibration = false) {
       {
         forCalibration,
         selectedInputSource,
-        sessionInputSource: state.inputSource,
+        sessionInputSource: selectedInputSource,
         modeKey: !forCalibration ? dom.trainingMode.value : undefined,
         modeLabel: !forCalibration
           ? selectedMode?.textContent?.trim() || dom.trainingMode.value
@@ -1963,7 +1999,11 @@ function displayResult(correct: boolean, elapsed: number) {
 function nextPrompt() {
   try {
     if (!state.isListening) return;
-    if (dom.trainingMode.value === 'performance' && state.performanceRuntimeStartedAtMs === null) {
+    if (
+      dom.trainingMode.value === 'performance' &&
+      state.performanceRuntimeStartedAtMs === null &&
+      !state.performancePrerollLeadInVisible
+    ) {
       startPerformanceRuntimeClock();
     }
     clearResultMessage();

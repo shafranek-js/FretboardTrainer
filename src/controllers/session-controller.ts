@@ -1025,10 +1025,15 @@ const melodyTimelineEditingController = createMelodyTimelineEditingController({
 });
 
 async function startSessionFromUi() {
+  if (state.isListening) return;
   state.melodyTimelinePreviewIndex = null;
   state.melodyTimelinePreviewLabel = null;
-  refreshMelodyTimelineUi();
-  await startListening();
+  try {
+    refreshMelodyTimelineUi();
+    await startListening();
+  } catch (error) {
+    showNonBlockingError(formatUserFacingError('Failed to start session', error));
+  }
 }
 
 function syncMelodyTempoFromMetronomeIfLinked() {
@@ -1244,7 +1249,7 @@ export function registerSessionControls() {
       stopMelodyDemoPlayback({ clearUi: true, message: 'Melody playback stopped.' });
       return;
     }
-    if (!dom.stopBtn.disabled) {
+    if (state.isListening) {
       stopListening();
       return;
     }
