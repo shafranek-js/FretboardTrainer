@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUILTIN_MIDI_LIBRARY_SYNC_KEY } from './app-storage-keys';
+import { IMPORTER_CACHE_SCHEMA_VERSION } from './generated/importer-version';
 
 const melodyLibraryMocks = vi.hoisted(() => ({
   getCachedBuiltinMelodyCount: vi.fn(() => 0),
@@ -111,7 +112,10 @@ describe('builtin-midi-library-bootstrap', () => {
 
   it('checks manifest and skips MIDI downloads when sync marker is unchanged', async () => {
     melodyLibraryMocks.getCachedBuiltinMelodyCount.mockReturnValue(4);
-    localStorage.setItem(BUILTIN_MIDI_LIBRARY_SYNC_KEY, '3:1:2026-03-06T00:00:00.000Z:1');
+    localStorage.setItem(
+      BUILTIN_MIDI_LIBRARY_SYNC_KEY,
+      `${IMPORTER_CACHE_SCHEMA_VERSION}:1:2026-03-06T00:00:00.000Z:1`
+    );
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -183,7 +187,7 @@ describe('builtin-midi-library-bootstrap', () => {
       }),
     ]);
     expect((globalThis.localStorage as Storage).getItem(BUILTIN_MIDI_LIBRARY_SYNC_KEY)).toBe(
-      '3:1:2026-03-06T00:00:00.000Z:1'
+      `${IMPORTER_CACHE_SCHEMA_VERSION}:1:2026-03-06T00:00:00.000Z:1`
     );
   });
 
@@ -223,7 +227,7 @@ describe('builtin-midi-library-bootstrap', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(melodyLibraryMocks.replaceBuiltinEventMelodies).toHaveBeenCalledTimes(1);
     expect((globalThis.localStorage as Storage).getItem(BUILTIN_MIDI_LIBRARY_SYNC_KEY)).toBe(
-      '3:2:2026-03-06T09:00:00.000Z:1'
+      `${IMPORTER_CACHE_SCHEMA_VERSION}:2:2026-03-06T09:00:00.000Z:1`
     );
   });
 
