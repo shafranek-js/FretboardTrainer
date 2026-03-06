@@ -54,6 +54,7 @@ import {
 import {
   bindTimelineDragPan,
   bindTimelineScrollChrome,
+  cancelTimelineRuntimeFollow,
   centerTimelineEvent,
   followTimelineRuntimeScroll,
   updateTimelineScrollChrome,
@@ -279,6 +280,7 @@ function clearGrid() {
 }
 
 export function hideMelodyTabTimeline() {
+  cancelTimelineRuntimeFollow();
   clearTimelineMinimapRuntimeCache();
   setMelodyTimelineBackgroundCopyPayload(null);
   dom.melodyTabTimelinePanel.classList.add('hidden');
@@ -398,6 +400,7 @@ export function renderMelodyTabTimeline(
       updateTimelinePlayheadEvent(null);
       dom.melodyTabTimelinePlayhead.style.opacity = '0';
     } else {
+      cancelTimelineRuntimeFollow();
       updateTimelinePlayheadEvent(null);
       dom.melodyTabTimelinePlayhead.style.opacity = '0';
     }
@@ -436,6 +439,8 @@ export function renderMelodyTabTimeline(
       );
       updateTimelinePlayheadEvent(null);
       dom.melodyTabTimelinePlayhead.style.opacity = '0';
+    } else {
+      cancelTimelineRuntimeFollow();
     }
     return;
   }
@@ -575,10 +580,12 @@ export function renderMelodyTabTimeline(
     updateTimelinePlayheadEvent(null);
     dom.melodyTabTimelinePlayhead.style.opacity = '0';
   } else if (renderModel.activeEventIndex !== null) {
+    cancelTimelineRuntimeFollow();
     updateTimelinePlayheadEvent(null);
     dom.melodyTabTimelinePlayhead.style.opacity = '0';
     followHighlightedTimelineEvent(renderModel.activeEventIndex);
   } else {
+    cancelTimelineRuntimeFollow();
     updateTimelinePlayheadEvent(null);
     dom.melodyTabTimelinePlayhead.style.opacity = '0';
   }

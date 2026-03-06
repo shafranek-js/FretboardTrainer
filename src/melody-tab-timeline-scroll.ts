@@ -45,6 +45,10 @@ function cancelTimelineRuntimeFollowAnimation() {
   }
 }
 
+export function cancelTimelineRuntimeFollow() {
+  cancelTimelineRuntimeFollowAnimation();
+}
+
 function startTimelineCenterFollowLoop() {
   if (timelineCenterAnimationFrameId !== null) return;
   const scroller = dom.melodyTabTimelineGrid;

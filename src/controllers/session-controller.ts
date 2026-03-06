@@ -517,8 +517,16 @@ melodyDemoController = createMelodyDemoController({
       void syncMelodyMetronomeRuntime();
     },
     onPlaybackCompleted: () => {
+      state.currentMelodyEventIndex = 0;
+      state.performanceActiveEventIndex = null;
+      state.melodyTimelinePreviewIndex = null;
+      state.melodyTimelinePreviewLabel = null;
       dom.melodyTabTimelineGrid.scrollLeft = 0;
       updateScrollingTabPanelRuntime(0);
+      scheduleMelodyTimelineRenderFromState();
+      requestAnimationFrame(() => {
+        dom.melodyTabTimelineGrid.scrollLeft = 0;
+      });
     },
   });
 
