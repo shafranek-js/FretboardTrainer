@@ -18,6 +18,7 @@ import {
 const MIDI_LIBRARY_BASE_URL = 'https://raw.githubusercontent.com/shafranek-js/filestorage/main/MIDI';
 const MIDI_LIBRARY_MANIFEST_URL = `${MIDI_LIBRARY_BASE_URL}/manifest.json`;
 const FETCH_TIMEOUT_MS = 15000;
+const IMPORTER_CACHE_SCHEMA_VERSION = 2;
 
 interface RemoteMidiLibraryManifestEntry {
   id: string;
@@ -105,7 +106,7 @@ function normalizeManifest(value: unknown): RemoteMidiLibraryManifest | null {
 }
 
 function buildManifestSyncFingerprint(manifest: Pick<RemoteMidiLibraryManifest, 'version' | 'generatedAtIso' | 'melodies'>) {
-  return `${manifest.version}:${manifest.generatedAtIso}:${manifest.melodies.length}`;
+  return `${IMPORTER_CACHE_SCHEMA_VERSION}:${manifest.version}:${manifest.generatedAtIso}:${manifest.melodies.length}`;
 }
 
 async function fetchWithTimeout(url: string): Promise<Response> {
