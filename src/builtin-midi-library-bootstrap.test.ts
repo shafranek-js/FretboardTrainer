@@ -111,7 +111,7 @@ describe('builtin-midi-library-bootstrap', () => {
 
   it('checks manifest and skips MIDI downloads when sync marker is unchanged', async () => {
     melodyLibraryMocks.getCachedBuiltinMelodyCount.mockReturnValue(4);
-    localStorage.setItem(BUILTIN_MIDI_LIBRARY_SYNC_KEY, '2:1:2026-03-06T00:00:00.000Z:1');
+    localStorage.setItem(BUILTIN_MIDI_LIBRARY_SYNC_KEY, '3:1:2026-03-06T00:00:00.000Z:1');
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -183,7 +183,7 @@ describe('builtin-midi-library-bootstrap', () => {
       }),
     ]);
     expect((globalThis.localStorage as Storage).getItem(BUILTIN_MIDI_LIBRARY_SYNC_KEY)).toBe(
-      '2:1:2026-03-06T00:00:00.000Z:1'
+      '3:1:2026-03-06T00:00:00.000Z:1'
     );
   });
 
@@ -223,7 +223,7 @@ describe('builtin-midi-library-bootstrap', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(melodyLibraryMocks.replaceBuiltinEventMelodies).toHaveBeenCalledTimes(1);
     expect((globalThis.localStorage as Storage).getItem(BUILTIN_MIDI_LIBRARY_SYNC_KEY)).toBe(
-      '2:2:2026-03-06T09:00:00.000Z:1'
+      '3:2:2026-03-06T09:00:00.000Z:1'
     );
   });
 
