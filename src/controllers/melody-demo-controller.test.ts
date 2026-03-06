@@ -37,6 +37,7 @@ function createDeps(options?: { selection?: MelodyDemoSelection | null; loop?: b
     setResultMessage: vi.fn(),
     onPlaybackCursorChange: vi.fn(),
     onPlaybackStopped: vi.fn(),
+    onPlaybackCompleted: vi.fn(),
   };
   return deps;
 }
@@ -147,5 +148,26 @@ describe('melody-demo-controller', () => {
       { label: 'Step', autoplaySound: true }
     );
     expect(deps.setResultMessage).toHaveBeenCalledWith('Step 1/2: Demo melody (Steps 1-2)');
+  });
+
+  it('rewinds timeline hooks when playback naturally completes', async () => {
+    const events: MelodyEvent[] = [
+      { durationBeats: 1, notes: [{ note: 'C', stringName: 'A', fret: 3 }] },
+      { durationBeats: 1, notes: [{ note: 'D', stringName: 'A', fret: 5 }] },
+    ];
+    const deps = createDeps({
+      selection: createSelection(events, { startIndex: 0, endIndex: 1 }),
+    });
+    const controller = createMelodyDemoController(deps);
+
+    await controller.startPlayback();
+    vi.advanceTimersByTime(400);
+
+    expect(controller.isActive()).toBe(false);
+    expect(deps.onPlaybackCompleted).toHaveBeenCalledTimes(1);
+    expect(deps.setResultMessage).toHaveBeenCalledWith(
+      'Playback complete: Demo melody (Steps 1-2)',
+      'success'
+    );
   });
 });

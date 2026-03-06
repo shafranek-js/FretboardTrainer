@@ -44,6 +44,7 @@ interface MelodyDemoControllerDeps {
     pausedOffsetSec: number;
   }): void;
   onPlaybackStopped(): void;
+  onPlaybackCompleted?(): void;
 }
 
 export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
@@ -341,6 +342,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         deps.onStateChange();
         deps.clearUiPreview();
         deps.redrawFretboard();
+        deps.onPlaybackCompleted?.();
         deps.setResultMessage(
           `Playback complete: ${melody.name} (${deps.formatStudyRange(studyRange, melody.events.length)})`,
           'success'

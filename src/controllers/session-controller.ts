@@ -119,6 +119,7 @@ import {
   setMelodyTimelineSeekHandler,
   setMelodyTimelineStudyRangeCommitHandler,
 } from '../melody-tab-timeline';
+import { updateScrollingTabPanelRuntime } from '../scrolling-tab-panel';
 import { normalizeMelodyFingeringLevel, normalizeMelodyFingeringStrategy } from '../melody-fingering';
 import { createMelodyTimelineEditingController } from './melody-timeline-editing-controller';
 import { createMelodyTimelineEditingOrchestrator } from './melody-timeline-editing-orchestrator';
@@ -514,6 +515,10 @@ melodyDemoController = createMelodyDemoController({
       state.melodyDemoRuntimePausedOffsetSec = 0;
       scheduleMelodyTimelineRenderFromState();
       void syncMelodyMetronomeRuntime();
+    },
+    onPlaybackCompleted: () => {
+      dom.melodyTabTimelineGrid.scrollLeft = 0;
+      updateScrollingTabPanelRuntime(0);
     },
   });
 
