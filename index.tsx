@@ -4,7 +4,10 @@
  */
 import { loadSettings, loadStats } from './src/storage';
 import { bindUiSignals } from './src/ui-signals';
-import { registerSessionControls } from './src/controllers/session-controller';
+import {
+  refreshMelodyOptionsForCurrentInstrument,
+  registerSessionControls,
+} from './src/controllers/session-controller';
 import {
   registerProfileControls,
   updateProfileButtonsState,
@@ -69,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindUiSignals();
     registerPwaUpdater();
     setUserErrorReporter(showNonBlockingError);
-    await ensureBuiltinMidiLibraryLoaded();
+    const builtinLibraryBootstrapPromise = ensureBuiltinMidiLibraryLoaded();
     await loadSettings(); // This now loads profiles, applies settings, and pre-loads audio
     await registerOptionalMicPolyphonicDetectorAdapters();
     loadStats();
@@ -80,6 +83,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerModalControls();
     registerConfirmControls();
     registerResizeObserver();
+
+    void builtinLibraryBootstrapPromise.then(() => {
+      refreshMelodyOptionsForCurrentInstrument();
+    });
   } catch (error) {
     reportBootstrapError(error);
   }

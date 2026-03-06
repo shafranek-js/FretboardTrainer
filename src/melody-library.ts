@@ -474,8 +474,8 @@ export function saveCustomAsciiTabMelody(
   return entry.id;
 }
 
-export function deleteCustomMelody(melodyId: string) {
-  if (!melodyId.startsWith('custom:')) return false;
+export function deleteCustomMelody(melodyId: string | null | undefined) {
+  if (typeof melodyId !== 'string' || !melodyId.startsWith('custom:')) return false;
   const current = readCustomMelodiesFromStorage();
   const next = current.filter((entry) => entry.id !== melodyId);
   if (next.length === current.length) return false;
@@ -483,8 +483,8 @@ export function deleteCustomMelody(melodyId: string) {
   return true;
 }
 
-export function isCustomMelodyId(melodyId: string) {
-  return melodyId.startsWith('custom:');
+export function isCustomMelodyId(melodyId: string | null | undefined) {
+  return typeof melodyId === 'string' && melodyId.startsWith('custom:');
 }
 
 export function saveCustomEventMelody(
