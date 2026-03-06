@@ -44,3 +44,7 @@
 - [x] Aligned melody demo metronome start/resume to a shared `performance.now()` playback anchor to remove initial phase offset.
 - [x] Stopped metronome phase resets on runtime sync when BPM is unchanged and added lag catch-up beat-index compensation.
 - [x] Unified Scroller arc rendering and playhead trajectory math (single quadratic model + onset-aligned arc anchors) to remove wrong note-to-note flight paths.
+- [x] Migrated default melody library to remote MIDI bootstrap (`filestorage/MIDI` manifest + first-run local cache sync).
+- [x] Removed runtime dependency on hardcoded built-in melodies; `melody-library` now reads built-ins only from remote-synced local cache.
+- [x] Added MuseScore import (`.mscz`/`.mscx`) with track preview + save pipeline via MIDI import flow.
+- [x] Hardened MuseScore tablature import: support 0/1-based string numbering, skip tie-continuation onsets, and preserve staff display names for notation/tab pairs.

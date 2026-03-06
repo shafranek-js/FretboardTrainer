@@ -94,6 +94,10 @@ import {
   type MidiImportQuantize,
 } from '../midi-file-import';
 import {
+  convertLoadedMusescoreTrackToImportedMelody,
+  loadMusescoreFileFromBytes,
+} from '../musescore-file-import';
+import {
   buildExportMidiFileName,
   exportMelodyToMidiBytes,
 } from '../midi-file-export';
@@ -286,7 +290,9 @@ const melodyImportPreviewController = createMelodyImportPreviewController({
   loadGpScoreFromBytes,
   convertLoadedGpScoreTrackToImportedMelody,
   loadMidiFileFromBytes,
+  loadMusescoreFileFromBytes,
   convertLoadedMidiTrackToImportedMelody,
+  convertLoadedMusescoreTrackToImportedMelody,
   renderPreviewFromEvents: renderMelodyEditorPreviewFromEvents,
   renderPreviewError: renderMelodyEditorPreviewError,
   clearPreview: clearMelodyEditorPreview,
@@ -1701,17 +1707,20 @@ export function registerSessionControls() {
   dom.melodyMidiFileInput.addEventListener('change', async () => {
     const file = dom.melodyMidiFileInput.files?.[0];
     if (!file) return;
+    const normalizedName = file.name.trim().toLowerCase();
+    const isMuseScoreImport = normalizedName.endsWith('.mscz') || normalizedName.endsWith('.mscx');
+    const sourceLabel = isMuseScoreImport ? 'MuseScore' : 'MIDI';
 
-    const originalLabel = dom.importMelodyMidiBtn.textContent ?? 'Import MIDI...';
+    const originalLabel = dom.importMelodyMidiBtn.textContent ?? 'Import MIDI/MSCZ...';
     dom.importMelodyMidiBtn.disabled = true;
     dom.importMelodyMidiBtn.textContent = 'Importing...';
 
     try {
       stopMelodyDemoPlayback({ clearUi: true });
       await melodyImportPreviewController.loadMidiImportDraftFromFile(file);
-      setResultMessage('MIDI file parsed. Review the preview, choose a track, then save.', 'success');
+      setResultMessage(`${sourceLabel} file parsed. Review the preview, choose a track, then save.`, 'success');
     } catch (error) {
-      showNonBlockingError(formatUserFacingError('Failed to import MIDI file', error));
+      showNonBlockingError(formatUserFacingError(`Failed to import ${sourceLabel} file`, error));
     } finally {
       dom.importMelodyMidiBtn.disabled = false;
       dom.importMelodyMidiBtn.textContent = originalLabel;
@@ -1722,8 +1731,8 @@ export function registerSessionControls() {
     try {
       melodyImportPreviewController.refreshMidiTrackPreviewFromSelection();
     } catch (error) {
-      renderMelodyEditorPreviewError('MIDI track preview failed', error);
-      showNonBlockingError(formatUserFacingError('Failed to preview selected MIDI track', error));
+      renderMelodyEditorPreviewError('Track preview failed', error);
+      showNonBlockingError(formatUserFacingError('Failed to preview selected imported track', error));
     }
   });
   dom.melodyMidiQuantize.addEventListener('change', () => {
@@ -1731,8 +1740,8 @@ export function registerSessionControls() {
     try {
       melodyImportPreviewController.refreshMidiTrackPreviewFromSelection();
     } catch (error) {
-      renderMelodyEditorPreviewError('MIDI quantized preview failed', error);
-      showNonBlockingError(formatUserFacingError('Failed to apply MIDI quantize preview', error));
+      renderMelodyEditorPreviewError('Quantized track preview failed', error);
+      showNonBlockingError(formatUserFacingError('Failed to apply quantize preview', error));
     }
   });
   dom.saveMelodyMidiTrackBtn.addEventListener('click', () => {

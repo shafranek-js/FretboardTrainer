@@ -95,6 +95,19 @@ function createDeps() {
       tempoBpm: 100,
     },
   };
+  const musescoreImported = {
+    suggestedName: 'Imported MSCZ',
+    events: createEvents(),
+    warnings: [],
+    metadata: {
+      sourceFormat: 'mscz' as const,
+      sourceFileName: 'demo.mscz',
+      midiName: 'Demo Score',
+      trackName: 'Lead',
+      tempoBpm: 100,
+      timeSignatureText: '4/4',
+    },
+  };
 
   const deps = {
     dom,
@@ -122,13 +135,27 @@ function createDeps() {
       trackOptions: [{ trackIndex: 1, name: 'Lead', label: 'Lead', noteCount: 8, isPercussion: false, noteRangeText: 'C3-C5', estimatedBars: 4, endTick: 1200 }],
       defaultTrackIndex: 1,
     })),
+    loadMusescoreFileFromBytes: vi.fn(async () => ({
+      midi: null,
+      sourceFileName: 'demo.mscz',
+      sourceFormat: 'mscz' as const,
+      midiName: 'Demo Score',
+      tempoBpm: 100,
+      tempoChangesCount: 1,
+      timeSignatureText: '4/4',
+      keySignatureText: null,
+      trackOptions: [{ trackIndex: 1, name: 'Lead', label: 'Lead', noteCount: 8, isPercussion: false, noteRangeText: 'C3-C5', estimatedBars: 4, endTick: 1200 }],
+      defaultTrackIndex: 1,
+      tracks: [],
+    })),
     convertLoadedMidiTrackToImportedMelody: vi.fn(() => midiImported),
+    convertLoadedMusescoreTrackToImportedMelody: vi.fn(() => musescoreImported),
     renderPreviewFromEvents: vi.fn(),
     renderPreviewError: vi.fn(),
     clearPreview: vi.fn(),
   };
 
-  return { deps, dom, gpImported, midiImported };
+  return { deps, dom, gpImported, midiImported, musescoreImported };
 }
 
 describe('melody-import-preview-controller', () => {
@@ -174,6 +201,25 @@ describe('melody-import-preview-controller', () => {
       midiImported.events,
       expect.objectContaining({
         statusText: 'MIDI parsed successfully',
+        editableEvents: true,
+      })
+    );
+  });
+
+  it('loads an MSCZ draft through MuseScore importer and renders preview', async () => {
+    const { deps, musescoreImported, dom } = createDeps();
+    const controller = createMelodyImportPreviewController(deps);
+
+    await controller.loadMidiImportDraftFromFile(new File([new Uint8Array([1, 2, 3])], 'demo.mscz'));
+
+    expect(deps.loadMusescoreFileFromBytes).toHaveBeenCalled();
+    expect(deps.loadMidiFileFromBytes).not.toHaveBeenCalled();
+    expect(dom.melodyNameInput.value).toBe('Imported MSCZ');
+    expect(deps.renderPreviewFromEvents).toHaveBeenCalledWith(
+      musescoreImported.events,
+      expect.objectContaining({
+        statusText: 'MuseScore parsed successfully',
+        summaryPrefix: 'MSCZ',
         editableEvents: true,
       })
     );

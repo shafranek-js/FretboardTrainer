@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseAsciiTabToMelodyEvents } from './ascii-tab-melody-parser';
+import { BUILTIN_ASCII_TAB_MELODIES } from './builtin-melodies';
 import { instruments } from './instruments';
 import { getMelodyEventPlaybackDurationMs } from './melody-timeline-duration';
 import {
   listMelodiesForInstrument,
+  replaceBuiltinEventMelodies,
   saveCustomAsciiTabMelody,
   saveCustomEventMelody,
   updateCustomEventMelody,
@@ -33,7 +35,63 @@ function isPresent<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
 }
 
+function createLocalStorageStub() {
+  const storageMap = new Map<string, string>();
+  return {
+    getItem: (key: string) => storageMap.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      storageMap.set(key, String(value));
+    },
+    removeItem: (key: string) => {
+      storageMap.delete(key);
+    },
+    clear: () => {
+      storageMap.clear();
+    },
+  };
+}
+
+function seedBuiltinMelodiesInStorage() {
+  replaceBuiltinEventMelodies(
+    BUILTIN_ASCII_TAB_MELODIES.map((spec) => {
+      const instrument = spec.instrumentName === 'ukulele' ? instruments.ukulele : instruments.guitar;
+      const events = parseAsciiTabToMelodyEvents(spec.tabText, instrument).map((event) => ({
+        barIndex: event.barIndex,
+        column: event.column,
+        durationColumns: event.durationColumns,
+        durationCountSteps: event.durationCountSteps,
+        durationBeats: event.durationBeats,
+        notes: event.notes.map((note) => ({
+          note: note.note,
+          stringName: note.stringName,
+          fret: note.fret,
+        })),
+      }));
+      return {
+        id: spec.id,
+        name: spec.name,
+        instrumentName: spec.instrumentName,
+        events,
+        tabText: spec.tabText,
+        sourceFormat: 'midi' as const,
+        sourceFileName: `${spec.id.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()}.mid`,
+        sourceTempoBpm: spec.sourceTempoBpm,
+        sourceTimeSignature: spec.sourceTimeSignature,
+      };
+    })
+  );
+}
+
 describe('melody-library builtins', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', createLocalStorageStub());
+    seedBuiltinMelodiesInStorage();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('returns position-based built-in melodies for guitar', () => {
     const melodies = listMelodiesForInstrument(instruments.guitar).filter((m) => m.source === 'builtin');
 
@@ -205,12 +263,18 @@ describe('melody-library builtins', () => {
 
 describe('melody-library custom editing', () => {
   it('preserves ascii tab source on listed melodies for editing', () => {
-    const guitarMelodies = listMelodiesForInstrument(instruments.guitar);
-    expect(guitarMelodies.length).toBeGreaterThan(0);
-    guitarMelodies.forEach((melody) => {
-      expect(typeof melody.tabText).toBe('string');
-      expect(melody.tabText?.trim().length).toBeGreaterThan(0);
-    });
+    vi.stubGlobal('localStorage', createLocalStorageStub());
+    try {
+      seedBuiltinMelodiesInStorage();
+      const guitarMelodies = listMelodiesForInstrument(instruments.guitar);
+      expect(guitarMelodies.length).toBeGreaterThan(0);
+      guitarMelodies.forEach((melody) => {
+        expect(typeof melody.tabText).toBe('string');
+        expect(melody.tabText?.trim().length).toBeGreaterThan(0);
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('updates an existing custom melody in place', () => {

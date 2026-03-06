@@ -81,7 +81,7 @@ export function createMelodyImportModalController(deps: MelodyImportModalControl
     deps.dom.melodyImportTitle.textContent = 'Import Melody from ASCII Tab';
     deps.dom.melodyImportHelpText.innerHTML =
       'Paste monophonic ASCII tabs with numbered string labels, for example: ' +
-      '<code class="text-cyan-200">1 string 0---5---8---</code>, or use <strong class="text-violet-200">Import GP...</strong>.';
+      '<code class="text-cyan-200">1 string 0---5---8---</code>, or use <strong class="text-violet-200">Import GP...</strong> or <strong class="text-indigo-200">MIDI/MSCZ...</strong>.';
     deps.dom.importMelodyBtn.textContent = 'Import Melody';
   }
 

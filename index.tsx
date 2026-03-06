@@ -16,6 +16,7 @@ import { showNonBlockingError } from './src/app-feedback';
 import { setUserErrorReporter } from './src/user-feedback-port';
 import { registerOptionalMicPolyphonicDetectorAdapters } from './src/mic-polyphonic-detector-bootstrap';
 import { registerPwaUpdater } from './src/pwa-updater';
+import { ensureBuiltinMidiLibraryLoaded } from './src/builtin-midi-library-bootstrap';
 
 let globalErrorHandlersBound = false;
 
@@ -68,6 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindUiSignals();
     registerPwaUpdater();
     setUserErrorReporter(showNonBlockingError);
+    await ensureBuiltinMidiLibraryLoaded();
     await loadSettings(); // This now loads profiles, applies settings, and pre-loads audio
     await registerOptionalMicPolyphonicDetectorAdapters();
     loadStats();

@@ -9,6 +9,10 @@ import type {
   MidiImportedMelody,
   MidiImportQuantize,
 } from '../midi-file-import';
+import type {
+  LoadedMusescoreFile,
+  MusescoreImportedMelody,
+} from '../musescore-file-import';
 
 type PreviewMetadata = {
   sourceFormat?: MelodyDefinition['sourceFormat'];
@@ -52,16 +56,30 @@ interface MelodyImportPreviewControllerDeps {
     trackIndex: number
   ): GpImportedMelody;
   loadMidiFileFromBytes(bytes: Uint8Array, fileName: string): Promise<LoadedMidiFile>;
+  loadMusescoreFileFromBytes(
+    bytes: Uint8Array,
+    fileName: string,
+    instrument: IInstrument
+  ): Promise<LoadedMusescoreFile>;
   convertLoadedMidiTrackToImportedMelody(
     loaded: LoadedMidiFile,
     instrument: IInstrument,
     trackIndex: number,
     options: { quantize: MidiImportQuantize }
   ): MidiImportedMelody;
+  convertLoadedMusescoreTrackToImportedMelody(
+    loaded: LoadedMusescoreFile,
+    instrument: IInstrument,
+    trackIndex: number,
+    options: { quantize: MidiImportQuantize }
+  ): MusescoreImportedMelody;
   renderPreviewFromEvents(events: MelodyEvent[], options?: PreviewRenderOptions): void;
   renderPreviewError(prefix: string, error: unknown): void;
   clearPreview(): void;
 }
+
+type LoadedMidiLikeFile = LoadedMidiFile | LoadedMusescoreFile;
+type MidiLikeImportedMelody = MidiImportedMelody | MusescoreImportedMelody;
 
 interface PendingGpImport {
   loaded: LoadedGpScore;
@@ -70,10 +88,11 @@ interface PendingGpImport {
 }
 
 interface PendingMidiImport {
-  loaded: LoadedMidiFile;
+  sourceKind: 'midi' | 'musescore';
+  loaded: LoadedMidiLikeFile;
   selectedTrackIndex: number;
   quantize: MidiImportQuantize;
-  importedPreview: MidiImportedMelody | null;
+  importedPreview: MidiLikeImportedMelody | null;
 }
 
 function cloneParsedEvents(events: MelodyEvent[]): MelodyEvent[] {
@@ -102,7 +121,7 @@ function getGpPreviewMetadata(imported: GpImportedMelody): PreviewMetadata {
   };
 }
 
-function getMidiPreviewMetadata(imported: MidiImportedMelody): PreviewMetadata {
+function getMidiPreviewMetadata(imported: MidiLikeImportedMelody): PreviewMetadata {
   return {
     sourceFormat: imported.metadata.sourceFormat,
     sourceFileName: imported.metadata.sourceFileName,
@@ -111,6 +130,24 @@ function getMidiPreviewMetadata(imported: MidiImportedMelody): PreviewMetadata {
     sourceTempoBpm: imported.metadata.tempoBpm ?? undefined,
     sourceTimeSignature: imported.metadata.timeSignatureText ?? undefined,
   };
+}
+
+function getStructuredImportSummaryPrefix(imported: MidiLikeImportedMelody) {
+  const format = imported.metadata.sourceFormat;
+  return typeof format === 'string' && format.trim().length > 0
+    ? format.trim().toUpperCase()
+    : 'MIDI';
+}
+
+function getStructuredImportStatusText(imported: MidiLikeImportedMelody) {
+  return imported.metadata.sourceFormat === 'mscx' || imported.metadata.sourceFormat === 'mscz'
+    ? 'MuseScore parsed successfully'
+    : 'MIDI parsed successfully';
+}
+
+function isMuseScoreFileName(fileName: string) {
+  const normalized = fileName.trim().toLowerCase();
+  return normalized.endsWith('.mscx') || normalized.endsWith('.mscz');
 }
 
 export function createMelodyImportPreviewController(deps: MelodyImportPreviewControllerDeps) {
@@ -226,12 +263,20 @@ export function createMelodyImportPreviewController(deps: MelodyImportPreviewCon
 
     pendingMidiImport.selectedTrackIndex = selectedTrackIndex;
     pendingMidiImport.quantize = deps.getSelectedMidiImportQuantize();
-    const imported = deps.convertLoadedMidiTrackToImportedMelody(
-      pendingMidiImport.loaded,
-      deps.getCurrentInstrument(),
-      selectedTrackIndex,
-      { quantize: pendingMidiImport.quantize }
-    );
+    const imported =
+      pendingMidiImport.sourceKind === 'musescore'
+        ? deps.convertLoadedMusescoreTrackToImportedMelody(
+            pendingMidiImport.loaded as LoadedMusescoreFile,
+            deps.getCurrentInstrument(),
+            selectedTrackIndex,
+            { quantize: pendingMidiImport.quantize }
+          )
+        : deps.convertLoadedMidiTrackToImportedMelody(
+            pendingMidiImport.loaded as LoadedMidiFile,
+            deps.getCurrentInstrument(),
+            selectedTrackIndex,
+            { quantize: pendingMidiImport.quantize }
+          );
     pendingMidiImport.importedPreview = imported;
 
     if (!deps.dom.melodyNameInput.value.trim()) {
@@ -239,8 +284,8 @@ export function createMelodyImportPreviewController(deps: MelodyImportPreviewCon
     }
 
     deps.renderPreviewFromEvents(imported.events, {
-      statusText: 'MIDI parsed successfully',
-      summaryPrefix: 'MIDI',
+      statusText: getStructuredImportStatusText(imported),
+      summaryPrefix: getStructuredImportSummaryPrefix(imported),
       editableEvents: true,
       metadata: getMidiPreviewMetadata(imported),
     });
@@ -300,12 +345,21 @@ export function createMelodyImportPreviewController(deps: MelodyImportPreviewCon
 
   async function loadMidiImportDraftFromFile(file: File) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const loaded = await deps.loadMidiFileFromBytes(bytes, file.name);
+    const sourceKind = isMuseScoreFileName(file.name) ? 'musescore' : 'midi';
+    const loaded =
+      sourceKind === 'musescore'
+        ? await deps.loadMusescoreFileFromBytes(bytes, file.name, deps.getCurrentInstrument())
+        : await deps.loadMidiFileFromBytes(bytes, file.name);
     if (loaded.trackOptions.length === 0 || loaded.defaultTrackIndex === null) {
-      throw new Error('MIDI file does not contain importable note tracks.');
+      throw new Error(
+        sourceKind === 'musescore'
+          ? 'MuseScore file does not contain importable note tracks.'
+          : 'MIDI file does not contain importable note tracks.'
+      );
     }
 
     pendingMidiImport = {
+      sourceKind,
       loaded,
       selectedTrackIndex: loaded.defaultTrackIndex,
       quantize: deps.getSelectedMidiImportQuantize(),
@@ -330,8 +384,8 @@ export function createMelodyImportPreviewController(deps: MelodyImportPreviewCon
 
       if (pendingMidiImport?.importedPreview) {
         deps.renderPreviewFromEvents(pendingMidiImport.importedPreview.events, {
-          statusText: 'MIDI parsed successfully',
-          summaryPrefix: 'MIDI',
+          statusText: getStructuredImportStatusText(pendingMidiImport.importedPreview),
+          summaryPrefix: getStructuredImportSummaryPrefix(pendingMidiImport.importedPreview),
           editableEvents: true,
           metadata: getMidiPreviewMetadata(pendingMidiImport.importedPreview),
         });
@@ -385,12 +439,19 @@ export function createMelodyImportPreviewController(deps: MelodyImportPreviewCon
 
     const imported =
       pendingMidiImport.importedPreview ??
-      deps.convertLoadedMidiTrackToImportedMelody(
-        pendingMidiImport.loaded,
-        deps.getCurrentInstrument(),
-        pendingMidiImport.selectedTrackIndex,
-        { quantize: pendingMidiImport.quantize }
-      );
+      (pendingMidiImport.sourceKind === 'musescore'
+        ? deps.convertLoadedMusescoreTrackToImportedMelody(
+            pendingMidiImport.loaded as LoadedMusescoreFile,
+            deps.getCurrentInstrument(),
+            pendingMidiImport.selectedTrackIndex,
+            { quantize: pendingMidiImport.quantize }
+          )
+        : deps.convertLoadedMidiTrackToImportedMelody(
+            pendingMidiImport.loaded as LoadedMidiFile,
+            deps.getCurrentInstrument(),
+            pendingMidiImport.selectedTrackIndex,
+            { quantize: pendingMidiImport.quantize }
+          ));
     pendingMidiImport.importedPreview = imported;
     return imported;
   }

@@ -1860,7 +1860,7 @@
         <input
           id="melodyMidiFileInput"
           type="file"
-          accept=".mid,.midi"
+          accept=".mid,.midi,.mscz,.mscx"
           class="hidden"
         />
         <div class="grid gap-3 xl:grid-cols-[minmax(0,1.05fr),minmax(20rem,0.95fr)] xl:items-start">
@@ -1891,11 +1891,11 @@
                 <button
                   id="importMelodyMidiBtn"
                   type="button"
-                  title="Import a MIDI file"
-                  aria-label="Import a MIDI file"
+                  title="Import a MIDI or MuseScore file"
+                  aria-label="Import a MIDI or MuseScore file"
                   class="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 text-white font-semibold h-9 px-3 rounded-md transition-colors"
                 >
-                  MIDI...
+                  MIDI/MSCZ...
                 </button>
               </div>
               <div class="flex justify-end gap-2">
