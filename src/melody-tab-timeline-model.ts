@@ -1,5 +1,6 @@
 import type { MelodyDefinition, MelodyEvent } from './melody-library';
 import { buildMelodyFingeredEvents } from './melody-fingering';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { normalizeMelodyStudyRange, type MelodyStudyRange } from './melody-study-range';
 import type {
   PerformanceTimelineAttempt,
@@ -50,9 +51,14 @@ export function buildMelodyTabTimelineViewModel(
   stringOrder: string[],
   activeEventIndex: number | null,
   studyRange?: MelodyStudyRange | null,
-  performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null
+  performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null,
+  fingeringStrategy: MelodyFingeringStrategy = 'minimax',
+  fingeringLevel: MelodyFingeringLevel = 'beginner'
 ): MelodyTabTimelineViewModel {
-  const fingeredEvents = buildMelodyFingeredEvents(melody.events);
+  const fingeredEvents = buildMelodyFingeredEvents(melody.events, {
+    strategy: fingeringStrategy,
+    level: fingeringLevel,
+  });
   const clampedActive = clampEventIndex(activeEventIndex, fingeredEvents.length);
   const normalizedStudyRange =
     fingeredEvents.length > 0 ? normalizeMelodyStudyRange(studyRange, fingeredEvents.length) : null;

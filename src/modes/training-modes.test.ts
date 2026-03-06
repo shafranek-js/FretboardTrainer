@@ -439,11 +439,11 @@ describe('MelodyPracticeMode', () => {
     expect(prompt?.targetString).toBeNull();
     expect(prompt?.targetChordNotes).toEqual(['C', 'E']);
     expect(prompt?.targetChordFingering).toEqual([
-      { note: 'C', string: 'A', fret: 3, finger: 1 },
+      { note: 'C', string: 'A', fret: 3, finger: 2 },
       { note: 'E', string: 'E', fret: 0, finger: 0 },
     ]);
     expect(prompt?.targetMelodyEventNotes).toEqual([
-      { note: 'C', string: 'A', fret: 3, finger: 1 },
+      { note: 'C', string: 'A', fret: 3, finger: 2 },
       { note: 'E', string: 'E', fret: 0, finger: 0 },
     ]);
   });
@@ -467,7 +467,7 @@ describe('MelodyPracticeMode', () => {
 
     expect(prompt).not.toBeNull();
     expect(prompt?.targetChordNotes).toEqual(['C', 'E']);
-    expect(prompt?.targetMelodyEventNotes).toEqual([{ note: 'C', string: 'A', fret: 3, finger: 1 }]);
+    expect(prompt?.targetMelodyEventNotes).toEqual([{ note: 'C', string: 'A', fret: 3, finger: 2 }]);
     expect(prompt?.targetNote).toBe('C');
     expect(prompt?.targetString).toBe('A');
   });

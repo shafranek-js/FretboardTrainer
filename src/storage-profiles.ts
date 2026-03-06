@@ -2,6 +2,7 @@ import type { IInstrument } from './instruments/instrument';
 import type { RhythmSessionStats } from './types';
 import type { PerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import type { PerformanceTimingLeniencyPreset } from './performance-timing-forgiveness';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { normalizePerformanceMicLatencyCompensationMs } from './performance-mic-latency-compensation';
 import type { CurriculumPresetKey } from './curriculum-presets';
 import { ACTIVE_PROFILE_KEY, PROFILES_KEY } from './app-storage-keys';
@@ -54,6 +55,8 @@ export interface ProfileSettings {
   difficulty?: string;
   noteNaming?: 'sharps' | 'flats';
   melodyTimelineViewMode?: 'classic' | 'grid';
+  melodyFingeringStrategy?: MelodyFingeringStrategy;
+  melodyFingeringLevel?: MelodyFingeringLevel;
   showTimelineSteps?: boolean;
   showTimelineDetails?: boolean;
   inputSource?: 'microphone' | 'midi';

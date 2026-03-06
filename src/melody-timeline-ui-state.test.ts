@@ -1,9 +1,51 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { instruments } from './instruments';
 import {
   resolveMelodyFretboardPreview,
   resolveMelodyTimelineRenderState,
 } from './melody-timeline-ui-state';
+
+const mockedMelody = vi.hoisted(() => ({
+  id: 'test:melody',
+  name: 'Test Melody',
+  source: 'builtin' as const,
+  instrumentName: 'guitar' as const,
+  tabText: '| count 1 |',
+  events: [
+    { notes: [{ note: 'E', stringName: 'e', fret: 0 }] },
+    { notes: [{ note: 'F', stringName: 'e', fret: 1 }] },
+    { notes: [{ note: 'G', stringName: 'e', fret: 3 }] },
+    { notes: [{ note: 'A', stringName: 'e', fret: 5 }] },
+    { notes: [{ note: 'B', stringName: 'e', fret: 7 }] },
+  ],
+}));
+
+vi.mock('./melody-library', () => ({
+  getMelodyById: (id: string) => (id === mockedMelody.id ? JSON.parse(JSON.stringify(mockedMelody)) : null),
+}));
+
+vi.mock('./melody-string-shift', () => ({
+  getMelodyWithPracticeAdjustments: (
+    melody: typeof mockedMelody,
+    transposeSemitones: number,
+    stringShift: number
+  ) => {
+    if (transposeSemitones === 0 && stringShift === 0) {
+      return melody;
+    }
+    return {
+      ...melody,
+      events: melody.events.map((event, eventIndex) => ({
+        ...event,
+        notes: event.notes.map((note, noteIndex) =>
+          eventIndex === 0 && noteIndex === 0
+            ? { ...note, note: 'F#', fret: (note.fret ?? 0) + 2 }
+            : { ...note }
+        ),
+      })),
+    };
+  },
+}));
 
 describe('melody-timeline-ui-state', () => {
   it('returns preview details for a previewed melody event on the fretboard', () => {
@@ -11,7 +53,7 @@ describe('melody-timeline-ui-state', () => {
       trainingMode: 'melody',
       isListening: false,
       melodyTimelinePreviewIndex: 0,
-      selectedMelodyId: 'builtin:guitar:ode_to_joy_intro',
+      selectedMelodyId: 'test:melody',
       instrument: instruments.guitar,
       melodyTransposeSemitones: 0,
       melodyStringShift: 0,
@@ -25,7 +67,7 @@ describe('melody-timeline-ui-state', () => {
   it('returns null render state outside melody workflow modes', () => {
     const renderState = resolveMelodyTimelineRenderState({
       trainingMode: 'random',
-      selectedMelodyId: 'builtin:guitar:ode_to_joy_intro',
+      selectedMelodyId: 'test:melody',
       instrument: instruments.guitar,
       melodyTransposeSemitones: 0,
       melodyStringShift: 0,
@@ -46,7 +88,7 @@ describe('melody-timeline-ui-state', () => {
   it('prefers preview state and reuses source tab text when no practice adjustments exist', () => {
     const renderState = resolveMelodyTimelineRenderState({
       trainingMode: 'melody',
-      selectedMelodyId: 'builtin:guitar:ode_to_joy_intro',
+      selectedMelodyId: 'test:melody',
       instrument: instruments.guitar,
       melodyTransposeSemitones: 0,
       melodyStringShift: 0,
@@ -73,7 +115,7 @@ describe('melody-timeline-ui-state', () => {
     };
     const renderState = resolveMelodyTimelineRenderState({
       trainingMode: 'performance',
-      selectedMelodyId: 'builtin:guitar:ode_to_joy_intro',
+      selectedMelodyId: 'test:melody',
       instrument: instruments.guitar,
       melodyTransposeSemitones: 2,
       melodyStringShift: 0,
@@ -84,7 +126,7 @@ describe('melody-timeline-ui-state', () => {
       performanceActiveEventIndex: 3,
       melodyTimelinePreviewIndex: null,
       melodyTimelinePreviewLabel: null,
-      performanceTimelineFeedbackKey: 'builtin:guitar:ode_to_joy_intro|guitar|2|0',
+      performanceTimelineFeedbackKey: 'test:melody|guitar|2|0',
       performanceTimelineFeedbackByEvent: feedback,
     });
 
@@ -102,7 +144,7 @@ describe('melody-timeline-ui-state', () => {
     };
     const renderState = resolveMelodyTimelineRenderState({
       trainingMode: 'performance',
-      selectedMelodyId: 'builtin:guitar:ode_to_joy_intro',
+      selectedMelodyId: 'test:melody',
       instrument: instruments.guitar,
       melodyTransposeSemitones: 0,
       melodyStringShift: 0,
@@ -113,7 +155,7 @@ describe('melody-timeline-ui-state', () => {
       performanceActiveEventIndex: 1,
       melodyTimelinePreviewIndex: null,
       melodyTimelinePreviewLabel: null,
-      performanceTimelineFeedbackKey: 'builtin:guitar:ode_to_joy_intro|guitar|0|0',
+      performanceTimelineFeedbackKey: 'test:melody|guitar|0|0',
       performanceTimelineFeedbackByEvent: feedback,
     });
 

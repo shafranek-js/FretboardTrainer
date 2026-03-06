@@ -411,6 +411,8 @@ function performRedrawFretboard() {
     instrument: state.currentInstrument,
     melodyTransposeSemitones: state.melodyTransposeSemitones,
     melodyStringShift: state.melodyStringShift,
+    melodyFingeringStrategy: state.melodyFingeringStrategy,
+    melodyFingeringLevel: state.melodyFingeringLevel,
   });
 
   const plan = computeFretboardRenderPlan({
@@ -509,6 +511,8 @@ export function renderMelodyTabTimelineFromState() {
     performancePrerollLeadInVisible: state.performancePrerollLeadInVisible,
     performancePrerollStartedAtMs: state.performancePrerollStartedAtMs,
     performanceRuntimeStartedAtMs: state.performanceRuntimeStartedAtMs,
+    melodyFingeringStrategy: state.melodyFingeringStrategy,
+    melodyFingeringLevel: state.melodyFingeringLevel,
   });
   const effectiveCurrentTimeSec = resolveSmoothedScrollingRuntimeTime(
     scrollingRuntime.currentTimeSec,
@@ -524,6 +528,8 @@ export function renderMelodyTabTimelineFromState() {
     renderMelodyTabTimeline(renderState.melody, state.currentInstrument, renderState.activeIndex, {
       modeLabel: renderState.modeLabel,
       viewMode: state.melodyTimelineViewMode,
+      fingeringStrategy: state.melodyFingeringStrategy,
+      fingeringLevel: state.melodyFingeringLevel,
       zoomScale: getMelodyTimelineZoomScale(state.melodyTimelineZoomPercent),
       studyRange: renderState.studyRange,
       showStepNumbers: state.showMelodyTimelineSteps,
@@ -545,6 +551,8 @@ export function renderMelodyTabTimelineFromState() {
       zoomScale: getScrollingTabPanelZoomScale(state.scrollingTabZoomPercent),
       studyRange: renderState.studyRange,
       activeEventIndex: renderState.activeIndex,
+      fingeringStrategy: state.melodyFingeringStrategy,
+      fingeringLevel: state.melodyFingeringLevel,
       currentTimeSec: effectiveCurrentTimeSec,
       leadInSec: scrollingRuntime.leadInSec,
       performanceFeedbackByEvent: renderState.performanceFeedbackByEvent,

@@ -1,6 +1,7 @@
 import type { MelodyDefinition } from './melody-library';
 import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 import { buildMelodyFingeredEvents } from './melody-fingering';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import type {
   PerformanceTimelineAttemptStatus,
   PerformanceTimelineFeedbackByEvent,
@@ -49,6 +50,8 @@ export interface ScrollingTabPanelModelInput {
   bpm: number;
   studyRange: { startIndex: number; endIndex: number };
   activeEventIndex: number | null;
+  fingeringStrategy?: MelodyFingeringStrategy;
+  fingeringLevel?: MelodyFingeringLevel;
   leadInSec?: number;
   currentTimeSec?: number | null;
   performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null;
@@ -86,7 +89,10 @@ export function buildScrollingTabPanelModel(
   const events: ScrollingTabPanelEvent[] = [];
   const barMarkers: ScrollingTabPanelBarMarker[] = [];
   const seenBarIndexes = new Set<number>();
-  const fingeredEvents = buildMelodyFingeredEvents(input.melody.events);
+  const fingeredEvents = buildMelodyFingeredEvents(input.melody.events, {
+    strategy: input.fingeringStrategy ?? 'minimax',
+    level: input.fingeringLevel ?? 'beginner',
+  });
   let cursorSec = leadInSec;
 
   for (let index = rangeStart; index <= rangeEnd; index += 1) {

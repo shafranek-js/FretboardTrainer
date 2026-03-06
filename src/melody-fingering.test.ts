@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildMelodyFingeredEvents } from './melody-fingering';
+import {
+  buildMelodyFingeredEvents,
+  normalizeMelodyFingeringLevel,
+  normalizeMelodyFingeringStrategy,
+} from './melody-fingering';
 import type { MelodyEvent } from './melody-library';
 
 describe('melody-fingering', () => {
@@ -9,7 +13,7 @@ describe('melody-fingering', () => {
       { notes: [{ note: 'G', stringName: 'e', fret: 3 }] },
     ];
 
-    const fingered = buildMelodyFingeredEvents(events);
+    const fingered = buildMelodyFingeredEvents(events, { strategy: 'heuristic' });
     expect(fingered[0]).toEqual([{ note: 'E', string: 'e', fret: 0, finger: 0 }]);
     expect(fingered[1]).toEqual([{ note: 'G', string: 'e', fret: 3, finger: 1 }]);
   });
@@ -21,7 +25,7 @@ describe('melody-fingering', () => {
       { notes: [{ note: 'E', stringName: 'A', fret: 7 }] },
     ];
 
-    const fingered = buildMelodyFingeredEvents(events);
+    const fingered = buildMelodyFingeredEvents(events, { strategy: 'heuristic' });
     expect(fingered[0][0]?.finger).toBe(1);
     expect(fingered[1][0]?.finger).toBe(4);
     expect(fingered[2][0]?.finger).toBe(4);
@@ -34,10 +38,27 @@ describe('melody-fingering', () => {
       { notes: [{ note: 'F', stringName: 'E', fret: 1 }] },
     ];
 
-    const fingered = buildMelodyFingeredEvents(events);
+    const fingered = buildMelodyFingeredEvents(events, { strategy: 'heuristic' });
     expect(fingered[0][0]?.finger).toBe(2);
     expect(fingered[1][0]?.finger).toBe(2);
     expect(fingered[2][0]?.finger).toBe(1);
+  });
+
+  it('prepares ascending jump by shifting index to the second fret after first-position note', () => {
+    const events: MelodyEvent[] = [
+      { notes: [{ note: 'F', stringName: 'D', fret: 1 }] },
+      { notes: [{ note: 'A', stringName: 'G', fret: 2 }] },
+      { notes: [{ note: 'C', stringName: 'A', fret: 3 }] },
+      { notes: [{ note: 'E', stringName: 'D', fret: 2 }] },
+      { notes: [{ note: 'A', stringName: 'G', fret: 2 }] },
+    ];
+
+    const fingered = buildMelodyFingeredEvents(events, { strategy: 'heuristic' });
+    expect(fingered[0][0]?.finger).toBe(1);
+    expect(fingered[1][0]?.finger).toBe(1);
+    expect(fingered[2][0]?.finger).toBe(2);
+    expect(fingered[3][0]?.finger).toBe(1);
+    expect(fingered[4][0]?.finger).toBe(1);
   });
 
   it('assigns fingers for polyphonic event notes from one hand position', () => {
@@ -51,11 +72,31 @@ describe('melody-fingering', () => {
       },
     ];
 
-    const fingered = buildMelodyFingeredEvents(events);
+    const fingered = buildMelodyFingeredEvents(events, { strategy: 'heuristic' });
     expect(fingered[0]).toEqual([
       { note: 'C', string: 'A', fret: 3, finger: 2 },
       { note: 'E', string: 'D', fret: 2, finger: 1 },
       { note: 'G', string: 'G', fret: 0, finger: 0 },
     ]);
+  });
+
+  it('uses minimax by default and still supports explicit heuristic strategy', () => {
+    const events: MelodyEvent[] = [
+      { notes: [{ note: 'E', stringName: 'e', fret: 0 }] },
+      { notes: [{ note: 'G', stringName: 'e', fret: 3 }] },
+    ];
+
+    const minimax = buildMelodyFingeredEvents(events);
+    const heuristic = buildMelodyFingeredEvents(events, { strategy: 'heuristic' });
+
+    expect(minimax[1][0]?.finger).toBe(2);
+    expect(heuristic[1][0]?.finger).toBe(1);
+  });
+
+  it('normalizes fingering strategy and level defaults for persisted settings', () => {
+    expect(normalizeMelodyFingeringStrategy(undefined)).toBe('minimax');
+    expect(normalizeMelodyFingeringStrategy('heuristic')).toBe('heuristic');
+    expect(normalizeMelodyFingeringLevel(undefined)).toBe('beginner');
+    expect(normalizeMelodyFingeringLevel('advanced')).toBe('advanced');
   });
 });

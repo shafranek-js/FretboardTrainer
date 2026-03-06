@@ -1,5 +1,6 @@
 import { dom } from './state';
 import type { MelodyDefinition } from './melody-library';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import type { MelodyStudyRange } from './melody-study-range';
 import { normalizeMelodyStudyRange } from './melody-study-range';
 import type { TimelineDurationLayout } from './melody-timeline-duration';
@@ -16,6 +17,8 @@ import {
 interface RenderTimelineMinimapOptions {
   showRangeEditor: boolean;
   zoomScale: number;
+  fingeringStrategy: MelodyFingeringStrategy;
+  fingeringLevel: MelodyFingeringLevel;
 }
 
 interface RenderTimelineMinimapCallbacks {
@@ -80,7 +83,9 @@ export function renderTimelineMinimap(
     stringOrder,
     durationLayout.weights,
     activeEventIndex,
-    studyRange
+    studyRange,
+    options.fingeringStrategy,
+    options.fingeringLevel
   );
   const normalizedStudyRange = normalizeMelodyStudyRange(studyRange, layout.eventSegments.length);
 

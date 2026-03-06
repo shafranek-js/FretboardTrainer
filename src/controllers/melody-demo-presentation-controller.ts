@@ -1,5 +1,6 @@
 import { buildPromptAudioPlan } from '../prompt-audio-plan';
 import { getMelodyFingeredEvent } from '../melody-fingering';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from '../melody-fingering';
 import type { MelodyStudyRange } from '../melody-study-range';
 import {
   clampMelodyPlaybackBpm,
@@ -25,6 +26,8 @@ interface MelodyDemoPresentationControllerDeps {
   state: {
     melodyTimelinePreviewIndex: number | null;
     melodyTimelinePreviewLabel: string | null;
+    melodyFingeringStrategy?: MelodyFingeringStrategy;
+    melodyFingeringLevel?: MelodyFingeringLevel;
     currentInstrument: IInstrument;
     calibratedA4: number;
     audioContext: { state: string; resume(): Promise<void> } | null;
@@ -155,7 +158,10 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
   ) {
     deps.state.melodyTimelinePreviewIndex = eventIndex;
     deps.state.melodyTimelinePreviewLabel = options?.label ?? 'Playback';
-    const fingering = getMelodyFingeredEvent(melodyEvents, eventIndex);
+    const fingering = getMelodyFingeredEvent(melodyEvents, eventIndex, {
+      strategy: deps.state.melodyFingeringStrategy ?? 'minimax',
+      level: deps.state.melodyFingeringLevel ?? 'beginner',
+    });
     const prompt = buildMelodyDemoPrompt(
       melodyName,
       event,

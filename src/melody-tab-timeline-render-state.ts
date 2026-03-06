@@ -4,10 +4,13 @@ import type { MelodyTabTimelineViewModel } from './melody-tab-timeline-model';
 import type { TimelineBarGrouping } from './melody-tab-timeline-metadata';
 import type { MelodyStudyRange } from './melody-study-range';
 import type { PerformanceTimelineFeedbackByEvent } from './performance-timeline-feedback';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 
 export interface MelodyTimelineRenderOptions {
   modeLabel?: string | null;
   viewMode?: 'classic' | 'grid';
+  fingeringStrategy?: MelodyFingeringStrategy;
+  fingeringLevel?: MelodyFingeringLevel;
   zoomScale?: number;
   bpm?: number;
   studyRange?: MelodyStudyRange | null;
@@ -27,6 +30,8 @@ export interface MelodyTimelineRenderOptions {
 export interface ResolvedMelodyTimelineRenderOptions {
   modeLabel: string;
   viewMode: 'classic' | 'grid';
+  fingeringStrategy: MelodyFingeringStrategy;
+  fingeringLevel: MelodyFingeringLevel;
   zoomScale: number;
   bpm: number | null;
   studyRange: MelodyStudyRange;
@@ -85,6 +90,13 @@ export function resolveMelodyTimelineRenderOptions(
   return {
     modeLabel: options.modeLabel?.trim() ?? '',
     viewMode: options.viewMode ?? 'classic',
+    fingeringStrategy: options.fingeringStrategy === 'heuristic' ? 'heuristic' : 'minimax',
+    fingeringLevel:
+      options.fingeringLevel === 'advanced'
+        ? 'advanced'
+        : options.fingeringLevel === 'intermediate'
+          ? 'intermediate'
+          : 'beginner',
     zoomScale: Math.max(0.7, Math.min(2.5, options.zoomScale ?? 1)),
     bpm: typeof options.bpm === 'number' && Number.isFinite(options.bpm) ? options.bpm : null,
     studyRange,
@@ -122,6 +134,8 @@ export function buildMelodyTimelineRenderKey(
     input.model.activeEventIndex ?? -1,
     options.modeLabel,
     options.viewMode,
+    options.fingeringStrategy,
+    options.fingeringLevel,
     input.barGrouping.source,
     input.barGrouping.totalBars ?? -1,
     input.barGrouping.hasBeatTiming ? 1 : 0,

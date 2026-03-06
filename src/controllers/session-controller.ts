@@ -119,6 +119,7 @@ import {
   setMelodyTimelineSeekHandler,
   setMelodyTimelineStudyRangeCommitHandler,
 } from '../melody-tab-timeline';
+import { normalizeMelodyFingeringLevel, normalizeMelodyFingeringStrategy } from '../melody-fingering';
 import { createMelodyTimelineEditingController } from './melody-timeline-editing-controller';
 import { createMelodyTimelineEditingOrchestrator } from './melody-timeline-editing-orchestrator';
 import { createMelodyDemoController } from './melody-demo-controller';
@@ -1386,6 +1387,27 @@ export function registerSessionControls() {
     state.melodyTimelineViewMode = dom.timelineViewMode.value === 'grid' ? 'grid' : 'classic';
     dom.timelineViewMode.value = state.melodyTimelineViewMode;
     saveSettings();
+    refreshMelodyTimelineUi();
+  });
+  const applyMelodyFingeringStrategy = (rawValue: unknown) => {
+    state.melodyFingeringStrategy = normalizeMelodyFingeringStrategy(rawValue);
+    dom.melodyFingeringStrategy.value = state.melodyFingeringStrategy;
+    dom.melodyFingeringStrategyQuick.value = state.melodyFingeringStrategy;
+    saveSettings();
+    redrawFretboard();
+    refreshMelodyTimelineUi();
+  };
+  dom.melodyFingeringStrategy.addEventListener('change', () => {
+    applyMelodyFingeringStrategy(dom.melodyFingeringStrategy.value);
+  });
+  dom.melodyFingeringStrategyQuick.addEventListener('change', () => {
+    applyMelodyFingeringStrategy(dom.melodyFingeringStrategyQuick.value);
+  });
+  dom.melodyFingeringLevel.addEventListener('change', () => {
+    state.melodyFingeringLevel = normalizeMelodyFingeringLevel(dom.melodyFingeringLevel.value);
+    dom.melodyFingeringLevel.value = state.melodyFingeringLevel;
+    saveSettings();
+    redrawFretboard();
     refreshMelodyTimelineUi();
   });
 

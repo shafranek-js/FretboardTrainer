@@ -24,6 +24,7 @@ import type {
 import type { PerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import type { PerformanceTimingLeniencyPreset } from './performance-timing-forgiveness';
 import type { AudioInputProcessingSettings } from './audio-runtime';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 
 function requireElementById<T extends Element>(id: string): T {
   const element = document.getElementById(id);
@@ -60,6 +61,8 @@ export const dom = {
   difficulty: requireElementById<HTMLSelectElement>('difficulty'),
   noteNaming: requireElementById<HTMLSelectElement>('noteNaming'),
   timelineViewMode: requireElementById<HTMLSelectElement>('timelineViewMode'),
+  melodyFingeringStrategy: requireElementById<HTMLSelectElement>('melodyFingeringStrategy'),
+  melodyFingeringLevel: requireElementById<HTMLSelectElement>('melodyFingeringLevel'),
   showTimelineSteps: requireElementById<HTMLInputElement>('showTimelineSteps'),
   showTimelineDetails: requireElementById<HTMLInputElement>('showTimelineDetails'),
   audioInputRow: requireElementById<HTMLElement>('audioInputRow'),
@@ -122,6 +125,7 @@ export const dom = {
   metronomeToggleBtn: requireElementById<HTMLButtonElement>('metronomeToggleBtn'),
   melodyDemoBpm: requireElementById<HTMLInputElement>('melodyDemoBpm'),
   melodyDemoBpmValue: requireElementById<HTMLElement>('melodyDemoBpmValue'),
+  melodyFingeringStrategyQuick: requireElementById<HTMLSelectElement>('melodyFingeringStrategyQuick'),
   metronomeVolume: requireElementById<HTMLInputElement>('metronomeVolume'),
   metronomeVolumeValue: requireElementById<HTMLElement>('metronomeVolumeValue'),
   melodyTabTimelinePanel: requireElementById<HTMLElement>('melodyTabTimelinePanel'),
@@ -384,6 +388,8 @@ export const state = {
   showingAllNotes: false,
   autoPlayPromptSound: true,
   relaxPerformanceOctaveCheck: true,
+  melodyFingeringStrategy: 'minimax' as MelodyFingeringStrategy,
+  melodyFingeringLevel: 'beginner' as MelodyFingeringLevel,
   performanceMicTolerancePreset: 'normal' as PerformanceMicTolerancePreset,
   performanceTimingLeniencyPreset: 'normal' as PerformanceTimingLeniencyPreset,
   performanceMicLatencyCompensationMs: 0,

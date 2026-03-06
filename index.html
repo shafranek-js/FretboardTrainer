@@ -148,6 +148,15 @@
                 class="min-w-[2.4rem] text-center text-[11px] sm:text-[10px] font-semibold text-cyan-200 px-1 py-0.5"
                 >90</span
               >
+              <label for="melodyFingeringStrategyQuick" class="field-tooltip-label">Fingering</label>
+              <select
+                id="melodyFingeringStrategyQuick"
+                class="h-9 rounded-md border border-slate-500 bg-slate-700 px-2 text-[11px] text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                aria-label="Quick auto fingering strategy"
+              >
+                <option value="minimax" selected>Minimax</option>
+                <option value="heuristic">Balanced</option>
+              </select>
               <div
                 class="session-setting-chip inline-flex items-center gap-1"
                 aria-label="Metronome beat indicator"
@@ -908,6 +917,27 @@
                     >
                       <option value="classic">Classic TAB</option>
                       <option value="grid">Grid</option>
+                    </select>
+                  </div>
+                  <div class="field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Auto Fingering">
+                    <label for="melodyFingeringStrategy" class="field-tooltip-label">Auto Fingering</label>
+                    <select
+                      id="melodyFingeringStrategy"
+                      class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    >
+                      <option value="minimax" selected>Beginner Safe (Minimax)</option>
+                      <option value="heuristic">Balanced (Heuristic)</option>
+                    </select>
+                  </div>
+                  <div class="field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Fingering Level">
+                    <label for="melodyFingeringLevel" class="field-tooltip-label">Fingering Level</label>
+                    <select
+                      id="melodyFingeringLevel"
+                      class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    >
+                      <option value="beginner" selected>Beginner (least risky shifts)</option>
+                      <option value="intermediate">Intermediate (balanced)</option>
+                      <option value="advanced">Advanced (more freedom)</option>
                     </select>
                   </div>
                   <label class="flex items-center gap-2 text-slate-200">

@@ -71,6 +71,8 @@ const mocked = vi.hoisted(() => {
     difficulty: createSelect('natural', ['natural', 'all']) as unknown as HTMLSelectElement,
     noteNaming: createSelect('sharps', ['sharps', 'flats']) as unknown as HTMLSelectElement,
     timelineViewMode: createSelect('classic', ['classic', 'grid']) as unknown as HTMLSelectElement,
+    melodyFingeringStrategy: createSelect('minimax', ['heuristic', 'minimax']) as unknown as HTMLSelectElement,
+    melodyFingeringLevel: createSelect('beginner', ['beginner', 'intermediate', 'advanced']) as unknown as HTMLSelectElement,
     showTimelineSteps: { checked: false } as HTMLInputElement,
     showTimelineDetails: { checked: false } as HTMLInputElement,
     micSensitivityPreset: createSelect('normal', ['quiet_room', 'normal', 'noisy_room', 'auto']) as unknown as HTMLSelectElement,
@@ -109,6 +111,7 @@ const mocked = vi.hoisted(() => {
     scrollingTabZoomValue: { textContent: '' } as HTMLElement,
     melodyDemoBpm: { value: '90' } as HTMLInputElement,
     melodyDemoBpmValue: { textContent: '' } as HTMLElement,
+    melodyFingeringStrategyQuick: createSelect('minimax', ['heuristic', 'minimax']) as unknown as HTMLSelectElement,
     melodyLoopRange: { checked: false } as HTMLInputElement,
     melodyTranspose: { value: '0' } as HTMLInputElement,
     melodyTransposeValue: { textContent: '' } as HTMLElement,
@@ -120,6 +123,8 @@ const mocked = vi.hoisted(() => {
     currentInstrument: { name: 'guitar', STRING_ORDER: ['E', 'A', 'D', 'G', 'B', 'e'] },
     currentTuningPresetKey: 'standard',
     melodyTimelineViewMode: 'classic',
+    melodyFingeringStrategy: 'minimax',
+    melodyFingeringLevel: 'beginner',
     showMelodyTimelineSteps: false,
     showMelodyTimelineDetails: false,
     inputSource: 'microphone',
@@ -305,6 +310,8 @@ function resetMockState() {
   mocked.dom.performanceMicLatencyCompensationValue.textContent = '';
   mocked.dom.difficulty.value = 'natural';
   mocked.dom.noteNaming.value = 'sharps';
+  mocked.dom.melodyFingeringStrategy.value = 'minimax';
+  mocked.dom.melodyFingeringLevel.value = 'beginner';
   mocked.dom.startFret.value = '0';
   mocked.dom.endFret.value = '20';
   mocked.dom.trainingMode.value = 'random';
@@ -330,6 +337,7 @@ function resetMockState() {
   mocked.dom.melodyTimelineZoomValue.textContent = '';
   mocked.dom.melodyDemoBpm.value = '90';
   mocked.dom.melodyDemoBpmValue.textContent = '';
+  mocked.dom.melodyFingeringStrategyQuick.value = 'minimax';
   mocked.dom.melodyLoopRange.checked = false;
   mocked.dom.melodyTranspose.value = '0';
   mocked.dom.melodyStringShift.value = '0';
@@ -337,6 +345,8 @@ function resetMockState() {
   mocked.state.currentInstrument = { name: 'guitar', STRING_ORDER: ['E', 'A', 'D', 'G', 'B', 'e'] };
   mocked.state.currentTuningPresetKey = 'standard';
   mocked.state.melodyTimelineViewMode = 'classic';
+  mocked.state.melodyFingeringStrategy = 'minimax';
+  mocked.state.melodyFingeringLevel = 'beginner';
   mocked.state.showMelodyTimelineSteps = false;
   mocked.state.showMelodyTimelineDetails = false;
   mocked.state.inputSource = 'microphone';
@@ -387,6 +397,10 @@ describe('storage', () => {
     mocked.dom.trainingMode.value = 'performance';
     mocked.dom.curriculumPreset.value = 'beginner_essentials';
     mocked.dom.melodyDemoBpm.value = '132';
+    mocked.dom.melodyFingeringStrategy.value = 'minimax';
+    mocked.dom.melodyFingeringLevel.value = 'intermediate';
+    mocked.state.melodyFingeringStrategy = 'minimax';
+    mocked.state.melodyFingeringLevel = 'intermediate';
     mocked.dom.melodyTimelineZoom.value = '135';
     mocked.dom.melodySelector.value = 'ode-to-joy';
     mocked.state.showMelodyTabTimeline = false;
@@ -412,6 +426,8 @@ describe('storage', () => {
       melodyTimelineZoomPercent: 135,
       melodyPlaybackBpmById: { 'builtin:guitar:ode_to_joy_intro': 108 },
       selectedMelodyId: 'ode-to-joy',
+      melodyFingeringStrategy: 'minimax',
+      melodyFingeringLevel: 'intermediate',
       performanceTimingLeniencyPreset: 'forgiving',
       performanceMicLatencyCompensationMs: 135,
       isDirectInputMode: true,
@@ -441,6 +457,8 @@ describe('storage', () => {
           performanceMicLatencyCompensationMs: 125,
           isDirectInputMode: true,
           noteNaming: 'flats',
+          melodyFingeringStrategy: 'minimax',
+          melodyFingeringLevel: 'advanced',
           selectedMelodyId: 'ode-to-joy',
           melodyPlaybackBpmById: { 'builtin:guitar:ode_to_joy_intro': 108 },
           practiceSetupCollapsed: true,
@@ -473,11 +491,16 @@ describe('storage', () => {
     expect(mocked.dom.performanceMicLatencyCompensationValue.textContent).toBe('125 ms');
     expect(mocked.dom.micDirectInputMode.checked).toBe(true);
     expect(mocked.dom.noteNaming.value).toBe('flats');
+    expect(mocked.dom.melodyFingeringStrategy.value).toBe('minimax');
+    expect(mocked.dom.melodyFingeringLevel.value).toBe('advanced');
+    expect(mocked.dom.melodyFingeringStrategyQuick.value).toBe('minimax');
     expect(mocked.state.melodyTimelineZoomPercent).toBe(145);
     expect(mocked.state.showMelodyTabTimeline).toBe(false);
     expect(mocked.state.showScrollingTabPanel).toBe(false);
     expect(mocked.state.melodyPlaybackBpmById).toEqual({ 'builtin:guitar:ode_to_joy_intro': 108 });
     expect(mocked.state.performanceMicLatencyCompensationMs).toBe(125);
+    expect(mocked.state.melodyFingeringStrategy).toBe('minimax');
+    expect(mocked.state.melodyFingeringLevel).toBe('advanced');
     expect(mocked.state.isDirectInputMode).toBe(true);
     expect(mocked.panelState.practiceSetupCollapsed).toBe(true);
     expect(mocked.panelState.melodySetupCollapsed).toBe(true);

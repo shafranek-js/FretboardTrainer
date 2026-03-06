@@ -79,7 +79,10 @@ export class MelodyPracticeMode implements ITrainingMode {
     state.currentMelodyEventFoundNotes.clear();
 
     const firstNote = event.notes[0] ?? null;
-    const melodyEventFingering = getMelodyFingeredEvent(melody.events, currentEventIndex);
+    const melodyEventFingering = getMelodyFingeredEvent(melody.events, currentEventIndex, {
+      strategy: state.melodyFingeringStrategy,
+      level: state.melodyFingeringLevel,
+    });
     const targetPitchClasses = toMelodyEventChordNotes(event);
     const isPolyphonicEvent = targetPitchClasses.length > 1;
     const firstPlayableNote = melodyEventFingering[0] ?? null;

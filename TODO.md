@@ -48,3 +48,5 @@
 - [x] Removed runtime dependency on hardcoded built-in melodies; `melody-library` now reads built-ins only from remote-synced local cache.
 - [x] Added MuseScore import (`.mscz`/`.mscx`) with track preview + save pipeline via MIDI import flow.
 - [x] Hardened MuseScore tablature import: support 0/1-based string numbering, skip tie-continuation onsets, and preserve staff display names for notation/tab pairs.
+- [x] Refined auto-fingering hand-position logic with direction-aware prep (descending + short ascending jumps) for more natural finger assignment in phrases like Fur Elise.
+- [x] Added UI-selectable auto-fingering strategy (`Heuristic` / `Minimax`) with profile persistence and live propagation to fretboard preview, TAB timeline, minimap, scrolling panel, and melody/session prompt fingering.

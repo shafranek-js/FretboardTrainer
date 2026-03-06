@@ -38,7 +38,10 @@ export function buildPerformancePromptForEvent(input: {
   const event = melody.events[eventIndex];
   if (!event) return null;
   const firstNote = event.notes[0] ?? null;
-  const melodyEventFingering = getMelodyFingeredEvent(melody.events, eventIndex);
+  const melodyEventFingering = getMelodyFingeredEvent(melody.events, eventIndex, {
+    strategy: state.melodyFingeringStrategy,
+    level: state.melodyFingeringLevel,
+  });
   const targetPitchClasses = toMelodyEventChordNotes(event);
   const isPolyphonicEvent = targetPitchClasses.length > 1;
   const firstPlayableNote = melodyEventFingering[0] ?? null;

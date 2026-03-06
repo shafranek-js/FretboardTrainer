@@ -329,7 +329,9 @@ export function renderMelodyTabTimeline(
     instrument.STRING_ORDER,
     activeEventIndex,
     resolvedOptions.studyRange,
-    resolvedOptions.performanceFeedbackByEvent
+    resolvedOptions.performanceFeedbackByEvent,
+    resolvedOptions.fingeringStrategy,
+    resolvedOptions.fingeringLevel
   );
   const runtimePlayheadActive = resolvedOptions.currentTimeSec !== null && resolvedOptions.bpm !== null;
   const renderModel = model;
@@ -478,6 +480,8 @@ export function renderMelodyTabTimeline(
     {
       showRangeEditor: resolvedOptions.minimapRangeEditor,
       zoomScale: resolvedOptions.zoomScale,
+      fingeringStrategy: resolvedOptions.fingeringStrategy,
+      fingeringLevel: resolvedOptions.fingeringLevel,
     },
     {
       centerTimelineEvent,

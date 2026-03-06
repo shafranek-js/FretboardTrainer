@@ -2,6 +2,7 @@ import type { IInstrument } from './instruments/instrument';
 import { getMelodyById, type MelodyDefinition } from './melody-library';
 import { exportMelodyToAsciiTab } from './melody-ascii-export';
 import { getMelodyFingeredEvent } from './melody-fingering';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { normalizeMelodyStudyRange } from './melody-study-range';
 import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
 import { isMelodyWorkflowMode } from './training-mode-groups';
@@ -64,6 +65,8 @@ export function resolveMelodyFretboardPreview(input: {
   instrument: InstrumentLike;
   melodyTransposeSemitones: number;
   melodyStringShift: number;
+  melodyFingeringStrategy?: MelodyFingeringStrategy;
+  melodyFingeringLevel?: MelodyFingeringLevel;
 }): MelodyFretboardPreview {
   if (!isMelodyWorkflowMode(input.trainingMode) || input.isListening || typeof input.melodyTimelinePreviewIndex !== 'number') {
     return {
@@ -84,7 +87,10 @@ export function resolveMelodyFretboardPreview(input: {
 
   const safeIndex = Math.max(0, Math.min(melody.events.length - 1, input.melodyTimelinePreviewIndex));
   const previewEvent = melody.events[safeIndex];
-  const eventFingering = getMelodyFingeredEvent(melody.events, safeIndex);
+  const eventFingering = getMelodyFingeredEvent(melody.events, safeIndex, {
+    strategy: input.melodyFingeringStrategy ?? 'minimax',
+    level: input.melodyFingeringLevel ?? 'beginner',
+  });
   const firstPlayable = eventFingering[0] ?? null;
   const firstEventNote = previewEvent?.notes[0] ?? null;
 
@@ -101,6 +107,8 @@ export function resolveMelodyTimelineRenderState(input: {
   instrument: InstrumentLike;
   melodyTransposeSemitones: number;
   melodyStringShift: number;
+  melodyFingeringStrategy?: MelodyFingeringStrategy;
+  melodyFingeringLevel?: MelodyFingeringLevel;
   melodyStudyRangeStartIndex: number;
   melodyStudyRangeEndIndex: number;
   isListening: boolean;

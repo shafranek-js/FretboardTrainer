@@ -1,5 +1,6 @@
 import type { MelodyDefinition } from './melody-library';
 import { buildMelodyFingeredEvents } from './melody-fingering';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import type { MelodyStudyRange } from './melody-study-range';
 import { normalizeMelodyStudyRange } from './melody-study-range';
 
@@ -52,7 +53,9 @@ export function buildMelodyMinimapLayout(
   stringOrder: string[],
   weights: number[],
   activeEventIndex: number | null,
-  studyRange?: MelodyStudyRange | null
+  studyRange?: MelodyStudyRange | null,
+  fingeringStrategy: MelodyFingeringStrategy = 'minimax',
+  fingeringLevel: MelodyFingeringLevel = 'beginner'
 ): MelodyMinimapLayout {
   const safeWeights = weights.map((weight) =>
     typeof weight === 'number' && Number.isFinite(weight) && weight > 0 ? weight : 1
@@ -61,7 +64,10 @@ export function buildMelodyMinimapLayout(
   const normalizedRange =
     safeWeights.length > 0 ? normalizeMelodyStudyRange(studyRange, safeWeights.length) : null;
   const rowCount = Math.max(1, stringOrder.length);
-  const fingeredEvents = buildMelodyFingeredEvents(melody.events);
+  const fingeredEvents = buildMelodyFingeredEvents(melody.events, {
+    strategy: fingeringStrategy,
+    level: fingeringLevel,
+  });
 
   let cursor = 0;
   const eventSegments: MelodyMinimapEventSegment[] = [];

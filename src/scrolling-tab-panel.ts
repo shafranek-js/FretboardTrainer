@@ -1,5 +1,6 @@
 import { dom } from './state';
 import type { MelodyDefinition } from './melody-library';
+import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { buildScrollingTabPanelModel } from './scrolling-tab-panel-model';
 import { computeScrollingTabPanelLayout } from './scrolling-tab-panel-geometry';
 import { buildMelodyContentSignature } from './melody-tab-timeline-metadata';
@@ -309,6 +310,8 @@ export function renderScrollingTabPanel(
     zoomScale: number;
     studyRange: { startIndex: number; endIndex: number };
     activeEventIndex: number | null;
+    fingeringStrategy?: MelodyFingeringStrategy;
+    fingeringLevel?: MelodyFingeringLevel;
     currentTimeSec?: number | null;
     leadInSec?: number;
     performanceFeedbackByEvent?: PerformanceTimelineFeedbackByEvent | null;
@@ -325,6 +328,8 @@ export function renderScrollingTabPanel(
     bpm: options.bpm,
     zoomScale: options.zoomScale,
     studyRange: options.studyRange,
+    fingeringStrategy: options.fingeringStrategy ?? 'minimax',
+    fingeringLevel: options.fingeringLevel ?? 'beginner',
     leadInSec: options.leadInSec,
   });
   if (structuralRenderKey !== lastStructuralRenderKey || lastStructuralModel === null) {
@@ -335,6 +340,8 @@ export function renderScrollingTabPanel(
       bpm: options.bpm,
       studyRange: options.studyRange,
       activeEventIndex: options.activeEventIndex,
+      fingeringStrategy: options.fingeringStrategy,
+      fingeringLevel: options.fingeringLevel,
       currentTimeSec: options.currentTimeSec,
       leadInSec: options.leadInSec,
     });

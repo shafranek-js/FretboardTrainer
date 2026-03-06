@@ -29,6 +29,7 @@ import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from './mic-note-hold-filter';
 import { normalizeMicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
+import { normalizeMelodyFingeringLevel, normalizeMelodyFingeringStrategy } from './melody-fingering';
 import { normalizePerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import {
   normalizePerformanceTimingLeniencyPreset,
@@ -116,6 +117,8 @@ export function gatherCurrentSettings(): ProfileSettings {
     difficulty: dom.difficulty.value,
     noteNaming: dom.noteNaming.value as 'sharps' | 'flats',
     melodyTimelineViewMode: state.melodyTimelineViewMode,
+    melodyFingeringStrategy: state.melodyFingeringStrategy,
+    melodyFingeringLevel: state.melodyFingeringLevel,
     showTimelineSteps: state.showMelodyTimelineSteps,
     showTimelineDetails: state.showMelodyTimelineDetails,
     inputSource: state.inputSource,
@@ -215,6 +218,11 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.melodyTimelineViewMode =
       safeSettings.melodyTimelineViewMode === 'grid' ? 'grid' : 'classic';
     dom.timelineViewMode.value = state.melodyTimelineViewMode;
+    state.melodyFingeringStrategy = normalizeMelodyFingeringStrategy(safeSettings.melodyFingeringStrategy);
+    dom.melodyFingeringStrategy.value = state.melodyFingeringStrategy;
+    dom.melodyFingeringStrategyQuick.value = state.melodyFingeringStrategy;
+    state.melodyFingeringLevel = normalizeMelodyFingeringLevel(safeSettings.melodyFingeringLevel);
+    dom.melodyFingeringLevel.value = state.melodyFingeringLevel;
     state.showMelodyTimelineSteps = safeSettings.showTimelineSteps ?? false;
     dom.showTimelineSteps.checked = state.showMelodyTimelineSteps;
     state.showMelodyTimelineDetails = safeSettings.showTimelineDetails ?? false;
@@ -326,6 +334,9 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.performanceMicLatencyCompensationMs = normalizePerformanceMicLatencyCompensationMs(
       dom.performanceMicLatencyCompensation.value
     );
+    state.melodyFingeringStrategy = normalizeMelodyFingeringStrategy(dom.melodyFingeringStrategy.value);
+    state.melodyFingeringLevel = normalizeMelodyFingeringLevel(dom.melodyFingeringLevel.value);
+    dom.melodyFingeringStrategyQuick.value = state.melodyFingeringStrategy;
     state.isDirectInputMode = dom.micDirectInputMode.checked;
     dom.performanceMicLatencyCompensationExact.value = String(state.performanceMicLatencyCompensationMs);
     dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
