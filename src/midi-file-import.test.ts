@@ -66,6 +66,41 @@ describe('midi-file-import', () => {
     expect(imported.warnings.length).toBeGreaterThan(0);
   });
 
+  it('prefers lead-like monophonic tracks over denser accompaniment tracks by default', () => {
+    const inspected = inspectMidiFileForImport(
+      {
+        header: { ppq: 480 },
+        tracks: [
+          {
+            name: 'Piano Accompaniment',
+            channel: 0,
+            instrument: { percussion: false, name: 'piano' },
+            notes: [
+              { midi: 60, ticks: 0, durationTicks: 480 },
+              { midi: 64, ticks: 0, durationTicks: 480 },
+              { midi: 67, ticks: 0, durationTicks: 480 },
+              { midi: 62, ticks: 480, durationTicks: 480 },
+              { midi: 65, ticks: 480, durationTicks: 480 },
+              { midi: 69, ticks: 480, durationTicks: 480 },
+            ],
+          },
+          {
+            name: 'Lead Melody',
+            channel: 0,
+            instrument: { percussion: false, name: 'lead' },
+            notes: [
+              { midi: 72, ticks: 0, durationTicks: 480 },
+              { midi: 74, ticks: 480, durationTicks: 480 },
+            ],
+          },
+        ],
+      },
+      'default-track.mid'
+    );
+
+    expect(inspected.defaultTrackIndex).toBe(1);
+  });
+
   it('exposes preview metadata for track range and estimated bars', () => {
     const inspected = inspectMidiFileForImport(
       {

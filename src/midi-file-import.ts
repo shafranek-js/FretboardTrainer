@@ -291,6 +291,44 @@ interface MidiTrackSelection {
   isPercussion: boolean;
 }
 
+function getAverageSimultaneousNotes(
+  selection: MidiTrackSelection,
+  midi: MidiFileLike
+) {
+  const ppq = getSafeMidiPpq(midi.header);
+  const normalized = normalizeMidiNotesForConversion(selection.notes, midi.header, ppq, 'off');
+  if (normalized.length === 0) return Number.POSITIVE_INFINITY;
+  const eventsByTick = new Map<number, number>();
+  normalized.forEach((note) => {
+    eventsByTick.set(note.startTick, (eventsByTick.get(note.startTick) ?? 0) + 1);
+  });
+  const counts = [...eventsByTick.values()];
+  return counts.reduce((sum, count) => sum + count, 0) / counts.length;
+}
+
+function getMidiTrackDefaultSelectionScore(
+  selection: MidiTrackSelection,
+  midi: MidiFileLike
+) {
+  const trackName = getTrackDisplayName(selection.track, selection.index);
+  const averageSimultaneousNotes = getAverageSimultaneousNotes(selection, midi);
+  const nameBoost =
+    /(lead|melody|solo|theme|main|vocal|voice|tab)/i.test(trackName) ? 35 : 0;
+  const accompanimentPenalty =
+    /(accomp|accompaniment|rhythm|chord|pad|strings|piano comp)/i.test(trackName) ? 25 : 0;
+  const monophonyBoost = Number.isFinite(averageSimultaneousNotes)
+    ? Math.max(0, 30 - averageSimultaneousNotes * 12)
+    : 0;
+  const noteCountBoost = Math.min(selection.notes.length, 240) * 0.08;
+  return (
+    (selection.isPercussion ? 0 : 1000) +
+    nameBoost +
+    monophonyBoost +
+    noteCountBoost -
+    accompanimentPenalty
+  );
+}
+
 function listMidiTrackSelections(midi: MidiFileLike): MidiTrackSelection[] {
   return (midi.tracks ?? [])
     .map((track, index) => ({
@@ -305,14 +343,12 @@ function listMidiTrackSelections(midi: MidiFileLike): MidiTrackSelection[] {
 function pickMidiTrack(midi: MidiFileLike) {
   const warnings: string[] = [];
   const tracks = listMidiTrackSelections(midi);
-  const melodic = tracks.filter((entry) => !entry.isPercussion);
-  const pool = melodic.length > 0 ? melodic : tracks;
-  if (pool.length === 0) {
+  if (tracks.length === 0) {
     throw new Error('MIDI file does not contain note events.');
   }
-
-  pool.sort((a, b) => b.notes.length - a.notes.length);
-  const selected = pool[0];
+  const selected = [...tracks].sort(
+    (a, b) => getMidiTrackDefaultSelectionScore(b, midi) - getMidiTrackDefaultSelectionScore(a, midi)
+  )[0];
   if (tracks.length > 1) {
     warnings.push(
       `Imported ${getTrackDisplayName(selected.track, selected.index)} (${selected.notes.length} notes) from ${tracks.length} MIDI tracks.`
@@ -498,10 +534,11 @@ export function inspectMidiFileForImport(midi: MidiFileLike, sourceFileName: str
   }));
 
   const melodic = trackSelections.filter((selection) => !selection.isPercussion);
+  const pool = melodic.length > 0 ? melodic : trackSelections;
   const defaultTrackIndex =
-    melodic.sort((a, b) => b.notes.length - a.notes.length)[0]?.index ??
-    trackSelections.sort((a, b) => b.notes.length - a.notes.length)[0]?.index ??
-    null;
+    [...pool].sort(
+      (a, b) => getMidiTrackDefaultSelectionScore(b, midi) - getMidiTrackDefaultSelectionScore(a, midi)
+    )[0]?.index ?? null;
 
   return {
     midi,

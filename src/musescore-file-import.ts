@@ -30,6 +30,7 @@ interface ParsedMusescoreTrack {
   isTablature: boolean;
   noteCount: number;
   hasAnyStringFret: boolean;
+  averageNotesPerEvent: number;
   noteRangeText: string | null;
   estimatedBars: number | null;
   endTick: number | null;
@@ -339,16 +340,10 @@ function parseChordNotes(
       const noteWithOctave = instrument.getNoteWithOctave(stringName, safeFret);
       if (noteWithOctave) {
         const resolvedMidi = parseScientificNoteToMidi(noteWithOctave);
-        const pitchMatches = midi === null || resolvedMidi === null || resolvedMidi === midi;
-        if (pitchMatches) {
-          noteName = stripOctave(noteWithOctave);
-          if (midi === null) {
-            midi = resolvedMidi;
-          }
-        } else {
-          // Keep pitch correct if string numbering mode does not match this score.
-          stringName = null;
-        }
+        // For tablature import, string/fret is the source of truth.
+        // MuseScore pitch metadata can differ from tab due to transposition or score encoding quirks.
+        noteName = stripOctave(noteWithOctave);
+        midi = resolvedMidi ?? midi;
       }
     }
     if (!noteName && midi !== null) {
@@ -389,7 +384,7 @@ function parseStaffTrack(
   const { beatsPerBar } = extractTimeSignature(xmlStaffBody);
   const stringNumberBase: MuseStringNumberBase =
     /<string>\s*0\s*<\/string>/i.test(xmlStaffBody) ? 'zero-based' : 'one-based';
-  const voiceTicks: number[] = [];
+  let measureStartTick = 0;
 
   let measureMatch: RegExpExecArray | null;
   let measureIndex = 0;
@@ -404,8 +399,9 @@ function parseStaffTrack(
       voices.push(measureBody);
     }
 
+    let measureEndTick = measureStartTick;
     voices.forEach((voiceBody, voiceIndex) => {
-      let currentTick = voiceTicks[voiceIndex] ?? 0;
+      let currentTick = measureStartTick;
       let tokenMatch: RegExpExecArray | null;
       while ((tokenMatch = tokenRegex.exec(voiceBody))) {
         const token = (tokenMatch[1] ?? '').toLowerCase();
@@ -442,8 +438,9 @@ function parseStaffTrack(
         }
         currentTick += durationTicks;
       }
-      voiceTicks[voiceIndex] = currentTick;
+      measureEndTick = Math.max(measureEndTick, currentTick);
     });
+    measureStartTick = measureEndTick;
     measureIndex += 1;
   }
 
@@ -518,6 +515,10 @@ function parseMusescoreTracks(
       hasAnyStringFret: parsedEvents.some((event) =>
         event.notes.some((note) => note.stringName !== null && note.fret !== null)
       ),
+      averageNotesPerEvent:
+        parsedEvents.length > 0
+          ? parsedEvents.reduce((sum, event) => sum + event.notes.length, 0) / parsedEvents.length
+          : Number.POSITIVE_INFINITY,
       noteRangeText: getNoteRangeText(midiValues),
       estimatedBars:
         parsedEvents.length > 0
@@ -612,8 +613,11 @@ export async function loadMusescoreFileFromBytes(
   const defaultTrackIndex =
     [...tracks]
       .sort((a, b) => {
-        if (a.isTablature !== b.isTablature) return a.isTablature ? -1 : 1;
         if (a.hasAnyStringFret !== b.hasAnyStringFret) return a.hasAnyStringFret ? -1 : 1;
+        if (a.isTablature !== b.isTablature) return a.isTablature ? -1 : 1;
+        if (a.averageNotesPerEvent !== b.averageNotesPerEvent) {
+          return a.averageNotesPerEvent - b.averageNotesPerEvent;
+        }
         return b.noteCount - a.noteCount;
       })[0]?.trackIndex ?? null;
 

@@ -160,6 +160,81 @@ const NOTATION_AND_TAB_WITHOUT_STRING_FRET_MSCX = `<?xml version="1.0" encoding=
   </Score>
 </museScore>`;
 
+const TAB_PITCH_MISMATCH_MSCX = `<?xml version="1.0" encoding="UTF-8"?>
+<museScore version="4.00">
+  <Score>
+    <Part>
+      <trackName>Mismatched Tab</trackName>
+      <Staff id="1">
+        <StaffType group="tablature"/>
+      </Staff>
+    </Part>
+    <Staff id="1">
+      <Measure>
+        <voice>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note>
+              <pitch>60</pitch>
+              <string>1</string>
+              <fret>3</fret>
+            </Note>
+          </Chord>
+        </voice>
+      </Measure>
+    </Staff>
+  </Score>
+</museScore>`;
+
+const MULTI_VOICE_PICKUP_MSCX = `<?xml version="1.0" encoding="UTF-8"?>
+<museScore version="4.60">
+  <Score>
+    <Part>
+      <trackName>Classical Guitar</trackName>
+      <Staff id="1">
+        <StaffType group="tablature"/>
+      </Staff>
+    </Part>
+    <Staff id="1">
+      <Measure>
+        <voice>
+          <TimeSig>
+            <sigN>3</sigN>
+            <sigD>4</sigD>
+          </TimeSig>
+          <Rest><durationType>quarter</durationType></Rest>
+          <Rest><durationType>quarter</durationType></Rest>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note><pitch>52</pitch><string>3</string><fret>2</fret></Note>
+          </Chord>
+        </voice>
+      </Measure>
+      <Measure>
+        <voice>
+          <Rest><durationType>quarter</durationType></Rest>
+          <Rest><durationType>quarter</durationType></Rest>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note><pitch>61</pitch><string>1</string><fret>2</fret></Note>
+          </Chord>
+        </voice>
+        <voice>
+          <Chord>
+            <durationType>half</durationType>
+            <Note><pitch>57</pitch><string>2</string><fret>2</fret></Note>
+          </Chord>
+          <Rest><durationType>eighth</durationType></Rest>
+          <Chord>
+            <durationType>eighth</durationType>
+            <Note><pitch>57</pitch><string>2</string><fret>2</fret></Note>
+          </Chord>
+        </voice>
+      </Measure>
+    </Staff>
+  </Score>
+</museScore>`;
+
 describe('musescore-file-import', () => {
   it('loads MSCX tracks and converts selected track to melody events', async () => {
     const loaded = await loadMusescoreFileFromBytes(
@@ -254,5 +329,47 @@ describe('musescore-file-import', () => {
     expect(selected).toBeTruthy();
     expect(selected?.isTablature).toBe(true);
     expect(selected?.name.toLowerCase()).toContain('tablature');
+  });
+
+  it('trusts tablature string/fret over pitch metadata when they disagree', async () => {
+    const loaded = await loadMusescoreFileFromBytes(
+      new TextEncoder().encode(TAB_PITCH_MISMATCH_MSCX),
+      'tab-pitch-mismatch.mscx',
+      instruments.guitar
+    );
+    const imported = convertLoadedMusescoreTrackToImportedMelody(
+      loaded,
+      instruments.guitar,
+      loaded.defaultTrackIndex ?? 0,
+      { quantize: 'off' }
+    );
+
+    expect(imported.events).toHaveLength(1);
+    expect(imported.events[0]?.notes[0]).toMatchObject({
+      note: 'G',
+      stringName: 'e',
+      fret: 3,
+    });
+  });
+
+  it('keeps later-measure voices anchored to the current measure start tick', async () => {
+    const loaded = await loadMusescoreFileFromBytes(
+      new TextEncoder().encode(MULTI_VOICE_PICKUP_MSCX),
+      'multi-voice-pickup.mscx',
+      instruments.guitar
+    );
+    const imported = convertLoadedMusescoreTrackToImportedMelody(
+      loaded,
+      instruments.guitar,
+      loaded.defaultTrackIndex ?? 0,
+      { quantize: 'off' }
+    );
+
+    expect(imported.events.slice(0, 4)).toEqual([
+      { barIndex: 0, durationBeats: 1, notes: [{ note: 'E', stringName: 'D', fret: 2 }] },
+      { barIndex: 1, durationBeats: 2, notes: [{ note: 'A', stringName: 'G', fret: 2 }] },
+      { barIndex: 1, durationBeats: 0.5, notes: [{ note: 'C#', stringName: 'B', fret: 2 }] },
+      { barIndex: 1, durationBeats: 0.5, notes: [{ note: 'A', stringName: 'G', fret: 2 }] },
+    ]);
   });
 });
