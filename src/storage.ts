@@ -16,6 +16,7 @@ import {
   setMelodySetupCollapsed,
   setPracticeSetupCollapsed,
   setSessionToolsCollapsed,
+  setUiMode,
 } from './ui-signals';
 import { DEFAULT_A4_FREQUENCY } from './constants';
 import { loadInstrumentSoundfont } from './audio';
@@ -29,7 +30,7 @@ import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from './mic-note-hold-filter';
 import { normalizeMicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
-import { normalizeMelodyFingeringLevel, normalizeMelodyFingeringStrategy } from './melody-fingering';
+import { normalizeMelodyFingeringLevel } from './melody-fingering';
 import { normalizePerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import {
   normalizePerformanceTimingLeniencyPreset,
@@ -60,6 +61,7 @@ import {
   resetStats,
   saveLastSessionAnalysisBundle,
   saveLastSessionStats,
+  savePerformanceStarResults,
   saveStats,
   updateStats,
 } from './storage-stats';
@@ -67,6 +69,7 @@ import {
   applyStoredMelodySettings,
   resolveStoredMelodySettings,
 } from './storage-melody-settings';
+import { normalizeUiMode } from './ui-mode';
 
 export {
   getProfiles,
@@ -80,6 +83,7 @@ export {
   flushPendingStatsSave,
   saveLastSessionAnalysisBundle,
   saveLastSessionStats,
+  savePerformanceStarResults,
   loadStats,
   resetStats,
   updateStats,
@@ -98,7 +102,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     existingProfile.enabledStrings
       ? { ...existingProfile.enabledStrings }
       : { guitar: [], ukulele: [] };
-  enabledStrings[state.currentInstrument.name] = currentEnabledStrings;
+    enabledStrings[state.currentInstrument.name] = currentEnabledStrings;
 
   return {
     instrument: state.currentInstrument.name,
@@ -134,6 +138,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     endFret: dom.endFret.value,
     enabledStrings: enabledStrings,
     trainingMode: dom.trainingMode.value,
+    uiMode: state.uiMode,
     sessionGoal: dom.sessionGoal.value,
     sessionPace: state.sessionPace,
     practiceSetupCollapsed: getPracticeSetupCollapsed(),
@@ -218,7 +223,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.melodyTimelineViewMode =
       safeSettings.melodyTimelineViewMode === 'grid' ? 'grid' : 'classic';
     dom.timelineViewMode.value = state.melodyTimelineViewMode;
-    state.melodyFingeringStrategy = normalizeMelodyFingeringStrategy(safeSettings.melodyFingeringStrategy);
+    state.melodyFingeringStrategy = 'minimax';
     dom.melodyFingeringStrategy.value = state.melodyFingeringStrategy;
     dom.melodyFingeringStrategyQuick.value = state.melodyFingeringStrategy;
     state.melodyFingeringLevel = normalizeMelodyFingeringLevel(safeSettings.melodyFingeringLevel);
@@ -254,6 +259,8 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.startFret.value = safeSettings.startFret ?? '0';
     dom.endFret.value = safeSettings.endFret ?? '20';
     dom.trainingMode.value = safeSettings.trainingMode ?? getDefaultTrainingMode();
+    state.uiMode = normalizeUiMode(safeSettings.uiMode);
+    setUiMode(state.uiMode);
     dom.sessionGoal.value = safeSettings.sessionGoal ?? 'none';
     state.sessionPace = normalizeSessionPace(safeSettings.sessionPace);
     dom.sessionPace.value = state.sessionPace;
@@ -334,7 +341,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.performanceMicLatencyCompensationMs = normalizePerformanceMicLatencyCompensationMs(
       dom.performanceMicLatencyCompensation.value
     );
-    state.melodyFingeringStrategy = normalizeMelodyFingeringStrategy(dom.melodyFingeringStrategy.value);
+    state.melodyFingeringStrategy = 'minimax';
     state.melodyFingeringLevel = normalizeMelodyFingeringLevel(dom.melodyFingeringLevel.value);
     dom.melodyFingeringStrategyQuick.value = state.melodyFingeringStrategy;
     state.isDirectInputMode = dom.micDirectInputMode.checked;

@@ -48,151 +48,58 @@
             </div>
           </div>
 
-          <div class="session-toolbar order-3 flex items-center justify-self-center sm:justify-self-end gap-1.5">
+          <div class="session-toolbar order-3 flex w-full flex-wrap items-start justify-end gap-1.5 sm:w-auto sm:flex-nowrap sm:items-center sm:justify-self-end sm:justify-normal">
             <div
-              class="session-status min-w-[190px] sm:min-w-[320px] flex flex-col sm:flex-row sm:items-center items-start gap-0 sm:gap-2 bg-slate-800/90 border border-slate-600 rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px]"
+              class="session-status order-2 basis-full min-w-0 flex flex-col items-start gap-0 bg-slate-800/90 border border-slate-600 rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] sm:order-none sm:basis-auto sm:min-w-[320px] sm:flex-row sm:items-center sm:gap-2"
               role="status"
             >
               <div class="flex items-center gap-1 min-w-0">
-                <span id="statusBar" class="text-slate-200 font-semibold truncate max-w-[150px] sm:max-w-[190px]">Ready</span>
+                <span id="statusBar" class="text-slate-200 font-semibold truncate max-w-[220px] sm:max-w-[190px]">Ready</span>
               </div>
-              <div class="flex items-center gap-1 text-[10px] min-w-0">
-                <span id="inputStatusBar" class="text-slate-400 truncate max-w-[100px] sm:max-w-[138px]">
+              <div class="hidden sm:flex items-center gap-1 text-[10px] min-w-0">
+                <span id="inputStatusBar" class="text-slate-400 truncate max-w-[220px] sm:max-w-[138px]">
                   Mic: Default
                 </span>
               </div>
             </div>
             <button
               id="settingsBtn"
-              class="bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors"
+              class="order-1 shrink-0 bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors sm:order-none"
               aria-label="Open app settings"
               title="App Settings"
             >
-              &#9881;&#65039;
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path d="M10.325 4.317a1 1 0 0 1 .95-.69h1.45a1 1 0 0 1 .95.69l.262.806a1 1 0 0 0 .95.69h.847a1 1 0 0 0 .707-.293l.62-.62a1 1 0 0 1 1.414 0l1.025 1.025a1 1 0 0 1 0 1.414l-.62.62a1 1 0 0 0-.293.707v.847a1 1 0 0 0 .69.95l.806.262a1 1 0 0 1 .69.95v1.45a1 1 0 0 1-.69.95l-.806.262a1 1 0 0 0-.69.95v.847a1 1 0 0 0 .293.707l.62.62a1 1 0 0 1 0 1.414l-1.025 1.025a1 1 0 0 1-1.414 0l-.62-.62a1 1 0 0 0-.707-.293h-.847a1 1 0 0 0-.95.69l-.262.806a1 1 0 0 1-.95.69h-1.45a1 1 0 0 1-.95-.69l-.262-.806a1 1 0 0 0-.95-.69h-.847a1 1 0 0 0-.707.293l-.62.62a1 1 0 0 1-1.414 0L4.95 18.78a1 1 0 0 1 0-1.414l.62-.62a1 1 0 0 0 .293-.707v-.847a1 1 0 0 0-.69-.95l-.806-.262a1 1 0 0 1-.69-.95v-1.45a1 1 0 0 1 .69-.95l.806-.262a1 1 0 0 0 .69-.95v-.847a1 1 0 0 0-.293-.707l-.62-.62a1 1 0 0 1 0-1.414L5.975 4.89a1 1 0 0 1 1.414 0l.62.62a1 1 0 0 0 .707.293h.847a1 1 0 0 0 .95-.69l.262-.806ZM12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" />
+              </svg>
             </button>
           </div>
         </div>
 
-        <div class="controls-row w-full max-w-[70rem] mx-auto grid grid-cols-[auto,minmax(0,1fr)] gap-1.5 sm:gap-3 items-center">
-          <div class="flex items-center gap-1.5">
-            <div id="melodyPlaybackControls" class="hidden flex items-center gap-1.5">
+        <div class="controls-row w-full max-w-[70rem] mx-auto grid grid-cols-1 sm:grid-cols-[auto,minmax(0,1fr)] gap-1.5 sm:gap-3 items-center">
+          <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+            <div class="order-1 flex items-center justify-end gap-1.5 sm:order-2 sm:ml-auto">
               <button
-                id="melodyDemoBtn"
-                type="button"
-                class="px-3 py-2 text-sm bg-emerald-700 hover:bg-emerald-600 border border-emerald-500 rounded-md"
+                id="sessionToggleBtn"
+                class="btn-primary min-w-[8.25rem] bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 sm:px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
               >
-                Play Melody
+                Start Session
               </button>
               <button
-                id="melodyPauseDemoBtn"
+                id="startSessionHelpBtn"
                 type="button"
-                class="px-3 py-2 text-sm bg-amber-700 hover:bg-amber-600 border border-amber-500 rounded-md disabled:bg-slate-700/60 disabled:text-slate-400 disabled:border-slate-500 disabled:cursor-not-allowed"
-                disabled
+                class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-500/80 bg-slate-700/80 text-sm font-semibold text-slate-100 transition-colors hover:bg-slate-600"
+                aria-label="Help for starting a session"
+                title="Help for starting a session"
               >
-                Pause
-              </button>
-              <button
-                id="melodyStepBackBtn"
-                type="button"
-                class="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-md disabled:bg-slate-700/60 disabled:text-slate-400 disabled:cursor-not-allowed"
-                aria-label="Melody step back"
-              >
-                &lt;
-              </button>
-              <button
-                id="melodyStepForwardBtn"
-                type="button"
-                class="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-md disabled:bg-slate-700/60 disabled:text-slate-400 disabled:cursor-not-allowed"
-                aria-label="Melody step forward"
-              >
-                &gt;
+                ?
               </button>
             </div>
-            <div
-              id="melodyDemoQuickControls"
-              class="field-tooltip-host flex items-center gap-1.5 sm:gap-2"
-              data-field-hint="Tempo and click"
-              title="Tempo and click"
-            >
-              <button
-                id="metronomeToggleBtn"
-                type="button"
-                class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-md border border-amber-500/60 bg-slate-700 text-amber-100 transition-colors hover:bg-slate-600"
-                aria-pressed="false"
-                aria-label="Toggle metronome click"
-                title="Metronome off (click to turn on)"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="h-4 w-4 sm:h-5 sm:w-5"
-                  aria-hidden="true"
-                >
-                  <path d="M13 2h-2l-1 4h4l-1-4ZM7 8h10l2 12H5L7 8Zm5 2a1 1 0 0 0-1 1v6h2v-6a1 1 0 0 0-1-1Zm4.1-4.7-1.4-1.4-2 2 1.4 1.4 2-2Zm-8.8 0 2 2L10.7 5.9l-2-2-1.4 1.4Z"/>
-                </svg>
-              </button>
-              <label for="melodyDemoBpm" class="field-tooltip-label">Tempo</label>
-              <input
-                type="range"
-                id="melodyDemoBpm"
-                min="40"
-                max="220"
-                step="1"
-                value="90"
-                class="w-44 sm:w-72 accent-cyan-400"
-                aria-label="Tempo BPM"
-              />
-              <span
-                id="melodyDemoBpmValue"
-                class="min-w-[2.4rem] text-center text-[11px] sm:text-[10px] font-semibold text-cyan-200 px-1 py-0.5"
-                >90</span
-              >
-              <label for="melodyFingeringStrategyQuick" class="field-tooltip-label">Fingering</label>
-              <select
-                id="melodyFingeringStrategyQuick"
-                class="h-9 rounded-md border border-slate-500 bg-slate-700 px-2 text-[11px] text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                aria-label="Quick auto fingering strategy"
-              >
-                <option value="minimax" selected>Minimax</option>
-                <option value="heuristic">Balanced</option>
-              </select>
-              <div
-                class="session-setting-chip inline-flex items-center gap-1"
-                aria-label="Metronome beat indicator"
-              >
-                <span
-                  id="metronomePulse"
-                  class="block h-2.5 w-2.5 rounded-full bg-slate-500 transition-all duration-100"
-                ></span>
-                <span id="metronomeBeatLabel" class="text-[10px] text-slate-300 min-w-[1.25em] text-center">-</span>
-              </div>
-              <label for="metronomeVolume" class="field-tooltip-label">Click</label>
-              <input
-                type="range"
-                id="metronomeVolume"
-                min="0"
-                max="400"
-                step="1"
-                value="100"
-                class="w-16 sm:w-20 accent-amber-300"
-                aria-label="Metronome volume"
-              />
-              <span
-                id="metronomeVolumeValue"
-                class="min-w-[2.7rem] text-center text-[11px] sm:text-[10px] font-semibold text-amber-200 px-1 py-0.5"
-                >100%</span
-              >
-              <input type="checkbox" id="metronomeEnabled" class="hidden" />
-              <input type="range" id="metronomeBpm" min="40" max="220" step="1" value="80" class="hidden" aria-hidden="true" tabindex="-1" />
-              <span id="metronomeBpmValue" class="hidden" aria-hidden="true">80</span>
-            </div>
-            <button
-              id="sessionToggleBtn"
-              class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 sm:px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
-            >
-              Start Session
-            </button>
           </div>
           <div class="hidden" aria-hidden="true">
             <button
@@ -236,43 +143,344 @@
         ></div>
       </div>
 
-      <div class="learning-controls px-3 py-1.5 bg-slate-700 rounded-lg shrink-0 text-[10px]">
+      <div id="learningControls" class="learning-controls px-3 py-1.5 bg-slate-700 rounded-lg shrink-0 text-[10px]">
         <div class="flex items-center justify-between flex-wrap gap-3">
-          <div class="min-w-0 flex flex-1 flex-col gap-2">
-            <div class="inline-flex max-w-full flex-wrap overflow-hidden rounded-lg border border-slate-500/80 bg-slate-900/50 shadow-inner shadow-black/20">
+          <div class="min-w-0 flex flex-1 flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center xl:gap-0">
+            <div
+              id="workflowSwitcher"
+              class="ff-panel-shell ff-top-panel flex flex-wrap items-center gap-1 rounded-lg border border-slate-500/70 bg-slate-900/40 px-2 py-1.5 xl:flex-none"
+              role="toolbar"
+              aria-label="Practice workflow"
+            >
               <button
-                id="practiceSetupToggleBtn"
+                id="workflowLearnNotesBtn"
                 type="button"
-                class="summary-tooltip-host panel-toggle-btn inline-flex min-h-10 items-center gap-1.5 border-r border-slate-500/80 px-3 py-2 text-[11px] font-semibold text-white transition-colors sm:gap-2"
-                aria-expanded="true"
-                aria-controls="practiceSetupPanel"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-1.5 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
               >
-                <span class="sm:hidden">Setup</span>
-                <span class="hidden sm:inline">Practice Setup</span>
-                <span id="practiceSetupChevron" class="text-slate-300">v</span>
+                Learn Notes
+                <span
+                  id="workflowLearnNotesRecommendedBadge"
+                  class="ml-1 inline-flex items-center rounded-full border border-emerald-400/60 bg-emerald-500/15 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-emerald-200"
+                >
+                  Recommended
+                </span>
               </button>
               <button
-                id="melodySetupToggleBtn"
+                id="workflowStudyMelodyBtn"
                 type="button"
-                class="summary-tooltip-host panel-toggle-btn hidden min-h-10 items-center gap-1.5 border-r border-slate-500/80 px-3 py-2 text-[11px] font-semibold text-white transition-colors sm:gap-2"
-                aria-expanded="true"
-                aria-controls="melodySetupPanel"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
               >
-                <span class="sm:hidden">Melody</span>
-                <span class="hidden sm:inline">Melody Setup</span>
-                <span id="melodySetupChevron" class="text-slate-300">v</span>
+                Study Melody
               </button>
               <button
-                id="sessionToolsToggleBtn"
+                id="workflowPracticeBtn"
                 type="button"
-                class="summary-tooltip-host panel-toggle-btn inline-flex min-h-10 items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-white transition-colors sm:gap-2"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
+              >
+                Practice
+              </button>
+              <button
+                id="workflowPerformBtn"
+                type="button"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
+              >
+                Perform
+              </button>
+              <button
+                id="workflowPerformHelpBtn"
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-500/80 bg-slate-800/70 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-label="Help for Perform workflow"
+                title="Help for Perform workflow"
+              >
+                ?
+              </button>
+              <button
+                id="workflowLibraryBtn"
+                type="button"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
+              >
+                Library
+              </button>
+              <button
+                id="workflowEditorBtn"
+                type="button"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
+              >
+                Editor
+              </button>
+            </div>
+            <div id="melodySelectorContainer" class="ff-panel-shell ff-top-panel melody-selector-container hidden">
+              <div class="field-tooltip-host flex min-w-[11.5rem] max-w-[13rem] flex-col" data-field-hint="Melody">
+                <div class="flex items-center gap-1">
+                  <label for="melodySelector" class="field-tooltip-label">Melody</label>
+                  <button
+                    id="melodyLibraryHelpBtn"
+                    type="button"
+                    class="hidden"
+                    aria-label="Help for melody selection"
+                    title="Help for melody selection"
+                  >
+                    ?
+                  </button>
+                </div>
+                <select id="melodySelector" class="h-9 min-w-0 rounded-md border border-slate-500 bg-slate-600 px-3 text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none"></select>
+              </div>
+            </div>
+            <div
+              id="melodyWorkspaceTransportSection"
+              class="ff-panel-shell ff-top-panel hidden flex-wrap items-center gap-1 rounded-lg border border-slate-500/70 bg-slate-900/40 px-2 py-1.5 xl:flex-none"
+              data-field-hint="Playback Controls"
+              aria-label="Playback Controls"
+            >
+              <span id="melodyWorkspaceTransportTitle" class="hidden">Playback Controls</span>
+              <div id="melodyWorkspaceTransportSlot" class="flex flex-wrap items-center gap-1">
+                <div id="melodyPlaybackControls" class="hidden flex items-center gap-1">
+                  <button
+                    id="melodyDemoBtn"
+                    type="button"
+                    class="playback-control-btn border border-emerald-500 bg-emerald-700 text-white transition-colors hover:bg-emerald-600"
+                    aria-label="Play melody"
+                    title="Play melody"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                      <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.68L9.54 5.98A1 1 0 0 0 8 6.82Z" />
+                    </svg>
+                  </button>
+                  <button
+                    id="melodyPauseDemoBtn"
+                    type="button"
+                    class="playback-control-btn border border-amber-500 bg-amber-700 text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:border-slate-500 disabled:bg-slate-700/60 disabled:text-slate-400"
+                    disabled
+                    aria-label="Pause playback"
+                    title="Pause playback"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                      <path d="M8 6h3v12H8zM13 6h3v12h-3z" />
+                    </svg>
+                  </button>
+                  <button
+                    id="melodyStepBackBtn"
+                    type="button"
+                    class="playback-control-btn border border-slate-500 bg-slate-700 text-slate-100 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:bg-slate-700/60 disabled:text-slate-400"
+                    aria-label="Melody step back"
+                    title="Previous step"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                      <path d="M7 6h2v12H7zM17 6.82v10.36a1 1 0 0 1-1.54.84l-8.14-5.18a1 1 0 0 1 0-1.68l8.14-5.18A1 1 0 0 1 17 6.82Z" />
+                    </svg>
+                  </button>
+                  <button
+                    id="melodyStepForwardBtn"
+                    type="button"
+                    class="playback-control-btn border border-slate-500 bg-slate-700 text-slate-100 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:bg-slate-700/60 disabled:text-slate-400"
+                    aria-label="Melody step forward"
+                    title="Next step"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                      <path d="M15 6h2v12h-2zM7 6.82v10.36a1 1 0 0 0 1.54.84l8.14-5.18a1 1 0 0 0 0-1.68L8.54 5.98A1 1 0 0 0 7 6.82Z" />
+                    </svg>
+                  </button>
+                </div>
+                <div
+                  id="melodyDemoQuickControls"
+                  class="field-tooltip-host flex flex-wrap items-center gap-1 sm:gap-1.5"
+                  data-field-hint="Tempo and click"
+                  title="Tempo and click"
+                >
+                  <div id="playbackPromptSoundHost" class="flex items-center"></div>
+                  <label
+                    class="playback-control-btn inline-flex cursor-pointer items-center gap-1 border border-slate-500 bg-slate-700 text-slate-100 transition-colors hover:bg-slate-600"
+                    title="Loop the selected melody range during playback"
+                    aria-label="Loop the selected melody range during playback"
+                  >
+                    <input id="melodyLoopRange" type="checkbox" class="sr-only peer" />
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4 text-slate-300 peer-checked:text-amber-200" aria-hidden="true">
+                      <path d="M17 7V4l4 4-4 4V9H9a4 4 0 0 0 0 8h2v2H9A6 6 0 1 1 9 7h8Zm-2 8v-3h8v2h-6v3l-4-4 4-4v3h2a6 6 0 1 1 0 12h-8v-2h8a4 4 0 1 0 0-8h-2Z" />
+                    </svg>
+                    <span class="peer-checked:text-amber-100">Loop</span>
+                  </label>
+                  <button
+                    id="metronomeToggleBtn"
+                    type="button"
+                    class="playback-control-icon-btn border border-amber-500/60 bg-slate-700 text-amber-100 transition-colors hover:bg-slate-600"
+                    aria-pressed="false"
+                    aria-label="Toggle metronome click"
+                    title="Metronome off (click to turn on)"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      class="h-4 w-4 sm:h-5 sm:w-5"
+                      aria-hidden="true"
+                    >
+                      <path d="M13 2h-2l-1 4h4l-1-4ZM7 8h10l2 12H5L7 8Zm5 2a1 1 0 0 0-1 1v6h2v-6a1 1 0 0 0-1-1Zm4.1-4.7-1.4-1.4-2 2 1.4 1.4 2-2Zm-8.8 0 2 2L10.7 5.9l-2-2-1.4 1.4Z"/>
+                    </svg>
+                  </button>
+                  <input
+                    type="range"
+                    id="melodyDemoBpm"
+                    min="40"
+                    max="220"
+                    step="1"
+                    value="90"
+                    class="playback-control-slider-tempo accent-cyan-400"
+                    aria-label="Tempo BPM"
+                    title="Tempo BPM"
+                  />
+                  <span
+                    id="melodyDemoBpmValue"
+                    class="playback-control-value text-cyan-200"
+                    >90</span
+                  >
+                  <select
+                    id="melodyFingeringStrategyQuick"
+                    class="hidden"
+                    aria-hidden="true"
+                    tabindex="-1"
+                  >
+                    <option value="minimax" selected>Minimax</option>
+                  </select>
+                  <div
+                    class="session-setting-chip inline-flex items-center gap-1"
+                    aria-label="Metronome beat indicator"
+                  >
+                    <span
+                      id="metronomePulse"
+                      class="block h-2.5 w-2.5 rounded-full bg-slate-500 transition-all duration-100"
+                    ></span>
+                    <span id="metronomeBeatLabel" class="text-[10px] text-slate-300 min-w-[1.25em] text-center">-</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="metronomeVolume"
+                    min="0"
+                    max="400"
+                    step="1"
+                    value="100"
+                    class="playback-control-slider-click accent-amber-300"
+                    aria-label="Metronome volume"
+                    title="Metronome volume"
+                  />
+                  <span
+                    id="metronomeVolumeValue"
+                    class="playback-control-value text-amber-200"
+                    >100%</span
+                  >
+                  <input type="checkbox" id="metronomeEnabled" class="hidden" />
+                  <input type="range" id="metronomeBpm" min="40" max="220" step="1" value="80" class="hidden" aria-hidden="true" tabindex="-1" />
+                  <span id="metronomeBpmValue" class="hidden" aria-hidden="true">80</span>
+                </div>
+              </div>
+            </div>
+            <div
+              id="layoutControlsHost"
+              class="ff-panel-shell ff-top-panel hidden flex-wrap items-center gap-1 xl:flex-none"
+            >
+              <button
+                id="layoutToggleBtn"
+                type="button"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
                 aria-expanded="false"
-                aria-controls="sessionToolsPanel"
+                aria-label="Show layout controls"
+                title="Layout"
               >
-                <span class="sm:hidden">Settings</span>
-                <span class="hidden sm:inline">Session Settings</span>
-                <span id="sessionToolsChevron" class="text-slate-300">v</span>
+                Layout
               </button>
+            </div>
+            <div
+              id="uiModeSwitcher"
+              class="hidden"
+              role="toolbar"
+              aria-label="Interface detail level"
+              aria-hidden="true"
+            >
+              <button
+                id="uiModeSimpleBtn"
+                type="button"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
+                aria-label="Simple view"
+                title="Simple view"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M4 5h16v4H4V5Zm0 5h16v4H4v-4Zm0 5h16v4H4v-4Z" />
+                </svg>
+                <span class="sr-only">Simple</span>
+              </button>
+              <button
+                id="uiModeAdvancedBtn"
+                type="button"
+                class="inline-flex min-h-8 items-center rounded-md border border-slate-500/80 bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                aria-pressed="false"
+                aria-label="Advanced view"
+                title="Advanced view"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M10 6a2 2 0 1 0-4 0 2 2 0 0 0 4 0Zm8 0a2 2 0 1 0-4 0 2 2 0 0 0 4 0ZM10 18a2 2 0 1 0-4 0 2 2 0 0 0 4 0Zm8 0a2 2 0 1 0-4 0 2 2 0 0 0 4 0ZM4 7h2v10H4V7Zm6-2h4v2h-4V5Zm0 12h4v2h-4v-2Zm6-10h4v10h-4V7Z" />
+                </svg>
+                <span class="sr-only">Advanced</span>
+              </button>
+            </div>
+            <div id="topPopoverControlsRow" class="hidden max-w-full flex-wrap items-start gap-1 xl:basis-full">
+              <div id="practiceSetupPopoverHost" class="relative">
+                <button
+                  id="practiceSetupToggleBtn"
+                  type="button"
+                  class="summary-tooltip-host panel-toggle-btn inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-500/80 bg-slate-900/50 px-3 py-2 text-[11px] font-semibold text-white transition-colors sm:gap-2"
+                  aria-expanded="true"
+                  aria-controls="practiceSetupPanel"
+                >
+                  <span class="sm:hidden">Setup</span>
+                  <span class="hidden sm:inline">Practice Setup</span>
+                  <span id="practiceSetupChevron" class="text-slate-300">v</span>
+                </button>
+              </div>
+              <div id="melodySetupPopoverHost" class="relative">
+                <button
+                  id="melodySetupToggleBtn"
+                  type="button"
+                  class="summary-tooltip-host panel-toggle-btn hidden min-h-10 items-center gap-1.5 rounded-md border border-slate-500/80 bg-slate-900/50 px-3 py-2 text-[11px] font-semibold text-white transition-colors sm:gap-2"
+                  aria-expanded="true"
+                  aria-controls="melodySetupPanel"
+                >
+                  <span id="melodySetupToggleLabelMobile" class="sm:hidden">Melody</span>
+                  <span id="melodySetupToggleLabelDesktop" class="hidden sm:inline">Melody Setup</span>
+                  <span id="melodySetupChevron" class="text-slate-300">v</span>
+                </button>
+              </div>
+              <div id="sessionToolsPopoverHost" class="relative">
+                <button
+                  id="sessionToolsToggleBtn"
+                  type="button"
+                  class="summary-tooltip-host panel-toggle-btn inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-500/80 bg-slate-900/50 px-3 py-2 text-[11px] font-semibold text-white transition-colors sm:gap-2"
+                  aria-expanded="false"
+                  aria-controls="sessionToolsPanel"
+                >
+                  <span id="sessionToolsToggleLabelMobile" class="sm:hidden">Settings</span>
+                  <span id="sessionToolsToggleLabelDesktop" class="hidden sm:inline">Session Settings</span>
+                  <span id="sessionToolsChevron" class="text-slate-300">v</span>
+                </button>
+              </div>
             </div>
             <div class="hidden items-center gap-3 min-w-0 text-[10px] leading-4 text-slate-400" aria-hidden="true">
               <div
@@ -292,42 +500,59 @@
             </div>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
-            <button
-              id="hintBtn"
-              class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
-              disabled
+            <div
+              id="hintControlsHost"
+              class="ff-panel-shell ff-top-panel hidden flex-wrap items-center gap-1 xl:flex-none"
             >
-              Hint
-            </button>
+              <button
+                id="hintBtn"
+                class="ff-top-toolbar-btn"
+                disabled
+                aria-label="Show hint"
+                title="Show hint"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3c-4.97 0-9 3.58-9 8 0 4.41 4.03 8 9 8 4.96 0 9-3.59 9-8 0-4.42-4.04-8-9-8Zm0 2c3.79 0 6.96 2.5 6.96 6S15.79 17 12 17s-6.96-2.5-6.96-6S8.21 5 12 5Zm0 2.5A3.5 3.5 0 1 0 12 14a3.5 3.5 0 0 0 0-6.5Zm0 2A1.5 1.5 0 1 1 12 12a1.5 1.5 0 0 1 0-3Z" />
+                </svg>
+                <span>Hint</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <div
           id="practiceSetupPanel"
-          class="summary-tooltip-host text-[11px] leading-4"
+          class="ff-panel-shell ff-work-panel summary-tooltip-host text-[11px] leading-4"
         >
           <div
             id="practiceSetupCore"
-            data-section-hint="Core setup. Choose practice mode, difficulty, and the specific material for the current session."
-            title="Core setup. Choose practice mode, difficulty, and the specific material for the current session."
-            aria-label="Core setup"
+            data-section-hint="Note practice. Choose the training target, difficulty, and material for the current session."
+            title="Note practice. Choose the training target, difficulty, and material for the current session."
+            aria-label="Note practice"
           >
             <div class="flex flex-wrap items-end gap-1.5">
-              <div id="trainingModeField" class="field-tooltip-host flex min-w-[10.5rem] flex-col" data-field-hint="Mode">
-                <label for="trainingMode" class="field-tooltip-label">Mode</label>
+              <div id="trainingModeField" class="field-tooltip-host flex min-w-[10.5rem] flex-col" data-field-hint="Training Focus">
+                <label id="trainingModeLabel" for="trainingMode" class="field-tooltip-label">Training Focus</label>
                 <select id="trainingMode" class="h-9 rounded-md border border-slate-500 bg-slate-600 px-3 text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
-                  <option value="random">Random Note</option>
-                  <option value="adaptive">Adaptive Practice</option>
-                  <option value="free">Free Play (Live Note)</option>
-                  <option value="melody">Melodies (Follow the Notes)</option>
-                  <option value="performance">Performance (Full Run)</option>
-                  <option value="rhythm">Rhythm (On the Click)</option>
+                  <option value="random">Find the Note</option>
+                  <option value="adaptive">Practice Weak Spots</option>
+                  <option value="free">Live Note Finder</option>
+                  <option value="melody">Study Melody</option>
+                  <option value="practice">Practice</option>
+                  <option value="performance">Play Through</option>
+                  <option value="rhythm">Play on the Click</option>
                   <option value="scales">Scale Practice</option>
                   <option value="intervals">Interval Training</option>
                   <option value="chords">Chord Training</option>
-                  <option value="arpeggios">Arpeggio Training</option>
-                  <option value="progressions">Chord Progression</option>
-                  <option value="timed">Timed Challenge</option>
+                  <option value="arpeggios">Arpeggio Practice</option>
+                  <option value="progressions">Chord Progressions</option>
+                  <option value="timed">Speed Round</option>
                 </select>
               </div>
               <div class="field-tooltip-host flex min-w-[10rem] flex-col" data-field-hint="Difficulty">
@@ -380,129 +605,167 @@
         </div>
         <div
           id="melodySetupPanel"
-          class="summary-tooltip-host hidden text-[11px] leading-4"
+          class="ff-panel-shell ff-work-panel summary-tooltip-host hidden text-[11px] leading-4"
         >
-          <div id="melodySelectorContainer" class="melody-selector-container hidden">
-            <div
-              id="melodyLibrarySection"
-              class=""
-              data-section-hint="Melody library. Select a melody and manage custom entries."
-              title="Melody library. Select a melody and manage custom entries."
-              aria-label="Melody library"
-            >
-              <div id="melodyLibraryRow" class="grid gap-1.5 xl:grid-cols-[minmax(0,1fr),auto,auto,auto] xl:items-end">
-                <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="Melody">
-                  <label for="melodySelector" class="field-tooltip-label">Melody</label>
-                  <select id="melodySelector" class="h-9 min-w-0 rounded-md border border-slate-500 bg-slate-600 px-3 text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none"></select>
+          <div
+            id="melodyLibrarySection"
+            class=""
+            data-section-hint="Melody actions for the current workflow."
+            title="Melody actions for the current workflow."
+            aria-label="Melody actions"
+          >
+              <div id="melodyLibraryRow" class="flex flex-wrap items-center gap-1 md:justify-end">
+                  <button id="openMelodyImportBtn" type="button" title="Create or import a custom melody" aria-label="Create or import a custom melody" class="ff-action-btn ff-action-btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M11 4h2v7h3l-4 5-4-5h3V4Zm-6 14h14v2H5v-2Z" />
+                    </svg>
+                    Import
+                  </button>
+                  <button id="editMelodyBtn" type="button" title="Edit the selected melody" aria-label="Edit the selected melody" class="ff-action-btn ff-action-btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="m4 15.75 9.19-9.19 4.25 4.25L8.25 20H4v-4.25Zm10.6-10.6 1.06-1.06a1.5 1.5 0 0 1 2.12 0l2.12 2.12a1.5 1.5 0 0 1 0 2.12l-1.06 1.06-4.24-4.24Z" />
+                    </svg>
+                    Edit
+                  </button>
+                  <button id="exportMelodyMidiBtn" type="button" title="Export the selected custom melody to a MIDI file" aria-label="Export the selected custom melody to a MIDI file" class="ff-action-btn ff-action-btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M14 3v10.55A4 4 0 1 0 16 17V7h4V3h-6Z" />
+                    </svg>
+                    MIDI
+                  </button>
+                  <button id="bakePracticeMelodyBtn" type="button" title="Save the current transpose and string shift as a new custom melody" aria-label="Save the current transpose and string shift as a new custom melody" class="ff-action-btn ff-action-btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M6 3h10l5 5v13H3V3h3Zm1 2v4h8V5H7Zm0 8v6h10v-6H7Z" />
+                    </svg>
+                    Bake
+                  </button>
+                  <button id="deleteMelodyBtn" type="button" title="Delete the selected custom melody" aria-label="Delete the selected custom melody" class="ff-action-btn ff-action-btn-danger">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v8h-2V9Zm4 0h2v8h-2V9ZM6 7h12l-1 13H7L6 7Z" />
+                    </svg>
+                    Delete
+                  </button>
+              </div>
+              <div id="melodyEmptyState" class="mt-3 hidden rounded-md border border-cyan-700/40 bg-cyan-950/20 px-3 py-3 text-slate-100">
+                <div id="melodyEmptyStateTitle" class="text-sm font-semibold text-cyan-100">Pick a melody to start practicing.</div>
+                <p id="melodyEmptyStateDescription" class="mt-1 text-[11px] leading-4 text-cyan-50/85">
+                  Load a starter melody from the library or import your own TAB, MIDI, or MuseScore file.
+                </p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button
+                    id="melodyEmptyStateLoadStarterBtn"
+                    type="button"
+                    class="ff-action-btn ff-action-btn-primary"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M12 3 3 8l9 5 7-3.89V17h2V8L12 3Zm-5 8.18V15l5 2.78L17 15v-3.82l-5 2.78-5-2.78Z" />
+                    </svg>
+                    <span id="melodyEmptyStateLoadStarterLabel">Load Starter Melody</span>
+                  </button>
+                  <button
+                    id="melodyEmptyStateImportBtn"
+                    type="button"
+                    class="ff-action-btn ff-action-btn-secondary"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M11 4h2v7h3l-4 5-4-5h3V4Zm-6 14h14v2H5v-2Z" />
+                    </svg>
+                    <span id="melodyEmptyStateImportLabel">Import Melody</span>
+                  </button>
                 </div>
-                <button id="openMelodyImportBtn" type="button" title="Create or import a custom melody" aria-label="Create or import a custom melody" class="h-9 rounded-md border border-cyan-500 bg-cyan-700 px-2.5 text-[11px] font-semibold text-white hover:bg-cyan-600">Import</button>
-                <button id="editMelodyBtn" type="button" title="Edit the selected melody" aria-label="Edit the selected melody" class="h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">Edit</button>
-                <button id="exportMelodyMidiBtn" type="button" title="Export the selected custom melody to a MIDI file" aria-label="Export the selected custom melody to a MIDI file" class="h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">MIDI</button>
-                <button id="bakePracticeMelodyBtn" type="button" title="Save the current transpose and string shift as a new custom melody" aria-label="Save the current transpose and string shift as a new custom melody" class="h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">Bake</button>
-                <button id="deleteMelodyBtn" type="button" title="Delete the selected custom melody" aria-label="Delete the selected custom melody" class="h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">Delete</button>
               </div>
             </div>
             <div
               id="melodyPracticeSection"
               class=""
-              data-section-hint="Melody practice controls. Adjust transpose and playback behavior. Study range is edited directly on the TAB timeline, and Playback BPM lives in the top bar."
-              title="Melody practice controls. Adjust transpose and playback behavior. Study range is edited directly on the TAB timeline, and Playback BPM lives in the top bar."
+              data-section-hint="Melody practice controls. Adjust zoom, looping, and other study-focused controls."
+              title="Melody practice controls. Adjust zoom, looping, and other study-focused controls."
               aria-label="Melody practice controls"
             >
-              <div id="melodyPracticeFieldsRow" class="grid gap-1.5 xl:grid-cols-4">
+              <div id="melodyPracticeFieldsRow" class="hidden"></div>
+              <div id="melodyPracticeActionsRow" class="mt-3 flex flex-wrap items-center gap-1">
+                <div id="melodyDisplayControls" class="flex flex-wrap items-center gap-1">
+                  <label id="melodyShowNoteChip" class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowNote" type="checkbox" checked class="h-3.5 w-3.5 accent-cyan-500" />Show Note Hint</label>
+                  <label id="melodyShowTabTimelineChip" class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowTabTimeline" type="checkbox" checked class="h-3.5 w-3.5 accent-violet-500" />Show TAB Timeline</label>
+                  <label id="melodyShowScrollingTabChip" class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowScrollingTab" type="checkbox" checked class="h-3.5 w-3.5 accent-emerald-500" />Show Scroller</label>
+                </div>
+              </div>
+            </div>
+            <div
+              id="editingToolsSection"
+              class=""
+              data-section-hint="Editing tools. Change tablature positioning, study range, and reset authoring adjustments for the selected melody."
+              title="Editing tools. Change tablature positioning, study range, and reset authoring adjustments for the selected melody."
+              aria-label="Editing tools"
+            >
+              <div id="editingToolsRow" class="flex flex-wrap items-end gap-1">
+              <div id="editingToolsFieldsRow" class="flex flex-wrap items-end gap-1">
                 <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="Transpose">
                   <label for="melodyTranspose" class="field-tooltip-label">Transpose</label>
-                  <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1.5">
+                  <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1">
                     <button id="melodyTransposeDownBtn" type="button" class="h-7 w-7 rounded border border-slate-500 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Transpose melody down by one semitone">-</button>
-                    <input id="melodyTranspose" type="number" min="-12" max="12" step="1" value="0" class="h-7 w-16 rounded border border-slate-500 bg-slate-600 px-2 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Melody transpose in semitones" />
+                    <input id="melodyTranspose" type="number" min="-12" max="12" step="1" value="0" class="h-7 w-14 rounded border border-slate-500 bg-slate-600 px-1.5 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Melody transpose in semitones" />
                     <button id="melodyTransposeUpBtn" type="button" class="h-7 w-7 rounded border border-slate-500 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Transpose melody up by one semitone">+</button>
-                    <span id="melodyTransposeValue" class="ml-auto min-w-[4.5rem] rounded-md border border-cyan-400/30 bg-cyan-900/20 px-2 py-1 text-center text-[11px] font-semibold text-cyan-100">0 st</span>
+                    <span id="melodyTransposeValue" class="min-w-[4rem] rounded-md border border-cyan-400/30 bg-cyan-900/20 px-1.5 py-1 text-center text-[11px] font-semibold text-cyan-100">0 st</span>
                   </div>
                 </div>
                 <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="String Shift">
                   <label for="melodyStringShift" class="field-tooltip-label">String Shift</label>
-                  <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1.5">
+                  <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1">
                     <button id="melodyStringShiftDownBtn" type="button" class="h-7 w-7 rounded border border-slate-500 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Shift melody fingering down by one string">-</button>
-                    <input id="melodyStringShift" type="number" min="-5" max="5" step="1" value="0" class="h-7 w-16 rounded border border-slate-500 bg-slate-600 px-2 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Melody string shift" />
+                    <input id="melodyStringShift" type="number" min="-5" max="5" step="1" value="0" class="h-7 w-14 rounded border border-slate-500 bg-slate-600 px-1.5 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Melody string shift" />
                     <button id="melodyStringShiftUpBtn" type="button" class="h-7 w-7 rounded border border-slate-500 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Shift melody fingering up by one string">+</button>
-                    <span id="melodyStringShiftValue" class="ml-auto min-w-[4.8rem] rounded-md border border-emerald-400/30 bg-emerald-900/20 px-2 py-1 text-center text-[11px] font-semibold text-emerald-100">0 str</span>
+                    <span id="melodyStringShiftValue" class="min-w-[4rem] rounded-md border border-emerald-400/30 bg-emerald-900/20 px-1.5 py-1 text-center text-[11px] font-semibold text-emerald-100">0 str</span>
                   </div>
                 </div>
-                <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="TAB Zoom">
-                  <label for="melodyTimelineZoom" class="field-tooltip-label">TAB Zoom</label>
-                  <div class="flex h-9 items-center gap-2 rounded-md border border-slate-500 bg-slate-700 px-2">
-                    <span class="text-[10px] text-slate-400">-</span>
-                    <input
-                      id="melodyTimelineZoom"
-                      type="range"
-                      min="70"
-                      max="250"
-                      step="5"
-                      value="100"
-                      class="flex-1 accent-cyan-500"
-                      aria-label="TAB Timeline zoom percent"
-                    />
-                    <span class="text-[10px] text-slate-400">+</span>
-                    <span id="melodyTimelineZoomValue" class="min-w-[4.2rem] rounded-md border border-violet-400/30 bg-violet-900/20 px-2 py-1 text-center text-[11px] font-semibold text-violet-100">100%</span>
-                  </div>
-                </div>
-                <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="Scroll Zoom">
-                  <label for="scrollingTabZoom" class="field-tooltip-label">Scroll Zoom</label>
-                  <div class="flex h-9 items-center gap-2 rounded-md border border-slate-500 bg-slate-700 px-2">
-                    <span class="text-[10px] text-slate-400">-</span>
-                    <input
-                      id="scrollingTabZoom"
-                      type="range"
-                      min="70"
-                      max="170"
-                      step="5"
-                      value="100"
-                      class="flex-1 accent-emerald-500"
-                      aria-label="Scrolling panel zoom percent"
-                    />
-                    <span class="text-[10px] text-slate-400">+</span>
-                    <span id="scrollingTabZoomValue" class="min-w-[4.2rem] rounded-md border border-emerald-400/30 bg-emerald-900/20 px-2 py-1 text-center text-[11px] font-semibold text-emerald-100">100%</span>
-                  </div>
-                </div>
-                <div class="field-tooltip-host hidden flex min-w-0 flex-col" data-field-hint="Study Range" aria-hidden="true">
+                <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="Study Range">
                   <label for="melodyStudyStart" class="field-tooltip-label">Study Range</label>
-                  <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1.5">
-                    <input id="melodyStudyStart" type="number" min="1" step="1" value="1" class="h-7 w-16 rounded border border-slate-500 bg-slate-600 px-2 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Study range start step" />
+                  <div class="flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1">
+                    <input id="melodyStudyStart" type="number" min="1" step="1" value="1" class="h-7 w-12 rounded border border-slate-500 bg-slate-600 px-1.5 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Study range start step" />
                     <span class="text-[11px] text-slate-300">to</span>
-                    <input id="melodyStudyEnd" type="number" min="1" step="1" value="1" class="h-7 w-16 rounded border border-slate-500 bg-slate-600 px-2 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Study range end step" />
-                    <span id="melodyStudyValue" class="ml-auto min-w-[7rem] rounded-md border border-amber-400/30 bg-amber-900/20 px-2 py-1 text-center text-[11px] font-semibold text-amber-100">Full melody</span>
+                    <input id="melodyStudyEnd" type="number" min="1" step="1" value="1" class="h-7 w-12 rounded border border-slate-500 bg-slate-600 px-1.5 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" aria-label="Study range end step" />
+                    <span id="melodyStudyValue" class="min-w-[6.2rem] rounded-md border border-amber-400/30 bg-amber-900/20 px-1.5 py-1 text-center text-[11px] font-semibold text-amber-100">Full melody</span>
                   </div>
                 </div>
               </div>
-              <div id="melodyPracticeActionsRow" class="mt-3 flex flex-wrap items-center gap-1 xl:justify-between">
+              <div id="editingToolsActionsRow" class="flex flex-wrap items-center gap-1">
                 <div class="flex flex-wrap items-center gap-1">
-                  <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyLoopRange" type="checkbox" class="h-3.5 w-3.5 accent-amber-500" />Loop Range</label>
-                  <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowNote" type="checkbox" checked class="h-3.5 w-3.5 accent-cyan-500" />Show Note Hint</label>
-                  <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowTabTimeline" type="checkbox" checked class="h-3.5 w-3.5 accent-violet-500" />Show TAB Timeline</label>
-                  <label class="melody-setting-chip inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700/70 px-2.5 text-[11px] text-slate-200"><input id="melodyShowScrollingTab" type="checkbox" checked class="h-3.5 w-3.5 accent-emerald-500" />Show Scroller</label>
+                  <button id="melodyTransposeResetBtn" type="button" title="Reset transpose for the selected melody" aria-label="Reset transpose for the selected melody" class="ff-action-btn ff-action-btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z" />
+                    </svg>
+                    Reset
+                  </button>
+                  <button id="melodyStringShiftResetBtn" type="button" title="Reset string shift for the selected melody" aria-label="Reset string shift for the selected melody" class="ff-action-btn ff-action-btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="m7 7 3-3v2h4a5 5 0 1 1 0 10h-1v-2h1a3 3 0 1 0 0-6h-4v2L7 7Zm10 10-3 3v-2h-4a5 5 0 1 1 0-10h1v2h-1a3 3 0 1 0 0 6h4v-2l3 3Z" />
+                    </svg>
+                    Shift 0
+                  </button>
+                  <button id="melodyStudyResetBtn" type="button" title="Reset study range to the full melody" aria-label="Reset study range to the full melody" class="ff-action-btn ff-action-btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M4 4h6v2H6v4H4V4Zm10 0h6v6h-2V6h-4V4ZM4 14h2v4h4v2H4v-6Zm14 0h2v6h-6v-2h4v-4Z" />
+                    </svg>
+                    Full
+                  </button>
                 </div>
-                <div class="flex flex-wrap items-center gap-1">
-                  <button id="melodyTransposeResetBtn" type="button" title="Reset transpose for the selected melody" aria-label="Reset transpose for the selected melody" class="melody-action-chip h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">Reset</button>
-                  <button id="melodyStringShiftResetBtn" type="button" title="Reset string shift for the selected melody" aria-label="Reset string shift for the selected melody" class="melody-action-chip h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">Shift 0</button>
-                  <button id="melodyStudyResetBtn" type="button" title="Reset study range to the full melody" aria-label="Reset study range to the full melody" class="melody-action-chip h-9 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-600">Full</button>
-                </div>
+              </div>
               </div>
             </div>
-          </div>
         </div>
         <div
           id="sessionToolsPanel"
-          class="summary-tooltip-host hidden"
+          class="ff-panel-shell ff-work-panel summary-tooltip-host hidden"
         >
-          <div
-            id="sessionToolsPlanSection"
-            data-section-hint="Session plan. Set curriculum, goal, pace, and the visible fret range."
-            title="Session plan. Set curriculum, goal, pace, and the visible fret range."
-            aria-label="Session plan"
-          >
-            <div class="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+            <div
+              id="sessionToolsPlanSection"
+              data-section-hint="Learning path. Set the practice path, target, and prompt pace."
+              title="Learning path. Set the practice path, target, and prompt pace."
+              aria-label="Learning path"
+            >
+              <div class="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
               <div class="field-tooltip-host flex flex-col xl:col-span-2" data-field-hint="Curriculum">
-                <label for="curriculumPreset" class="field-tooltip-label">Curriculum</label>
+                <label for="curriculumPreset" class="field-tooltip-label">Learning Path</label>
                 <select id="curriculumPreset" class="h-9 rounded-md border border-slate-500 bg-slate-600 px-3 text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
                   <option value="custom">Custom (manual setup)</option>
                   <option value="beginner_essentials">Step 1: Beginner Essentials</option>
@@ -519,7 +782,7 @@
                 </select>
               </div>
               <div class="field-tooltip-host flex flex-col" data-field-hint="Goal">
-                <label for="sessionGoal" class="field-tooltip-label">Goal</label>
+                <label for="sessionGoal" class="field-tooltip-label">Session Goal</label>
                 <select id="sessionGoal" class="h-9 rounded-md border border-slate-500 bg-slate-600 px-3 text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
                   <option value="none">No Goal</option>
                   <option value="correct_10">10 Correct</option>
@@ -528,7 +791,7 @@
                 </select>
               </div>
               <div class="field-tooltip-host flex flex-col" data-field-hint="Pace">
-                <label for="sessionPace" class="field-tooltip-label">Pace</label>
+                <label for="sessionPace" class="field-tooltip-label">Prompt Pace</label>
                 <select id="sessionPace" class="h-9 rounded-md border border-slate-500 bg-slate-600 px-3 text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
                   <option value="slow">Slow</option>
                   <option value="normal" selected>Normal</option>
@@ -536,47 +799,37 @@
                   <option value="ultra">Ultra</option>
                 </select>
               </div>
-              <div class="field-tooltip-host flex flex-col sm:col-span-2 xl:col-span-4" data-field-hint="Visible Frets">
-                <label for="startFret" class="field-tooltip-label">Visible Frets</label>
-                <div class="flex items-center gap-1">
-                  <input type="number" id="startFret" min="0" max="24" value="0" class="h-9 w-16 rounded-md border border-slate-500 bg-slate-600 px-2 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" />
-                  <span class="text-[10px] text-slate-400">to</span>
-                  <input type="number" id="endFret" min="0" max="24" value="20" class="h-9 w-16 rounded-md border border-slate-500 bg-slate-600 px-2 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" />
-                </div>
-              </div>
             </div>
           </div>
           <div id="sessionToolsPrimaryControls" class="grid gap-1.5 xl:grid-cols-[minmax(18rem,0.9fr),minmax(22rem,1.1fr)]">
             <div
               id="sessionToolsDisplaySection"
-              data-section-hint="Display options. Control note overlays, string toggles, and prompt auto-play."
-              title="Display options. Control note overlays, string toggles, and prompt auto-play."
-              aria-label="Display options"
+              data-section-hint="Session controls. Control prompts, note highlighting, and performance strictness."
+              title="Session controls. Control prompts, note highlighting, and performance strictness."
+              aria-label="Session controls"
             >
               <div class="flex flex-col gap-1 text-[11px] text-slate-200">
-                <label id="sessionToolsShowAllNotesRow" class="session-setting-chip inline-flex items-center gap-1 cursor-pointer">
-                  <input type="checkbox" id="showAllNotes" class="h-3.5 w-3.5 accent-cyan-500" />
-                  Show All Notes
-                </label>
-                <label class="session-setting-chip inline-flex items-center gap-1 cursor-pointer">
-                  <input type="checkbox" id="showStringToggles" class="h-3.5 w-3.5 accent-cyan-500" />
-                  Show String Toggles
-                </label>
-                <label class="session-setting-chip inline-flex items-center gap-1 cursor-pointer">
-                  <input type="checkbox" id="autoPlayPromptSound" class="h-3.5 w-3.5 accent-cyan-500" checked />
-                  Auto-play Prompt Sound
-                </label>
-                <label class="session-setting-chip inline-flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    id="relaxPerformanceOctaveCheck"
-                    class="h-3.5 w-3.5 accent-cyan-500"
-                    checked
-                  />
-                  Relax Octave Check (Performance Mic)
-                </label>
-                <label class="session-setting-chip inline-flex items-center gap-1">
-                  <span>Performance Mic Tolerance</span>
+                <div id="sessionToolsLearnNotesLayoutControlsHost" class="hidden" aria-hidden="true">
+                  <label id="sessionToolsShowAllNotesRow" class="session-setting-chip inline-flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox" id="showAllNotes" class="h-3.5 w-3.5 accent-cyan-500" />
+                    Highlight All Notes
+                  </label>
+                  <label id="sessionToolsShowStringTogglesRow" class="session-setting-chip inline-flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox" id="showStringToggles" class="h-3.5 w-3.5 accent-cyan-500" />
+                    Show String Buttons
+                  </label>
+                </div>
+                <div id="sessionToolsAutoPlayPromptSoundHost" class="flex items-center">
+                  <label
+                    id="sessionToolsAutoPlayPromptSoundRow"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] text-slate-200 cursor-pointer"
+                  >
+                    <input type="checkbox" id="autoPlayPromptSound" class="h-3.5 w-3.5 accent-cyan-500" checked />
+                    Play Prompt Sound
+                  </label>
+                </div>
+                <label id="sessionToolsPitchMatchRow" class="session-setting-chip inline-flex items-center gap-1">
+                  <span>Note Accuracy</span>
                   <select
                     id="performanceMicTolerancePreset"
                     class="rounded border border-slate-500 bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-100"
@@ -586,8 +839,8 @@
                     <option value="forgiving">Forgiving (60c)</option>
                   </select>
                 </label>
-                <label class="session-setting-chip inline-flex items-center gap-1">
-                  <span>Performance Timing</span>
+                <label id="sessionToolsTimingWindowRow" class="session-setting-chip inline-flex items-center gap-1">
+                  <span>Timing Strictness</span>
                   <select
                     id="performanceTimingLeniencyPreset"
                     class="rounded border border-slate-500 bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-100"
@@ -597,8 +850,8 @@
                     <option value="forgiving">Forgiving</option>
                   </select>
                 </label>
-                <label class="session-setting-chip inline-flex items-center gap-1">
-                  <span>Mic Latency</span>
+                <label id="sessionToolsMicLatencyRow" class="session-setting-chip inline-flex items-center gap-1">
+                  <span>Input Latency</span>
                   <input
                     id="performanceMicLatencyCompensation"
                     type="range"
@@ -625,18 +878,77 @@
             </div>
             <div
               id="sessionToolsActiveStringsSection"
-              data-section-hint="Active strings. Limit practice to selected strings and hide edge toggles when not needed."
-              title="Active strings. Limit practice to selected strings and hide edge toggles when not needed."
-              aria-label="Active strings"
+              data-section-hint="Strings to use. Limit note practice to selected strings."
+              title="Strings to use. Limit note practice to selected strings."
+              aria-label="Strings to use"
             >
               <div
                 id="sessionToolsStringSelector"
                 class="flex items-center gap-1.5 flex-wrap text-[11px]"
                 role="group"
-                aria-label="Active strings"
+                aria-label="Strings to use"
               ></div>
             </div>
             <div id="metronomeQuickControls" class="hidden" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div
+          id="melodyDisplayControlsSection"
+          class="ff-panel-shell ff-work-panel summary-tooltip-host hidden flex-wrap items-center gap-1"
+          data-section-hint="Layout. Control the visible melody surfaces, zoom, and fretboard range."
+          title="Layout. Control the visible melody surfaces, zoom, and fretboard range."
+          aria-label="Layout"
+        >
+          <div id="melodyDisplayControlsSlot" class="flex flex-wrap items-center gap-1"></div>
+          <div id="layoutLearnNotesControlsHost" class="flex flex-wrap items-center gap-1"></div>
+          <div id="layoutDisplayDivider" class="h-6 w-px bg-slate-600/80"></div>
+          <div id="layoutZoomControls" class="flex flex-wrap items-end gap-1">
+            <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="TAB Zoom">
+              <label for="melodyTimelineZoom" class="field-tooltip-label">TAB Zoom</label>
+              <div class="layout-control-shell flex h-9 min-w-[15rem] items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1">
+                <span class="text-[10px] text-slate-400">-</span>
+                <input
+                  id="melodyTimelineZoom"
+                  type="range"
+                  min="70"
+                  max="250"
+                  step="5"
+                  value="100"
+                  class="flex-1 accent-cyan-500"
+                  aria-label="TAB Timeline zoom percent"
+                />
+                <span class="text-[10px] text-slate-400">+</span>
+                <span id="melodyTimelineZoomValue" class="layout-value-chip min-w-[4rem] rounded-md border border-violet-400/30 bg-violet-900/20 px-1.5 py-1 text-center text-[11px] font-semibold text-violet-100">100%</span>
+              </div>
+            </div>
+            <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="Scroll Zoom">
+              <label for="scrollingTabZoom" class="field-tooltip-label">Scroll Zoom</label>
+              <div class="layout-control-shell flex h-9 min-w-[15rem] items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1">
+                <span class="text-[10px] text-slate-400">-</span>
+                <input
+                  id="scrollingTabZoom"
+                  type="range"
+                  min="70"
+                  max="170"
+                  step="5"
+                  value="100"
+                  class="flex-1 accent-emerald-500"
+                  aria-label="Scrolling panel zoom percent"
+                />
+                <span class="text-[10px] text-slate-400">+</span>
+                <span id="scrollingTabZoomValue" class="layout-value-chip min-w-[4rem] rounded-md border border-emerald-400/30 bg-emerald-900/20 px-1.5 py-1 text-center text-[11px] font-semibold text-emerald-100">100%</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-end gap-1">
+            <div class="field-tooltip-host flex min-w-0 flex-col" data-field-hint="Visible Frets">
+              <label for="startFret" class="field-tooltip-label">Fret Range</label>
+              <div class="layout-control-shell flex h-9 items-center gap-1 rounded-md border border-slate-500 bg-slate-700 px-1">
+                <input type="number" id="startFret" min="0" max="24" value="0" class="h-7 w-14 rounded border border-slate-500 bg-slate-600 px-1.5 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" />
+                <span class="text-[10px] text-slate-400">to</span>
+                <input type="number" id="endFret" min="0" max="24" value="20" class="h-7 w-14 rounded border border-slate-500 bg-slate-600 px-1.5 text-center text-[11px] text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -775,6 +1087,82 @@
     </div>
 
     <div
+      id="onboardingModal"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    >
+      <div class="modal-content relative bg-slate-700 p-5 sm:p-7 rounded-lg shadow-xl w-full max-w-2xl">
+        <button
+          id="closeOnboardingBtn"
+          class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
+          aria-label="Close quick start"
+        >
+          &times;
+        </button>
+        <h2 class="text-2xl font-bold mb-3 text-white text-center">Quick Start</h2>
+        <p class="mb-5 text-sm text-slate-300 text-center">
+          Pick your instrument, input, and goal. The app will route you into the right workflow without exposing the full setup surface first.
+        </p>
+        <div class="grid gap-3 text-sm">
+          <div class="field-tooltip-host flex flex-col gap-1.5" data-field-hint="Instrument">
+            <label for="onboardingInstrumentSelector" class="field-tooltip-label">Instrument</label>
+            <select
+              id="onboardingInstrumentSelector"
+              class="w-full rounded-md border border-slate-500 bg-slate-600 p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+            >
+              <option value="guitar">Guitar</option>
+              <option value="ukulele">Ukulele</option>
+            </select>
+          </div>
+          <div class="field-tooltip-host flex flex-col gap-1.5" data-field-hint="Input">
+            <label for="onboardingInputSource" class="field-tooltip-label">Input</label>
+            <select
+              id="onboardingInputSource"
+              class="w-full rounded-md border border-slate-500 bg-slate-600 p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+            >
+              <option value="microphone">Microphone</option>
+              <option value="midi">MIDI</option>
+            </select>
+          </div>
+          <div class="field-tooltip-host flex flex-col gap-1.5" data-field-hint="Goal">
+            <label for="onboardingGoal" class="field-tooltip-label">Goal</label>
+            <select
+              id="onboardingGoal"
+              class="w-full rounded-md border border-slate-500 bg-slate-600 p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+            >
+              <option value="learn-notes">Learn Notes</option>
+              <option value="study-melody" selected>Study Melody</option>
+              <option value="practice">Practice</option>
+              <option value="perform">Perform</option>
+            </select>
+          </div>
+          <label class="inline-flex items-center gap-2 rounded-md border border-slate-500 bg-slate-800/50 px-3 py-2 text-slate-200">
+            <input id="onboardingDirectInputMode" type="checkbox" class="h-4 w-4 accent-cyan-500" />
+            <span>Use headphones or direct interface for fastest detection.</span>
+          </label>
+          <div class="rounded-md border border-slate-600/70 bg-slate-900/25 px-3 py-2 text-[12px] leading-5 text-slate-300">
+            After setup, you can fine-tune devices and calibration in Settings. This wizard only selects a good starting path.
+          </div>
+        </div>
+        <div class="mt-6 flex flex-wrap justify-end gap-2">
+          <button
+            id="onboardingSkipBtn"
+            type="button"
+            class="ff-action-btn ff-action-btn-secondary"
+          >
+            Skip
+          </button>
+          <button
+            id="onboardingFinishBtn"
+            type="button"
+            class="ff-action-btn ff-action-btn-primary"
+          >
+            Finish Setup
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
       id="settingsModal"
       class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     >
@@ -794,6 +1182,14 @@
         </p>
         <div id="settingsHubView" class="mx-auto grid w-full max-w-4xl grid-cols-1 gap-4 text-left sm:grid-cols-2 xl:grid-cols-3">
           <button
+            id="settingsOpenOnboardingBtn"
+            type="button"
+            class="rounded-lg border border-cyan-700 bg-cyan-950/30 p-4 text-left transition-colors hover:bg-cyan-900/40"
+          >
+            <div class="text-base font-semibold text-cyan-100">Quick Start</div>
+            <div class="mt-1 text-sm text-cyan-50/80">Reopen the onboarding flow and reset the guided starting path.</div>
+          </button>
+          <button
             id="settingsOpenAppDefaultsBtn"
             type="button"
             class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
@@ -806,16 +1202,24 @@
             type="button"
             class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
           >
-            <div class="text-base font-semibold text-white">Input &amp; Detection</div>
-            <div class="mt-1 text-sm text-slate-300">Microphone, MIDI, detector filters, and poly benchmark tools.</div>
+            <div class="text-base font-semibold text-white">Input Setup</div>
+            <div class="mt-1 text-sm text-slate-300">Microphone or MIDI selection, devices, and quick readiness checks.</div>
+          </button>
+          <button
+            id="settingsOpenDiagnosticsBtn"
+            type="button"
+            class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
+          >
+            <div class="text-base font-semibold text-white">Advanced Input Tools</div>
+            <div class="mt-1 text-sm text-slate-300">Advanced microphone tuning, detector tests, and troubleshooting readouts.</div>
           </button>
           <button
             id="settingsOpenRhythmBtn"
             type="button"
             class="rounded-lg border border-slate-600 bg-slate-800/40 p-4 text-left transition-colors hover:bg-slate-700/60"
           >
-            <div class="text-base font-semibold text-white">Rhythm &amp; Calibration</div>
-            <div class="mt-1 text-sm text-slate-300">Timing tolerance and room-noise calibration controls.</div>
+            <div class="text-base font-semibold text-white">Timing &amp; Calibration</div>
+            <div class="mt-1 text-sm text-slate-300">Timing strictness, latency presets, and room-noise calibration tools.</div>
           </button>
           <button
             id="settingsOpenProfilesBtn"
@@ -859,7 +1263,7 @@
             <button
               id="settingsSectionBackBtn"
               type="button"
-              class="self-start rounded-md border border-slate-500 bg-slate-700 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-600"
+              class="ff-action-btn ff-action-btn-secondary self-start"
             >
               Back To Sections
             </button>
@@ -919,14 +1323,14 @@
                       <option value="grid">Grid</option>
                     </select>
                   </div>
-                  <div class="field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Auto Fingering">
-                    <label for="melodyFingeringStrategy" class="field-tooltip-label">Auto Fingering</label>
+                  <div class="hidden" aria-hidden="true">
                     <select
                       id="melodyFingeringStrategy"
-                      class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                      class="hidden"
+                      aria-hidden="true"
+                      tabindex="-1"
                     >
-                      <option value="minimax" selected>Beginner Safe (Minimax)</option>
-                      <option value="heuristic">Balanced (Heuristic)</option>
+                      <option value="minimax" selected>Minimax</option>
                     </select>
                   </div>
                   <div class="field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Fingering Level">
@@ -967,7 +1371,18 @@
           >
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <div class="input-source-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Input Source">
-                <label for="inputSource" class="field-tooltip-label">Input Source</label>
+                <div class="flex items-center gap-1">
+                  <label for="inputSource" class="field-tooltip-label">Input Source</label>
+                  <button
+                    id="inputSourceHelpBtn"
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-500/80 bg-slate-700/80 text-[10px] font-semibold text-slate-200 transition-colors hover:bg-slate-600"
+                    aria-label="Help for input source"
+                    title="Help for input source"
+                  >
+                    ?
+                  </button>
+                </div>
                 <select
                   id="inputSource"
                   class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
@@ -994,8 +1409,8 @@
                   <option value="">Default MIDI device</option>
                 </select>
               </div>
-              <div id="micSensitivityRow" class="mic-sensitivity-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Mic Sensitivity">
-                <label for="micSensitivityPreset" class="field-tooltip-label">Mic Sensitivity</label>
+              <div id="micSensitivityRow" class="mic-sensitivity-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Microphone Sensitivity">
+                <label for="micSensitivityPreset" class="field-tooltip-label">Microphone Sensitivity</label>
                 <select
                   id="micSensitivityPreset"
                   class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
@@ -1006,35 +1421,44 @@
                   <option value="auto">Auto (Calibrated)</option>
                 </select>
               </div>
-              <div id="micAttackFilterRow" class="mic-attack-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Note Attack Filter">
-                <label for="micNoteAttackFilter" class="field-tooltip-label">Note Attack Filter</label>
+              <div id="practiceInputPresetRow" class="field-tooltip-host flex flex-col items-stretch md:col-span-2" data-field-hint="Input Preset">
+                <label for="practiceInputPreset" class="field-tooltip-label inline-flex items-center gap-2">
+                  <span>Input Preset</span>
+                  <span
+                    id="practiceInputPresetRecommendedBadge"
+                    class="inline-flex items-center rounded-full border border-emerald-400/60 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-200"
+                  >
+                    Recommended
+                  </span>
+                </label>
                 <select
-                  id="micNoteAttackFilter"
+                  id="practiceInputPreset"
                   class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
                 >
-                  <option value="off">Off</option>
-                  <option value="balanced" selected>Balanced</option>
-                  <option value="strong">Strong</option>
+                  <option value="quiet_room">Quiet Room</option>
+                  <option value="normal_room" selected>Normal Room</option>
+                  <option value="noisy_room">Noisy Room</option>
+                  <option value="headphones_direct">Headphones / Direct Input</option>
+                  <option value="custom">Custom</option>
                 </select>
-              </div>
-              <div id="micHoldFilterRow" class="mic-hold-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Min Note Hold Time">
-                <label for="micNoteHoldFilter" class="field-tooltip-label">Min Note Hold Time</label>
-                <select
-                  id="micNoteHoldFilter"
-                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                >
-                  <option value="off">Off</option>
-                  <option value="40ms">40 ms</option>
-                  <option value="80ms" selected>80 ms</option>
-                  <option value="120ms">120 ms</option>
-                </select>
+                <div id="practiceInputPresetInfo" class="mt-2 text-[11px] leading-4 text-slate-300">
+                  Balanced default for most microphones and rooms.
+                </div>
               </div>
               <div
                 id="micDirectInputRow"
                 class="field-tooltip-host flex flex-col items-stretch md:col-span-2"
                 data-field-hint="Headphones / Direct Input"
               >
-                <label for="micDirectInputMode" class="field-tooltip-label">Headphones / Direct Input</label>
+                <label for="micDirectInputMode" class="field-tooltip-label inline-flex items-center gap-2">
+                  <span>Headphones / Direct Input</span>
+                  <span
+                    id="micDirectInputRecommendedBadge"
+                    class="hidden inline-flex items-center rounded-full border border-amber-400/60 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-100"
+                  >
+                    Recommended in Perform
+                  </span>
+                </label>
                 <label class="inline-flex items-center gap-2 rounded-md border border-slate-500 bg-slate-700/60 px-3 py-2 text-slate-200">
                   <input
                     id="micDirectInputMode"
@@ -1043,22 +1467,11 @@
                   />
                   <span>Disable prompt-audio mute for fastest detection (use with headphones or direct interface).</span>
                 </label>
-              </div>
-              <div
-                id="micPolyphonicDetectorRow"
-                class="mic-polyphonic-detector-selector field-tooltip-host flex flex-col items-stretch md:col-span-2"
-                data-field-hint="Mic Polyphonic Detector"
-              >
-                <label for="micPolyphonicDetectorProvider" class="field-tooltip-label">
-                  Mic Polyphonic Detector
-                </label>
-                <select
-                  id="micPolyphonicDetectorProvider"
-                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                >
-                  <option value="spectrum" selected>Spectrum (Fast baseline)</option>
-                  <option value="essentia_experimental">Essentia Experimental (if available)</option>
-                </select>
+                <div
+                  id="micDirectInputRecommendationText"
+                  class="mt-2 hidden text-[11px] leading-4 text-amber-100/90"
+                  role="note"
+                ></div>
               </div>
             </div>
             <div
@@ -1073,7 +1486,7 @@
               class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
               role="note"
             >
-              Mic noise gate threshold: -
+              Background noise threshold: -
             </div>
             <div
               id="micPerformanceInfo"
@@ -1103,6 +1516,13 @@
             >
               Web MIDI requires Chrome or Edge desktop.
             </div>
+            <button
+              id="switchToMicrophoneFromMidiBtn"
+              type="button"
+              class="mt-2 hidden rounded-md border border-cyan-600/70 bg-cyan-950/35 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 transition-colors hover:bg-cyan-900/45"
+            >
+              Use Microphone Instead
+            </button>
             <div
               id="midiConnectionStatus"
               class="settings-inline-note mt-2 hidden text-[11px] leading-4 text-slate-200 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
@@ -1110,51 +1530,116 @@
             >
               MIDI Connection: -
             </div>
-            <div class="mt-2 flex flex-wrap items-center gap-2">
-              <button
-                id="runMicPolyphonicBenchmarkBtn"
-                type="button"
-                title="Run a synthetic benchmark for the selected mic polyphonic detector provider."
-                class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
-              >
-                Benchmark Poly Detector
-              </button>
-              <button
-                id="exportMicPolyphonicTelemetryBtn"
-                type="button"
-                title="Export the current live mic polyphonic detector telemetry as JSON for cross-device comparison."
-                class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
-              >
-                Export Poly Telemetry
-              </button>
-              <button
-                id="resetMicPolyphonicTelemetryBtn"
-                type="button"
-                title="Clear the current live poly detector telemetry window so you can capture a clean measurement."
-                class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
-              >
-                Reset Poly Telemetry
-              </button>
-            </div>
+          </section>
+
+          <section
+            id="settingsSectionDiagnostics"
+            class="hidden settings-card compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
+            data-section-hint="Advanced input tools. Tune the microphone engine, test detector behavior, and inspect troubleshooting readouts."
+            title="Advanced input tools. Tune the microphone engine, test detector behavior, and inspect troubleshooting readouts."
+            aria-label="Advanced input tools"
+          >
             <div
-              id="micPolyphonicBenchmarkInfo"
-              class="settings-inline-note mt-2 text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
-              role="status"
+              class="mb-3 rounded-md border border-cyan-700/40 bg-cyan-950/20 px-3 py-2 text-[11px] leading-4 text-cyan-100"
+              role="note"
             >
-              Poly benchmark: -
+              Advanced input tools live here so everyday setup stays simple. Use these controls only when you need to tune detection or troubleshoot difficult input.
+            </div>
+            <div id="settingsDiagnosticsSlot" class="space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div id="micAttackFilterRow" class="mic-attack-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Pick Attack Focus">
+                  <label for="micNoteAttackFilter" class="field-tooltip-label">Pick Attack Focus</label>
+                  <select
+                    id="micNoteAttackFilter"
+                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                  >
+                    <option value="off">Off</option>
+                    <option value="balanced" selected>Balanced</option>
+                    <option value="strong">Strong</option>
+                  </select>
+                </div>
+                <div id="micHoldFilterRow" class="mic-hold-filter-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Minimum Note Length">
+                  <label for="micNoteHoldFilter" class="field-tooltip-label">Minimum Note Length</label>
+                  <select
+                    id="micNoteHoldFilter"
+                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                  >
+                    <option value="off">Off</option>
+                    <option value="40ms">40 ms</option>
+                    <option value="80ms" selected>80 ms</option>
+                    <option value="120ms">120 ms</option>
+                  </select>
+                </div>
+                <div
+                  id="micPolyphonicDetectorRow"
+                  class="mic-polyphonic-detector-selector field-tooltip-host flex flex-col items-stretch md:col-span-2"
+                  data-field-hint="Multi-note Detector"
+                >
+                  <label for="micPolyphonicDetectorProvider" class="field-tooltip-label">
+                    Multi-note Detector
+                  </label>
+                  <select
+                    id="micPolyphonicDetectorProvider"
+                    class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                  >
+                    <option value="spectrum" selected>Spectrum (Fast baseline)</option>
+                    <option value="essentia_experimental">Essentia Experimental (if available)</option>
+                  </select>
+                </div>
+              </div>
+              <div
+                id="micNoiseGateInfo"
+                class="settings-inline-note text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+                role="note"
+              >
+                Background noise threshold: -
+              </div>
+              <div id="micPolyphonicActionsRow" class="flex flex-wrap items-center gap-2">
+                <button
+                  id="runMicPolyphonicBenchmarkBtn"
+                  type="button"
+                  title="Run a synthetic test for the selected multi-note detector."
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Test Multi-note Detector
+                </button>
+                <button
+                  id="exportMicPolyphonicTelemetryBtn"
+                  type="button"
+                  title="Export the current detector data as JSON for troubleshooting."
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Export Detector Data
+                </button>
+                <button
+                  id="resetMicPolyphonicTelemetryBtn"
+                  type="button"
+                  title="Clear the current detector data so you can capture a fresh sample."
+                  class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
+                >
+                  Clear Detector Data
+                </button>
+              </div>
+              <div
+                id="micPolyphonicBenchmarkInfo"
+                class="settings-inline-note text-[11px] leading-4 text-slate-300 bg-slate-900/25 border border-slate-600/60 rounded-md px-3 py-2"
+                role="status"
+              >
+                Detector test: -
+              </div>
             </div>
           </section>
 
           <section
             id="settingsSectionRhythm"
             class="hidden settings-card settings-card-balanced compact-section rounded-lg border border-slate-600 bg-slate-800/40 p-4"
-            data-section-hint="Rhythm and calibration. Control rhythm tolerance and calibrate the microphone noise floor."
-            title="Rhythm and calibration. Control rhythm tolerance and calibrate the microphone noise floor."
-            aria-label="Rhythm and calibration"
+            data-section-hint="Timing and calibration. Control timing strictness and measure room noise."
+            title="Timing and calibration. Control timing strictness and measure room noise."
+            aria-label="Timing and calibration"
           >
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div class="rhythm-window-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Rhythm Window">
-                <label for="rhythmTimingWindow" class="field-tooltip-label">Rhythm Window</label>
+              <div class="rhythm-window-selector field-tooltip-host flex flex-col items-stretch" data-field-hint="Rhythm Strictness">
+                <label for="rhythmTimingWindow" class="field-tooltip-label">Rhythm Strictness</label>
                 <select
                   id="rhythmTimingWindow"
                   class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-amber-400 focus:outline-none"
@@ -1164,6 +1649,41 @@
                   <option value="loose">Loose</option>
                 </select>
               </div>
+              <div class="field-tooltip-host flex flex-col items-stretch" data-field-hint="Timing Preset">
+                <label for="practiceTimingPreset" class="field-tooltip-label inline-flex items-center gap-2">
+                  <span>Timing Preset</span>
+                  <span
+                    id="practiceTimingPresetRecommendedBadge"
+                    class="inline-flex items-center rounded-full border border-emerald-400/60 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-200"
+                  >
+                    Recommended
+                  </span>
+                </label>
+                <select
+                  id="practiceTimingPreset"
+                  class="w-full bg-slate-600 border border-slate-500 rounded-md p-2 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                >
+                  <option value="beginner">Beginner Timing</option>
+                  <option value="balanced" selected>Balanced Timing</option>
+                  <option value="performance">Performance Timing</option>
+                  <option value="custom">Custom</option>
+                </select>
+                <div id="practiceTimingPresetInfo" class="mt-2 text-[11px] leading-4 text-slate-300">
+                  Balanced default for regular practice sessions.
+                </div>
+                <label
+                  id="sessionToolsRelaxPerformanceOctaveRow"
+                  class="mt-3 session-setting-chip inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-200"
+                >
+                  <input
+                    type="checkbox"
+                    id="relaxPerformanceOctaveCheck"
+                    class="h-3.5 w-3.5 accent-cyan-500"
+                    checked
+                  />
+                  Ignore Octave Mistakes
+                </label>
+              </div>
               <div
                 id="micNoiseCalibrationRow"
                 class="md:col-span-1 flex flex-col justify-end gap-2"
@@ -1171,10 +1691,10 @@
                 <button
                   id="calibrateNoiseFloorBtn"
                   type="button"
-                  title="Measure room noise and switch the mic threshold to Auto."
+                  title="Measure room noise and set the microphone threshold automatically."
                   class="px-3 py-2 text-xs font-semibold bg-slate-600 hover:bg-slate-500 border border-slate-500 rounded-md"
                 >
-                  Calibrate
+                  Measure Room Noise
                 </button>
               </div>
             </div>
@@ -1270,7 +1790,7 @@
                 id="melodyTransposeBatchCustomBtn"
                 type="button"
                 aria-label="Apply the current transpose value to all custom melodies"
-                class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+                class="ff-action-btn ff-action-btn-secondary w-full justify-center"
                 title="Set the current transpose value for all custom melodies"
               >
                 Apply to All
@@ -1302,7 +1822,7 @@
             id="exportUserDataBtn"
             type="button"
             aria-label="Export all saved app data"
-            class="settings-menu-btn w-full p-4 text-base bg-cyan-700 hover:bg-cyan-600 text-white rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-primary w-full justify-center"
             title="Export profiles, settings, stats, and custom melodies to a JSON file"
           >
             Export User Data
@@ -1311,7 +1831,7 @@
             id="importUserDataBtn"
             type="button"
             aria-label="Import saved app data"
-            class="settings-menu-btn w-full p-4 text-base bg-amber-700 hover:bg-amber-600 text-white rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-secondary w-full justify-center"
             title="Import profiles, settings, stats, and custom melodies from a JSON file"
           >
             Import User Data
@@ -1320,7 +1840,7 @@
             id="resetSavedSettingsBtn"
             type="button"
             aria-label="Reset saved settings and profiles"
-            class="settings-menu-btn w-full p-4 text-base bg-red-700 hover:bg-red-600 text-white rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-danger w-full justify-center"
             title="Clear saved settings and profiles from localStorage and return to default app state"
           >
             Reset Saved Settings
@@ -1356,13 +1876,13 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             id="openGuideBtn"
-            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-secondary w-full justify-center"
           >
             User Guide
           </button>
           <button
             id="openLinksBtn"
-            class="settings-menu-btn w-full p-4 text-base bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-secondary w-full justify-center"
           >
             Useful Links
           </button>
@@ -1392,7 +1912,7 @@
         <p id="calibrationStatus" class="mb-4 text-slate-300">Listening...</p>
         <button
           id="cancelCalibrationBtn"
-          class="mt-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+          class="ff-action-btn ff-action-btn-danger mt-2"
         >
           Cancel
         </button>
@@ -1429,27 +1949,32 @@
             <div class="text-slate-400">Accuracy</div>
             <div id="sessionSummaryAccuracy" class="text-white font-medium">-</div>
           </div>
-          <div class="rounded-md bg-indigo-900/25 border border-indigo-700/35 px-3 py-2">
-            <div class="text-indigo-200/70">Overall Score</div>
+          <div id="sessionSummaryOverallScoreCard" class="rounded-md bg-indigo-900/25 border border-indigo-700/35 px-3 py-2">
+            <div id="sessionSummaryOverallScoreLabel" class="text-indigo-200/70">Overall Score</div>
             <div id="sessionSummaryOverallScore" class="text-indigo-100 font-semibold">-</div>
           </div>
           <div class="rounded-md bg-emerald-900/25 border border-emerald-700/35 px-3 py-2">
             <div class="text-emerald-200/70">Correct</div>
             <div id="sessionSummaryCorrect" class="text-emerald-100 font-semibold">-</div>
           </div>
-          <div class="rounded-md bg-red-900/25 border border-red-700/35 px-3 py-2">
+          <div id="sessionSummaryStarsCard" class="hidden rounded-md bg-amber-900/25 border border-amber-600/35 px-3 py-2">
+            <div class="text-amber-200/70">Stars</div>
+            <div id="sessionSummaryStars" class="text-amber-100 font-semibold tracking-[0.18em]">-</div>
+            <div id="sessionSummaryStarsDetail" class="mt-1 text-[10px] leading-4 text-amber-100/80">-</div>
+          </div>
+          <div id="sessionSummaryWrongCard" class="rounded-md bg-red-900/25 border border-red-700/35 px-3 py-2">
             <div class="text-red-200/70">Wrong</div>
             <div id="sessionSummaryWrong" class="text-red-100 font-semibold">-</div>
           </div>
-          <div class="rounded-md bg-amber-900/25 border border-amber-700/35 px-3 py-2">
+          <div id="sessionSummaryMissedCard" class="rounded-md bg-amber-900/25 border border-amber-700/35 px-3 py-2">
             <div class="text-amber-200/70">Missed (No Input)</div>
             <div id="sessionSummaryMissedNoInput" class="text-amber-100 font-semibold">-</div>
           </div>
-          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+          <div id="sessionSummaryTimingAccuracyCard" class="rounded-md bg-slate-800/55 px-3 py-2">
             <div class="text-slate-400">Timing Accuracy</div>
             <div id="sessionSummaryTimingAccuracy" class="text-white font-medium">-</div>
           </div>
-          <div class="rounded-md bg-slate-800/55 px-3 py-2">
+          <div id="sessionSummaryTimingOffsetCard" class="rounded-md bg-slate-800/55 px-3 py-2">
             <div class="text-slate-400">Avg. Timing Offset</div>
             <div id="sessionSummaryTimingOffset" class="text-white font-medium">-</div>
           </div>
@@ -1461,7 +1986,7 @@
             <div class="text-slate-400">Best Streak</div>
             <div id="sessionSummaryBestStreak" class="text-white font-medium">-</div>
           </div>
-          <div class="sm:col-span-2 rounded-md bg-slate-800/55 px-3 py-2">
+          <div id="sessionSummaryTimingBreakdownCard" class="sm:col-span-2 rounded-md bg-slate-800/55 px-3 py-2">
             <div class="text-slate-400">Timing Breakdown</div>
             <div id="sessionSummaryTimingBreakdown" class="text-white font-medium text-xs leading-4">-</div>
           </div>
@@ -1470,6 +1995,13 @@
           id="sessionSummaryCoachTip"
           class="mb-3 text-xs leading-4 text-amber-100 bg-amber-900/20 border border-amber-700/35 rounded-md px-3 py-2"
           role="note"
+        >
+          -
+        </div>
+        <div
+          id="sessionSummaryNextStep"
+          class="mb-3 text-sm leading-5 text-cyan-50 bg-cyan-900/20 border border-cyan-700/35 rounded-md px-3 py-2"
+          role="status"
         >
           -
         </div>
@@ -1482,13 +2014,13 @@
         <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             id="openSummaryStatsBtn"
-            class="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+            class="ff-action-btn ff-action-btn-primary justify-center"
           >
             Open Full Stats
           </button>
           <button
             id="closeSummaryFooterBtn"
-            class="h-9 px-4 bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors text-sm"
+            class="ff-action-btn ff-action-btn-secondary justify-center"
           >
             Close
           </button>
@@ -1576,6 +2108,11 @@
                 <div class="text-slate-400">Best Streak</div>
                 <div id="statsLastSessionBestStreak" class="text-white font-medium">-</div>
               </div>
+              <div id="statsLastSessionStarsCard" class="hidden rounded-md bg-amber-900/25 border border-amber-600/35 px-2 py-2">
+                <div class="text-amber-200/70">Stars</div>
+                <div id="statsLastSessionStars" class="text-amber-100 font-medium tracking-[0.18em]">-</div>
+                <div id="statsLastSessionStarsDetail" class="mt-1 text-[10px] leading-4 text-amber-100/80">-</div>
+              </div>
             </div>
 
             <div
@@ -1655,21 +2192,54 @@
         <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           <button
             id="repeatLastSessionBtn"
-            class="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+            class="ff-action-btn ff-action-btn-primary justify-center"
           >
             Repeat Last Session Setup
           </button>
           <button
             id="practiceWeakSpotsBtn"
-            class="h-9 px-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md transition-colors text-sm"
+            class="ff-action-btn ff-action-btn-primary justify-center"
           >
             Practice Weak Spots
           </button>
           <button
             id="resetStatsBtn"
-            class="h-9 px-4 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm"
+            class="ff-action-btn ff-action-btn-danger justify-center"
           >
             Reset All Stats
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="quickHelpModal"
+      class="modal-overlay hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[52]"
+    >
+      <div class="modal-content relative bg-slate-700 p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-lg">
+        <button
+          id="closeQuickHelpBtn"
+          class="modal-close-btn absolute top-2 right-4 text-slate-400 hover:text-white text-4xl cursor-pointer"
+          aria-label="Close quick help"
+        >
+          &times;
+        </button>
+        <h2 id="quickHelpTitle" class="text-xl sm:text-2xl font-bold mb-3 text-white">Quick Help</h2>
+        <div id="quickHelpBody" class="space-y-2 text-sm leading-6 text-slate-200"></div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button
+            id="quickHelpOpenGuideBtn"
+            type="button"
+            class="ff-action-btn ff-action-btn-primary"
+          >
+            Open Full Guide
+          </button>
+          <button
+            id="quickHelpDoneBtn"
+            type="button"
+            class="ff-action-btn ff-action-btn-secondary"
+          >
+            Done
           </button>
         </div>
       </div>
@@ -1702,28 +2272,38 @@
             </p>
             <p>The core loop is simple:</p>
             <ol class="list-decimal list-inside space-y-1 pl-4">
-              <li>Click <strong>"Start Session"</strong>.</li>
-              <li>Look at the <strong>prompt</strong> (e.g., "Find: G on D string").</li>
-              <li>Play that note on your instrument.</li>
-              <li>Get instant feedback on your accuracy!</li>
+              <li>Choose a <strong>Workflow</strong> that matches your goal.</li>
+              <li>Use the main action button for active practice workflows: <strong>Start Session</strong>, <strong>Start Study</strong>, <strong>Start Practice</strong>, or <strong>Start Run</strong>.</li>
+              <li>In <strong>Library</strong> and <strong>Editor</strong>, use the workflow buttons and melody actions inside the panel instead of a top run button.</li>
+              <li>Follow the current prompt or melody task.</li>
+              <li>Play and use the live feedback to adjust your accuracy and timing.</li>
             </ol>
           </div>
           <div class="space-y-2">
             <h4 class="text-lg font-bold text-white border-b border-slate-600 pb-1">
-              2. Practice Setup, Session Settings, and App Settings
+              2. Workflows, Options, and App Settings
             </h4>
             <ul class="list-disc list-inside space-y-2 pl-4">
               <li>
-                <strong>Practice Setup:</strong> Use the <strong>Practice Setup</strong> button to
-                choose what you are training, such as mode, difficulty, and core mode-specific material.
-                It auto-collapses when a session starts.
+                <strong>Learn Notes:</strong> Use this workflow to train fretboard knowledge, note finding, intervals, scales, chords, and related note-study tasks.
               </li>
               <li>
-                <strong>Session Settings:</strong> Use <strong>Session Settings</strong> for session
-                planning and visual aids, such as curriculum, goal, fret range,
-                <strong>Show All Notes</strong>, and
-                <strong>Show String Toggles</strong>. In some modes (for example Rhythm), this
-                panel is hidden to reduce clutter.
+                <strong>Study Melody:</strong> Use this workflow for step-by-step melody study. The app waits for the correct note before moving forward.
+              </li>
+              <li>
+                <strong>Practice:</strong> Use this workflow to drill the melody continuously and build consistency before a final performance run.
+              </li>
+              <li>
+                <strong>Perform:</strong> Use this workflow for the final full-run check. The melody keeps moving and your timing and pitch are graded in real time.
+              </li>
+              <li>
+                <strong>Library:</strong> Use this workflow to browse, preview, export, and organize melodies without changing source notes.
+              </li>
+              <li>
+                <strong>Editor:</strong> Use this workflow to create new melodies, import TAB/MIDI/MuseScore/Guitar Pro, and edit source notes in the preview or timeline.
+              </li>
+              <li>
+                <strong>Workflow panels:</strong> Each workflow now shows its relevant panels directly, without extra setup buttons. Learn Notes shows note practice controls, melody workflows show melody controls, and Perform adds only the run-specific settings.
               </li>
               <li>
                 <strong>App Settings:</strong> Open the gear icon for global preferences like
@@ -1743,8 +2323,8 @@
                   </li>
                 </ul>
               </li>
-              <li><strong>Mode:</strong> This lives in Practice Setup.</li>
-              <li><strong>Curriculum / Goal / Pace / Frets:</strong> These live in Session Settings.</li>
+              <li><strong>Mode:</strong> In <strong>Advanced</strong> view, detailed sub-modes still live inside the note-training workflow.</li>
+              <li><strong>Import and melody editing:</strong> These are most useful inside <strong>Editor</strong>, while <strong>Library</strong> is better for preview, export, and cleanup.</li>
             </ul>
           </div>
           <div class="space-y-2">
@@ -1757,8 +2337,7 @@
                 speaker icon plays a high-quality sound of the target note.
               </li>
               <li>
-                <strong>Start/Stop & Status:</strong> Start a session with the main button. The
-                status badge in the top-right shows the current state (Ready / Listening / etc.).
+                <strong>Main Action & Status:</strong> The top button changes with the active workflow. The status badge shows the current state, such as Ready or Listening.
               </li>
               <li>
                 <strong>Live Tuner:</strong> Perfect your intonation. The needle shows if you're
@@ -1849,7 +2428,7 @@
           />
           <button
             id="confirmSaveProfileBtn"
-            class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold h-10 px-5 rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-primary"
           >
             Save
           </button>
@@ -1914,7 +2493,7 @@
                   type="button"
                   title="Import a Guitar Pro file"
                   aria-label="Import a Guitar Pro file"
-                  class="bg-violet-700 hover:bg-violet-600 border border-violet-500 text-white font-semibold h-9 px-3 rounded-md transition-colors"
+                  class="ff-action-btn border border-violet-500 bg-violet-700 text-white hover:bg-violet-600"
                 >
                   GP...
                 </button>
@@ -1923,7 +2502,7 @@
                   type="button"
                   title="Import a MIDI or MuseScore file"
                   aria-label="Import a MIDI or MuseScore file"
-                  class="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 text-white font-semibold h-9 px-3 rounded-md transition-colors"
+                  class="ff-action-btn border border-indigo-500 bg-indigo-700 text-white hover:bg-indigo-600"
                 >
                   MIDI/MSCZ...
                 </button>
@@ -1932,7 +2511,7 @@
                 <button
                   id="cancelMelodyImportBtn"
                   type="button"
-                  class="bg-slate-600 hover:bg-slate-500 text-white font-semibold h-9 px-3 rounded-md transition-colors"
+                  class="ff-action-btn ff-action-btn-secondary"
                 >
                   Cancel
                 </button>
@@ -1941,7 +2520,7 @@
                   type="button"
                   title="Save melody to the library"
                   aria-label="Save melody to the library"
-                  class="bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 text-white font-semibold h-9 px-3 rounded-md transition-colors"
+                  class="ff-action-btn ff-action-btn-primary"
                 >
                   Save
                 </button>
@@ -1964,7 +2543,7 @@
                     type="button"
                     title="Use the selected GP track as the imported melody"
                     aria-label="Use the selected GP track as the imported melody"
-                    class="bg-violet-700 hover:bg-violet-600 border border-violet-500 text-white font-semibold h-9 px-3 rounded-md transition-colors"
+                    class="ff-action-btn border border-violet-500 bg-violet-700 text-white hover:bg-violet-600"
                   >
                     Use
                   </button>
@@ -1998,7 +2577,7 @@
                     type="button"
                     title="Use the selected MIDI track as the imported melody"
                     aria-label="Use the selected MIDI track as the imported melody"
-                    class="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 text-white font-semibold h-9 px-3 rounded-md transition-colors"
+                    class="ff-action-btn border border-indigo-500 bg-indigo-700 text-white hover:bg-indigo-600"
                   >
                     Use
                   </button>
@@ -2030,14 +2609,14 @@
                     <button
                       id="melodyEventEditorUndoBtn"
                       type="button"
-                      class="h-8 rounded-md border border-slate-500 bg-slate-700 px-2 text-[11px] font-semibold text-slate-100 hover:bg-slate-600"
+                      class="ff-action-btn ff-action-btn-secondary"
                     >
                       Undo
                     </button>
                     <button
                       id="melodyEventEditorRedoBtn"
                       type="button"
-                      class="h-8 rounded-md border border-slate-500 bg-slate-700 px-2 text-[11px] font-semibold text-slate-100 hover:bg-slate-600"
+                      class="ff-action-btn ff-action-btn-secondary"
                     >
                       Redo
                     </button>
@@ -2065,14 +2644,14 @@
                   <button
                     id="melodyEventEditorAddBtn"
                     type="button"
-                    class="h-9 rounded-md border border-emerald-500 bg-emerald-700 px-3 text-[11px] font-semibold text-white hover:bg-emerald-600"
+                    class="ff-action-btn ff-action-btn-primary"
                   >
                     Add Note
                   </button>
                   <button
                     id="melodyEventEditorDeleteBtn"
                     type="button"
-                    class="h-9 rounded-md border border-red-500 bg-red-700 px-3 text-[11px] font-semibold text-white hover:bg-red-600"
+                    class="ff-action-btn ff-action-btn-danger"
                   >
                     Delete Note
                   </button>
@@ -2110,13 +2689,13 @@
         <div class="flex justify-end gap-3">
           <button
             id="confirmCancelBtn"
-            class="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-secondary"
           >
             Cancel
           </button>
           <button
             id="confirmOkBtn"
-            class="btn-primary bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+            class="ff-action-btn ff-action-btn-danger"
           >
             Confirm
           </button>

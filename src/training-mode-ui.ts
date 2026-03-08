@@ -14,13 +14,15 @@ export interface TrainingModeUiVisibility {
 export function getTrainingModeUiVisibility(mode: string): TrainingModeUiVisibility {
   const helperText =
     mode === 'free'
-      ? 'Live Note Finder detects pitch (note name), not the exact string. The fretboard highlights all possible positions for the played note.'
+      ? 'Live Note Finder detects the played pitch, not the exact string. The fretboard highlights playable positions for that note.'
       : mode === 'rhythm'
-        ? 'Rhythm mode grades timing against the click. Play any note on each click; the app shows early/late timing in milliseconds.'
+        ? 'Play on the Click grades timing against the metronome. Play any note on each beat and the app will show whether you were early or late.'
+        : mode === 'practice'
+          ? 'Practice keeps the melody moving continuously so you can drill the full phrase or song repeatedly before a final Perform run.'
         : mode === 'performance'
-          ? 'Performance mode plays through the selected melody continuously. Each event is graded inside its timing window without pausing the run.'
+          ? 'Play Through keeps the melody moving continuously. Each note is graded inside its timing window without pausing the run.'
         : mode === 'melody'
-          ? 'Melody mode advances one note at a time. The next note appears only after you play the correct note.'
+          ? 'Study Melody advances one note at a time. The next note appears only after you play the correct note.'
         : '';
 
   return {

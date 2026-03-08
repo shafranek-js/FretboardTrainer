@@ -2,6 +2,7 @@ import type { IInstrument } from './instruments/instrument';
 import { getMelodyById } from './melody-library';
 import { normalizeMelodyStudyRange } from './melody-study-range';
 import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
+import { isPerformanceStyleMode } from './training-mode-groups';
 
 export interface SessionInitialTimelinePreviewInput {
   trainingMode: string;
@@ -20,7 +21,7 @@ export interface SessionInitialTimelinePreview {
 export function buildSessionInitialTimelinePreview(
   input: SessionInitialTimelinePreviewInput
 ): SessionInitialTimelinePreview | null {
-  if (input.trainingMode !== 'performance' || !input.selectedMelodyId) {
+  if (!isPerformanceStyleMode(input.trainingMode) || !input.selectedMelodyId) {
     return null;
   }
 

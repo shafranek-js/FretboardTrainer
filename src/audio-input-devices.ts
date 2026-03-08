@@ -1,5 +1,6 @@
 import { dom, state } from './state';
 import { updateSessionInputStatusHud } from './input-source-status';
+import { refreshAudioInputGuidanceUi } from './audio-input-guidance-ui';
 
 function buildAudioInputOptionLabel(device: MediaDeviceInfo, index: number) {
   const trimmedLabel = device.label.trim();
@@ -25,6 +26,7 @@ export async function refreshAudioInputDeviceOptions() {
   if (!mediaDevices?.enumerateDevices) {
     dom.audioInputDevice.innerHTML = '<option value="">Microphone selection not supported</option>';
     dom.audioInputDevice.disabled = true;
+    refreshAudioInputGuidanceUi();
     return;
   }
 
@@ -56,11 +58,13 @@ export async function refreshAudioInputDeviceOptions() {
       state.preferredAudioInputDeviceId = null;
     }
     updateSessionInputStatusHud();
+    refreshAudioInputGuidanceUi();
   } catch (error) {
     console.warn('Failed to enumerate audio input devices:', error);
     dom.audioInputDevice.innerHTML = '<option value="">Default microphone</option>';
     dom.audioInputDevice.disabled = false;
     dom.audioInputDevice.value = '';
     updateSessionInputStatusHud();
+    refreshAudioInputGuidanceUi();
   }
 }

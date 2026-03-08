@@ -63,13 +63,13 @@ describe('getTrainingModeUiVisibility', () => {
   });
 
   it('shows explanatory helper text for free mode', () => {
-    expect(getTrainingModeUiVisibility('free').helperText).toContain('detects pitch');
+    expect(getTrainingModeUiVisibility('free').helperText).toContain('played pitch');
   });
 
   it('shows explanatory helper text and hides hint for rhythm mode', () => {
     const visibility = getTrainingModeUiVisibility('rhythm');
     expect(visibility.showHintButton).toBe(false);
-    expect(visibility.helperText).toContain('timing against the click');
+    expect(visibility.helperText).toContain('grades timing against the metronome');
   });
 
   it('shows melody selector and helper text for melody mode', () => {
@@ -77,7 +77,15 @@ describe('getTrainingModeUiVisibility', () => {
     expect(visibility.showMelodySelector).toBe(true);
     expect(visibility.showHintButton).toBe(false);
     expect(visibility.showFretboardMonitoring).toBe(false);
-    expect(visibility.helperText).toContain('advances one note at a time');
+    expect(visibility.helperText).toContain('Study Melody advances one note at a time');
+  });
+
+  it('treats practice as a melody workflow mode', () => {
+    const visibility = getTrainingModeUiVisibility('practice');
+    expect(visibility.showMelodySelector).toBe(true);
+    expect(visibility.showHintButton).toBe(false);
+    expect(visibility.showFretboardMonitoring).toBe(false);
+    expect(visibility.helperText).toContain('drill the full phrase or song repeatedly');
   });
 
   it('treats performance as a melody workflow mode', () => {

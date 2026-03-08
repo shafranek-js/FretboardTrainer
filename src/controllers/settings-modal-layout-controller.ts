@@ -1,6 +1,7 @@
 type SettingsModalSection =
   | 'appDefaults'
   | 'inputDetection'
+  | 'diagnostics'
   | 'rhythm'
   | 'profiles'
   | 'tools'
@@ -13,6 +14,7 @@ interface SettingsModalLayoutDom {
   settingsSectionDescription: HTMLElement;
   settingsSectionAppDefaults: HTMLElement;
   settingsSectionInputDetection: HTMLElement;
+  settingsSectionDiagnostics: HTMLElement;
   settingsSectionRhythm: HTMLElement;
   settingsSectionProfiles: HTMLElement;
   settingsSectionTools: HTMLElement;
@@ -31,12 +33,16 @@ const SECTION_CONFIGS: Record<SettingsModalSection, Omit<SectionConfig, 'element
     description: 'Instrument, tuning, note names, and timeline defaults.',
   },
   inputDetection: {
-    title: 'Input & Detection',
-    description: 'Microphone, MIDI, detector filters, and polyphonic detector tools.',
+    title: 'Input Setup',
+    description: 'Microphone or MIDI selection, devices, and quick readiness checks.',
+  },
+  diagnostics: {
+    title: 'Advanced Input Tools',
+    description: 'Advanced microphone tuning, detector tests, and troubleshooting readouts.',
   },
   rhythm: {
-    title: 'Rhythm & Calibration',
-    description: 'Timing tolerance and noise calibration for microphone-based practice.',
+    title: 'Timing & Calibration',
+    description: 'Timing strictness, input latency, and room-noise calibration.',
   },
   profiles: {
     title: 'Profiles',
@@ -56,6 +62,7 @@ export function createSettingsModalLayoutController(dom: SettingsModalLayoutDom)
   const sections: Record<SettingsModalSection, SectionConfig> = {
     appDefaults: { ...SECTION_CONFIGS.appDefaults, element: dom.settingsSectionAppDefaults },
     inputDetection: { ...SECTION_CONFIGS.inputDetection, element: dom.settingsSectionInputDetection },
+    diagnostics: { ...SECTION_CONFIGS.diagnostics, element: dom.settingsSectionDiagnostics },
     rhythm: { ...SECTION_CONFIGS.rhythm, element: dom.settingsSectionRhythm },
     profiles: { ...SECTION_CONFIGS.profiles, element: dom.settingsSectionProfiles },
     tools: { ...SECTION_CONFIGS.tools, element: dom.settingsSectionTools },

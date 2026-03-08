@@ -8,7 +8,7 @@ export interface SessionInitialPromptPlan {
 }
 
 export function buildSessionInitialPromptPlan(trainingMode: string): SessionInitialPromptPlan {
-  if (trainingMode === 'performance') {
+  if (trainingMode === 'performance' || trainingMode === 'practice') {
     return {
       delayMs: PERFORMANCE_SESSION_PREROLL_MS,
       prepMessage: 'Get ready...',

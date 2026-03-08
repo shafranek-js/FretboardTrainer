@@ -87,7 +87,11 @@ export function createMelodyEventEditorController(deps: MelodyEventEditorControl
     resetState();
     deps.dom.melodyPreviewStatus.textContent = 'Parse error';
     deps.dom.melodyPreviewStatus.className = 'text-xs text-red-300';
-    deps.dom.melodyPreviewSummary.textContent = deps.formatUserFacingError(prefix, error);
+    const actionableNextStep =
+      prefix.toLowerCase().includes('import') || prefix.toLowerCase().includes('preview')
+        ? 'Try another file or track, or paste ASCII tab instead.'
+        : 'Check the source data and try again.';
+    deps.dom.melodyPreviewSummary.textContent = `${deps.formatUserFacingError(prefix, error)} ${actionableNextStep}`;
     deps.dom.melodyPreviewList.innerHTML = '';
     deps.onStateChange();
   }

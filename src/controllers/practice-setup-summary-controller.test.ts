@@ -31,7 +31,7 @@ function createDeps(overrides?: { trainingMode?: string; melodySelected?: boolea
   return {
     deps: {
       dom: {
-        trainingMode: createSelect(overrides?.trainingMode ?? 'melody', 'Melodies (Follow the Notes)'),
+        trainingMode: createSelect(overrides?.trainingMode ?? 'melody', 'Study Melody'),
         difficulty: createSelect('natural', 'Natural Notes Only'),
         curriculumPreset: createSelect('custom', 'Custom'),
         sessionGoal: createSelect('10-correct', '10 Correct'),
@@ -55,7 +55,7 @@ function createDeps(overrides?: { trainingMode?: string; melodySelected?: boolea
       getEnabledStringsCount: vi.fn(() => 2),
       getSelectedMelody: vi.fn(() => selectedMelody),
       getStoredMelodyStudyRangeText: vi.fn(() => 'Steps 1-8'),
-      isMelodyWorkflowMode: vi.fn((mode: string) => mode === 'melody' || mode === 'performance'),
+      isMelodyWorkflowMode: vi.fn((mode: string) => mode === 'melody' || mode === 'practice' || mode === 'performance'),
       formatMelodyTransposeSemitones: vi.fn(() => '-2 st'),
       formatMelodyStringShift: vi.fn(() => '+1 str'),
       setPracticeSetupSummary: practiceSummary,
@@ -75,10 +75,10 @@ describe('practice-setup-summary-controller', () => {
 
     controller.update();
 
-    expect(practiceSummary).toHaveBeenCalledWith('Melodies (Follow the Notes) | Natural Notes Only');
-    expect(sessionSummary).toHaveBeenCalledWith('Frets 0-24 | Strings 2/6 | 10 Correct | Pace: Ultra | Custom');
+    expect(practiceSummary).toHaveBeenCalledWith('Study Melody | Natural Notes Only | Frets 0-24');
+    expect(sessionSummary).toHaveBeenCalledWith('Strings 2/6 | 10 Correct | Pace: Ultra | Custom');
     expect(melodySummary).toHaveBeenCalledWith(
-      'Melody: Romanza | Transpose -2 st | Shift +1 str | Steps 1-8 | Loop On | Hint On'
+      'Study Melody: Romanza | Transpose -2 st | Shift +1 str | Steps 1-8 | Loop On | Hint On'
     );
   });
 

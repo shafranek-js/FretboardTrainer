@@ -11,6 +11,7 @@ import {
   resolveLatencyCompensatedPromptStartedAtMs,
 } from './performance-mic-latency-compensation';
 import { evaluatePerformanceTimingGrade, type PerformanceTimingGrade } from './performance-timing-grade';
+import { isPerformanceStyleMode } from './training-mode-groups';
 
 interface MicPolyphonicResult {
   detectedNotesText: string;
@@ -159,7 +160,7 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
       (detectedNotes.length > 0 || polyphonicResult.isStableMismatch);
 
     if (
-      trainingMode === 'performance' &&
+      isPerformanceStyleMode(trainingMode) &&
       (detectedNotes.length > 0 || polyphonicResult.isStableMismatch || polyphonicResult.isStableMatch)
     ) {
       deps.markPerformancePromptAttempt();
@@ -181,7 +182,7 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
       deps.redrawFretboard();
     }
 
-    if (trainingMode === 'performance') {
+    if (isPerformanceStyleMode(trainingMode)) {
       if (deps.state.performancePromptResolved) return true;
       const compensatedPromptStartedAtMs = resolveLatencyCompensatedPromptStartedAtMs(
         deps.state.startTime,
@@ -274,7 +275,7 @@ export function createMelodyRuntimeDetectionController(deps: MelodyRuntimeDetect
       return;
     }
 
-    if (trainingMode === 'performance') {
+    if (isPerformanceStyleMode(trainingMode)) {
       if (deps.state.performancePromptResolved) return;
       const compensatedPromptStartedAtMs = resolveLatencyCompensatedPromptStartedAtMs(
         deps.state.startTime,

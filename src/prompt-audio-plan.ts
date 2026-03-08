@@ -1,6 +1,6 @@
 import type { IInstrument } from './instruments/instrument';
 import type { Prompt } from './types';
-import { isChordAudioReferenceMode, isMelodyWorkflowMode } from './training-mode-groups';
+import { isChordAudioReferenceMode, isMelodyWorkflowMode, isPerformanceStyleMode } from './training-mode-groups';
 import {
   calculateFrettedFrequencyFromTuning,
   resolvePromptTargetPosition,
@@ -41,7 +41,7 @@ export function buildPromptAudioPlan({
     return EMPTY_AUDIO_PLAN;
   }
 
-  const autoPlayMelodyWorkflowSound = autoPlayPromptSoundEnabled && trainingMode === 'performance';
+  const autoPlayMelodyWorkflowSound = autoPlayPromptSoundEnabled && isPerformanceStyleMode(trainingMode);
 
   if (isChordAudioReferenceMode(trainingMode)) {
     const notesToPlay = prompt.targetChordFingering
@@ -106,6 +106,6 @@ export function buildPromptAudioPlan({
     playSoundEnabled: Boolean(noteWithOctave && targetFrequency !== null),
     autoPlaySound:
       autoPlayPromptSoundEnabled &&
-      (!isMelodyWorkflowMode(trainingMode) || trainingMode === 'performance'),
+      (!isMelodyWorkflowMode(trainingMode) || isPerformanceStyleMode(trainingMode)),
   };
 }

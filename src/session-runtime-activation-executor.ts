@@ -13,6 +13,11 @@ export interface SessionRuntimeActivationInput {
   enabledStrings?: string[];
   minFret?: number;
   maxFret?: number;
+  melodyId?: string | null;
+  melodyStudyRangeStartIndex?: number | null;
+  melodyStudyRangeEndIndex?: number | null;
+  melodyTransposeSemitones?: number;
+  melodyStringShift?: number;
   audioInputDeviceLabel?: string;
   midiInputDeviceLabel?: string;
 }
@@ -51,6 +56,11 @@ export function executeSessionRuntimeActivation(
         enabledStrings: input.enabledStrings ?? [],
         minFret: input.minFret ?? 0,
         maxFret: input.maxFret ?? 12,
+        melodyId: input.melodyId ?? null,
+        melodyStudyRangeStartIndex: input.melodyStudyRangeStartIndex ?? null,
+        melodyStudyRangeEndIndex: input.melodyStudyRangeEndIndex ?? null,
+        melodyTransposeSemitones: input.melodyTransposeSemitones ?? 0,
+        melodyStringShift: input.melodyStringShift ?? 0,
       })
     );
   }

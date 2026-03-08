@@ -9,6 +9,7 @@ import {
 import type { MelodyDefinition, MelodyEvent } from '../melody-library';
 import type { IInstrument } from '../instruments/instrument';
 import type { ChordNote, Prompt } from '../types';
+import type { UiWorkflow } from '../training-workflows';
 
 interface MelodyDemoPresentationControllerDeps {
   dom: {
@@ -34,6 +35,7 @@ interface MelodyDemoPresentationControllerDeps {
   };
   getSelectedMelody(): MelodyDefinition | null;
   isMelodyWorkflowMode(mode: string): boolean;
+  getUiWorkflow(): UiWorkflow;
   isDemoActive(): boolean;
   isDemoPaused(): boolean;
   syncLoopRangeDisplay(): void;
@@ -52,6 +54,7 @@ interface MelodyDemoPresentationControllerDeps {
   redrawFretboard(): void;
   renderTimeline(): void;
   findPlayableStringForNote(note: string): string | null;
+  getPlaybackActionLabel(workflow: UiWorkflow): string;
 }
 
 function buildMelodyDemoPrompt(
@@ -76,6 +79,20 @@ function buildMelodyDemoPrompt(
 }
 
 export function createMelodyDemoPresentationController(deps: MelodyDemoPresentationControllerDeps) {
+  function buildPlaybackIconSvg(icon: 'play' | 'stop' | 'pause' | 'step-back' | 'step-forward') {
+    const path =
+      icon === 'play'
+        ? '<path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.68L9.54 5.98A1 1 0 0 0 8 6.82Z" />'
+        : icon === 'stop'
+          ? '<path d="M7 7h10v10H7z" />'
+          : icon === 'pause'
+            ? '<path d="M8 6h3v12H8zM13 6h3v12h-3z" />'
+            : icon === 'step-back'
+              ? '<path d="M7 6h2v12H7zM17 6.82v10.36a1 1 0 0 1-1.54.84l-8.14-5.18a1 1 0 0 1 0-1.68l8.14-5.18A1 1 0 0 1 17 6.82Z" />'
+              : '<path d="M15 6h2v12h-2zM7 6.82v10.36a1 1 0 0 0 1.54.84l8.14-5.18a1 1 0 0 0 0-1.68L8.54 5.98A1 1 0 0 0 7 6.82Z" />';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true">${path}</svg>`;
+  }
+
   function syncBpmDisplay() {
     deps.dom.melodyDemoBpmValue.textContent = deps.dom.melodyDemoBpm.value;
   }
@@ -89,14 +106,22 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
 
   function renderButtonState() {
     const isMelodyDemoActive = deps.isDemoActive();
-    deps.dom.melodyDemoBtn.textContent = isMelodyDemoActive ? 'Stop' : 'Play Melody';
+    const idlePlaybackActionLabel = deps.getPlaybackActionLabel(deps.getUiWorkflow());
+    deps.dom.melodyDemoBtn.innerHTML = buildPlaybackIconSvg(isMelodyDemoActive ? 'stop' : 'play');
+    deps.dom.melodyDemoBtn.setAttribute('aria-label', isMelodyDemoActive ? 'Stop playback' : idlePlaybackActionLabel);
+    deps.dom.melodyDemoBtn.title = isMelodyDemoActive ? 'Stop playback' : idlePlaybackActionLabel;
     deps.dom.melodyDemoBtn.classList.toggle('bg-emerald-700', !isMelodyDemoActive);
     deps.dom.melodyDemoBtn.classList.toggle('hover:bg-emerald-600', !isMelodyDemoActive);
     deps.dom.melodyDemoBtn.classList.toggle('border-emerald-500', !isMelodyDemoActive);
     deps.dom.melodyDemoBtn.classList.toggle('bg-red-700', isMelodyDemoActive);
     deps.dom.melodyDemoBtn.classList.toggle('hover:bg-red-600', isMelodyDemoActive);
     deps.dom.melodyDemoBtn.classList.toggle('border-red-500', isMelodyDemoActive);
-    deps.dom.melodyPauseDemoBtn.textContent = deps.isDemoPaused() ? 'Resume' : 'Pause';
+    deps.dom.melodyPauseDemoBtn.innerHTML = buildPlaybackIconSvg(deps.isDemoPaused() ? 'play' : 'pause');
+    deps.dom.melodyPauseDemoBtn.setAttribute(
+      'aria-label',
+      deps.isDemoPaused() ? 'Resume playback' : 'Pause playback'
+    );
+    deps.dom.melodyPauseDemoBtn.title = deps.isDemoPaused() ? 'Resume playback' : 'Pause playback';
     deps.dom.melodyPauseDemoBtn.disabled = !isMelodyDemoActive;
     deps.dom.melodyPauseDemoBtn.classList.toggle('bg-amber-700', !deps.isDemoPaused());
     deps.dom.melodyPauseDemoBtn.classList.toggle('hover:bg-amber-600', !deps.isDemoPaused());
@@ -104,6 +129,8 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
     deps.dom.melodyPauseDemoBtn.classList.toggle('bg-cyan-700', deps.isDemoPaused());
     deps.dom.melodyPauseDemoBtn.classList.toggle('hover:bg-cyan-600', deps.isDemoPaused());
     deps.dom.melodyPauseDemoBtn.classList.toggle('border-cyan-500', deps.isDemoPaused());
+    deps.dom.melodyStepBackBtn.innerHTML = buildPlaybackIconSvg('step-back');
+    deps.dom.melodyStepForwardBtn.innerHTML = buildPlaybackIconSvg('step-forward');
     const melody = deps.getSelectedMelody();
     deps.dom.melodyPlaybackControls.classList.toggle('hidden', !deps.isMelodyWorkflowMode(deps.dom.trainingMode.value));
     const canStep = Boolean(melody) && !isMelodyDemoActive;

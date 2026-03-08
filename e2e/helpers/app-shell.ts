@@ -15,18 +15,70 @@ export class AppShell {
     await this.page.goto('/');
   }
 
+  async dismissOnboardingIfVisible() {
+    const onboardingModal = this.page.locator('#onboardingModal');
+    if (await onboardingModal.isVisible()) {
+      await this.page.locator('#onboardingSkipBtn').click();
+      await expect(onboardingModal).toBeHidden();
+    }
+  }
+
   async expectLoaded() {
     await expect(this.page).toHaveTitle(/FretFlow/i);
-    await expect(this.page.locator('#sessionToggleBtn')).toBeVisible();
-    await expect(this.page.locator('#sessionToggleBtn')).toHaveText(/Start Session/i);
     await expect(this.page.locator('#statusBar')).not.toHaveText(/Startup failed|Runtime error/i);
     await expect(this.page.locator('#inputStatusBar')).toContainText(/Mic:/i);
-    await expect(this.page.locator('#trainingMode')).toBeVisible();
-    await expect(this.page.locator('#practiceSetupToggleBtn')).toBeVisible();
+    await expect(this.page.locator('#workflowSwitcher')).toBeVisible();
+    await expect(this.page.locator('#practiceSetupPanel')).toBeVisible();
   }
 
   async selectTrainingMode(value: string) {
     await this.page.locator('#trainingMode').selectOption(value);
+  }
+
+  async switchWorkflow(workflow: 'learn-notes' | 'study-melody' | 'practice' | 'perform' | 'library' | 'editor') {
+    const selectorMap = {
+      'learn-notes': '#workflowLearnNotesBtn',
+      'study-melody': '#workflowStudyMelodyBtn',
+      practice: '#workflowPracticeBtn',
+      perform: '#workflowPerformBtn',
+      library: '#workflowLibraryBtn',
+      editor: '#workflowEditorBtn',
+    } as const;
+    await this.page.locator(selectorMap[workflow]).click();
+  }
+
+  async expectLibraryMelodyActions() {
+    await expect(this.page.locator('#openMelodyImportBtn')).toBeHidden();
+    await expect(this.page.locator('#editMelodyBtn')).toBeHidden();
+    await expect(this.page.locator('#bakePracticeMelodyBtn')).toBeHidden();
+    await expect(this.page.locator('#melodyEventEditorPanel')).toBeHidden();
+    await expect(this.page.locator('#editingToolsSection')).toBeHidden();
+    await expect(this.page.locator('#melodyTransposeResetBtn')).toBeHidden();
+    await expect(this.page.locator('#melodyStringShiftResetBtn')).toBeHidden();
+    await expect(this.page.locator('#melodyStudyResetBtn')).toBeHidden();
+  }
+
+  async expectEditorMelodyActions() {
+    await expect(this.page.locator('#exportMelodyMidiBtn')).toBeHidden();
+    await expect(this.page.locator('#deleteMelodyBtn')).toBeHidden();
+    await expect(this.page.locator('#melodyPracticeSection')).toBeHidden();
+    const hasVisibleEditorEntryPoint = await this.page.evaluate(() => {
+      const ids = [
+        'openMelodyImportBtn',
+        'editMelodyBtn',
+        'bakePracticeMelodyBtn',
+        'melodyEmptyStateImportBtn',
+        'editingToolsSection',
+      ];
+      return ids.some((id) => {
+        const element = document.getElementById(id) as HTMLElement | null;
+        if (!element) return false;
+        if (element.hidden) return false;
+        const style = window.getComputedStyle(element);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+      });
+    });
+    expect(hasVisibleEditorEntryPoint).toBe(true);
   }
 
   settings() {

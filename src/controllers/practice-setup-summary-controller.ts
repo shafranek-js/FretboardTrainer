@@ -66,9 +66,9 @@ export function createPracticeSetupSummaryController(deps: PracticeSetupSummaryC
       }`;
     }
 
-    deps.setPracticeSetupSummary(`${modeLabel}${modeDetail} | ${difficultyLabel}`);
+    deps.setPracticeSetupSummary(`${modeLabel}${modeDetail} | ${difficultyLabel} | Frets ${fretRange}`);
     deps.setSessionToolsSummary(
-      `Frets ${fretRange} | Strings ${enabledStringsCount}/${totalStringsCount} | ${goalLabel} | Pace: ${paceLabel} | ${curriculumLabel}`
+      `Strings ${enabledStringsCount}/${totalStringsCount} | ${goalLabel} | Pace: ${paceLabel} | ${curriculumLabel}`
     );
 
     if (deps.isMelodyWorkflowMode(deps.dom.trainingMode.value)) {
@@ -78,7 +78,12 @@ export function createPracticeSetupSummaryController(deps: PracticeSetupSummaryC
       const studyRangeText = selectedMelody
         ? deps.getStoredMelodyStudyRangeText(selectedMelody)
         : 'No steps';
-      const modePrefix = deps.dom.trainingMode.value === 'performance' ? 'Performance' : 'Melody';
+      const modePrefix =
+        deps.dom.trainingMode.value === 'performance'
+          ? 'Play Through'
+          : deps.dom.trainingMode.value === 'practice'
+            ? 'Practice'
+            : 'Study Melody';
       deps.setMelodySetupSummary(
         `${modePrefix}: ${melodyLabel || 'No melody selected'} | Transpose ${deps.formatMelodyTransposeSemitones(
           deps.state.melodyTransposeSemitones

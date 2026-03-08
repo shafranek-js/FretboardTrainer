@@ -3,9 +3,30 @@ import { createSignal } from './reactive/signal';
 import { CENTS_TOLERANCE, CENTS_VISUAL_RANGE } from './constants';
 import { computeTunerView } from './tuner-view';
 import { getTrainingModeUiVisibility } from './training-mode-ui';
-import { isMelodyWorkflowMode } from './training-mode-groups';
+import {
+  type UiWorkflow,
+  shouldShowDisplayControlsForUiWorkflow,
+  shouldShowPlaybackControlsForUiWorkflow,
+  shouldShowMelodySetupForUiWorkflow,
+  shouldShowPracticeSetupForUiWorkflow,
+  shouldShowSessionToolsForUiWorkflow,
+} from './training-workflows';
+import type { UiMode } from './ui-mode';
 import type { LastSessionHeatmapView, LastSessionViewModel, StatsViewModel } from './stats-view';
 import { formatMusicText } from './note-display';
+import { resolveSessionToolsVisibility } from './session-tools-visibility';
+import {
+  getMelodySelectionSectionCopy,
+  getTrainingModeFieldCopy,
+  getWorkflowUiCopy,
+  shouldShowMelodyActionControls,
+  shouldShowLayoutZoomControls,
+  shouldShowEditingToolsControls,
+  shouldShowMelodyDisplayControls,
+  shouldShowMelodyPracticeControls,
+  shouldShowMelodyNoteHintDisplayControl,
+  shouldShowPlaybackQuickControls,
+} from './workflow-ui-copy';
 
 const statusTextSignal = createSignal('Ready');
 const promptTextSignal = createSignal('');
@@ -31,6 +52,7 @@ const sessionGoalProgressSignal = createSignal('');
 const practiceSetupCollapsedSignal = createSignal(false);
 const melodySetupCollapsedSignal = createSignal(false);
 const sessionToolsCollapsedSignal = createSignal(true);
+const layoutControlsExpandedSignal = createSignal(false);
 const practiceSetupSummarySignal = createSignal('');
 const melodySetupSummarySignal = createSignal('');
 const sessionToolsSummarySignal = createSignal('');
@@ -57,6 +79,8 @@ const tunerReadingSignal = createSignal<TunerReadingState>({
   targetFrequency: null,
 });
 const trainingModeUiSignal = createSignal('random');
+const uiWorkflowSignal = createSignal<UiWorkflow>('learn-notes');
+const uiModeSignal = createSignal<UiMode>('simple');
 interface LoadingViewState {
   isLoading: boolean;
   message: string;
@@ -66,9 +90,11 @@ const loadingViewSignal = createSignal<LoadingViewState>({
   message: '',
 });
 type ModalKey =
+  | 'onboarding'
   | 'settings'
   | 'userData'
   | 'help'
+  | 'quickHelp'
   | 'sessionSummary'
   | 'stats'
   | 'guide'
@@ -77,9 +103,11 @@ type ModalKey =
   | 'melodyImport';
 type ModalVisibilityState = Record<ModalKey, boolean>;
 const modalVisibilitySignal = createSignal<ModalVisibilityState>({
+  onboarding: false,
   settings: false,
   userData: false,
   help: false,
+  quickHelp: false,
   sessionSummary: false,
   stats: false,
   guide: false,
@@ -163,12 +191,83 @@ function setPanelToggleVisualState(button: HTMLButtonElement, expanded: boolean)
   button.classList.toggle('hover:bg-slate-800/70', !expanded);
 }
 
+function setWorkflowButtonVisualState(button: HTMLButtonElement, active: boolean) {
+  button.setAttribute('aria-pressed', String(active));
+  button.classList.toggle('border-cyan-400/80', active);
+  button.classList.toggle('bg-cyan-600', active);
+  button.classList.toggle('text-white', active);
+  button.classList.toggle('shadow-inner', active);
+  button.classList.toggle('shadow-black/20', active);
+  button.classList.toggle('border-slate-500/80', !active);
+  button.classList.toggle('bg-slate-800/70', !active);
+  button.classList.toggle('text-slate-200', !active);
+}
+
+function renderWorkflowSwitcher(workflow: UiWorkflow) {
+  setWorkflowButtonVisualState(dom.workflowLearnNotesBtn, workflow === 'learn-notes');
+  setWorkflowButtonVisualState(dom.workflowStudyMelodyBtn, workflow === 'study-melody');
+  setWorkflowButtonVisualState(dom.workflowPracticeBtn, workflow === 'practice');
+  setWorkflowButtonVisualState(dom.workflowPerformBtn, workflow === 'perform');
+  setWorkflowButtonVisualState(dom.workflowLibraryBtn, workflow === 'library');
+  setWorkflowButtonVisualState(dom.workflowEditorBtn, workflow === 'editor');
+}
+
+function renderUiModeSwitcher(uiMode: UiMode) {
+  setWorkflowButtonVisualState(dom.uiModeSimpleBtn, uiMode === 'simple');
+  setWorkflowButtonVisualState(dom.uiModeAdvancedBtn, uiMode === 'advanced');
+}
+
+function renderUiModeVisibility(uiMode: UiMode) {
+  const isAdvanced = uiMode === 'advanced';
+  const showTrainingModeField = uiWorkflowSignal.get() === 'learn-notes';
+  dom.trainingModeField.classList.toggle('hidden', !showTrainingModeField);
+  dom.micAttackFilterRow.classList.toggle('hidden', !isAdvanced);
+  dom.micHoldFilterRow.classList.toggle('hidden', !isAdvanced);
+  dom.micPolyphonicDetectorRow.classList.toggle('hidden', !isAdvanced);
+  dom.performanceMicLatencyCompensationExact.classList.toggle('hidden', !isAdvanced);
+  dom.micPolyphonicActionsRow.classList.toggle('hidden', !isAdvanced);
+  dom.micPolyphonicBenchmarkInfo.classList.toggle('hidden', !isAdvanced);
+  dom.micNoiseGateInfo.classList.toggle('hidden', !isAdvanced);
+}
+
+function renderTrainingModeWorkflowOptions(workflow: UiWorkflow) {
+  const workflowOnlyOptions = ['melody', 'practice', 'performance', 'rhythm'];
+  workflowOnlyOptions.forEach((value) => {
+    const option = dom.trainingMode.querySelector(`option[value="${value}"]`) as HTMLOptionElement | null;
+    if (!option) return;
+    const shouldHide = workflow === 'learn-notes';
+    option.hidden = shouldHide;
+    option.disabled = shouldHide;
+    option.style.display = shouldHide ? 'none' : '';
+  });
+}
+
 function renderPracticeSetupCollapsed(collapsed: boolean) {
   dom.practiceSetupPanel.classList.toggle('hidden', collapsed);
   dom.practiceSetupPanel.style.display = collapsed ? 'none' : 'flex';
   dom.practiceSetupToggleBtn.setAttribute('aria-expanded', String(!collapsed));
   dom.practiceSetupChevron.textContent = collapsed ? '>' : 'v';
   setPanelToggleVisualState(dom.practiceSetupToggleBtn, !collapsed);
+}
+
+function renderPracticeSetupModeVisibility(workflow: UiWorkflow) {
+  const showPracticeSetup = shouldShowPracticeSetupForUiWorkflow(workflow);
+  dom.practiceSetupToggleBtn.classList.add('hidden');
+  dom.practiceSetupSummary.style.display =
+    !showPracticeSetup || practiceSetupSummarySignal.get().length === 0 ? 'none' : '';
+  if (!showPracticeSetup) {
+    dom.practiceSetupPanel.classList.add('hidden');
+    dom.practiceSetupPanel.style.display = 'none';
+    dom.practiceSetupToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.practiceSetupChevron.textContent = '>';
+    setPanelToggleVisualState(dom.practiceSetupToggleBtn, false);
+    return;
+  }
+  dom.practiceSetupPanel.classList.remove('hidden');
+  dom.practiceSetupPanel.style.display = 'flex';
+  dom.practiceSetupToggleBtn.setAttribute('aria-expanded', 'true');
+  dom.practiceSetupChevron.textContent = 'v';
+  setPanelToggleVisualState(dom.practiceSetupToggleBtn, false);
 }
 
 function renderMelodySetupCollapsed(collapsed: boolean) {
@@ -203,10 +302,13 @@ function renderSessionToolsCollapsed(collapsed: boolean) {
   setPanelToggleVisualState(dom.sessionToolsToggleBtn, !collapsed);
 }
 
-function renderSessionToolsModeVisibility(mode: string) {
-  const hideSessionTools = mode === 'rhythm';
-  const hideShowAllNotes = mode === 'free' || mode === 'rhythm';
-  dom.sessionToolsToggleBtn.classList.toggle('hidden', hideSessionTools);
+function renderSessionToolsModeVisibility(mode: string, workflow: UiWorkflow) {
+  const visibility = resolveSessionToolsVisibility(mode, workflow);
+  const hasVisibleSessionToolsContent =
+    visibility.showPlanSection || visibility.showDisplaySection || visibility.showActiveStringsSection;
+  const hideSessionTools =
+    !shouldShowSessionToolsForUiWorkflow(workflow, mode) || !hasVisibleSessionToolsContent;
+  dom.sessionToolsToggleBtn.classList.add('hidden');
   dom.sessionToolsSummary.style.display =
     hideSessionTools || sessionToolsSummarySignal.get().length === 0 ? 'none' : '';
   if (hideSessionTools) {
@@ -216,17 +318,60 @@ function renderSessionToolsModeVisibility(mode: string) {
     dom.sessionToolsChevron.textContent = '>';
     setPanelToggleVisualState(dom.sessionToolsToggleBtn, false);
   } else {
-    renderSessionToolsCollapsed(sessionToolsCollapsedSignal.get());
+    dom.sessionToolsPanel.classList.remove('hidden');
+    dom.sessionToolsPanel.style.display = 'flex';
+    dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'true');
+    dom.sessionToolsChevron.textContent = 'v';
+    setPanelToggleVisualState(dom.sessionToolsToggleBtn, false);
   }
 
-  dom.sessionToolsShowAllNotesRow.classList.toggle('hidden', hideShowAllNotes);
-  dom.sessionToolsActiveStringsSection.classList.toggle('hidden', false);
-  dom.sessionToolsPrimaryControls.classList.toggle('opacity-80', mode === 'free');
+  dom.sessionToolsPlanSection.classList.toggle('hidden', !visibility.showPlanSection);
+  dom.sessionToolsPlanSection.hidden = !visibility.showPlanSection;
+  dom.sessionToolsPlanSection.style.display = visibility.showPlanSection ? '' : 'none';
+  dom.sessionToolsDisplaySection.classList.toggle('hidden', !visibility.showDisplaySection);
+  dom.sessionToolsDisplaySection.hidden = !visibility.showDisplaySection;
+  dom.sessionToolsDisplaySection.style.display = visibility.showDisplaySection ? '' : 'none';
+  dom.sessionToolsActiveStringsSection.classList.toggle('hidden', !visibility.showActiveStringsSection);
+  dom.sessionToolsActiveStringsSection.hidden = !visibility.showActiveStringsSection;
+  dom.sessionToolsActiveStringsSection.style.display = visibility.showActiveStringsSection ? '' : 'none';
+  dom.sessionToolsShowAllNotesRow.classList.toggle('hidden', !visibility.showShowAllNotesRow);
+  dom.sessionToolsShowAllNotesRow.hidden = !visibility.showShowAllNotesRow;
+  dom.sessionToolsShowAllNotesRow.style.display = visibility.showShowAllNotesRow ? '' : 'none';
+  dom.sessionToolsShowStringTogglesRow.classList.toggle('hidden', !visibility.showShowStringTogglesRow);
+  dom.sessionToolsShowStringTogglesRow.hidden = !visibility.showShowStringTogglesRow;
+  dom.sessionToolsShowStringTogglesRow.style.display = visibility.showShowStringTogglesRow ? '' : 'none';
+  dom.sessionToolsAutoPlayPromptSoundRow.classList.toggle('hidden', !visibility.showAutoPlayPromptSoundRow);
+  dom.sessionToolsAutoPlayPromptSoundRow.hidden = !visibility.showAutoPlayPromptSoundRow;
+  dom.sessionToolsAutoPlayPromptSoundRow.style.display = visibility.showAutoPlayPromptSoundRow ? '' : 'none';
+  dom.sessionToolsRelaxPerformanceOctaveRow.classList.toggle(
+    'hidden',
+    !visibility.showRelaxPerformanceOctaveRow
+  );
+  dom.sessionToolsRelaxPerformanceOctaveRow.hidden = !visibility.showRelaxPerformanceOctaveRow;
+  dom.sessionToolsRelaxPerformanceOctaveRow.style.display = visibility.showRelaxPerformanceOctaveRow ? '' : 'none';
+  dom.sessionToolsPitchMatchRow.classList.toggle('hidden', !visibility.showPitchMatchRow);
+  dom.sessionToolsPitchMatchRow.hidden = !visibility.showPitchMatchRow;
+  dom.sessionToolsPitchMatchRow.style.display = visibility.showPitchMatchRow ? '' : 'none';
+  dom.sessionToolsTimingWindowRow.classList.toggle('hidden', !visibility.showTimingWindowRow);
+  dom.sessionToolsTimingWindowRow.hidden = !visibility.showTimingWindowRow;
+  dom.sessionToolsTimingWindowRow.style.display = visibility.showTimingWindowRow ? '' : 'none';
+  dom.sessionToolsMicLatencyRow.classList.toggle('hidden', !visibility.showMicLatencyRow);
+  dom.sessionToolsMicLatencyRow.hidden = !visibility.showMicLatencyRow;
+  dom.sessionToolsMicLatencyRow.style.display = visibility.showMicLatencyRow ? '' : 'none';
+  dom.sessionToolsPrimaryControls.classList.toggle('opacity-80', visibility.dimPrimaryControls);
+  const showStringSelector = visibility.showShowStringTogglesRow && dom.showStringToggles.checked;
+  dom.stringSelector.classList.toggle('hidden', !showStringSelector);
+  dom.stringSelector.style.display = showStringSelector ? '' : 'none';
 }
 
-function renderMelodySetupModeVisibility(mode: string) {
-  const showMelodySetup = isMelodyWorkflowMode(mode);
-  dom.melodySetupToggleBtn.classList.toggle('hidden', !showMelodySetup);
+function renderMelodySetupModeVisibility(mode: string, workflow: UiWorkflow) {
+  const showMelodyActionControls = shouldShowMelodyActionControls(workflow);
+  const showMelodyPracticeSection = shouldShowMelodyPracticeControls(workflow);
+  const showEditingToolsSection = shouldShowEditingToolsControls(workflow);
+  const showMelodySetup =
+    shouldShowMelodySetupForUiWorkflow(workflow, mode) &&
+    (showMelodyActionControls || showMelodyPracticeSection || showEditingToolsSection);
+  dom.melodySetupToggleBtn.classList.add('hidden');
   dom.melodySetupSummary.style.display =
     !showMelodySetup || melodySetupSummarySignal.get().length === 0 ? 'none' : '';
   if (!showMelodySetup) {
@@ -236,8 +381,77 @@ function renderMelodySetupModeVisibility(mode: string) {
     dom.melodySetupChevron.textContent = '>';
     setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
   } else {
-    renderMelodySetupCollapsed(melodySetupCollapsedSignal.get());
+    dom.melodySetupPanel.classList.remove('hidden');
+    dom.melodySetupPanel.style.display = 'flex';
+    dom.melodySetupToggleBtn.setAttribute('aria-expanded', 'true');
+    dom.melodySetupChevron.textContent = 'v';
+    setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
   }
+  dom.melodyLibrarySection.classList.toggle('hidden', !showMelodyActionControls);
+  dom.melodyLibrarySection.hidden = !showMelodyActionControls;
+  dom.melodyLibrarySection.style.display = showMelodyActionControls ? '' : 'none';
+  if (!showMelodyPracticeSection) {
+    dom.melodyPracticeSection.classList.add('hidden');
+    dom.melodyPracticeSection.style.setProperty('display', 'none', 'important');
+    dom.melodyPracticeSection.hidden = true;
+    dom.melodyPracticeFieldsRow.style.setProperty('display', 'none', 'important');
+    dom.melodyPracticeActionsRow.style.setProperty('display', 'none', 'important');
+    dom.melodyPracticeFieldsRow.hidden = true;
+    dom.melodyPracticeActionsRow.hidden = true;
+  } else {
+    dom.melodyPracticeSection.hidden = false;
+    dom.melodyPracticeSection.style.removeProperty('display');
+    dom.melodyPracticeFieldsRow.hidden = false;
+    dom.melodyPracticeActionsRow.hidden = false;
+    dom.melodyPracticeFieldsRow.style.removeProperty('display');
+    dom.melodyPracticeActionsRow.style.removeProperty('display');
+  }
+  if (!showEditingToolsSection) {
+    dom.editingToolsSection.classList.add('hidden');
+    dom.editingToolsSection.style.setProperty('display', 'none', 'important');
+    dom.editingToolsSection.hidden = true;
+    dom.editingToolsFieldsRow.style.setProperty('display', 'none', 'important');
+    dom.editingToolsActionsRow.style.setProperty('display', 'none', 'important');
+    dom.editingToolsFieldsRow.hidden = true;
+    dom.editingToolsActionsRow.hidden = true;
+  } else {
+    dom.editingToolsSection.hidden = false;
+    dom.editingToolsSection.style.removeProperty('display');
+    dom.editingToolsFieldsRow.hidden = false;
+    dom.editingToolsActionsRow.hidden = false;
+    dom.editingToolsFieldsRow.style.removeProperty('display');
+    dom.editingToolsActionsRow.style.removeProperty('display');
+  }
+}
+
+function renderPlaybackControlsModeVisibility(mode: string, workflow: UiWorkflow) {
+  const visibility = getTrainingModeUiVisibility(mode);
+  const showPlaybackControls =
+    shouldShowPlaybackControlsForUiWorkflow(workflow, mode) && visibility.showMelodySelector;
+  dom.melodyWorkspaceTransportSection.classList.toggle('hidden', !showPlaybackControls);
+  dom.melodyWorkspaceTransportSection.style.display = showPlaybackControls ? 'flex' : 'none';
+  dom.melodyPlaybackControls.classList.toggle('hidden', !showPlaybackControls);
+  dom.melodyDemoQuickControls.classList.toggle(
+    'hidden',
+    !showPlaybackControls || !shouldShowPlaybackQuickControls(workflow)
+  );
+}
+
+function renderDisplayControlsModeVisibility(mode: string, workflow: UiWorkflow) {
+  const showDisplayControls = shouldShowDisplayControlsForUiWorkflow(workflow, mode);
+  const showExpandedPanel = showDisplayControls && layoutControlsExpandedSignal.get();
+  const showMelodyControls = shouldShowMelodyDisplayControls(workflow);
+  const showZoomControls = shouldShowLayoutZoomControls(workflow);
+  dom.layoutControlsHost.classList.toggle('hidden', !showDisplayControls);
+  dom.layoutControlsHost.style.display = showDisplayControls ? 'flex' : 'none';
+  dom.layoutToggleBtn.setAttribute('aria-expanded', String(showExpandedPanel));
+  setPanelToggleVisualState(dom.layoutToggleBtn, showExpandedPanel);
+  dom.melodyDisplayControlsSection.classList.toggle('hidden', !showExpandedPanel);
+  dom.melodyDisplayControlsSection.style.display = showExpandedPanel ? 'flex' : 'none';
+  dom.melodyDisplayControls.classList.toggle('hidden', !showExpandedPanel || !showMelodyControls);
+  dom.melodyShowNoteChip.classList.toggle('hidden', !shouldShowMelodyNoteHintDisplayControl(workflow));
+  dom.layoutDisplayDivider.classList.toggle('hidden', !showMelodyControls || !showZoomControls);
+  dom.layoutZoomControls.classList.toggle('hidden', !showZoomControls);
 }
 
 function renderPracticeSetupSummary(summaryText: string) {
@@ -378,6 +592,9 @@ function renderStatsView(statsView: StatsViewModel) {
     dom.statsLastSessionAccuracy.textContent = statsView.lastSession.accuracyText;
     dom.statsLastSessionAvgTime.textContent = statsView.lastSession.avgTimeText;
     dom.statsLastSessionBestStreak.textContent = statsView.lastSession.bestStreakText;
+    dom.statsLastSessionStarsCard.classList.toggle('hidden', !statsView.lastSession.starsText);
+    dom.statsLastSessionStars.textContent = statsView.lastSession.starsText ?? '-';
+    dom.statsLastSessionStarsDetail.textContent = statsView.lastSession.starsDetailText ?? '';
     dom.statsLastSessionCoachTip.textContent = formatMusicText(statsView.lastSession.coachTipText ?? '');
 
     dom.statsLastSessionWeakSpots.innerHTML = '';
@@ -409,6 +626,7 @@ function renderStatsView(statsView: StatsViewModel) {
   } else {
     dom.statsLastSessionSection.classList.add('hidden');
     dom.statsLastSessionRhythmSummary.classList.add('hidden');
+    dom.statsLastSessionStarsCard.classList.add('hidden');
   }
 }
 
@@ -418,7 +636,11 @@ function renderSessionSummaryView(sessionSummary: LastSessionViewModel | null) {
     dom.sessionSummaryInput.textContent = '-';
     dom.sessionSummaryDuration.textContent = '-';
     dom.sessionSummaryAccuracy.textContent = '-';
+    dom.sessionSummaryOverallScoreLabel.textContent = 'Overall Score';
     dom.sessionSummaryOverallScore.textContent = '-';
+    dom.sessionSummaryStarsCard.classList.add('hidden');
+    dom.sessionSummaryStars.textContent = '-';
+    dom.sessionSummaryStarsDetail.textContent = '-';
     dom.sessionSummaryCorrect.textContent = '-';
     dom.sessionSummaryWrong.textContent = '-';
     dom.sessionSummaryMissedNoInput.textContent = '-';
@@ -428,6 +650,13 @@ function renderSessionSummaryView(sessionSummary: LastSessionViewModel | null) {
     dom.sessionSummaryAvgTime.textContent = '-';
     dom.sessionSummaryBestStreak.textContent = '-';
     dom.sessionSummaryCoachTip.textContent = '-';
+    dom.sessionSummaryNextStep.textContent = '-';
+    dom.sessionSummaryOverallScoreCard.classList.remove('hidden');
+    dom.sessionSummaryWrongCard.classList.remove('hidden');
+    dom.sessionSummaryMissedCard.classList.remove('hidden');
+    dom.sessionSummaryTimingAccuracyCard.classList.remove('hidden');
+    dom.sessionSummaryTimingOffsetCard.classList.remove('hidden');
+    dom.sessionSummaryTimingBreakdownCard.classList.remove('hidden');
     dom.sessionSummaryWeakSpots.innerHTML =
       '<li class="bg-slate-600 p-2 rounded">No graded note attempts in the last session.</li>';
     return;
@@ -438,16 +667,36 @@ function renderSessionSummaryView(sessionSummary: LastSessionViewModel | null) {
   dom.sessionSummaryInput.title = sessionSummary.inputText;
   dom.sessionSummaryDuration.textContent = sessionSummary.durationText;
   dom.sessionSummaryAccuracy.textContent = sessionSummary.accuracyText;
+  dom.sessionSummaryOverallScoreLabel.textContent = sessionSummary.overallScoreLabel;
   dom.sessionSummaryOverallScore.textContent = sessionSummary.overallPerformanceScoreText;
+  dom.sessionSummaryStarsCard.classList.toggle('hidden', !sessionSummary.starsText);
+  dom.sessionSummaryStars.textContent = sessionSummary.starsText ?? '-';
+  dom.sessionSummaryStarsDetail.textContent = sessionSummary.starsDetailText ?? '';
   dom.sessionSummaryCorrect.textContent = `${sessionSummary.correctAttemptsText} / ${sessionSummary.totalAttemptsText}`;
   dom.sessionSummaryWrong.textContent = sessionSummary.wrongAttemptsText;
   dom.sessionSummaryMissedNoInput.textContent = sessionSummary.missedNoInputAttemptsText;
   dom.sessionSummaryTimingAccuracy.textContent = sessionSummary.performanceTimingSummary?.timingAccuracyText ?? '-';
   dom.sessionSummaryTimingOffset.textContent = sessionSummary.performanceTimingSummary?.avgOffsetText ?? '-';
   dom.sessionSummaryTimingBreakdown.textContent = sessionSummary.performanceTimingSummary?.breakdownText ?? '-';
+  dom.sessionSummaryOverallScoreCard.classList.toggle('hidden', !sessionSummary.showFormalPerformanceMetrics);
+  dom.sessionSummaryWrongCard.classList.toggle('hidden', !sessionSummary.showFormalPerformanceMetrics);
+  dom.sessionSummaryMissedCard.classList.toggle('hidden', !sessionSummary.showFormalPerformanceMetrics);
+  dom.sessionSummaryTimingAccuracyCard.classList.toggle(
+    'hidden',
+    !sessionSummary.showFormalPerformanceMetrics
+  );
+  dom.sessionSummaryTimingOffsetCard.classList.toggle(
+    'hidden',
+    !sessionSummary.showFormalPerformanceMetrics
+  );
+  dom.sessionSummaryTimingBreakdownCard.classList.toggle(
+    'hidden',
+    !sessionSummary.showFormalPerformanceMetrics
+  );
   dom.sessionSummaryAvgTime.textContent = sessionSummary.avgTimeText;
   dom.sessionSummaryBestStreak.textContent = sessionSummary.bestStreakText;
   dom.sessionSummaryCoachTip.textContent = formatMusicText(sessionSummary.coachTipText ?? '');
+  dom.sessionSummaryNextStep.textContent = formatMusicText(sessionSummary.nextStepText ?? '');
 
   dom.sessionSummaryWeakSpots.innerHTML = '';
   if (sessionSummary.weakSpots.length > 0) {
@@ -469,17 +718,59 @@ function syncSessionToggleButton() {
   const { startDisabled, stopDisabled } = sessionButtonsSignal.get();
   const { isLoading } = loadingViewSignal.get();
   const isStopMode = !stopDisabled;
+  const workflowCopy = getWorkflowUiCopy(uiWorkflowSignal.get());
+  const hideStartActions =
+    !isStopMode && (uiWorkflowSignal.get() === 'library' || uiWorkflowSignal.get() === 'editor');
 
-  dom.sessionToggleBtn.textContent = isStopMode ? 'Stop Session' : 'Start Session';
+  dom.sessionToggleBtn.textContent = isStopMode ? 'Stop Session' : workflowCopy.primaryActionLabel;
   dom.sessionToggleBtn.setAttribute(
     'aria-label',
-    isStopMode ? 'Stop current session' : 'Start a new session'
+    isStopMode ? 'Stop current session' : workflowCopy.primaryActionAriaLabel
   );
-  dom.sessionToggleBtn.disabled = isStopMode ? stopDisabled : startDisabled || isLoading;
+  const startActionDisabled = hideStartActions ? true : startDisabled || isLoading;
+  dom.sessionToggleBtn.disabled = isStopMode ? stopDisabled : startActionDisabled;
   dom.sessionToggleBtn.classList.toggle('bg-red-600', isStopMode);
   dom.sessionToggleBtn.classList.toggle('hover:bg-red-700', isStopMode);
   dom.sessionToggleBtn.classList.toggle('bg-blue-600', !isStopMode);
   dom.sessionToggleBtn.classList.toggle('hover:bg-blue-700', !isStopMode);
+  dom.sessionToggleBtn.classList.toggle('hidden', hideStartActions);
+  dom.startSessionHelpBtn.classList.toggle('hidden', hideStartActions);
+}
+
+function renderHintButtonVisibility(mode: string, workflow: UiWorkflow) {
+  const visibility = getTrainingModeUiVisibility(mode);
+  const sessionActive = !sessionButtonsSignal.get().stopDisabled;
+  const showHintButton = workflow === 'learn-notes' && sessionActive && visibility.showHintButton;
+  dom.hintControlsHost.classList.toggle('hidden', !showHintButton);
+  dom.hintControlsHost.style.display = showHintButton ? 'flex' : 'none';
+  dom.hintBtn.style.display = showHintButton ? 'inline-flex' : 'none';
+}
+
+function renderWorkflowUiCopy(workflow: UiWorkflow) {
+  const copy = getWorkflowUiCopy(workflow);
+  const melodySelectionCopy = getMelodySelectionSectionCopy(workflow);
+  const trainingModeCopy = getTrainingModeFieldCopy(workflow);
+  dom.learningControls.dataset.panelLayout = workflow === 'learn-notes' ? 'learn-notes' : 'default';
+  dom.trainingModeLabel.textContent = trainingModeCopy.label;
+  dom.trainingModeField.dataset.fieldHint = trainingModeCopy.fieldHintPrefix;
+  dom.melodySetupToggleLabelMobile.textContent = copy.melodySetupLabelMobile;
+  dom.melodySetupToggleLabelDesktop.textContent = copy.melodySetupLabelDesktop;
+  dom.sessionToolsToggleLabelMobile.textContent = copy.sessionToolsLabelMobile;
+  dom.sessionToolsToggleLabelDesktop.textContent = copy.sessionToolsLabelDesktop;
+  dom.melodyWorkspaceTransportTitle.textContent = copy.melodyWorkspaceTitle;
+  dom.melodySetupPanel.setAttribute('aria-label', copy.melodySetupLabelDesktop);
+  dom.sessionToolsPanel.setAttribute('aria-label', copy.sessionToolsLabelDesktop);
+  dom.melodySelectorContainer.dataset.sectionHint = melodySelectionCopy.sectionHint;
+  dom.melodySelectorContainer.title = melodySelectionCopy.sectionHint;
+  dom.melodySelectorContainer.setAttribute('aria-label', melodySelectionCopy.ariaLabel);
+  dom.melodyLibraryHelpBtn.setAttribute('title', melodySelectionCopy.helpAriaLabel);
+  dom.melodyLibraryHelpBtn.setAttribute('aria-label', melodySelectionCopy.helpAriaLabel);
+  renderTrainingModeWorkflowOptions(workflow);
+  renderUiModeVisibility(uiModeSignal.get());
+  renderHintButtonVisibility(trainingModeUiSignal.get(), workflow);
+  renderPlaybackControlsModeVisibility(trainingModeUiSignal.get(), workflow);
+  renderDisplayControlsModeVisibility(trainingModeUiSignal.get(), workflow);
+  syncSessionToggleButton();
 }
 
 export function bindUiSignals() {
@@ -568,6 +859,7 @@ export function bindUiSignals() {
       previousSessionActive = sessionActive;
 
       syncSessionToggleButton();
+      renderHintButtonVisibility(trainingModeUiSignal.get(), uiWorkflowSignal.get());
     }
   );
 
@@ -600,11 +892,10 @@ export function bindUiSignals() {
 
   trainingModeUiSignal.subscribe((mode) => {
     const visibility = getTrainingModeUiVisibility(mode);
+    const workflow = uiWorkflowSignal.get();
 
     dom.melodySelectorContainer.classList.toggle('hidden', !visibility.showMelodySelector);
     dom.melodySelectorContainer.style.display = visibility.showMelodySelector ? 'flex' : 'none';
-    dom.melodyPlaybackControls.classList.toggle('hidden', !visibility.showMelodySelector);
-    dom.melodyDemoQuickControls.classList.remove('hidden');
     dom.scaleSelectorContainer.classList.toggle('hidden', !visibility.showScaleSelector);
     dom.chordSelectorContainer.classList.toggle('hidden', !visibility.showChordSelector);
     dom.progressionSelectorContainer.classList.toggle('hidden', !visibility.showProgressionSelector);
@@ -612,17 +903,38 @@ export function bindUiSignals() {
       'hidden',
       !visibility.showArpeggioPatternSelector
     );
-    dom.hintBtn.style.display = visibility.showHintButton ? 'inline-block' : 'none';
+    renderHintButtonVisibility(mode, workflow);
     dom.volumeSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
     dom.tunerSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
     dom.metronomeQuickControls.classList.add('hidden');
-    renderMelodySetupModeVisibility(mode);
-    renderSessionToolsModeVisibility(mode);
+    renderPracticeSetupModeVisibility(workflow);
+    renderMelodySetupModeVisibility(mode, workflow);
+    renderPlaybackControlsModeVisibility(mode, workflow);
+    renderDisplayControlsModeVisibility(mode, workflow);
+    renderSessionToolsModeVisibility(mode, workflow);
+    const trainingModeCopy = getTrainingModeFieldCopy(workflow);
     dom.trainingModeField.dataset.fieldHint =
-      visibility.helperText.length > 0 ? `Mode. ${visibility.helperText}` : 'Mode';
+      visibility.helperText.length > 0
+        ? `${trainingModeCopy.fieldHintPrefix}. ${visibility.helperText}`
+        : trainingModeCopy.fieldHintPrefix;
     dom.modeHelpText.textContent = visibility.helperText;
     dom.modeHelpText.classList.add('hidden');
     dom.modeHelpText.setAttribute('aria-hidden', 'true');
+  });
+
+  uiWorkflowSignal.subscribe((workflow) => {
+    renderWorkflowSwitcher(workflow);
+    renderWorkflowUiCopy(workflow);
+    renderPracticeSetupModeVisibility(workflow);
+    renderMelodySetupModeVisibility(trainingModeUiSignal.get(), workflow);
+    renderPlaybackControlsModeVisibility(trainingModeUiSignal.get(), workflow);
+    renderDisplayControlsModeVisibility(trainingModeUiSignal.get(), workflow);
+    renderSessionToolsModeVisibility(trainingModeUiSignal.get(), workflow);
+  });
+
+  uiModeSignal.subscribe((uiMode) => {
+    renderUiModeSwitcher(uiMode);
+    renderUiModeVisibility(uiMode);
   });
 
   loadingViewSignal.subscribe(({ isLoading, message }) => {
@@ -646,6 +958,12 @@ export function bindUiSignals() {
   });
 
   modalVisibilitySignal.subscribe((visibility) => {
+    if (visibility.onboarding) {
+      dom.onboardingModal.classList.remove('hidden');
+    } else {
+      dom.onboardingModal.classList.add('hidden');
+    }
+
     if (visibility.settings) {
       dom.settingsModal.classList.remove('hidden');
     } else {
@@ -662,6 +980,12 @@ export function bindUiSignals() {
       dom.helpModal.classList.remove('hidden');
     } else {
       dom.helpModal.classList.add('hidden');
+    }
+
+    if (visibility.quickHelp) {
+      dom.quickHelpModal.classList.remove('hidden');
+    } else {
+      dom.quickHelpModal.classList.add('hidden');
     }
 
     if (visibility.sessionSummary) {
@@ -743,6 +1067,10 @@ export function bindUiSignals() {
 
   sessionToolsCollapsedSignal.subscribe((collapsed) => {
     renderSessionToolsCollapsed(collapsed);
+  });
+
+  layoutControlsExpandedSignal.subscribe(() => {
+    renderDisplayControlsModeVisibility(trainingModeUiSignal.get(), uiWorkflowSignal.get());
   });
 
   practiceSetupSummarySignal.subscribe((summaryText) => {
@@ -852,6 +1180,14 @@ export function toggleSessionToolsCollapsed() {
   sessionToolsCollapsedSignal.set(!sessionToolsCollapsedSignal.get());
 }
 
+export function setLayoutControlsExpanded(expanded: boolean) {
+  layoutControlsExpandedSignal.set(expanded);
+}
+
+export function toggleLayoutControlsExpanded() {
+  layoutControlsExpandedSignal.set(!layoutControlsExpandedSignal.get());
+}
+
 export function setPracticeSetupSummary(summaryText: string) {
   practiceSetupSummarySignal.set(summaryText);
 }
@@ -898,6 +1234,14 @@ export function setTunerReading(frequency: number | null, targetFrequency: numbe
 
 export function setTrainingModeUi(mode: string) {
   trainingModeUiSignal.set(mode);
+}
+
+export function setUiWorkflow(workflow: UiWorkflow) {
+  uiWorkflowSignal.set(workflow);
+}
+
+export function setUiMode(uiMode: UiMode) {
+  uiModeSignal.set(uiMode);
 }
 
 export function setLoadingUi(isLoading: boolean, message = '') {

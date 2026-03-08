@@ -1,5 +1,5 @@
 import { buildStableMonophonicReactionPlan } from './session-detection-reactions';
-import { isMelodyWorkflowMode } from './training-mode-groups';
+import { isMelodyWorkflowMode, isPerformanceStyleMode } from './training-mode-groups';
 import type { Prompt } from './types';
 import { shouldForgivePerformanceTimingBoundaryAttempt } from './performance-timing-forgiveness';
 import { shouldJudgePerformanceMicOnset } from './performance-mic-onset-gate';
@@ -115,7 +115,7 @@ export function createStableMonophonicDetectionController(
     const prompt = deps.state.currentPrompt;
     const nowMs = Date.now();
     const compensatedPromptStartedAtMs =
-      deps.getTrainingMode() === 'performance'
+      isPerformanceStyleMode(deps.getTrainingMode())
         ? resolveLatencyCompensatedPromptStartedAtMs(
             deps.state.startTime,
             deps.state.performanceMicLatencyCompensationMs ?? 0
@@ -130,14 +130,14 @@ export function createStableMonophonicDetectionController(
 
     if (isMelodyWorkflowMode(trainingMode) && prompt && isPolyphonicMelodyPrompt(prompt)) {
       const targetPitchClasses = getPolyphonicMelodyTargetPitchClasses(prompt);
-      if (trainingMode === 'performance' && deps.state.performancePromptResolved) {
+      if (isPerformanceStyleMode(trainingMode) && deps.state.performancePromptResolved) {
         return;
       }
-      if (trainingMode === 'performance') {
+      if (isPerformanceStyleMode(trainingMode)) {
         deps.markPerformancePromptAttempt();
       }
       if (!targetPitchClasses.includes(detectedNote)) {
-        if (trainingMode === 'performance') {
+        if (isPerformanceStyleMode(trainingMode)) {
           if (shouldForgivePerformanceTiming) {
             return;
           }
@@ -163,7 +163,7 @@ export function createStableMonophonicDetectionController(
       }
 
       const elapsed = (Date.now() - deps.state.startTime) / 1000;
-      if (trainingMode === 'performance') {
+      if (isPerformanceStyleMode(trainingMode)) {
         deps.performanceResolveSuccess(elapsed);
       } else {
         deps.displayResult(true, elapsed);
@@ -171,7 +171,7 @@ export function createStableMonophonicDetectionController(
       return;
     }
 
-    if (trainingMode === 'performance') {
+    if (isPerformanceStyleMode(trainingMode)) {
       if (deps.state.performancePromptResolved || !prompt) return;
       const onsetAtMs = deps.state.micMonophonicFirstDetectedAtMs;
       if (

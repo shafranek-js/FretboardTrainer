@@ -1,4 +1,5 @@
 import { buildSuccessInfoSlots } from './session-result';
+import { isPerformanceStyleMode } from './training-mode-groups';
 import type { Prompt } from './types';
 import type { PerformanceTimingGrade } from './performance-timing-grade';
 
@@ -64,7 +65,11 @@ export function createPerformancePromptController(deps: PerformancePromptControl
   }
 
   function markPromptAttempt() {
-    if (deps.getTrainingMode() !== 'performance' || deps.state.performancePromptResolved || !deps.state.currentPrompt) {
+    if (
+      !isPerformanceStyleMode(deps.getTrainingMode()) ||
+      deps.state.performancePromptResolved ||
+      !deps.state.currentPrompt
+    ) {
       return;
     }
     deps.state.performancePromptHadAttempt = true;
@@ -126,7 +131,11 @@ export function createPerformancePromptController(deps: PerformancePromptControl
   }
 
   function resolveSuccess(elapsedSeconds: number, timingGrade: PerformanceTimingGrade | null = null) {
-    if (deps.getTrainingMode() !== 'performance' || !deps.state.currentPrompt || deps.state.performancePromptResolved) {
+    if (
+      !isPerformanceStyleMode(deps.getTrainingMode()) ||
+      !deps.state.currentPrompt ||
+      deps.state.performancePromptResolved
+    ) {
       return;
     }
 
@@ -143,7 +152,11 @@ export function createPerformancePromptController(deps: PerformancePromptControl
   }
 
   function resolveMissed() {
-    if (deps.getTrainingMode() !== 'performance' || !deps.state.currentPrompt || deps.state.performancePromptResolved) {
+    if (
+      !isPerformanceStyleMode(deps.getTrainingMode()) ||
+      !deps.state.currentPrompt ||
+      deps.state.performancePromptResolved
+    ) {
       return;
     }
 
@@ -155,7 +168,7 @@ export function createPerformancePromptController(deps: PerformancePromptControl
   }
 
   function scheduleAdvance(prompt: Prompt) {
-    if (deps.getTrainingMode() !== 'performance') return;
+    if (!isPerformanceStyleMode(deps.getTrainingMode())) return;
 
     const durationMs =
       typeof prompt.melodyEventDurationMs === 'number' && Number.isFinite(prompt.melodyEventDurationMs)
@@ -168,7 +181,7 @@ export function createPerformancePromptController(deps: PerformancePromptControl
     deps.scheduleSessionTimeout(
       durationMs,
       () => {
-        if (!deps.state.isListening || deps.getTrainingMode() !== 'performance') return;
+        if (!deps.state.isListening || !isPerformanceStyleMode(deps.getTrainingMode())) return;
         if (promptRunToken !== runToken) return;
         if (deps.state.currentPrompt !== prompt) return;
         if (deps.state.performancePromptResolved) {

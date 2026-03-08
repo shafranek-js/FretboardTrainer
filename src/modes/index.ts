@@ -33,5 +33,6 @@ export const modes: { [key: string]: ITrainingMode } = {
   adaptive: new AdaptivePracticeMode(),
   rhythm: new RhythmTrainingMode(),
   melody: new MelodyPracticeMode(),
+  practice: new MelodyPerformanceMode(),
   performance: new MelodyPerformanceMode(),
 };

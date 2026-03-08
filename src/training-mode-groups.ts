@@ -2,7 +2,8 @@ export const CHORD_DATA_MODE_VALUES = ['chords', 'arpeggios', 'progressions'] as
 
 const CHORD_DATA_MODES = new Set<string>(CHORD_DATA_MODE_VALUES);
 const CHORD_AUDIO_REFERENCE_MODES = new Set<string>(['chords', 'progressions']);
-const MELODY_WORKFLOW_MODES = new Set<string>(['melody', 'performance']);
+const PERFORMANCE_STYLE_MODES = new Set<string>(['practice', 'performance']);
+const MELODY_WORKFLOW_MODES = new Set<string>(['melody', ...PERFORMANCE_STYLE_MODES]);
 const HINT_DISABLED_MODES = new Set<string>([
   'timed',
   'free',
@@ -29,6 +30,10 @@ export function isProgressionMode(trainingMode: string) {
 
 export function isMelodyWorkflowMode(trainingMode: string) {
   return MELODY_WORKFLOW_MODES.has(trainingMode);
+}
+
+export function isPerformanceStyleMode(trainingMode: string) {
+  return PERFORMANCE_STYLE_MODES.has(trainingMode);
 }
 
 export function isHintDisabledMode(trainingMode: string) {

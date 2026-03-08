@@ -13,7 +13,7 @@ import type { Prompt } from '../types';
 import { ITrainingMode, DetectionType } from './training-mode';
 
 function formatPerformancePromptText(melodyName: string) {
-  return `Performance: ${melodyName}`;
+  return `${dom.trainingMode.value === 'practice' ? 'Practice' : 'Performance'}: ${melodyName}`;
 }
 
 function toMelodyEventChordNotes(event: MelodyEvent) {
@@ -116,9 +116,12 @@ export class MelodyPerformanceMode implements ITrainingMode {
     }
 
     if (state.currentMelodyEventIndex > studyRange.endIndex) {
+      const completionPrefix = dom.trainingMode.value === 'practice' ? 'Practice loop complete' : 'Performance complete';
+      const rangeCompletionPrefix =
+        dom.trainingMode.value === 'practice' ? 'Practice range complete' : 'Performance range complete';
       const completionText = isDefaultMelodyStudyRange(studyRange, melody.events.length)
-        ? `Performance complete! (${melody.name})`
-        : `Performance range complete! (${melody.name}, ${formatMelodyStudyRange(studyRange, melody.events.length)})`;
+        ? `${completionPrefix}! (${melody.name})`
+        : `${rangeCompletionPrefix}! (${melody.name}, ${formatMelodyStudyRange(studyRange, melody.events.length)})`;
       state.pendingSessionStopResultMessage = {
         text: completionText,
         tone: 'success',

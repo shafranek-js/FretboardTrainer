@@ -28,6 +28,7 @@ describe('settings-modal-layout-controller', () => {
       settingsSectionDescription: createElementStub(),
       settingsSectionAppDefaults: createElementStub(),
       settingsSectionInputDetection: createElementStub(),
+      settingsSectionDiagnostics: createElementStub(),
       settingsSectionRhythm: createElementStub(),
       settingsSectionProfiles: createElementStub(),
       settingsSectionTools: createElementStub(),
@@ -41,6 +42,7 @@ describe('settings-modal-layout-controller', () => {
     expect(dom.settingsSectionView.classList.contains('hidden')).toBe(true);
     expect(dom.settingsSectionAppDefaults.classList.contains('hidden')).toBe(true);
     expect(dom.settingsSectionInputDetection.classList.contains('hidden')).toBe(true);
+    expect(dom.settingsSectionDiagnostics.classList.contains('hidden')).toBe(true);
     expect(dom.settingsSectionRhythm.classList.contains('hidden')).toBe(true);
     expect(dom.settingsSectionProfiles.classList.contains('hidden')).toBe(true);
     expect(dom.settingsSectionTools.classList.contains('hidden')).toBe(true);
@@ -55,6 +57,7 @@ describe('settings-modal-layout-controller', () => {
       settingsSectionDescription: createElementStub(),
       settingsSectionAppDefaults: createElementStub(),
       settingsSectionInputDetection: createElementStub(),
+      settingsSectionDiagnostics: createElementStub(),
       settingsSectionRhythm: createElementStub(),
       settingsSectionProfiles: createElementStub(),
       settingsSectionTools: createElementStub(),
@@ -71,5 +74,6 @@ describe('settings-modal-layout-controller', () => {
     expect(dom.settingsSectionTools.classList.contains('hidden')).toBe(false);
     expect(dom.settingsSectionAppDefaults.classList.contains('hidden')).toBe(true);
     expect(dom.settingsSectionInputDetection.classList.contains('hidden')).toBe(true);
+    expect(dom.settingsSectionDiagnostics.classList.contains('hidden')).toBe(true);
   });
 });

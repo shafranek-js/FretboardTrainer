@@ -1,3 +1,5 @@
+import { isPerformanceStyleMode } from './training-mode-groups';
+
 export interface MicAttackTrackingResetInput {
   detectedNote: string | null;
   trackedNote: string | null;
@@ -14,7 +16,7 @@ const DEFAULT_PERFORMANCE_DROP_HOLD_MS = 90;
 export function shouldResetMicAttackTracking(input: MicAttackTrackingResetInput) {
   if (input.detectedNote) return false;
   if (!input.trackedNote) return true;
-  if (input.trainingMode !== 'performance') return true;
+  if (!isPerformanceStyleMode(input.trainingMode)) return true;
   if (input.lastDetectedAtMs === null) return true;
 
   const holdMs =
@@ -23,4 +25,3 @@ export function shouldResetMicAttackTracking(input: MicAttackTrackingResetInput)
       : DEFAULT_PERFORMANCE_DROP_HOLD_MS;
   return input.nowMs - input.lastDetectedAtMs > holdMs;
 }
-

@@ -13,6 +13,7 @@ import {
 
 interface MelodyTimelineEditingControllerDeps {
   getSelectedMelodyId(): string | null;
+  isEditorWorkflowActive(): boolean;
   canEditSelectedMelodyOnTimeline(): { editable: false; reason: string } | { editable: true; melody: MelodyDefinition };
   ensureDraftLoaded(melody: MelodyDefinition): void;
   ensureSelection(): void;
@@ -158,6 +159,7 @@ export function createMelodyTimelineEditingController(deps: MelodyTimelineEditin
     const target = event.target;
     const isMelodyImportOpen = !dom.melodyImportModal.classList.contains('hidden');
     if (
+      deps.isEditorWorkflowActive() &&
       isMelodyImportOpen &&
       (deps.isElementWithin(target, dom.melodyEventEditorPanel) || deps.isElementWithin(target, dom.melodyPreviewList))
     ) {
@@ -166,6 +168,7 @@ export function createMelodyTimelineEditingController(deps: MelodyTimelineEditin
 
     if (deps.isAnyBlockingModalOpen()) return null;
     if (
+      deps.isEditorWorkflowActive() &&
       deps.isMelodyWorkflowMode(dom.trainingMode.value) &&
       state.melodyTimelineSelectedEventIndex !== null &&
       (deps.isElementWithin(target, dom.melodyTabTimelinePanel) || target === document.body)

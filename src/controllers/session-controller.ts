@@ -23,15 +23,18 @@ import {
   clearResultMessage,
   refreshDisplayFormatting,
   setMelodySetupSummary,
+  setMelodySetupCollapsed,
   setPracticeSetupCollapsed,
   setPracticeSetupSummary,
+  setSessionToolsCollapsed,
   setSessionToolsSummary,
   setModalVisible,
   setPromptText,
   setResultMessage,
-  toggleMelodySetupCollapsed,
-  toggleSessionToolsCollapsed,
-  togglePracticeSetupCollapsed,
+  setUiMode,
+  setUiWorkflow,
+  setLayoutControlsExpanded,
+  toggleLayoutControlsExpanded,
 } from '../ui-signals';
 import { getEnabledStrings } from '../fretboard-ui-state';
 import { type CurriculumPresetKey } from '../curriculum-presets';
@@ -147,7 +150,7 @@ import {
   isDefaultMelodyStudyRange,
   type MelodyStudyRange,
 } from '../melody-study-range';
-import { isMelodyWorkflowMode } from '../training-mode-groups';
+import { isMelodyWorkflowMode, isPerformanceStyleMode } from '../training-mode-groups';
 import { normalizePerformanceMicTolerancePreset } from '../performance-mic-tolerance';
 import { normalizePerformanceTimingLeniencyPreset } from '../performance-timing-forgiveness';
 import { normalizePerformanceMicLatencyCompensationMs } from '../performance-mic-latency-compensation';
@@ -162,6 +165,45 @@ import {
   formatScrollingTabPanelZoomPercent,
   normalizeScrollingTabPanelZoomPercent,
 } from '../scrolling-tab-panel-zoom';
+import {
+  getDefaultTrainingModeForUiWorkflow,
+  isTrainingModeInUiWorkflow,
+  resolveUiWorkflowFromTrainingMode,
+  type UiWorkflow,
+} from '../training-workflows';
+import { normalizeUiMode } from '../ui-mode';
+import { resolveMelodyEmptyStateView } from '../melody-empty-state';
+import { resolveSessionToolsVisibility } from '../session-tools-visibility';
+import {
+  describePracticeInputPreset,
+  describePracticeTimingPreset,
+  getPracticeInputPresetConfig,
+  getPracticeTimingPresetConfig,
+  normalizePracticeInputPreset,
+  normalizePracticeTimingPreset,
+  resolvePracticeInputPresetFromSettings,
+  resolvePracticeTimingPresetFromSettings,
+} from '../practice-presets';
+import {
+  getDirectInputRecommendationText,
+  isRecommendedInputPreset,
+  isRecommendedTimingPreset,
+  shouldShowRecommendedPresetBadge,
+  shouldShowRecommendedWorkflowBadge,
+} from '../recommended-defaults';
+import { ONBOARDING_COMPLETED_KEY } from '../app-storage-keys';
+import {
+  getPlaybackCompletedLabel,
+  getPlaybackPromptLabel,
+  getPlaybackTransportIdleLabel,
+  shouldShowMelodyBakeAction,
+  shouldShowMelodyCreateAction,
+  shouldShowMelodyDeleteAction,
+  shouldShowMelodyEditAction,
+  shouldShowMelodyExportAction,
+  shouldShowMelodyPracticeControls,
+  shouldShowPlaybackPromptSoundControl,
+} from '../workflow-ui-copy';
 
 function getSelectedMelodyId() {
   const selectedMelodyId = dom.melodySelector.value.trim();
@@ -171,6 +213,127 @@ function getSelectedMelodyId() {
 function getSelectedBaseMelody() {
   const selectedMelodyId = getSelectedMelodyId();
   return selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+}
+
+function syncUiWorkflowFromTrainingMode() {
+  const nextWorkflow = resolveUiWorkflowFromTrainingMode(dom.trainingMode.value);
+  state.uiWorkflow = nextWorkflow;
+  setUiWorkflow(nextWorkflow);
+}
+
+function applyUiWorkflowLayout(workflow: UiWorkflow) {
+  syncRecommendedDefaultsUi();
+  mountPromptSoundControl(workflow);
+  mountLearnNotesLayoutControls(workflow);
+  syncWorkflowMelodyActionVisibility();
+  if (!shouldShowMelodyPracticeControls(workflow)) {
+    dom.melodyPracticeSection.classList.add('hidden');
+    dom.melodyPracticeSection.style.setProperty('display', 'none', 'important');
+    dom.melodyPracticeFieldsRow.style.setProperty('display', 'none', 'important');
+    dom.melodyPracticeActionsRow.style.setProperty('display', 'none', 'important');
+  }
+  if (workflow !== 'editor') {
+    dom.editingToolsSection.classList.add('hidden');
+    dom.editingToolsSection.style.setProperty('display', 'none', 'important');
+    dom.editingToolsFieldsRow.style.setProperty('display', 'none', 'important');
+    dom.editingToolsActionsRow.style.setProperty('display', 'none', 'important');
+  }
+  setPracticeSetupCollapsed(false);
+  setMelodySetupCollapsed(false);
+  setSessionToolsCollapsed(false);
+  setLayoutControlsExpanded(false);
+}
+
+function applyUiWorkflow(workflow: UiWorkflow) {
+  if (workflow !== 'editor') {
+    resetMelodyGpFileInput();
+    resetMelodyMidiFileInput();
+    melodyImportModalController.close();
+    resetMelodyTimelineEditingState();
+  }
+
+  if (!isTrainingModeInUiWorkflow(dom.trainingMode.value, workflow)) {
+    dom.trainingMode.value = getDefaultTrainingModeForUiWorkflow(workflow);
+    handleModeChange();
+  }
+
+  state.uiWorkflow = workflow;
+  setUiWorkflow(workflow);
+  applyUiWorkflowLayout(workflow);
+  updatePracticeSetupSummary();
+  refreshMelodyEmptyState();
+}
+
+function mountMelodyWorkspaceTransport() {
+  if (dom.melodyPlaybackControls.parentElement !== dom.melodyWorkspaceTransportSlot) {
+    dom.melodyWorkspaceTransportSlot.appendChild(dom.melodyPlaybackControls);
+  }
+  if (dom.melodyDemoQuickControls.parentElement !== dom.melodyWorkspaceTransportSlot) {
+    dom.melodyWorkspaceTransportSlot.appendChild(dom.melodyDemoQuickControls);
+  }
+  dom.melodyPlaybackControls.classList.add('flex-wrap');
+  dom.melodyDemoQuickControls.classList.add('flex-wrap');
+}
+
+function mountMelodyDisplayControls() {
+  if (dom.melodyDisplayControls.parentElement !== dom.melodyDisplayControlsSlot) {
+    dom.melodyDisplayControlsSlot.appendChild(dom.melodyDisplayControls);
+  }
+  dom.melodyDisplayControls.classList.add('flex-wrap');
+}
+
+function mountLearnNotesLayoutControls(workflow: UiWorkflow) {
+  const targetHost =
+    workflow === 'learn-notes'
+      ? dom.layoutLearnNotesControlsHost
+      : dom.sessionToolsLearnNotesLayoutControlsHost;
+  if (dom.sessionToolsShowAllNotesRow.parentElement !== targetHost) {
+    targetHost.appendChild(dom.sessionToolsShowAllNotesRow);
+  }
+  if (dom.sessionToolsShowStringTogglesRow.parentElement !== targetHost) {
+    targetHost.appendChild(dom.sessionToolsShowStringTogglesRow);
+  }
+  dom.layoutLearnNotesControlsHost.classList.toggle('hidden', workflow !== 'learn-notes');
+  dom.layoutLearnNotesControlsHost.style.display = workflow === 'learn-notes' ? 'flex' : 'none';
+  dom.sessionToolsLearnNotesLayoutControlsHost.classList.toggle('hidden', workflow === 'learn-notes');
+  dom.sessionToolsLearnNotesLayoutControlsHost.style.display = workflow === 'learn-notes' ? 'none' : '';
+}
+
+function mountPromptSoundControl(workflow: UiWorkflow) {
+  const targetHost =
+    workflow === 'learn-notes'
+      ? dom.sessionToolsAutoPlayPromptSoundHost
+      : shouldShowPlaybackPromptSoundControl(workflow)
+        ? dom.playbackPromptSoundHost
+        : dom.sessionToolsAutoPlayPromptSoundHost;
+  if (dom.sessionToolsAutoPlayPromptSoundRow.parentElement !== targetHost) {
+    targetHost.appendChild(dom.sessionToolsAutoPlayPromptSoundRow);
+  }
+}
+
+function syncWorkflowMelodyActionVisibility() {
+  const workflow = state.uiWorkflow;
+  const showCreate = shouldShowMelodyCreateAction(workflow);
+  const showEdit = shouldShowMelodyEditAction(workflow);
+  const showBake = shouldShowMelodyBakeAction(workflow);
+  const showExport = shouldShowMelodyExportAction(workflow);
+  const showDelete = shouldShowMelodyDeleteAction(workflow);
+  dom.openMelodyImportBtn.classList.toggle('hidden', !showCreate);
+  dom.openMelodyImportBtn.style.display = showCreate ? '' : 'none';
+  dom.editMelodyBtn.classList.toggle('hidden', !showEdit);
+  dom.editMelodyBtn.style.display = showEdit ? '' : 'none';
+  dom.bakePracticeMelodyBtn.classList.toggle('hidden', !showBake);
+  dom.bakePracticeMelodyBtn.style.display = showBake ? '' : 'none';
+  dom.exportMelodyMidiBtn.classList.toggle('hidden', !showExport);
+  dom.exportMelodyMidiBtn.style.display = showExport ? '' : 'none';
+  dom.deleteMelodyBtn.classList.toggle('hidden', !showDelete);
+  dom.deleteMelodyBtn.style.display = showDelete ? '' : 'none';
+  if (workflow !== 'editor') {
+    dom.melodyEventEditorPanel.classList.add('hidden');
+    dom.melodyEventEditorPanel.style.display = 'none';
+  } else {
+    dom.melodyEventEditorPanel.style.display = '';
+  }
 }
 
 function syncMetronomeMeterFromSelectedMelody() {
@@ -373,6 +536,7 @@ const melodyTimelineEditingOrchestrator = createMelodyTimelineEditingOrchestrato
   getMelodyTransposeSemitones: () => state.melodyTransposeSemitones,
   getMelodyStringShift: () => state.melodyStringShift,
   getTrainingMode: () => dom.trainingMode.value,
+  getUiWorkflow: () => state.uiWorkflow,
   isMelodyWorkflowMode,
   updateCustomEventMelody,
   clearPracticeAdjustmentCaches: () => {
@@ -450,11 +614,13 @@ const melodyDemoPresentationController = createMelodyDemoPresentationController(
     stringSelector: dom.stringSelector,
   },
   state,
+  getUiWorkflow: () => state.uiWorkflow,
   getSelectedMelody: () => {
     const selectedMelodyId = getSelectedMelodyId();
     return selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
   },
   isMelodyWorkflowMode,
+  getPlaybackActionLabel: getPlaybackTransportIdleLabel,
   isDemoActive: () => melodyDemoController?.isActive() ?? false,
   isDemoPaused: () => melodyDemoController?.isPaused() ?? false,
   syncLoopRangeDisplay: () => syncMelodyLoopRangeDisplay(),
@@ -528,6 +694,8 @@ melodyDemoController = createMelodyDemoController({
         dom.melodyTabTimelineGrid.scrollLeft = 0;
       });
     },
+    getPlaybackPromptLabel: () => getPlaybackPromptLabel(state.uiWorkflow),
+    getPlaybackCompletedLabel: () => getPlaybackCompletedLabel(state.uiWorkflow),
   });
 
 function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
@@ -614,6 +782,7 @@ function isAnyBlockingModalOpen() {
     dom.settingsModal,
     dom.userDataModal,
     dom.helpModal,
+    dom.quickHelpModal,
     dom.sessionSummaryModal,
     dom.statsModal,
     dom.guideModal,
@@ -636,6 +805,7 @@ export function refreshMelodyOptionsForCurrentInstrument() {
   melodyPracticeSettingsController.refreshMelodyOptionsForCurrentInstrument();
   hydrateMelodyTempoForSelectedMelody();
   updateMelodyActionButtonsForSelection();
+  refreshMelodyEmptyState();
 }
 
 function finalizeMelodyImportSelection(melodyId: string, successMessage: string) {
@@ -875,6 +1045,7 @@ const micSettingsController = createMicSettingsController({
   refreshAudioInputDeviceOptions,
   refreshMicPolyphonicDetectorAudioInfoUi,
   refreshMicPerformanceReadinessUi,
+  syncPracticePresetUi,
   saveSettings,
   setResultMessage,
   formatUserFacingError,
@@ -977,7 +1148,77 @@ function resetMelodyMidiFileInput() {
 }
 
 function updateMelodyActionButtonsForSelection() {
+  syncWorkflowMelodyActionVisibility();
   melodySetupUiController.updateActionButtons();
+  refreshMelodyEmptyState();
+}
+
+function getFirstAvailableMelodyId() {
+  return listMelodiesForInstrument(state.currentInstrument)[0]?.id ?? null;
+}
+
+function refreshMelodyEmptyState() {
+  const view = resolveMelodyEmptyStateView({
+    uiWorkflow: state.uiWorkflow,
+    selectedMelodyId: getSelectedMelodyId(),
+    availableMelodyCount: listMelodiesForInstrument(state.currentInstrument).length,
+  });
+  const showMelodyPracticeSection = !view.visible && shouldShowMelodyPracticeControls(state.uiWorkflow);
+  const showEditingToolsSection = !view.visible && state.uiWorkflow === 'editor';
+
+  dom.melodyEmptyState.classList.toggle('hidden', !view.visible);
+  dom.melodyEmptyState.style.display = view.visible ? '' : 'none';
+  dom.melodyPracticeSection.classList.toggle('hidden', !showMelodyPracticeSection);
+  dom.melodyPracticeSection.style.display = showMelodyPracticeSection ? '' : 'none';
+  dom.editingToolsSection.classList.toggle('hidden', !showEditingToolsSection);
+  dom.editingToolsSection.style.display = showEditingToolsSection ? '' : 'none';
+  dom.melodyEmptyStateTitle.textContent = view.title;
+  dom.melodyEmptyStateDescription.textContent = view.description;
+  dom.melodyEmptyStateLoadStarterBtn.classList.toggle('hidden', !view.canLoadStarter);
+  dom.melodyEmptyStateLoadStarterLabel.textContent = view.loadStarterLabel;
+  dom.melodyEmptyStateImportBtn.classList.toggle('hidden', !view.canImportOrOpenEditor);
+  dom.melodyEmptyStateImportLabel.textContent = view.importOrOpenEditorLabel;
+}
+
+function syncPracticePresetUi() {
+  const hasCompletedOnboarding = localStorage.getItem(ONBOARDING_COMPLETED_KEY) === '1';
+  const inputPreset = resolvePracticeInputPresetFromSettings({
+    micSensitivityPreset: state.micSensitivityPreset,
+    micNoteAttackFilterPreset: state.micNoteAttackFilterPreset,
+    micNoteHoldFilterPreset: state.micNoteHoldFilterPreset,
+    isDirectInputMode: state.isDirectInputMode,
+  });
+  dom.practiceInputPreset.value = inputPreset;
+  dom.practiceInputPresetInfo.textContent = describePracticeInputPreset(inputPreset);
+  dom.practiceInputPresetRecommendedBadge.classList.toggle(
+    'hidden',
+    !shouldShowRecommendedPresetBadge(hasCompletedOnboarding, isRecommendedInputPreset(inputPreset))
+  );
+
+  const timingPreset = resolvePracticeTimingPresetFromSettings({
+    performanceMicTolerancePreset: state.performanceMicTolerancePreset,
+    performanceTimingLeniencyPreset: state.performanceTimingLeniencyPreset,
+  });
+  dom.practiceTimingPreset.value = timingPreset;
+  dom.practiceTimingPresetInfo.textContent = describePracticeTimingPreset(timingPreset);
+  dom.practiceTimingPresetRecommendedBadge.classList.toggle(
+    'hidden',
+    !shouldShowRecommendedPresetBadge(hasCompletedOnboarding, isRecommendedTimingPreset(timingPreset))
+  );
+  syncRecommendedDefaultsUi();
+}
+
+function syncRecommendedDefaultsUi() {
+  const recommendationText = getDirectInputRecommendationText(state.uiWorkflow);
+  const showDirectInputRecommendation = recommendationText !== null;
+  const hasCompletedOnboarding = localStorage.getItem(ONBOARDING_COMPLETED_KEY) === '1';
+  dom.workflowLearnNotesRecommendedBadge.classList.toggle(
+    'hidden',
+    !shouldShowRecommendedWorkflowBadge(hasCompletedOnboarding)
+  );
+  dom.micDirectInputRecommendedBadge.classList.toggle('hidden', !showDirectInputRecommendation);
+  dom.micDirectInputRecommendationText.classList.toggle('hidden', !showDirectInputRecommendation);
+  dom.micDirectInputRecommendationText.textContent = recommendationText ?? '';
 }
 
 function updatePracticeSetupSummary() {
@@ -991,6 +1232,7 @@ function refreshMelodyTimelineUi() {
 
 const melodyTimelineEditingController = createMelodyTimelineEditingController({
   getSelectedMelodyId,
+  isEditorWorkflowActive: () => state.uiWorkflow === 'editor',
   canEditSelectedMelodyOnTimeline,
   ensureDraftLoaded: ensureMelodyTimelineEditingDraftLoaded,
   ensureSelection: ensureMelodyTimelineEditingSelection,
@@ -1090,7 +1332,7 @@ function isMelodyTransportRunningForMetronome() {
   const melodySessionRunning =
     state.isListening &&
     isMelodyWorkflowMode(dom.trainingMode.value) &&
-    (dom.trainingMode.value !== 'performance' ||
+    (!isPerformanceStyleMode(dom.trainingMode.value) ||
       (state.performanceRuntimeStartedAtMs !== null && !state.performancePrerollLeadInVisible));
   return demoPlaying || melodySessionRunning;
 }
@@ -1204,7 +1446,13 @@ export function registerSessionControls() {
   updateMicNoiseGateInfo();
   refreshMicPolyphonicDetectorAudioInfoUi();
   refreshMicPerformanceReadinessUi();
+  syncPracticePresetUi();
   micPolyphonicTelemetryController.syncButtonState();
+  mountMelodyWorkspaceTransport();
+  mountMelodyDisplayControls();
+  syncUiWorkflowFromTrainingMode();
+  applyUiWorkflowLayout(state.uiWorkflow);
+  setUiMode(state.uiMode);
   updatePracticeSetupSummary();
   syncMelodyTimelineEditingState();
   refreshInputSourceAvailabilityUi();
@@ -1228,16 +1476,47 @@ export function registerSessionControls() {
     }
   });
 
-  dom.practiceSetupToggleBtn.addEventListener('click', () => {
-    togglePracticeSetupCollapsed();
+  dom.layoutToggleBtn.addEventListener('click', () => {
+    toggleLayoutControlsExpanded();
+  });
+  dom.workflowLearnNotesBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
+    applyUiWorkflow('learn-notes');
     saveSettings();
   });
-  dom.melodySetupToggleBtn.addEventListener('click', () => {
-    toggleMelodySetupCollapsed();
+  dom.workflowStudyMelodyBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
+    applyUiWorkflow('study-melody');
     saveSettings();
   });
-  dom.sessionToolsToggleBtn.addEventListener('click', () => {
-    toggleSessionToolsCollapsed();
+  dom.workflowPracticeBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
+    applyUiWorkflow('practice');
+    saveSettings();
+  });
+  dom.workflowPerformBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
+    applyUiWorkflow('perform');
+    saveSettings();
+  });
+  dom.workflowLibraryBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
+    applyUiWorkflow('library');
+    saveSettings();
+  });
+  dom.workflowEditorBtn.addEventListener('click', () => {
+    stopMelodyDemoPlayback({ clearUi: true });
+    applyUiWorkflow('editor');
+    saveSettings();
+  });
+  dom.uiModeSimpleBtn.addEventListener('click', () => {
+    state.uiMode = normalizeUiMode('simple');
+    setUiMode(state.uiMode);
+    saveSettings();
+  });
+  dom.uiModeAdvancedBtn.addEventListener('click', () => {
+    state.uiMode = normalizeUiMode('advanced');
+    setUiMode(state.uiMode);
     saveSettings();
   });
 
@@ -1247,6 +1526,21 @@ export function registerSessionControls() {
   dom.sessionToggleBtn.addEventListener('click', async () => {
     if (melodyDemoController.isActive()) {
       stopMelodyDemoPlayback({ clearUi: true, message: 'Melody playback stopped.' });
+      return;
+    }
+    if (!state.isListening && state.uiWorkflow === 'library') {
+      stopMelodyDemoPlayback({ clearUi: true });
+      applyUiWorkflow('editor');
+      saveSettings();
+      if (getSelectedMelodyId()) {
+        dom.editMelodyBtn.click();
+      } else {
+        dom.openMelodyImportBtn.click();
+      }
+      return;
+    }
+    if (!state.isListening && state.uiWorkflow === 'editor') {
+      dom.openMelodyImportBtn.click();
       return;
     }
     if (state.isListening) {
@@ -1305,7 +1599,11 @@ export function registerSessionControls() {
     redrawFretboard();
   });
   dom.showStringToggles.addEventListener('change', () => {
-    dom.stringSelector.classList.toggle('hidden', !dom.showStringToggles.checked);
+    const visibility = resolveSessionToolsVisibility(dom.trainingMode.value, state.uiWorkflow);
+    const shouldShowStringSelector =
+      visibility.showShowStringTogglesRow && dom.showStringToggles.checked;
+    dom.stringSelector.classList.toggle('hidden', !shouldShowStringSelector);
+    dom.stringSelector.style.display = shouldShowStringSelector ? '' : 'none';
     saveSettings();
   });
   dom.autoPlayPromptSound.addEventListener('change', () => {
@@ -1322,6 +1620,30 @@ export function registerSessionControls() {
       state.ignorePromptAudioUntilMs = 0;
     }
     refreshMicPerformanceReadinessUi();
+    syncPracticePresetUi();
+    saveSettings();
+  });
+  dom.practiceInputPreset.addEventListener('change', () => {
+    const preset = normalizePracticeInputPreset(dom.practiceInputPreset.value);
+    if (preset === 'custom') {
+      syncPracticePresetUi();
+      return;
+    }
+    const config = getPracticeInputPresetConfig(preset);
+    state.micSensitivityPreset = config.micSensitivityPreset;
+    dom.micSensitivityPreset.value = state.micSensitivityPreset;
+    state.micNoteAttackFilterPreset = config.micNoteAttackFilterPreset;
+    dom.micNoteAttackFilter.value = state.micNoteAttackFilterPreset;
+    state.micNoteHoldFilterPreset = config.micNoteHoldFilterPreset;
+    dom.micNoteHoldFilter.value = state.micNoteHoldFilterPreset;
+    state.isDirectInputMode = config.isDirectInputMode;
+    dom.micDirectInputMode.checked = state.isDirectInputMode;
+    if (state.isDirectInputMode) {
+      state.ignorePromptAudioUntilMs = 0;
+    }
+    updateMicNoiseGateInfo();
+    refreshMicPerformanceReadinessUi();
+    syncPracticePresetUi();
     saveSettings();
   });
   dom.performanceMicTolerancePreset.addEventListener('change', () => {
@@ -1330,6 +1652,7 @@ export function registerSessionControls() {
     );
     dom.performanceMicTolerancePreset.value = state.performanceMicTolerancePreset;
     refreshMicPerformanceReadinessUi();
+    syncPracticePresetUi();
     saveSettings();
   });
   dom.performanceTimingLeniencyPreset.addEventListener('change', () => {
@@ -1338,6 +1661,22 @@ export function registerSessionControls() {
     );
     dom.performanceTimingLeniencyPreset.value = state.performanceTimingLeniencyPreset;
     refreshMicPerformanceReadinessUi();
+    syncPracticePresetUi();
+    saveSettings();
+  });
+  dom.practiceTimingPreset.addEventListener('change', () => {
+    const preset = normalizePracticeTimingPreset(dom.practiceTimingPreset.value);
+    if (preset === 'custom') {
+      syncPracticePresetUi();
+      return;
+    }
+    const config = getPracticeTimingPresetConfig(preset);
+    state.performanceMicTolerancePreset = config.performanceMicTolerancePreset;
+    dom.performanceMicTolerancePreset.value = state.performanceMicTolerancePreset;
+    state.performanceTimingLeniencyPreset = config.performanceTimingLeniencyPreset;
+    dom.performanceTimingLeniencyPreset.value = state.performanceTimingLeniencyPreset;
+    refreshMicPerformanceReadinessUi();
+    syncPracticePresetUi();
     saveSettings();
   });
 
@@ -1408,7 +1747,8 @@ export function registerSessionControls() {
     refreshMelodyTimelineUi();
   });
   const applyMelodyFingeringStrategy = (rawValue: unknown) => {
-    state.melodyFingeringStrategy = normalizeMelodyFingeringStrategy(rawValue);
+    state.melodyFingeringStrategy =
+      rawValue === 'minimax' ? normalizeMelodyFingeringStrategy(rawValue) : 'minimax';
     dom.melodyFingeringStrategy.value = state.melodyFingeringStrategy;
     dom.melodyFingeringStrategyQuick.value = state.melodyFingeringStrategy;
     saveSettings();
@@ -1471,6 +1811,7 @@ export function registerSessionControls() {
     stopMelodyDemoPlayback({ clearUi: true });
     markCurriculumPresetAsCustom();
     handleModeChange();
+    applyUiWorkflowLayout(state.uiWorkflow);
     syncHiddenMetronomeTempoFromSharedTempo();
     void syncMelodyMetronomeRuntime();
     updatePracticeSetupSummary();
@@ -1546,6 +1887,11 @@ export function registerSessionControls() {
   dom.metronomeVolume.addEventListener('change', () => {
     syncMetronomeVolumeDisplayAndRuntime();
     saveSettings();
+  });
+  dom.switchToMicrophoneFromMidiBtn.addEventListener('click', () => {
+    if (dom.inputSource.value === 'microphone') return;
+    dom.inputSource.value = 'microphone';
+    dom.inputSource.dispatchEvent(new Event('change'));
   });
   dom.rhythmTimingWindow.addEventListener('change', () => {
     saveSettings();
@@ -1718,6 +2064,24 @@ export function registerSessionControls() {
     stopMelodyDemoPlayback({ clearUi: true });
     melodyImportModalController.open({ mode: 'create' });
   });
+  dom.melodyEmptyStateImportBtn.addEventListener('click', () => {
+    if (state.uiWorkflow === 'editor') {
+      dom.openMelodyImportBtn.click();
+      return;
+    }
+    stopMelodyDemoPlayback({ clearUi: true });
+    applyUiWorkflow('editor');
+    saveSettings();
+  });
+  dom.melodyEmptyStateLoadStarterBtn.addEventListener('click', () => {
+    const starterMelodyId = getFirstAvailableMelodyId();
+    if (!starterMelodyId) {
+      dom.openMelodyImportBtn.click();
+      return;
+    }
+    dom.melodySelector.value = starterMelodyId;
+    dom.melodySelector.dispatchEvent(new Event('change'));
+  });
   dom.importMelodyGpBtn.addEventListener('click', () => {
     dom.melodyGpFileInput.click();
   });
@@ -1737,6 +2101,7 @@ export function registerSessionControls() {
       await melodyImportPreviewController.loadGpImportDraftFromFile(file);
       setResultMessage('GP file parsed. Review the preview, choose a track, then save.', 'success');
     } catch (error) {
+      renderMelodyEditorPreviewError('Import failed', error);
       showNonBlockingError(formatUserFacingError('Failed to import Guitar Pro file', error));
     } finally {
       dom.importMelodyGpBtn.disabled = false;
@@ -1760,6 +2125,7 @@ export function registerSessionControls() {
       await melodyImportPreviewController.loadMidiImportDraftFromFile(file);
       setResultMessage(`${sourceLabel} file parsed. Review the preview, choose a track, then save.`, 'success');
     } catch (error) {
+      renderMelodyEditorPreviewError('Import failed', error);
       showNonBlockingError(formatUserFacingError(`Failed to import ${sourceLabel} file`, error));
     } finally {
       dom.importMelodyMidiBtn.disabled = false;

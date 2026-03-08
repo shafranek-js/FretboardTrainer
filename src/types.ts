@@ -41,6 +41,12 @@ export interface SessionStats {
   targetZoneStats: { [key: string]: NoteStat };
   rhythmStats: RhythmSessionStats;
   performanceTimingStats?: PerformanceTimingStats;
+  melodyId?: string | null;
+  melodyStudyRangeStartIndex?: number | null;
+  melodyStudyRangeEndIndex?: number | null;
+  melodyTransposeSemitones?: number;
+  melodyStringShift?: number;
+  completedRun?: boolean;
 }
 
 export interface RhythmSessionStats {

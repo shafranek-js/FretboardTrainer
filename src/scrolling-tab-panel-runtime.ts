@@ -1,6 +1,7 @@
 import type { MelodyDefinition } from './melody-library';
 import type { Prompt } from './types';
 import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
+import { isPerformanceStyleMode } from './training-mode-groups';
 
 export interface ScrollingTabPanelRuntimeState {
   currentTimeSec: number | null;
@@ -67,7 +68,7 @@ export function resolveScrollingTabPanelRuntimeState(
 
   const leadInSec = Math.max(0, input.performancePrerollDurationMs / 1000);
   if (
-    input.trainingMode === 'performance' &&
+    isPerformanceStyleMode(input.trainingMode) &&
     input.performancePrerollLeadInVisible &&
     input.performancePrerollStartedAtMs !== null
   ) {
@@ -79,7 +80,7 @@ export function resolveScrollingTabPanelRuntimeState(
   }
 
   if (
-    input.trainingMode === 'performance' &&
+    isPerformanceStyleMode(input.trainingMode) &&
     input.isListening &&
     input.performanceRuntimeStartedAtMs !== null
   ) {
@@ -102,7 +103,7 @@ export function resolveScrollingTabPanelRuntimeState(
     };
   }
 
-  if (input.trainingMode === 'performance' && input.isListening && input.currentPrompt) {
+  if (isPerformanceStyleMode(input.trainingMode) && input.isListening && input.currentPrompt) {
     const activeEventIndex =
       typeof input.performanceActiveEventIndex === 'number'
         ? input.performanceActiveEventIndex
@@ -124,7 +125,7 @@ export function resolveScrollingTabPanelRuntimeState(
     }
   }
 
-  if (input.trainingMode === 'performance' && input.isListening) {
+  if (isPerformanceStyleMode(input.trainingMode) && input.isListening) {
     const settledEventIndex = clamp(
       input.currentMelodyEventIndex,
       input.studyRange.startIndex,
@@ -143,6 +144,6 @@ export function resolveScrollingTabPanelRuntimeState(
   return {
     currentTimeSec: null,
     shouldAnimate: false,
-    leadInSec: input.trainingMode === 'performance' ? Math.max(leadInSec, 2) : 1.4,
+    leadInSec: isPerformanceStyleMode(input.trainingMode) ? Math.max(leadInSec, 2) : 1.4,
   };
 }

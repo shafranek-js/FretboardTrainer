@@ -74,6 +74,7 @@ export interface SessionStopResetState {
   performancePrerollStepIndex: number | null;
   performanceRuntimeStartedAtMs: number | null;
   performanceTransportAnimationId: number;
+  performanceRunCompleted: boolean;
   showSessionSummaryOnStop: boolean;
   pendingSessionStopResultMessage: { text: string; tone: 'neutral' | 'success' | 'error' } | null;
 }
@@ -144,6 +145,7 @@ export function createSessionStopResetState() {
     performancePrerollStepIndex: null,
     performanceRuntimeStartedAtMs: null,
     performanceTransportAnimationId: 0,
+    performanceRunCompleted: false,
     showSessionSummaryOnStop: false,
     pendingSessionStopResultMessage: null,
   } satisfies SessionStopResetState & ReturnType<typeof createPromptCycleTrackingResetState>;

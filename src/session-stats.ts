@@ -52,6 +52,11 @@ interface CreateSessionStatsInput {
   enabledStrings?: string[];
   minFret?: number;
   maxFret?: number;
+  melodyId?: string | null;
+  melodyStudyRangeStartIndex?: number | null;
+  melodyStudyRangeEndIndex?: number | null;
+  melodyTransposeSemitones?: number;
+  melodyStringShift?: number;
   startedAtMs?: number;
 }
 
@@ -85,6 +90,11 @@ export function createSessionStats({
   enabledStrings = [],
   minFret = 0,
   maxFret = 12,
+  melodyId = null,
+  melodyStudyRangeStartIndex = null,
+  melodyStudyRangeEndIndex = null,
+  melodyTransposeSemitones = 0,
+  melodyStringShift = 0,
   startedAtMs = Date.now(),
 }: CreateSessionStatsInput): SessionStats {
   return {
@@ -111,6 +121,12 @@ export function createSessionStats({
     targetZoneStats: {},
     rhythmStats: createEmptyRhythmStats(),
     performanceTimingStats: createEmptyPerformanceTimingStats(),
+    melodyId,
+    melodyStudyRangeStartIndex,
+    melodyStudyRangeEndIndex,
+    melodyTransposeSemitones,
+    melodyStringShift,
+    completedRun: false,
   };
 }
 

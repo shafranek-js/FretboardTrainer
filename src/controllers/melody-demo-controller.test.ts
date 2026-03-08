@@ -38,6 +38,8 @@ function createDeps(options?: { selection?: MelodyDemoSelection | null; loop?: b
     onPlaybackCursorChange: vi.fn(),
     onPlaybackStopped: vi.fn(),
     onPlaybackCompleted: vi.fn(),
+    getPlaybackPromptLabel: vi.fn(() => 'Playback'),
+    getPlaybackCompletedLabel: vi.fn(() => 'Playback complete'),
   };
   return deps;
 }
@@ -167,6 +169,35 @@ describe('melody-demo-controller', () => {
     expect(deps.onPlaybackCompleted).toHaveBeenCalledTimes(1);
     expect(deps.setResultMessage).toHaveBeenCalledWith(
       'Playback complete: Demo melody (Steps 1-2)',
+      'success'
+    );
+  });
+
+  it('uses preview copy for library-style playback messaging', async () => {
+    const events: MelodyEvent[] = [
+      { durationBeats: 1, notes: [{ note: 'C', stringName: 'A', fret: 3 }] },
+    ];
+    const deps = createDeps({
+      selection: createSelection(events, { startIndex: 0, endIndex: 0 }),
+    });
+    deps.getPlaybackPromptLabel.mockReturnValue('Preview');
+    deps.getPlaybackCompletedLabel.mockReturnValue('Preview complete');
+    const controller = createMelodyDemoController(deps);
+
+    await controller.startPlayback();
+    vi.advanceTimersByTime(200);
+
+    expect(deps.previewEvent).toHaveBeenCalledWith(
+      events,
+      'Demo melody',
+      events[0],
+      0,
+      1,
+      { startIndex: 0, endIndex: 0 },
+      { label: 'Preview', autoplaySound: true }
+    );
+    expect(deps.setResultMessage).toHaveBeenCalledWith(
+      'Preview complete: Demo melody (Steps 1-2)',
       'success'
     );
   });

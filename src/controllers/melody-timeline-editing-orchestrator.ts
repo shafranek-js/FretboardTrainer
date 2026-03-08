@@ -1,5 +1,6 @@
 import type { IInstrument } from '../instruments/instrument';
 import type { MelodyDefinition, MelodyEvent } from '../melody-library';
+import type { UiWorkflow } from '../training-workflows';
 import {
   addMelodyTimelineEditingEventAfterSelection,
   addMelodyTimelineEditingNote,
@@ -46,6 +47,7 @@ interface MelodyTimelineEditingOrchestratorDeps {
   getMelodyTransposeSemitones(): number;
   getMelodyStringShift(): number;
   getTrainingMode(): string;
+  getUiWorkflow(): UiWorkflow;
   isMelodyWorkflowMode(mode: string): boolean;
   updateCustomEventMelody(
     melodyId: string,
@@ -107,6 +109,9 @@ export function createMelodyTimelineEditingOrchestrator(deps: MelodyTimelineEdit
   }
 
   function canEditSelectedMelodyOnTimeline(): EditableTimelineMelodyEligibility {
+    if (deps.getUiWorkflow() !== 'editor') {
+      return { editable: false, reason: 'Switch to the Editor workflow to change source notes on the timeline.' };
+    }
     const melody = getSelectedTimelineEditableMelody();
     if (!melody) {
       return { editable: false, reason: 'Timeline editing is available for custom imported melodies only.' };

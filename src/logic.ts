@@ -8,6 +8,7 @@ import {
   updateStats,
   saveLastSessionStats,
   saveLastSessionAnalysisBundle,
+  savePerformanceStarResults,
   saveSettings,
   saveStats,
 } from './storage';
@@ -108,6 +109,7 @@ import { clearLiveDetectedHighlight, updateLiveDetectedHighlight } from './live-
 import { createSessionRuntimeErrorHandler } from './session-runtime-error-handler';
 import { buildAudioMonophonicReactionPlan, buildCalibrationFrameReactionPlan } from './session-detection-reactions';
 import { executeSessionNextPromptPlan } from './session-next-prompt-executor';
+import { getTrainingModeLabel } from './training-mode-labels';
 import {
   buildFinishCalibrationOutcome,
   closeCalibrationSession,
@@ -158,7 +160,11 @@ import {
 } from './mic-polyphonic-detector';
 import { refreshMicPolyphonicDetectorAudioInfoUi } from './mic-polyphonic-detector-ui';
 import { refreshMicPerformanceReadinessUi } from './mic-performance-readiness-ui';
-import { isMelodyWorkflowMode } from './training-mode-groups';
+import {
+  clearAudioInputGuidanceError,
+  setAudioInputGuidanceError,
+} from './audio-input-guidance-ui';
+import { isMelodyWorkflowMode, isPerformanceStyleMode } from './training-mode-groups';
 import { createPerformancePromptController } from './performance-prompt-controller';
 import {
   detectMonophonicOctaveMismatch as detectMonophonicOctaveMismatchHelper,
@@ -191,6 +197,7 @@ import {
   restoreMicPerformanceLatencyCalibrationState,
 } from './mic-performance-latency-calibration-state';
 import { buildPerformanceSessionNoteLogSnapshot } from './performance-session-note-log';
+import { buildPerformanceStarsRunKey, resolvePerformanceStarView } from './performance-stars';
 import {
   buildSessionAnalysisBundle,
   type MicPerformanceOnsetRejectReasonKey,
@@ -229,7 +236,7 @@ function resetMicMonophonicAttackTracking() {
 function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: number) {
   const nowMs = Date.now();
   const eventDurationMs = state.currentPrompt?.melodyEventDurationMs ?? null;
-  const performanceAdaptive = dom.trainingMode.value === 'performance';
+  const performanceAdaptive = isPerformanceStyleMode(dom.trainingMode.value);
   const performanceDropHoldMs = performanceAdaptive
     ? resolvePerformanceMicDropHoldMs(eventDurationMs)
     : undefined;
@@ -387,7 +394,7 @@ function resolveSessionPerformanceMicHoldCalibrationLevel(input: {
   trainingMode: string;
   inputSource: 'microphone' | 'midi';
 }) {
-  if (input.trainingMode !== 'performance' || input.inputSource !== 'microphone') {
+  if (!isPerformanceStyleMode(input.trainingMode) || input.inputSource !== 'microphone') {
     return 'off' as const;
   }
   return resolvePerformanceMicHoldCalibrationLevelFromBundle(state.lastSessionAnalysisBundle);
@@ -520,14 +527,14 @@ function getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex: number) {
 }
 
 function startPerformanceRuntimeClock(targetEventIndex = state.melodyStudyRangeStartIndex) {
-  if (dom.trainingMode.value !== 'performance') return;
+  if (!isPerformanceStyleMode(dom.trainingMode.value)) return;
   const elapsedSec = getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex);
   state.performanceRuntimeStartedAtMs = Date.now() - Math.round(elapsedSec * 1000);
   schedulePerformanceTransportLoop();
 }
 
 function getActivePerformanceTransportContext() {
-  if (dom.trainingMode.value !== 'performance') return null;
+  if (!isPerformanceStyleMode(dom.trainingMode.value)) return null;
   const selectedMelodyId = dom.melodySelector.value.trim();
   const baseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
   if (!baseMelody) return null;
@@ -548,7 +555,7 @@ function getActivePerformanceTransportContext() {
 
 function syncPerformanceTransport(nowMs = Date.now()) {
   if (
-    dom.trainingMode.value !== 'performance' ||
+    !isPerformanceStyleMode(dom.trainingMode.value) ||
     !state.isListening ||
     state.performanceRuntimeStartedAtMs === null
   ) {
@@ -571,6 +578,10 @@ function syncPerformanceTransport(nowMs = Date.now()) {
     if (state.currentPrompt && !state.performancePromptResolved) {
       performancePromptController.resolveMissed();
     }
+    if (dom.trainingMode.value === 'performance' && state.activeSessionStats) {
+      state.activeSessionStats.completedRun = true;
+      state.performanceRunCompleted = true;
+    }
     state.performanceActiveEventIndex = null;
     state.currentMelodyEventIndex = context.studyRange.endIndex + 1;
     state.pendingSessionStopResultMessage = {
@@ -582,6 +593,16 @@ function syncPerformanceTransport(nowMs = Date.now()) {
           )})`,
       tone: 'success',
     };
+    if (dom.trainingMode.value === 'practice') {
+      state.pendingSessionStopResultMessage = null;
+      clearPerformanceTimelineFeedback();
+      state.currentMelodyEventFoundNotes.clear();
+      state.performanceRuntimeStartedAtMs = Date.now();
+      state.performanceActiveEventIndex = context.studyRange.startIndex;
+      state.currentMelodyEventIndex = context.studyRange.startIndex;
+      nextPrompt();
+      return;
+    }
     nextPrompt();
     return;
   }
@@ -623,7 +644,7 @@ function schedulePerformanceTransportLoop() {
     state.performanceTransportAnimationId = 0;
     if (
       !state.isListening ||
-      dom.trainingMode.value !== 'performance' ||
+      !isPerformanceStyleMode(dom.trainingMode.value) ||
       state.performanceRuntimeStartedAtMs === null
     ) {
       return;
@@ -633,7 +654,7 @@ function schedulePerformanceTransportLoop() {
 
     if (
       state.isListening &&
-      dom.trainingMode.value === 'performance' &&
+      isPerformanceStyleMode(dom.trainingMode.value) &&
       state.performanceRuntimeStartedAtMs !== null
     ) {
       state.performanceTransportAnimationId = requestAnimationFrame(tick);
@@ -739,7 +760,7 @@ function setWrongDetectedHighlight(detectedNote: string, detectedFrequency?: num
 }
 
 function getCurrentPerformanceTimelineEventIndex() {
-  if (dom.trainingMode.value !== 'performance') return null;
+  if (!isPerformanceStyleMode(dom.trainingMode.value)) return null;
   const eventIndex = state.performanceActiveEventIndex;
   return Number.isInteger(eventIndex) && eventIndex >= 0 ? eventIndex : null;
 }
@@ -1201,7 +1222,7 @@ function processAudio() {
       state.micSensitivityPreset,
       state.micAutoNoiseFloorRms
     );
-    const performanceAdaptiveMicInput = state.inputSource !== 'midi' && trainingMode === 'performance';
+    const performanceAdaptiveMicInput = state.inputSource !== 'midi' && isPerformanceStyleMode(trainingMode);
     const micVolumeThreshold = performanceAdaptiveMicInput
       ? resolvePerformanceMicVolumeThreshold({
           baseThreshold: baseMicVolumeThreshold,
@@ -1535,7 +1556,7 @@ export async function startListening(forCalibration = false) {
     state.calibrationFrequencies = [];
   } else {
     const trainingMode = dom.trainingMode.value;
-    if (trainingMode === 'performance') {
+    if (isPerformanceStyleMode(trainingMode)) {
       // Defensive reset so every fresh performance session starts from preroll.
       stopPerformanceTransportLoop();
       clearTrackedTimeouts(state.pendingTimeoutIds);
@@ -1546,6 +1567,7 @@ export async function startListening(forCalibration = false) {
       state.performancePrerollDurationMs = 0;
       state.performancePrerollStepIndex = null;
       state.performanceActiveEventIndex = null;
+      state.performanceRunCompleted = false;
     }
     const mode = modes[trainingMode];
     const startPlan = buildSessionStartPlan({
@@ -1641,6 +1663,7 @@ export async function startListening(forCalibration = false) {
       clearPerformanceTimelineFeedback();
       resetMicPolyphonicDetectorTelemetry();
       if (selectedInputSource === 'microphone') {
+        clearAudioInputGuidanceError();
         refreshMicPolyphonicDetectorAudioInfoUi();
         refreshMicPerformanceReadinessUi();
       }
@@ -1666,7 +1689,7 @@ export async function startListening(forCalibration = false) {
         analyserProfile:
           !forCalibration &&
           selectedInputSource === 'microphone' &&
-          dom.trainingMode.value === 'performance'
+          isPerformanceStyleMode(dom.trainingMode.value)
             ? 'low-latency-performance'
             : 'default',
       });
@@ -1697,7 +1720,7 @@ export async function startListening(forCalibration = false) {
         sessionInputSource: selectedInputSource,
         modeKey: !forCalibration ? dom.trainingMode.value : undefined,
         modeLabel: !forCalibration
-          ? selectedMode?.textContent?.trim() || dom.trainingMode.value
+          ? selectedMode?.textContent?.trim() || getTrainingModeLabel(dom.trainingMode.value)
           : undefined,
         instrumentName: !forCalibration ? state.currentInstrument.name : undefined,
         tuningPresetKey: !forCalibration ? state.currentTuningPresetKey : undefined,
@@ -1705,6 +1728,11 @@ export async function startListening(forCalibration = false) {
         enabledStrings: !forCalibration ? Array.from(getEnabledStrings(dom.stringSelector)) : undefined,
         minFret: fretRange.minFret,
         maxFret: fretRange.maxFret,
+        melodyId: !forCalibration ? dom.melodySelector.value.trim() || null : undefined,
+        melodyStudyRangeStartIndex: !forCalibration ? state.melodyStudyRangeStartIndex : undefined,
+        melodyStudyRangeEndIndex: !forCalibration ? state.melodyStudyRangeEndIndex : undefined,
+        melodyTransposeSemitones: !forCalibration ? state.melodyTransposeSemitones : undefined,
+        melodyStringShift: !forCalibration ? state.melodyStringShift : undefined,
         audioInputDeviceLabel: !forCalibration
           ? dom.audioInputDevice.selectedOptions[0]?.textContent?.trim()
           : undefined,
@@ -1764,6 +1792,24 @@ export async function startListening(forCalibration = false) {
       }
     );
   } catch (err) {
+    if (!forCalibration && state.inputSource === 'microphone') {
+      const errorName =
+        err instanceof DOMException
+          ? err.name
+          : err instanceof Error && typeof err.name === 'string'
+            ? err.name
+            : '';
+      if (errorName === 'NotAllowedError' || errorName === 'SecurityError') {
+        setAudioInputGuidanceError('permission');
+      } else if (errorName === 'NotFoundError' || errorName === 'NotReadableError' || errorName === 'AbortError') {
+        setAudioInputGuidanceError('device');
+      } else if (errorName === 'NotSupportedError') {
+        setAudioInputGuidanceError('unsupported');
+      } else {
+        setAudioInputGuidanceError('unknown');
+      }
+      refreshMicPolyphonicDetectorAudioInfoUi();
+    }
     if (!forCalibration) stopListening();
     showNonBlockingError(formatUserFacingError('Failed to start input', err));
     return false;
@@ -1778,6 +1824,9 @@ export function stopListening(keepStreamOpen = false) {
   const shouldShowSessionSummary = state.showSessionSummaryOnStop;
   if (state.activeSessionStats && !state.isCalibrating) {
     const finalizedSessionStats = finalizeSessionStats(state.activeSessionStats);
+    if (finalizedSessionStats && typeof finalizedSessionStats.completedRun !== 'boolean') {
+      finalizedSessionStats.completedRun = state.performanceRunCompleted;
+    }
     state.lastSessionStats = finalizedSessionStats;
     if (finalizedSessionStats?.modeKey === 'performance') {
       state.lastSessionPerformanceNoteLog = buildPerformanceSessionNoteLogSnapshot({
@@ -1785,6 +1834,15 @@ export function stopListening(keepStreamOpen = false) {
         feedbackKey: state.performanceTimelineFeedbackKey,
         feedbackByEvent: state.performanceTimelineFeedbackByEvent,
       });
+      const performanceStarView = resolvePerformanceStarView(finalizedSessionStats);
+      const performanceStarsRunKey = buildPerformanceStarsRunKey(finalizedSessionStats);
+      if (performanceStarView && performanceStarsRunKey) {
+        const previousBestStars = Math.max(0, Math.round(state.performanceStarsByRunKey[performanceStarsRunKey] ?? 0));
+        if (performanceStarView.stars > previousBestStars) {
+          state.performanceStarsByRunKey[performanceStarsRunKey] = performanceStarView.stars;
+          savePerformanceStarResults();
+        }
+      }
     } else {
       state.lastSessionPerformanceNoteLog = null;
     }
@@ -1922,12 +1980,14 @@ export function seekActiveMelodySessionToEvent(eventIndex: number) {
   performancePromptController.invalidatePendingAdvance();
   clearPerformanceTimelineFeedback();
   state.currentMelodyEventIndex = Math.max(0, Math.round(eventIndex));
-  state.performanceActiveEventIndex = dom.trainingMode.value === 'performance' ? state.currentMelodyEventIndex : null;
+  state.performanceActiveEventIndex = isPerformanceStyleMode(dom.trainingMode.value)
+    ? state.currentMelodyEventIndex
+    : null;
   state.currentMelodyEventFoundNotes.clear();
   performancePromptController.resetPromptResolution();
   state.pendingSessionStopResultMessage = null;
   clearWrongDetectedHighlight();
-  if (dom.trainingMode.value === 'performance') {
+  if (isPerformanceStyleMode(dom.trainingMode.value)) {
     startPerformanceRuntimeClock(state.currentMelodyEventIndex);
   }
   nextPrompt();
@@ -2000,7 +2060,7 @@ function nextPrompt() {
   try {
     if (!state.isListening) return;
     if (
-      dom.trainingMode.value === 'performance' &&
+      isPerformanceStyleMode(dom.trainingMode.value) &&
       state.performanceRuntimeStartedAtMs === null &&
       !state.performancePrerollLeadInVisible
     ) {
@@ -2021,7 +2081,7 @@ function nextPrompt() {
     const trainingMode = dom.trainingMode.value;
     const mode = modes[trainingMode];
       let prompt: Prompt | null = null;
-      if (trainingMode === 'performance') {
+      if (isPerformanceStyleMode(trainingMode)) {
         const performanceContext = getActivePerformanceTransportContext();
         if (performanceContext) {
           state.currentMelodyId = performanceContext.melody.id;
@@ -2090,7 +2150,7 @@ function nextPrompt() {
         configurePromptAudio();
         state.startTime = Date.now();
         void syncMelodySessionMetronomeToPromptStart();
-        if (trainingMode !== 'performance') {
+        if (!isPerformanceStyleMode(trainingMode)) {
           performancePromptController.scheduleAdvance(nextPrompt);
         }
       },
@@ -2129,7 +2189,7 @@ async function syncMelodySessionMetronomeToPromptStart() {
       : resolveMelodyMetronomeMeterProfile(selectedMelody);
   setMetronomeMeter(meterProfile);
 
-  if (dom.trainingMode.value === 'performance') {
+  if (isPerformanceStyleMode(dom.trainingMode.value)) {
     if (state.performanceRuntimeStartedAtMs === null || state.performancePrerollLeadInVisible) {
       return;
     }

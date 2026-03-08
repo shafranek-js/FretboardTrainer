@@ -5,7 +5,7 @@ import { getMelodyFingeredEvent } from './melody-fingering';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { normalizeMelodyStudyRange } from './melody-study-range';
 import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
-import { isMelodyWorkflowMode } from './training-mode-groups';
+import { isMelodyWorkflowMode, isPerformanceStyleMode } from './training-mode-groups';
 import type { ChordNote } from './types';
 import {
   buildPerformanceTimelineFeedbackKey,
@@ -133,7 +133,7 @@ export function resolveMelodyTimelineRenderState(input: {
     modeLabel = input.melodyTimelinePreviewLabel ?? 'Preview';
   } else {
     const sessionIndex =
-      input.trainingMode === 'performance' && input.isListening
+      isPerformanceStyleMode(input.trainingMode) && input.isListening
         ? input.performanceActiveEventIndex
         : input.currentMelodyEventIndex - 1;
     if (Number.isFinite(sessionIndex) && sessionIndex >= 0) {
@@ -157,7 +157,7 @@ export function resolveMelodyTimelineRenderState(input: {
     melodyStringShift: input.melodyStringShift,
   });
   const performanceFeedbackByEvent =
-    input.trainingMode === 'performance' &&
+    isPerformanceStyleMode(input.trainingMode) &&
     performanceFeedbackKey !== null &&
     input.performanceTimelineFeedbackKey === performanceFeedbackKey
       ? input.performanceTimelineFeedbackByEvent
@@ -184,7 +184,7 @@ export function resolveMelodyTimelineRenderState(input: {
     modeLabel,
     studyRange,
     performanceFeedbackByEvent,
-    showPrerollLeadIn: input.trainingMode === 'performance',
+    showPrerollLeadIn: isPerformanceStyleMode(input.trainingMode),
     editingEnabled,
     copyText,
   };

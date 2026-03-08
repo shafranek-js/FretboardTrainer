@@ -46,6 +46,7 @@ interface MicSettingsControllerDeps {
   refreshAudioInputDeviceOptions(): Promise<void>;
   refreshMicPolyphonicDetectorAudioInfoUi(): void;
   refreshMicPerformanceReadinessUi(): void;
+  syncPracticePresetUi(): void;
   saveSettings(): void;
   setResultMessage(message: string, tone?: 'success' | 'error'): void;
   formatUserFacingError(prefix: string, error: unknown): string;
@@ -137,6 +138,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     deps.dom.micSensitivityPreset.value = deps.state.micSensitivityPreset;
     updateNoiseGateInfo();
     deps.refreshMicPerformanceReadinessUi();
+    deps.syncPracticePresetUi();
     deps.saveSettings();
   }
 
@@ -147,6 +149,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     deps.dom.micNoteAttackFilter.value = deps.state.micNoteAttackFilterPreset;
     updateNoiseGateInfo();
     deps.refreshMicPerformanceReadinessUi();
+    deps.syncPracticePresetUi();
     deps.saveSettings();
   }
 
@@ -155,6 +158,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     deps.dom.micNoteHoldFilter.value = deps.state.micNoteHoldFilterPreset;
     updateNoiseGateInfo();
     deps.refreshMicPerformanceReadinessUi();
+    deps.syncPracticePresetUi();
     deps.saveSettings();
   }
 
@@ -177,6 +181,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
     updateNoiseGateInfo();
     deps.refreshMicPolyphonicDetectorAudioInfoUi();
     deps.refreshMicPerformanceReadinessUi();
+    deps.syncPracticePresetUi();
     deps.saveSettings();
   }
 
@@ -200,6 +205,7 @@ export function createMicSettingsController(deps: MicSettingsControllerDeps) {
       updateNoiseGateInfo();
       deps.refreshMicPolyphonicDetectorAudioInfoUi();
       deps.refreshMicPerformanceReadinessUi();
+      deps.syncPracticePresetUi();
       deps.saveSettings();
       deps.setResultMessage(
         `Room noise calibrated. Auto threshold is now based on ${noiseFloorRms.toFixed(4)} RMS.`,

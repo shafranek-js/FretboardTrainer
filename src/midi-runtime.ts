@@ -1,6 +1,7 @@
 import { dom, state } from './state';
 import { updateSessionInputStatusHud } from './input-source-status';
 import { parseMidiMessageData } from './midi-message';
+import { refreshAudioInputGuidanceUi } from './audio-input-guidance-ui';
 
 export type InputSourceKind = 'microphone' | 'midi';
 
@@ -75,6 +76,22 @@ function updateMidiConnectionStatusUi() {
   dom.midiConnectionStatus.textContent = `MIDI Connection: ${isLiveBound ? 'Listening' : 'Ready'} (${activeInputName})`;
 }
 
+function updateMidiFallbackActionVisibility() {
+  const isMidiSelected = state.inputSource === 'midi';
+  if (!isMidiSelected) {
+    dom.switchToMicrophoneFromMidiBtn.classList.add('hidden');
+    return;
+  }
+
+  if (!supportsWebMidi()) {
+    dom.switchToMicrophoneFromMidiBtn.classList.remove('hidden');
+    return;
+  }
+
+  const inputCount = state.midiAccess ? Array.from(state.midiAccess.inputs.values()).length : 0;
+  dom.switchToMicrophoneFromMidiBtn.classList.toggle('hidden', inputCount > 0);
+}
+
 export function normalizeInputSource(value: unknown): InputSourceKind {
   return value === 'midi' ? 'midi' : 'microphone';
 }
@@ -89,6 +106,7 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   const usingMidi = state.inputSource === 'midi';
   dom.audioInputRow.classList.toggle('hidden', usingMidi);
   dom.micSensitivityRow.classList.toggle('hidden', usingMidi);
+  dom.practiceInputPresetRow.classList.toggle('hidden', usingMidi);
   dom.micAttackFilterRow.classList.toggle('hidden', usingMidi);
   dom.micHoldFilterRow.classList.toggle('hidden', usingMidi);
   dom.micDirectInputRow.classList.toggle('hidden', usingMidi);
@@ -99,8 +117,10 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
   dom.micPerformanceInfo.classList.toggle('hidden', usingMidi);
   dom.midiInputRow.classList.toggle('hidden', !usingMidi);
   dom.midiInputInfo.classList.toggle('hidden', !usingMidi);
+  refreshAudioInputGuidanceUi();
   updateSessionInputStatusHud();
   updateMidiConnectionStatusUi();
+  updateMidiFallbackActionVisibility();
 }
 
 export function setPreferredMidiInputDeviceId(deviceId: string | null) {
@@ -121,8 +141,9 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
 
   if (!midiAccess) {
     dom.midiInputDevice.disabled = true;
-    dom.midiInputInfo.textContent = 'Web MIDI is unsupported in this browser.';
+    dom.midiInputInfo.textContent = 'Web MIDI is unsupported in this browser. Use Chrome or Edge desktop, or switch to microphone input.';
     updateMidiConnectionStatusUi();
+    updateMidiFallbackActionVisibility();
     return;
   }
 
@@ -136,10 +157,11 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
 
   dom.midiInputDevice.disabled = inputs.length === 0;
   if (inputs.length === 0) {
-    dom.midiInputInfo.textContent = 'No MIDI devices detected. Connect one and reopen Settings.';
+    dom.midiInputInfo.textContent = 'No MIDI devices detected. Connect a controller and reopen Settings, or switch to microphone input.';
     dom.midiInputDevice.value = '';
     state.preferredMidiInputDeviceId = null;
     updateMidiConnectionStatusUi();
+    updateMidiFallbackActionVisibility();
     return;
   }
 
@@ -151,6 +173,7 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
   dom.midiInputInfo.textContent = 'Supports note and chord practice via note-on + held notes.';
   updateSessionInputStatusHud();
   updateMidiConnectionStatusUi();
+  updateMidiFallbackActionVisibility();
 }
 
 export async function refreshMidiInputDevices(requestAccess = true) {

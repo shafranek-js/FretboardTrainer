@@ -1,3 +1,5 @@
+import { isPerformanceStyleMode } from './training-mode-groups';
+
 export interface PerformanceOctavePolicyInput {
   trainingMode: string;
   inputSource: 'microphone' | 'midi';
@@ -10,7 +12,7 @@ export function shouldIgnorePerformanceOctaveMismatch(
   input: PerformanceOctavePolicyInput
 ) {
   return (
-    input.trainingMode === 'performance' &&
+    isPerformanceStyleMode(input.trainingMode) &&
     input.inputSource === 'microphone' &&
     input.relaxOctaveCheckEnabled &&
     typeof input.promptTargetNote === 'string' &&

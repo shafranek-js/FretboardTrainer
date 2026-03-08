@@ -4,6 +4,7 @@ import type { MicSensitivityPreset } from './mic-input-sensitivity';
 import type { MicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
 import type { PerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import type { PerformanceTimingLeniencyPreset } from './performance-timing-forgiveness';
+import { isPerformanceStyleMode } from './training-mode-groups';
 
 export interface MicPerformanceReadinessInput {
   trainingMode: string;
@@ -98,7 +99,11 @@ function formatLiveSignalSummary(input: MicPerformanceReadinessInput) {
 }
 
 function formatOnsetGateSummary(input: MicPerformanceReadinessInput) {
-  if (!input.isListening || input.inputSource !== 'microphone' || input.trainingMode !== 'performance') {
+  if (
+    !input.isListening ||
+    input.inputSource !== 'microphone' ||
+    !isPerformanceStyleMode(input.trainingMode)
+  ) {
     return null;
   }
 
@@ -121,7 +126,7 @@ function formatOnsetGateSummary(input: MicPerformanceReadinessInput) {
 }
 
 function formatOnsetGateRejectTelemetrySummary(input: MicPerformanceReadinessInput) {
-  if (input.inputSource !== 'microphone' || input.trainingMode !== 'performance') return null;
+  if (input.inputSource !== 'microphone' || !isPerformanceStyleMode(input.trainingMode)) return null;
 
   const weakAttackCount = Math.max(0, Math.round(input.onsetRejectedWeakAttackCount ?? 0));
   const lowConfidenceCount = Math.max(0, Math.round(input.onsetRejectedLowConfidenceCount ?? 0));
@@ -176,7 +181,7 @@ export function buildMicPerformanceReadinessView(
   if (
     !isBluetoothLikeLabel(input.selectedAudioInputLabel) &&
     !looksLikeDedicatedInterface(input.selectedAudioInputLabel) &&
-    input.trainingMode === 'performance'
+    isPerformanceStyleMode(input.trainingMode)
   ) {
     if (tone === 'success') tone = 'warning';
     issues.push('Built-in/default mic can work, but a close wired mic or audio interface usually improves attack detection.');
@@ -299,7 +304,7 @@ export function buildMicPerformanceReadinessView(
   }
 
   const liveSignalSummary = formatLiveSignalSummary(input);
-  if (tone === 'success' && input.trainingMode === 'performance') {
+  if (tone === 'success' && isPerformanceStyleMode(input.trainingMode)) {
     issues.push('Mic path looks ready for performance practice.');
   } else if (tone === 'success') {
     issues.push('Mic path looks healthy.');

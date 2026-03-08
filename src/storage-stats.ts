@@ -4,6 +4,7 @@ import type { SessionAnalysisBundle } from './session-analysis-bundle';
 import {
   LAST_SESSION_ANALYSIS_BUNDLE_KEY,
   LAST_SESSION_STATS_KEY,
+  PERFORMANCE_STAR_RESULTS_KEY,
   STATS_KEY,
 } from './app-storage-keys';
 import { createDefaultRhythmSessionStats } from './storage-profiles';
@@ -72,12 +73,17 @@ export function saveLastSessionAnalysisBundle() {
   writeStorageJson(localStorage, LAST_SESSION_ANALYSIS_BUNDLE_KEY, state.lastSessionAnalysisBundle);
 }
 
+export function savePerformanceStarResults() {
+  writeStorageJson(localStorage, PERFORMANCE_STAR_RESULTS_KEY, state.performanceStarsByRunKey);
+}
+
 export function loadStats() {
   clearPendingStatsSave();
   state.lastSessionStats = null;
   state.lastSessionPerformanceNoteLog = null;
   state.lastSessionAnalysisBundle = null;
   state.lastSessionAnalysisAutoDownloadKey = null;
+  state.performanceStarsByRunKey = {};
   const loadedStats = readStorageJson(
     localStorage,
     STATS_KEY,
@@ -176,6 +182,22 @@ export function loadStats() {
     }
   );
   state.lastSessionAnalysisBundle = loadedLastSessionAnalysisBundle;
+
+  state.performanceStarsByRunKey = readStorageJson(
+    localStorage,
+    PERFORMANCE_STAR_RESULTS_KEY,
+    (value): value is Record<string, number> =>
+      typeof value === 'object' &&
+      value !== null &&
+      Object.values(value as Record<string, unknown>).every(
+        (entry) => typeof entry === 'number' && Number.isFinite(entry)
+      ),
+    {},
+    (error) => {
+      console.error('Failed to load performance star results:', error);
+      removeStorageValue(localStorage, PERFORMANCE_STAR_RESULTS_KEY);
+    }
+  );
 }
 
 export function resetStats() {
@@ -191,10 +213,12 @@ export function resetStats() {
   state.lastSessionPerformanceNoteLog = null;
   state.lastSessionAnalysisBundle = null;
   state.lastSessionAnalysisAutoDownloadKey = null;
+  state.performanceStarsByRunKey = {};
   state.activeSessionStats = null;
   saveStats();
   removeStorageValue(localStorage, LAST_SESSION_STATS_KEY);
   removeStorageValue(localStorage, LAST_SESSION_ANALYSIS_BUNDLE_KEY);
+  removeStorageValue(localStorage, PERFORMANCE_STAR_RESULTS_KEY);
 }
 
 export function updateStats(isCorrect: boolean, time: number) {

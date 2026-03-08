@@ -63,10 +63,23 @@ function createDeps(options?: { selectedMelody?: { id: string; name: string; eve
   const dom = {
     melodyDemoBpm: { value: '500' } as HTMLInputElement,
     melodyDemoBpmValue: { textContent: '' } as HTMLElement,
-    melodyDemoBtn: { textContent: '', classList: new FakeClassList() } as unknown as HTMLButtonElement,
-    melodyPauseDemoBtn: { textContent: '', disabled: false, classList: new FakeClassList() } as unknown as HTMLButtonElement,
-    melodyStepBackBtn: { disabled: false } as HTMLButtonElement,
-    melodyStepForwardBtn: { disabled: false } as HTMLButtonElement,
+    melodyDemoBtn: {
+      textContent: '',
+      innerHTML: '',
+      title: '',
+      classList: new FakeClassList(),
+      setAttribute: vi.fn(),
+    } as unknown as HTMLButtonElement,
+    melodyPauseDemoBtn: {
+      textContent: '',
+      innerHTML: '',
+      title: '',
+      disabled: false,
+      classList: new FakeClassList(),
+      setAttribute: vi.fn(),
+    } as unknown as HTMLButtonElement,
+    melodyStepBackBtn: { textContent: '', innerHTML: '', disabled: false } as HTMLButtonElement,
+    melodyStepForwardBtn: { textContent: '', innerHTML: '', disabled: false } as HTMLButtonElement,
     melodyLoopRange: { disabled: false } as HTMLInputElement,
     melodyPlaybackControls: { classList: new FakeClassList() } as unknown as HTMLElement,
     trainingMode: { value: 'melody' } as HTMLSelectElement,
@@ -87,6 +100,7 @@ function createDeps(options?: { selectedMelody?: { id: string; name: string; eve
     state,
     getSelectedMelody: vi.fn(() => options?.selectedMelody ?? null),
     isMelodyWorkflowMode: vi.fn((mode: string) => mode === 'melody' || mode === 'performance'),
+    getUiWorkflow: vi.fn(() => 'study-melody'),
     isDemoActive: vi.fn(() => false),
     isDemoPaused: vi.fn(() => false),
     syncLoopRangeDisplay: vi.fn(),
@@ -100,6 +114,7 @@ function createDeps(options?: { selectedMelody?: { id: string; name: string; eve
     redrawFretboard: vi.fn(),
     renderTimeline: vi.fn(),
     findPlayableStringForNote: vi.fn(() => 'A'),
+    getPlaybackActionLabel: vi.fn((workflow: string) => (workflow === 'library' ? 'Preview Melody' : 'Play Melody')),
   };
   return { deps, dom, state };
 }
@@ -122,12 +137,27 @@ describe('melody-demo-presentation-controller', () => {
 
     expect(dom.melodyDemoBpm.value).toBe('220');
     expect(dom.melodyDemoBpmValue.textContent).toBe('220');
-    expect(dom.melodyDemoBtn.textContent).toBe('Stop');
-    expect(dom.melodyPauseDemoBtn.textContent).toBe('Resume');
+    expect(dom.melodyDemoBtn.innerHTML).toContain('<svg');
+    expect(dom.melodyDemoBtn.title).toBe('Stop playback');
+    expect(dom.melodyPauseDemoBtn.innerHTML).toContain('<svg');
+    expect(dom.melodyPauseDemoBtn.title).toBe('Resume playback');
     expect(dom.melodyPauseDemoBtn.disabled).toBe(false);
+    expect(dom.melodyStepBackBtn.innerHTML).toContain('<svg');
+    expect(dom.melodyStepForwardBtn.innerHTML).toContain('<svg');
     expect(dom.melodyStepBackBtn.disabled).toBe(true);
     expect(dom.melodyPlaybackControls.classList.contains('hidden')).toBe(false);
     expect(deps.syncLoopRangeDisplay).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses preview copy in the library workflow', () => {
+    const { deps, dom } = createDeps();
+    deps.getUiWorkflow.mockReturnValue('library');
+    const controller = createMelodyDemoPresentationController(deps);
+
+    controller.renderButtonState();
+
+    expect(dom.melodyDemoBtn.innerHTML).toContain('<svg');
+    expect(dom.melodyDemoBtn.title).toBe('Preview Melody');
   });
 
   it('previews a monophonic event and plays the prompt audio', () => {

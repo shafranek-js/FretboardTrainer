@@ -157,6 +157,7 @@ const mocked = vi.hoisted(() => {
     performanceMicTolerancePreset: 'normal',
     performanceTimingLeniencyPreset: 'normal',
     performanceMicLatencyCompensationMs: 0,
+    uiMode: 'simple',
   };
 
   const panelState = {
@@ -175,6 +176,7 @@ const mocked = vi.hoisted(() => {
       populateProfileSelector: vi.fn(),
       redrawFretboard: vi.fn(),
     },
+    setUiMode: vi.fn(),
     loadInstrumentSoundfont: vi.fn(async () => {}),
     setNoteNamingPreference: vi.fn(),
     setPreferredAudioInputDeviceId: vi.fn(),
@@ -202,6 +204,7 @@ vi.mock('./ui-signals', () => ({
   setSessionToolsCollapsed: (value: boolean) => {
     mocked.panelState.sessionToolsCollapsed = value;
   },
+  setUiMode: mocked.setUiMode,
 }));
 vi.mock('./constants', () => ({ DEFAULT_A4_FREQUENCY: 440 }));
 vi.mock('./audio', () => ({ loadInstrumentSoundfont: mocked.loadInstrumentSoundfont }));
@@ -378,6 +381,7 @@ function resetMockState() {
   mocked.state.performanceMicTolerancePreset = 'normal';
   mocked.state.performanceTimingLeniencyPreset = 'normal';
   mocked.state.performanceMicLatencyCompensationMs = 0;
+  mocked.state.uiMode = 'simple';
   mocked.dom.micDirectInputMode.checked = false;
   mocked.panelState.practiceSetupCollapsed = false;
   mocked.panelState.melodySetupCollapsed = false;
@@ -430,6 +434,7 @@ describe('storage', () => {
       melodyFingeringLevel: 'intermediate',
       performanceTimingLeniencyPreset: 'forgiving',
       performanceMicLatencyCompensationMs: 135,
+      uiMode: 'simple',
       isDirectInputMode: true,
       practiceSetupCollapsed: true,
       melodySetupCollapsed: true,
@@ -455,9 +460,10 @@ describe('storage', () => {
           performanceMicTolerancePreset: 'forgiving',
           performanceTimingLeniencyPreset: 'strict',
           performanceMicLatencyCompensationMs: 125,
+          uiMode: 'advanced',
           isDirectInputMode: true,
           noteNaming: 'flats',
-          melodyFingeringStrategy: 'minimax',
+          melodyFingeringStrategy: 'heuristic',
           melodyFingeringLevel: 'advanced',
           selectedMelodyId: 'ode-to-joy',
           melodyPlaybackBpmById: { 'builtin:guitar:ode_to_joy_intro': 108 },
@@ -499,12 +505,14 @@ describe('storage', () => {
     expect(mocked.state.showScrollingTabPanel).toBe(false);
     expect(mocked.state.melodyPlaybackBpmById).toEqual({ 'builtin:guitar:ode_to_joy_intro': 108 });
     expect(mocked.state.performanceMicLatencyCompensationMs).toBe(125);
+    expect(mocked.state.uiMode).toBe('advanced');
     expect(mocked.state.melodyFingeringStrategy).toBe('minimax');
     expect(mocked.state.melodyFingeringLevel).toBe('advanced');
     expect(mocked.state.isDirectInputMode).toBe(true);
     expect(mocked.panelState.practiceSetupCollapsed).toBe(true);
     expect(mocked.panelState.melodySetupCollapsed).toBe(true);
     expect(mocked.panelState.sessionToolsCollapsed).toBe(false);
+    expect(mocked.setUiMode).toHaveBeenCalledWith('advanced');
     expect(mocked.ui.populateProfileSelector).toHaveBeenCalledTimes(1);
   });
 

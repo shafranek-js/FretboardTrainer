@@ -180,10 +180,15 @@ describe('buildStatsViewModel', () => {
       createSessionStats({
         modeKey: 'performance',
         modeLabel: 'Performance (Full Run)',
+        inputSource: 'microphone',
         totalAttempts: 62,
         correctAttempts: 10,
         performanceWrongAttempts: 17,
         performanceMissedNoInputAttempts: 35,
+        completedRun: true,
+        melodyId: 'scarborough',
+        melodyStudyRangeStartIndex: 0,
+        melodyStudyRangeEndIndex: 61,
         performanceTimingStats: {
           totalGraded: 10,
           perfect: 7,
@@ -206,5 +211,102 @@ describe('buildStatsViewModel', () => {
       'Timing judged on 10/62 attempts.'
     );
     expect(model.lastSession?.overallPerformanceScoreText).toBe('15.7%');
+    expect(model.lastSession?.nextStepText).toContain('Headphones / Direct Input');
+    expect(model.lastSession?.starsText).toBe('★☆☆');
+  });
+
+  it('recommends Study Melody first for low-accuracy performance runs', () => {
+    const model = buildStatsViewModel(
+      createStats(),
+      3,
+      createSessionStats({
+        modeKey: 'performance',
+        modeLabel: 'Play Through',
+        inputSource: 'midi',
+        totalAttempts: 20,
+        correctAttempts: 8,
+        performanceWrongAttempts: 10,
+        performanceMissedNoInputAttempts: 2,
+        performanceTimingStats: {
+          totalGraded: 20,
+          perfect: 4,
+          aBitEarly: 2,
+          early: 4,
+          tooEarly: 2,
+          aBitLate: 2,
+          late: 4,
+          tooLate: 2,
+          weightedScoreTotal: 11,
+          totalAbsOffsetMs: 2200,
+        },
+      })
+    );
+
+    expect(model.lastSession?.nextStepText).toContain('Study Melody');
+  });
+
+  it('keeps practice-mode summary drill-oriented instead of formal grading', () => {
+    const model = buildStatsViewModel(
+      createStats(),
+      3,
+      createSessionStats({
+        modeKey: 'practice',
+        modeLabel: 'Practice',
+        totalAttempts: 24,
+        correctAttempts: 18,
+        performanceWrongAttempts: 4,
+        performanceMissedNoInputAttempts: 2,
+        performanceTimingStats: {
+          totalGraded: 20,
+          perfect: 9,
+          aBitEarly: 3,
+          early: 3,
+          tooEarly: 1,
+          aBitLate: 2,
+          late: 2,
+          tooLate: 0,
+          weightedScoreTotal: 15.5,
+          totalAbsOffsetMs: 1250,
+        },
+      })
+    );
+
+    expect(model.lastSession?.overallScoreLabel).toBe('Practice Focus');
+    expect(model.lastSession?.showFormalPerformanceMetrics).toBe(false);
+    expect(model.lastSession?.wrongAttemptsText).toBe('-');
+    expect(model.lastSession?.missedNoInputAttemptsText).toBe('-');
+    expect(model.lastSession?.performanceTimingSummary).toBeNull();
+    expect(model.lastSession?.starsText).toBeNull();
+  });
+
+  it('shows best stars for a completed perform run when storage has an equal or better result', () => {
+    const session = createSessionStats({
+      modeKey: 'performance',
+      modeLabel: 'Play Through',
+      totalAttempts: 20,
+      correctAttempts: 17,
+      completedRun: true,
+      melodyId: 'romanza',
+      melodyStudyRangeStartIndex: 4,
+      melodyStudyRangeEndIndex: 21,
+      performanceTimingStats: {
+        totalGraded: 17,
+        perfect: 10,
+        aBitEarly: 2,
+        early: 2,
+        tooEarly: 1,
+        aBitLate: 1,
+        late: 1,
+        tooLate: 0,
+        weightedScoreTotal: 14.6,
+        totalAbsOffsetMs: 880,
+      },
+    });
+    const model = buildStatsViewModel(createStats(), 3, session, {
+      'guitar|romanza|4-21|tr0|ss0': 3,
+    });
+
+    expect(model.lastSession?.starsText).toBe('★★☆');
+    expect(model.lastSession?.starsDetailText).toContain('Best ★★★');
   });
 });

@@ -45,6 +45,8 @@ interface MelodyDemoControllerDeps {
   }): void;
   onPlaybackStopped(): void;
   onPlaybackCompleted?(): void;
+  getPlaybackPromptLabel(): string;
+  getPlaybackCompletedLabel(): string;
 }
 
 export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
@@ -344,7 +346,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         deps.redrawFretboard();
         deps.onPlaybackCompleted?.();
         deps.setResultMessage(
-          `Playback complete: ${melody.name} (${deps.formatStudyRange(studyRange, melody.events.length)})`,
+          `${deps.getPlaybackCompletedLabel()}: ${melody.name} (${deps.formatStudyRange(studyRange, melody.events.length)})`,
           'success'
         );
         return;
@@ -363,7 +365,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
         pausedOffsetSec: 0,
       });
       deps.previewEvent(melody.events, melody.name, event, index, totalEventsInRange, studyRange, {
-        label: 'Playback',
+        label: deps.getPlaybackPromptLabel(),
         autoplaySound: true,
       });
 

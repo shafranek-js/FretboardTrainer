@@ -92,9 +92,42 @@ input[type='number'] {
 }
 
 .learning-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
   padding-top: 0.28rem !important;
   padding-bottom: 0.28rem !important;
-  overflow: hidden;
+  overflow: visible;
+}
+
+#learningControls > .flex:first-child,
+#learningControls > #melodyDisplayControlsSection {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1280px) {
+  #learningControls[data-panel-layout='learn-notes'] {
+    grid-template-columns: minmax(0, max-content) minmax(0, max-content);
+    justify-content: start;
+    align-items: start;
+  }
+
+  #learningControls[data-panel-layout='learn-notes'] > .flex:first-child,
+  #learningControls[data-panel-layout='learn-notes'] > #melodyDisplayControlsSection {
+    grid-column: 1 / -1;
+  }
+
+  #learningControls[data-panel-layout='learn-notes'] > #practiceSetupPanel:not(.hidden) {
+    grid-column: 1;
+    width: auto;
+    justify-self: start;
+  }
+
+  #learningControls[data-panel-layout='learn-notes'] > #sessionToolsPanel:not(.hidden) {
+    grid-column: 2;
+    width: auto;
+    justify-self: start;
+  }
 }
 
 .learning-controls,
@@ -126,6 +159,183 @@ input[type='number'] {
 #statsModal .rounded-md,
 #melodyImportModal .rounded-lg.border.border-slate-600 {
   border-radius: 0 !important;
+}
+
+.playback-control-btn {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.playback-control-icon-btn {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+}
+
+.playback-control-select {
+  height: 2rem;
+  border-radius: 0.375rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  font-size: 11px;
+}
+
+.playback-control-value {
+  min-width: 2.5rem;
+  padding: 0.125rem 0.25rem;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.playback-control-slider-tempo {
+  width: 9rem;
+}
+
+.playback-control-slider-click {
+  width: 3.5rem;
+}
+
+.ff-action-btn {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.375rem;
+  border-width: 1px;
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.ff-action-btn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+
+.ff-action-btn-primary {
+  border-color: rgb(6 182 212 / 0.9);
+  background: rgb(14 116 144 / 0.95);
+  color: white;
+}
+
+.ff-action-btn-primary:hover {
+  background: rgb(8 145 178 / 0.95);
+}
+
+.ff-action-btn-secondary {
+  border-color: rgb(100 116 139 / 0.9);
+  background: rgb(51 65 85 / 0.92);
+  color: rgb(241 245 249);
+}
+
+.ff-action-btn-secondary:hover {
+  background: rgb(71 85 105 / 0.95);
+}
+
+.ff-action-btn-danger {
+  border-color: rgb(239 68 68 / 0.8);
+  background: rgb(127 29 29 / 0.92);
+  color: rgb(254 242 242);
+}
+
+.ff-action-btn-danger:hover {
+  background: rgb(153 27 27 / 0.95);
+}
+
+.ff-action-btn:disabled {
+  cursor: not-allowed;
+  border-color: rgb(71 85 105 / 0.8);
+  background: rgb(51 65 85 / 0.55);
+  color: rgb(148 163 184);
+}
+
+.ff-panel-shell {
+  border: 1px solid rgba(100, 116, 139, 0.68) !important;
+  border-radius: 0.5rem !important;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.54), rgba(2, 6, 23, 0.38)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(148, 163, 184, 0.06),
+    0 0 0 1px rgba(15, 23, 42, 0.18) !important;
+  color: var(--ff-text-soft);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.ff-top-panel {
+  padding: 0.35rem 0.45rem !important;
+  min-height: 2.65rem;
+}
+
+.ff-top-toolbar-btn {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(100 116 139 / 0.8);
+  background: rgb(30 41 59 / 0.7);
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgb(226 232 240);
+  vertical-align: middle;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.ff-top-toolbar-btn:hover {
+  background: rgb(51 65 85 / 0.9);
+}
+
+.ff-top-toolbar-btn:disabled {
+  cursor: not-allowed;
+  border-color: rgb(71 85 105 / 0.8);
+  background: rgb(51 65 85 / 0.55);
+  color: rgb(148 163 184);
+}
+
+.ff-work-panel {
+  padding: 0.4rem 0.5rem !important;
+  min-height: 2.85rem;
+}
+
+.ff-panel-popover {
+  padding: 0.4rem 0.5rem !important;
+}
+
+@media (min-width: 640px) {
+  .playback-control-slider-tempo {
+    width: 13rem;
+  }
+
+  .playback-control-slider-click {
+    width: 4rem;
+  }
 }
 
 .session-area .info-box,
@@ -288,12 +498,17 @@ input[type='number'] {
 .session-area #sessionToggleBtn,
 .session-area #hintBtn {
   height: var(--ff-control-h-md);
+  min-height: var(--ff-control-h-md);
   padding-top: 0;
   padding-bottom: 0;
   padding-left: 0.56rem;
   padding-right: 0.56rem;
   font-size: 0.74rem;
   white-space: nowrap;
+}
+
+.session-area .controls-row > div:last-child {
+  align-self: center;
 }
 
 .session-area #metronomeToggleBtn {
@@ -800,6 +1015,16 @@ input[type='number'] {
 #practiceSetupPanel.hidden,
 #melodySetupPanel.hidden,
 #sessionToolsPanel.hidden,
+#sessionToolsPlanSection.hidden,
+#sessionToolsDisplaySection.hidden,
+#sessionToolsActiveStringsSection.hidden,
+#sessionToolsShowAllNotesRow.hidden,
+#sessionToolsShowStringTogglesRow.hidden,
+#sessionToolsAutoPlayPromptSoundRow.hidden,
+#sessionToolsRelaxPerformanceOctaveRow.hidden,
+#sessionToolsPitchMatchRow.hidden,
+#sessionToolsTimingWindowRow.hidden,
+#sessionToolsMicLatencyRow.hidden,
 #melodySelectorContainer.hidden,
 #melodyDemoQuickControls.hidden,
 #melodyPlaybackControls.hidden {
@@ -810,13 +1035,49 @@ input[type='number'] {
   display: none !important;
 }
 
+#workflowSwitcher.ff-top-panel,
+#melodySelectorContainer.ff-top-panel,
+#melodyWorkspaceTransportSection.ff-top-panel,
+#layoutControlsHost.ff-top-panel,
+#uiModeSwitcher.ff-top-panel,
+#melodyDisplayControlsSection.ff-panel-popover,
+#practiceSetupPanel.ff-work-panel,
+#melodySetupPanel.ff-work-panel,
+#sessionToolsPanel.ff-work-panel {
+  border: 1px solid rgba(100, 116, 139, 0.68) !important;
+  border-radius: 0.5rem !important;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.54), rgba(2, 6, 23, 0.38)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(148, 163, 184, 0.06),
+    0 0 0 1px rgba(15, 23, 42, 0.18) !important;
+}
+
+#workflowSwitcher.ff-top-panel,
+#melodySelectorContainer.ff-top-panel,
+#melodyWorkspaceTransportSection.ff-top-panel,
+#layoutControlsHost.ff-top-panel,
+#uiModeSwitcher.ff-top-panel {
+  padding: 0.35rem 0.45rem !important;
+  min-height: 2.65rem;
+}
+
+#melodyDisplayControlsSection.ff-panel-popover,
+#practiceSetupPanel.ff-work-panel,
+#melodySetupPanel.ff-work-panel,
+#sessionToolsPanel.ff-work-panel {
+  padding: 0.4rem 0.5rem !important;
+  min-height: 2.85rem;
+}
+
 #melodySelectorContainer {
   display: flex !important;
   flex-wrap: nowrap !important;
   align-items: flex-end;
   gap: 0.35rem;
-  flex: 1 1 auto;
-  min-width: max-content;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 13rem;
   margin: 0 !important;
   padding: 0 !important;
   background: transparent !important;
@@ -1059,6 +1320,101 @@ input[type='number'] {
   gap: 0.28rem !important;
 }
 
+#melodyDisplayControlsSection {
+  padding: 0.18rem 0.3rem !important;
+  gap: 0.2rem !important;
+}
+
+#melodyDisplayControlsSection .layout-control-shell {
+  min-height: 2rem;
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
+  border-color: var(--ff-control-stroke) !important;
+  background: var(--ff-control-fill) !important;
+  color: var(--ff-text-soft) !important;
+}
+
+#melodyDisplayControlsSection .layout-value-chip {
+  min-width: 3.45rem !important;
+  padding: 0.18rem 0.38rem !important;
+  font-size: 0.64rem !important;
+  line-height: 1.1 !important;
+}
+
+#melodyDisplayControlsSection input[type='number'] {
+  height: 1.5rem !important;
+  width: 2.75rem !important;
+  padding-left: 0.35rem !important;
+  padding-right: 0.35rem !important;
+  font-size: 0.64rem !important;
+  border-color: var(--ff-control-stroke) !important;
+  background: var(--ff-control-fill) !important;
+  color: var(--ff-text-soft) !important;
+}
+
+#melodyDisplayControlsSection .field-tooltip-host {
+  font-size: 0.62rem !important;
+  line-height: 1.1 !important;
+}
+
+#melodyDisplayControlsSection input[type='range'] {
+  min-width: 8.8rem;
+}
+
+#melodyDisplayControlsSlot,
+#melodyDisplayControls {
+  gap: 0.2rem !important;
+}
+
+#melodyDisplayControlsSection .melody-setting-chip {
+  min-height: 1.55rem;
+  padding: 0.1rem 0.28rem;
+  font-size: 0.58rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+#melodyDisplayControlsSection .melody-setting-chip input[type='checkbox'] {
+  height: 0.72rem;
+  width: 0.72rem;
+}
+
+#practiceSetupPopoverHost,
+#melodySetupPopoverHost,
+#sessionToolsPopoverHost {
+  position: relative;
+}
+
+#practiceSetupPopoverHost > #practiceSetupPanel,
+#melodySetupPopoverHost > #melodySetupPanel,
+#sessionToolsPopoverHost > #sessionToolsPanel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.3rem);
+  z-index: 24;
+  width: min(72rem, calc(100vw - 2rem));
+  max-height: min(70vh, 42rem);
+  overflow: auto;
+  border: 1px solid var(--ff-shell-border);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.97), rgba(2, 6, 23, 0.93)) !important;
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(148, 163, 184, 0.05);
+  backdrop-filter: blur(10px);
+}
+
+#practiceSetupPopoverHost > #practiceSetupPanel {
+  width: min(58rem, calc(100vw - 2rem));
+}
+
+#melodySetupPopoverHost > #melodySetupPanel {
+  width: min(76rem, calc(100vw - 2rem));
+}
+
+#sessionToolsPopoverHost > #sessionToolsPanel {
+  width: min(58rem, calc(100vw - 2rem));
+}
+
 #melodySetupPanel section {
   padding: 0.34rem 0.38rem !important;
 }
@@ -1174,9 +1530,9 @@ input[type='number'] {
   border-right-color: transparent !important;
 }
 
-#practiceSetupPanel,
-#melodySetupPanel,
-#sessionToolsPanel {
+#practiceSetupPopoverHost > #practiceSetupPanel,
+#melodySetupPopoverHost > #melodySetupPanel,
+#sessionToolsPopoverHost > #sessionToolsPanel {
   border-top: 0 !important;
   padding-top: 0 !important;
 }

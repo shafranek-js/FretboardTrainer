@@ -1,4 +1,5 @@
 import type { NoteStat, SessionStats, Stats } from './types';
+import { buildPerformanceStarsRunKey, resolvePerformanceStarView } from './performance-stars';
 
 export interface ProblemNoteView {
   key: string;
@@ -26,10 +27,15 @@ export interface LastSessionViewModel {
   missedNoInputAttemptsText: string;
   totalAttemptsText: string;
   accuracyText: string;
+  overallScoreLabel: string;
   overallPerformanceScoreText: string;
+  showFormalPerformanceMetrics: boolean;
+  starsText: string | null;
+  starsDetailText: string | null;
   avgTimeText: string;
   bestStreakText: string;
   coachTipText: string | null;
+  nextStepText: string | null;
   weakSpots: ProblemNoteView[];
   rhythmSummary: LastSessionRhythmSummaryView | null;
   performanceTimingSummary: LastSessionPerformanceTimingSummaryView | null;
@@ -75,6 +81,12 @@ function buildOverallPerformanceScoreText(input: {
   const effectiveTimingRatio = timingQualityRatio * timingCoverageRatio;
   const scoreRatio = clamp01(noteAccuracyRatio * 0.75 + effectiveTimingRatio * 0.25);
   return `${(scoreRatio * 100).toFixed(1)}%`;
+}
+
+function buildOverallScoreLabel(modeKey: string) {
+  if (modeKey === 'practice') return 'Practice Focus';
+  if (modeKey === 'performance') return 'Final Score';
+  return 'Overall Score';
 }
 
 export interface LastSessionHeatmapCellView {
@@ -256,9 +268,62 @@ function buildLastSessionCoachTip(
   return 'Balanced session. Keep consistency and repeat this setup before increasing difficulty.';
 }
 
+function buildLastSessionNextStepRecommendation(input: {
+  sessionStats: SessionStats;
+  accuracyPercent: number;
+  avgTime: number;
+  heatmap: LastSessionHeatmapView | null;
+}) {
+  const { sessionStats, accuracyPercent, avgTime, heatmap } = input;
+  const topHeatCell = getTopHeatmapErrorCell(heatmap);
+  const totalAttempts = Math.max(0, sessionStats.totalAttempts);
+  const missedNoInputShare =
+    totalAttempts > 0 ? sessionStats.performanceMissedNoInputAttempts / totalAttempts : 0;
+  const performanceTimingStats = sessionStats.performanceTimingStats;
+  const avgTimingOffsetMs =
+    performanceTimingStats && performanceTimingStats.totalGraded > 0
+      ? performanceTimingStats.totalAbsOffsetMs / performanceTimingStats.totalGraded
+      : 0;
+
+  if (
+    sessionStats.modeKey === 'performance' &&
+    sessionStats.inputSource === 'microphone' &&
+    sessionStats.performanceMissedNoInputAttempts >= 3 &&
+    missedNoInputShare >= 0.3
+  ) {
+    return 'Next step: enable the Headphones / Direct Input preset before the next Play Through run.';
+  }
+
+  if (sessionStats.modeKey === 'performance' && accuracyPercent < 70) {
+    return 'Next step: switch to Study Melody first, then come back to Play Through.';
+  }
+
+  if (
+    (sessionStats.modeKey === 'performance' || sessionStats.modeKey === 'rhythm') &&
+    avgTimingOffsetMs >= 85
+  ) {
+    return 'Next step: slow the melody to about 70 BPM and repeat the run with the click on.';
+  }
+
+  if (topHeatCell && topHeatCell.incorrect >= 2) {
+    return `Next step: repeat weak spots around ${topHeatCell.stringName} string, fret ${topHeatCell.fret}.`;
+  }
+
+  if (accuracyPercent < 75) {
+    return 'Next step: repeat the same setup once more before increasing difficulty.';
+  }
+
+  if (accuracyPercent >= 88 && avgTime <= 1.5) {
+    return 'Next step: increase tempo or widen the range slightly for the next run.';
+  }
+
+  return 'Next step: run one more short set to lock in consistency.';
+}
+
 export function buildLastSessionViewModel(
   sessionStats: SessionStats | null | undefined,
-  weakSpotsLimit: number
+  weakSpotsLimit: number,
+  performanceStarsByRunKey: Record<string, number> = {}
 ): LastSessionViewModel | null {
   if (!sessionStats) return null;
 
@@ -294,6 +359,7 @@ export function buildLastSessionViewModel(
   const heatmap = buildLastSessionHeatmapView(sessionStats);
   const totalIncorrectAttempts = Math.max(0, sessionStats.totalAttempts - sessionStats.correctAttempts);
   const isPerformanceMode = sessionStats.modeKey === 'performance';
+  const isPracticeMode = sessionStats.modeKey === 'practice';
   const normalizedPerformanceWrongAttempts = Math.max(
     0,
     Math.min(totalIncorrectAttempts, sessionStats.performanceWrongAttempts ?? totalIncorrectAttempts)
@@ -311,6 +377,14 @@ export function buildLastSessionViewModel(
   const missedNoInputAttemptsText = isPerformanceMode
     ? String(normalizedPerformanceMissedNoInputAttempts)
     : '-';
+  const performanceStarView = resolvePerformanceStarView(sessionStats);
+  const performanceStarsRunKey = buildPerformanceStarsRunKey(sessionStats);
+  const bestStoredStars =
+    performanceStarsRunKey === null
+      ? 0
+      : Math.max(0, Math.round(performanceStarsByRunKey[performanceStarsRunKey] ?? 0));
+  const bestStarsText =
+    bestStoredStars > 0 ? `${'★'.repeat(bestStoredStars)}${'☆'.repeat(Math.max(0, 3 - bestStoredStars))}` : null;
 
   return {
     modeLabel: sessionStats.modeLabel,
@@ -318,10 +392,11 @@ export function buildLastSessionViewModel(
     durationText: formatDurationMs(durationMs),
     attemptsText: `${sessionStats.correctAttempts}/${sessionStats.totalAttempts} correct`,
     correctAttemptsText: String(sessionStats.correctAttempts),
-    wrongAttemptsText,
-    missedNoInputAttemptsText,
+    wrongAttemptsText: isPracticeMode ? '-' : wrongAttemptsText,
+    missedNoInputAttemptsText: isPracticeMode ? '-' : missedNoInputAttemptsText,
     totalAttemptsText: String(sessionStats.totalAttempts),
     accuracyText: `${accuracy.toFixed(1)}%`,
+    overallScoreLabel: buildOverallScoreLabel(sessionStats.modeKey),
     overallPerformanceScoreText: buildOverallPerformanceScoreText({
       modeKey: sessionStats.modeKey,
       noteAccuracyRatio,
@@ -329,9 +404,23 @@ export function buildLastSessionViewModel(
       totalGraded: performanceTimingStats.totalGraded,
       timingWeightedScoreTotal: performanceTimingStats.weightedScoreTotal,
     }),
+    showFormalPerformanceMetrics: !isPracticeMode,
+    starsText: performanceStarView?.starsText ?? null,
+    starsDetailText:
+      performanceStarView === null
+        ? null
+        : bestStarsText && bestStarsText !== performanceStarView.starsText
+          ? `${performanceStarView.label} | Best ${bestStarsText}`
+          : performanceStarView.label,
     avgTimeText: `${avgTime.toFixed(2)}s`,
     bestStreakText: String(Math.max(0, sessionStats.bestCorrectStreak ?? 0)),
     coachTipText: buildLastSessionCoachTip(sessionStats, accuracy, avgTime, heatmap),
+    nextStepText: buildLastSessionNextStepRecommendation({
+      sessionStats,
+      accuracyPercent: accuracy,
+      avgTime,
+      heatmap,
+    }),
     weakSpots: buildProblemNotes(sessionStats.noteStats, weakSpotsLimit),
     rhythmSummary:
       sessionStats.modeKey === 'rhythm' && rhythmStats.totalJudged > 0
@@ -386,7 +475,8 @@ export function buildLastSessionViewModel(
 export function buildStatsViewModel(
   stats: Stats,
   problemNotesLimit = 3,
-  lastSessionStats: SessionStats | null = null
+  lastSessionStats: SessionStats | null = null,
+  performanceStarsByRunKey: Record<string, number> = {}
 ): StatsViewModel {
   const accuracy =
     stats.totalAttempts > 0 ? (stats.correctAttempts / stats.totalAttempts) * 100 : 0;
@@ -398,6 +488,6 @@ export function buildStatsViewModel(
     accuracyText: `${accuracy.toFixed(1)}%`,
     avgTimeText: `${avgTime.toFixed(2)}s`,
     problemNotes,
-    lastSession: buildLastSessionViewModel(lastSessionStats, problemNotesLimit),
+    lastSession: buildLastSessionViewModel(lastSessionStats, problemNotesLimit, performanceStarsByRunKey),
   };
 }

@@ -11,6 +11,7 @@ import {
   setStatsView,
   setStatusText,
   setTrainingModeUi,
+  setUiWorkflow,
   setTunerReading,
   setTunerVisible,
 } from './ui-signals';
@@ -45,6 +46,7 @@ import {
   getTuningPresetsForInstrument,
   isChordCompatibleTuning,
 } from './tuning-presets';
+import { resolveUiWorkflowFromTrainingMode } from './training-workflows';
 
 let scrollingTabAnimationFrameId: number | null = null;
 let pendingMelodyTimelineRenderFrameId: number | null = null;
@@ -585,19 +587,21 @@ export function renderMelodyTabTimelineFromState() {
 /** Handles UI changes when the training mode is switched. */
 export function handleModeChange() {
   const mode = dom.trainingMode.value;
+  state.uiWorkflow = resolveUiWorkflowFromTrainingMode(mode);
   setTunerVisible(false);
   setTrainingModeUi(mode);
+  setUiWorkflow(state.uiWorkflow);
   renderMelodyTabTimelineFromState();
 }
 
 /** Updates and displays the statistics in the modal. */
 export function displayStats() {
-  const statsView = buildStatsViewModel(state.stats, 3, state.lastSessionStats);
+  const statsView = buildStatsViewModel(state.stats, 3, state.lastSessionStats, state.performanceStarsByRunKey);
   setStatsView(statsView);
 }
 
 export function displaySessionSummary() {
-  const sessionSummary = buildLastSessionViewModel(state.lastSessionStats, 3);
+  const sessionSummary = buildLastSessionViewModel(state.lastSessionStats, 3, state.performanceStarsByRunKey);
   setSessionSummaryView(sessionSummary);
   setModalVisible('sessionSummary', Boolean(sessionSummary));
 }

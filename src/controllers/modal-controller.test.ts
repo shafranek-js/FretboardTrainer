@@ -4,11 +4,27 @@ type ListenerMap = Record<string, (event?: unknown) => unknown>;
 
 function createEventTargetStub() {
   const listeners: ListenerMap = {};
-  return {
+  const stub = {
     listeners,
     addEventListener: vi.fn((type: string, handler: (event?: unknown) => unknown) => {
       listeners[type] = handler;
     }),
+    appendChild: vi.fn((child: { parentElement?: unknown }) => {
+      if (child && typeof child === 'object') {
+        child.parentElement = stub;
+      }
+      return child;
+    }),
+  };
+  return stub;
+}
+
+function createClassListStub() {
+  return {
+    add: vi.fn(),
+    remove: vi.fn(),
+    toggle: vi.fn(),
+    contains: vi.fn(() => false),
   };
 }
 
@@ -17,6 +33,14 @@ const mockLocation = { reload: locationReload };
 
 const harness = vi.hoisted(() => {
   const dom = {
+    onboardingModal: createEventTargetStub(),
+    closeOnboardingBtn: createEventTargetStub(),
+    onboardingInstrumentSelector: { value: 'guitar' } as HTMLSelectElement,
+    onboardingInputSource: { value: 'microphone' } as HTMLSelectElement,
+    onboardingGoal: { value: 'study-melody' } as HTMLSelectElement,
+    onboardingDirectInputMode: { checked: false } as HTMLInputElement,
+    onboardingFinishBtn: createEventTargetStub(),
+    onboardingSkipBtn: createEventTargetStub(),
     settingsBtn: createEventTargetStub(),
     closeSettingsBtn: createEventTargetStub(),
     settingsModal: createEventTargetStub(),
@@ -26,17 +50,21 @@ const harness = vi.hoisted(() => {
     settingsSectionDescription: { textContent: '' } as HTMLElement,
     settingsSectionBackBtn: createEventTargetStub(),
     settingsOpenAppDefaultsBtn: createEventTargetStub(),
+    settingsOpenOnboardingBtn: createEventTargetStub(),
     settingsOpenInputDetectionBtn: createEventTargetStub(),
+    settingsOpenDiagnosticsBtn: createEventTargetStub(),
     settingsOpenRhythmBtn: createEventTargetStub(),
     settingsOpenProfilesBtn: createEventTargetStub(),
     settingsOpenToolsBtn: createEventTargetStub(),
     settingsOpenMelodyLibraryBtn: createEventTargetStub(),
     settingsSectionAppDefaults: createEventTargetStub(),
     settingsSectionInputDetection: createEventTargetStub(),
+    settingsSectionDiagnostics: createEventTargetStub(),
     settingsSectionRhythm: createEventTargetStub(),
     settingsSectionProfiles: createEventTargetStub(),
     settingsSectionTools: createEventTargetStub(),
     settingsSectionMelodyLibrary: createEventTargetStub(),
+    settingsDiagnosticsSlot: createEventTargetStub(),
     openUserDataBtn: createEventTargetStub(),
     userDataModal: createEventTargetStub(),
     closeUserDataBtn: createEventTargetStub(),
@@ -62,6 +90,12 @@ const harness = vi.hoisted(() => {
     openStatsBtn: createEventTargetStub(),
     openSessionSummaryBtn: createEventTargetStub(),
     openHelpBtn: createEventTargetStub(),
+    quickHelpModal: createEventTargetStub(),
+    closeQuickHelpBtn: createEventTargetStub(),
+    quickHelpTitle: { textContent: '' } as HTMLElement,
+    quickHelpBody: { innerHTML: '', appendChild: vi.fn() } as unknown as HTMLElement,
+    quickHelpOpenGuideBtn: createEventTargetStub(),
+    quickHelpDoneBtn: createEventTargetStub(),
     closeStatsBtn: createEventTargetStub(),
     statsModal: createEventTargetStub(),
     resetStatsBtn: createEventTargetStub(),
@@ -75,6 +109,11 @@ const harness = vi.hoisted(() => {
     openLinksBtn: createEventTargetStub(),
     closeLinksBtn: createEventTargetStub(),
     linksModal: createEventTargetStub(),
+    startSessionHelpBtn: createEventTargetStub(),
+    inputSourceHelpBtn: createEventTargetStub(),
+    melodyLibraryHelpBtn: createEventTargetStub(),
+    workflowPerformHelpBtn: createEventTargetStub(),
+    workflowLearnNotesRecommendedBadge: { classList: createClassListStub() } as unknown as HTMLElement,
     resetSavedSettingsBtn: createEventTargetStub(),
     exportUserDataBtn: createEventTargetStub(),
     importUserDataBtn: {
@@ -98,9 +137,18 @@ const harness = vi.hoisted(() => {
     audioInputDevice: {
       selectedOptions: [{ textContent: 'Default microphone' }],
     } as unknown as HTMLSelectElement,
+    practiceInputPresetRecommendedBadge: { classList: createClassListStub() } as unknown as HTMLElement,
+    practiceTimingPresetRecommendedBadge: { classList: createClassListStub() } as unknown as HTMLElement,
     midiInputDevice: {
       selectedOptions: [{ textContent: 'Default midi' }],
     } as unknown as HTMLSelectElement,
+    micDirectInputMode: { checked: false } as HTMLInputElement,
+    micAttackFilterRow: createEventTargetStub(),
+    micHoldFilterRow: createEventTargetStub(),
+    micPolyphonicDetectorRow: createEventTargetStub(),
+    micNoiseGateInfo: createEventTargetStub(),
+    micPolyphonicActionsRow: createEventTargetStub(),
+    micPolyphonicBenchmarkInfo: createEventTargetStub(),
   };
 
   return {
@@ -113,8 +161,11 @@ const harness = vi.hoisted(() => {
       lastSessionAnalysisAutoDownloadKey: null,
       currentInstrument: { name: 'guitar', STRING_ORDER: ['E', 'A', 'D', 'G', 'B', 'e'] },
       currentTuningPresetKey: 'standard',
+      uiWorkflow: 'learn-notes',
       showingAllNotes: false,
       inputSource: 'microphone',
+      isDirectInputMode: false,
+      ignorePromptAudioUntilMs: 0,
       micSensitivityPreset: 'normal',
       micNoteAttackFilterPreset: 'balanced',
       micNoteHoldFilterPreset: '80ms',
@@ -151,6 +202,8 @@ const harness = vi.hoisted(() => {
     refreshAudioInputDeviceOptions: vi.fn(async () => {}),
     refreshInputSourceAvailabilityUi: vi.fn(),
     refreshMidiInputDevices: vi.fn(async () => {}),
+    setInputSourcePreference: vi.fn(),
+    loadInstrumentSoundfont: vi.fn(async () => {}),
     refreshMelodyOptionsForCurrentInstrument: vi.fn(),
     confirmUserAction: vi.fn(async () => true),
     buildAppUserDataSnapshot: vi.fn(() => ({
@@ -235,7 +288,12 @@ vi.mock('../ui-signals', () => ({
 vi.mock('../instruments', () => ({
   instruments: {
     guitar: { name: 'guitar', STRING_ORDER: ['E', 'A', 'D', 'G', 'B', 'e'] },
+    ukulele: { name: 'ukulele', STRING_ORDER: ['G', 'C', 'E', 'A'] },
   },
+}));
+
+vi.mock('../audio', () => ({
+  loadInstrumentSoundfont: harness.loadInstrumentSoundfont,
 }));
 
 vi.mock('../audio-input-devices', () => ({
@@ -243,8 +301,10 @@ vi.mock('../audio-input-devices', () => ({
 }));
 
 vi.mock('../midi-runtime', () => ({
+  normalizeInputSource: (value: unknown) => (value === 'midi' ? 'midi' : 'microphone'),
   refreshInputSourceAvailabilityUi: harness.refreshInputSourceAvailabilityUi,
   refreshMidiInputDevices: harness.refreshMidiInputDevices,
+  setInputSourcePreference: harness.setInputSourcePreference,
 }));
 
 vi.mock('./session-controller', () => ({
@@ -274,19 +334,39 @@ import { registerModalControls } from './modal-controller';
 describe('modal-controller', () => {
   beforeEach(() => {
     harness.state.isListening = false;
+    harness.state.uiWorkflow = 'learn-notes';
+    harness.state.inputSource = 'microphone';
+    harness.state.isDirectInputMode = false;
+    harness.state.ignorePromptAudioUntilMs = 0;
+    harness.dom.onboardingInstrumentSelector.value = 'guitar';
+    harness.dom.onboardingInputSource.value = 'microphone';
+    harness.dom.onboardingGoal.value = 'study-melody';
+    harness.dom.onboardingDirectInputMode.checked = false;
     harness.confirmUserAction.mockResolvedValue(true);
     harness.loadSettings.mockClear();
     harness.resetSavedSettings.mockClear();
     harness.setResultMessage.mockClear();
+    harness.setModalVisible.mockClear();
     harness.buildAppUserDataSnapshot.mockClear();
     harness.parseAppUserDataSnapshot.mockClear();
     harness.applyAppUserDataSnapshot.mockClear();
     harness.settingsModalLayoutShowHub.mockClear();
     harness.settingsModalLayoutOpenSection.mockClear();
     harness.refreshMelodyOptionsForCurrentInstrument.mockClear();
+    harness.refreshAudioInputDeviceOptions.mockClear();
+    harness.refreshMidiInputDevices.mockClear();
+    harness.setInputSourcePreference.mockClear();
+    harness.loadInstrumentSoundfont.mockClear();
+    harness.updateInstrumentUI.mockClear();
+    harness.handleModeChange.mockClear();
+    harness.saveSettings.mockClear();
     harness.dom.importUserDataFileInput.files = null;
     harness.dom.importUserDataFileInput.value = '';
     locationReload.mockClear();
+    (localStorage.getItem as unknown as { mockReset?: () => void; mockReturnValue?: (value: string | null) => void })
+      .mockReset?.();
+    (localStorage.getItem as unknown as { mockReturnValue?: (value: string | null) => void }).mockReturnValue?.(null);
+    (localStorage.setItem as unknown as { mockClear?: () => void }).mockClear?.();
     (URL.createObjectURL as unknown as { mockClear?: () => void }).mockClear?.();
   });
 
@@ -299,12 +379,55 @@ describe('modal-controller', () => {
     expect(harness.setModalVisible).toHaveBeenCalledWith('settings', true);
   });
 
+  it('opens quick start onboarding on first launch', () => {
+    registerModalControls();
+
+    expect(harness.setModalVisible).toHaveBeenCalledWith('onboarding', true);
+  });
+
+  it('applies quick start setup and persists onboarding completion', async () => {
+    registerModalControls();
+    harness.dom.onboardingInstrumentSelector.value = 'ukulele';
+    harness.dom.onboardingInputSource.value = 'midi';
+    harness.dom.onboardingGoal.value = 'perform';
+    harness.dom.onboardingDirectInputMode.checked = true;
+
+    await harness.dom.onboardingFinishBtn.listeners.click?.();
+
+    expect(harness.updateInstrumentUI).toHaveBeenCalledTimes(1);
+    expect(harness.setInputSourcePreference).toHaveBeenCalledWith('midi');
+    expect(harness.handleModeChange).toHaveBeenCalledTimes(1);
+    expect(harness.saveSettings).toHaveBeenCalledTimes(1);
+    expect(localStorage.setItem).toHaveBeenCalledWith('fretboardTrainer.onboardingCompleted.v1', '1');
+    expect(harness.setModalVisible).toHaveBeenCalledWith('onboarding', false);
+  });
+
   it('opens the requested settings section from the hub', async () => {
     registerModalControls();
 
     await harness.dom.settingsOpenToolsBtn.listeners.click?.();
 
     expect(harness.settingsModalLayoutOpenSection).toHaveBeenCalledWith('tools');
+  });
+
+  it('opens contextual quick help and can route to the full guide', async () => {
+    registerModalControls();
+
+    await harness.dom.startSessionHelpBtn.listeners.click?.();
+    expect(harness.setModalVisible).toHaveBeenCalledWith('quickHelp', true);
+    expect(harness.dom.quickHelpTitle.textContent).toBe('Main Action');
+
+    await harness.dom.quickHelpOpenGuideBtn.listeners.click?.();
+    expect(harness.setModalVisible).toHaveBeenCalledWith('quickHelp', false);
+    expect(harness.setModalVisible).toHaveBeenCalledWith('guide', true);
+  });
+
+  it('opens the diagnostics settings section from the hub', async () => {
+    registerModalControls();
+
+    await harness.dom.settingsOpenDiagnosticsBtn.listeners.click?.();
+
+    expect(harness.settingsModalLayoutOpenSection).toHaveBeenCalledWith('diagnostics');
   });
 
   it('blocks resetting saved settings during an active session', async () => {

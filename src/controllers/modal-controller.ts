@@ -4,8 +4,14 @@ import { displayStats, handleModeChange, redrawFretboard, updateInstrumentUI } f
 import { loadSettings, resetSavedSettings, resetStats, saveSettings } from '../storage';
 import { setModalVisible, setResultMessage, showCalibrationModal } from '../ui-signals';
 import { instruments } from '../instruments';
+import { loadInstrumentSoundfont } from '../audio';
 import { refreshAudioInputDeviceOptions } from '../audio-input-devices';
-import { refreshInputSourceAvailabilityUi, refreshMidiInputDevices } from '../midi-runtime';
+import {
+  normalizeInputSource,
+  refreshInputSourceAvailabilityUi,
+  refreshMidiInputDevices,
+  setInputSourcePreference,
+} from '../midi-runtime';
 import { confirmUserAction } from '../user-feedback-port';
 import { createSettingsModalLayoutController } from './settings-modal-layout-controller';
 import { refreshMelodyOptionsForCurrentInstrument } from './session-controller';
@@ -18,6 +24,9 @@ import {
 import {
   formatSessionAnalysisBundleFileName,
 } from '../session-analysis-bundle';
+import { ONBOARDING_COMPLETED_KEY } from '../app-storage-keys';
+import { getDefaultTrainingModeForUiWorkflow, normalizeUiWorkflow } from '../training-workflows';
+import { type ContextHelpTopic, getContextHelpContent } from '../context-help-content';
 
 function downloadTextFile(fileName: string, text: string, mimeType: string) {
   const blob = new Blob([text], { type: mimeType });
@@ -30,6 +39,69 @@ function downloadTextFile(fileName: string, text: string, mimeType: string) {
 }
 
 export function registerModalControls() {
+  const markOnboardingCompleted = () => {
+    localStorage.setItem(ONBOARDING_COMPLETED_KEY, '1');
+    dom.workflowLearnNotesRecommendedBadge.classList.add('hidden');
+    dom.practiceInputPresetRecommendedBadge.classList.add('hidden');
+    dom.practiceTimingPresetRecommendedBadge.classList.add('hidden');
+  };
+  const isOnboardingCompleted = () => localStorage.getItem(ONBOARDING_COMPLETED_KEY) === '1';
+  const closeOnboardingModal = () => setModalVisible('onboarding', false);
+  const closeQuickHelpModal = () => setModalVisible('quickHelp', false);
+  const openQuickHelpModal = (topic: ContextHelpTopic) => {
+    const content = getContextHelpContent(topic);
+    dom.quickHelpTitle.textContent = content.title;
+    dom.quickHelpBody.innerHTML = '';
+    content.body.forEach((paragraph) => {
+      const node = document.createElement('p');
+      node.textContent = paragraph;
+      dom.quickHelpBody.appendChild(node);
+    });
+    setModalVisible('quickHelp', true);
+  };
+  const openOnboardingModal = () => {
+    dom.onboardingInstrumentSelector.value = state.currentInstrument.name;
+    dom.onboardingInputSource.value = state.inputSource;
+    dom.onboardingGoal.value = state.uiWorkflow;
+    dom.onboardingDirectInputMode.checked = state.isDirectInputMode;
+    setModalVisible('onboarding', true);
+  };
+  const applyOnboardingSetup = async () => {
+    const nextInstrument =
+      instruments[dom.onboardingInstrumentSelector.value as keyof typeof instruments] ?? instruments.guitar;
+    const instrumentChanged = nextInstrument.name !== state.currentInstrument.name;
+    state.currentInstrument = nextInstrument;
+    dom.instrumentSelector.value = nextInstrument.name;
+    updateInstrumentUI(undefined, state.currentTuningPresetKey);
+    refreshMelodyOptionsForCurrentInstrument();
+
+    const nextInputSource = normalizeInputSource(dom.onboardingInputSource.value);
+    setInputSourcePreference(nextInputSource);
+    refreshInputSourceAvailabilityUi();
+    await refreshAudioInputDeviceOptions();
+    await refreshMidiInputDevices(true);
+
+    state.isDirectInputMode = dom.onboardingDirectInputMode.checked;
+    dom.micDirectInputMode.checked = state.isDirectInputMode;
+    if (state.isDirectInputMode) {
+      state.ignorePromptAudioUntilMs = 0;
+    }
+
+    const workflow = normalizeUiWorkflow(dom.onboardingGoal.value);
+    dom.trainingMode.value = getDefaultTrainingModeForUiWorkflow(workflow);
+    handleModeChange();
+    redrawFretboard();
+
+    if (instrumentChanged) {
+      await loadInstrumentSoundfont(state.currentInstrument.name);
+    }
+
+    saveSettings();
+    markOnboardingCompleted();
+    closeOnboardingModal();
+    setResultMessage('Quick start setup applied.', 'success');
+  };
+
   // --- Settings Modal and its Children ---
   const settingsModalLayoutController = createSettingsModalLayoutController({
     settingsHubView: dom.settingsHubView,
@@ -38,11 +110,28 @@ export function registerModalControls() {
     settingsSectionDescription: dom.settingsSectionDescription,
     settingsSectionAppDefaults: dom.settingsSectionAppDefaults,
     settingsSectionInputDetection: dom.settingsSectionInputDetection,
+    settingsSectionDiagnostics: dom.settingsSectionDiagnostics,
     settingsSectionRhythm: dom.settingsSectionRhythm,
     settingsSectionProfiles: dom.settingsSectionProfiles,
     settingsSectionTools: dom.settingsSectionTools,
     settingsSectionMelodyLibrary: dom.settingsSectionMelodyLibrary,
   });
+  const mountDiagnosticsControls = () => {
+    const diagnosticsNodes = [
+      dom.micAttackFilterRow,
+      dom.micHoldFilterRow,
+      dom.micPolyphonicDetectorRow,
+      dom.micNoiseGateInfo,
+      dom.micPolyphonicActionsRow,
+      dom.micPolyphonicBenchmarkInfo,
+    ];
+    diagnosticsNodes.forEach((node) => {
+      if (node.parentElement !== dom.settingsDiagnosticsSlot) {
+        dom.settingsDiagnosticsSlot.appendChild(node);
+      }
+    });
+  };
+  mountDiagnosticsControls();
   const closeSettingsModal = () => {
     settingsModalLayoutController.showHub();
     setModalVisible('settings', false);
@@ -64,6 +153,36 @@ export function registerModalControls() {
   dom.helpModal.addEventListener('click', (e) => {
     if (e.target === dom.helpModal) setModalVisible('help', false);
   });
+  dom.closeQuickHelpBtn.addEventListener('click', closeQuickHelpModal);
+  dom.quickHelpDoneBtn.addEventListener('click', closeQuickHelpModal);
+  dom.quickHelpModal.addEventListener('click', (e) => {
+    if (e.target === dom.quickHelpModal) closeQuickHelpModal();
+  });
+  dom.quickHelpOpenGuideBtn.addEventListener('click', () => {
+    closeQuickHelpModal();
+    setModalVisible('guide', true);
+  });
+  dom.startSessionHelpBtn.addEventListener('click', () => openQuickHelpModal('start-session'));
+  dom.inputSourceHelpBtn.addEventListener('click', () => openQuickHelpModal('input-source'));
+  dom.melodyLibraryHelpBtn.addEventListener('click', () => openQuickHelpModal('melody-library'));
+  dom.workflowPerformHelpBtn.addEventListener('click', () => openQuickHelpModal('perform-workflow'));
+  dom.closeOnboardingBtn.addEventListener('click', () => {
+    markOnboardingCompleted();
+    closeOnboardingModal();
+  });
+  dom.onboardingSkipBtn.addEventListener('click', () => {
+    markOnboardingCompleted();
+    closeOnboardingModal();
+  });
+  dom.onboardingFinishBtn.addEventListener('click', async () => {
+    await applyOnboardingSetup();
+  });
+  dom.onboardingModal.addEventListener('click', (e) => {
+    if (e.target === dom.onboardingModal) {
+      markOnboardingCompleted();
+      closeOnboardingModal();
+    }
+  });
 
   dom.settingsBtn.addEventListener('click', () => {
     refreshInputSourceAvailabilityUi();
@@ -79,11 +198,18 @@ export function registerModalControls() {
     if (e.target === dom.settingsModal) closeSettingsModal();
   });
   dom.settingsSectionBackBtn.addEventListener('click', () => settingsModalLayoutController.showHub());
+  dom.settingsOpenOnboardingBtn.addEventListener('click', () => {
+    closeSettingsModal();
+    openOnboardingModal();
+  });
   dom.settingsOpenAppDefaultsBtn.addEventListener('click', () =>
     settingsModalLayoutController.openSection('appDefaults')
   );
   dom.settingsOpenInputDetectionBtn.addEventListener('click', () =>
     settingsModalLayoutController.openSection('inputDetection')
+  );
+  dom.settingsOpenDiagnosticsBtn.addEventListener('click', () =>
+    settingsModalLayoutController.openSection('diagnostics')
   );
   dom.settingsOpenRhythmBtn.addEventListener('click', () =>
     settingsModalLayoutController.openSection('rhythm')
@@ -209,7 +335,7 @@ export function registerModalControls() {
     redrawFretboard();
     saveSettings();
     setModalVisible('stats', false);
-    setResultMessage('Configured Adaptive Practice for weak spots (goal: 20 correct).');
+    setResultMessage('Configured Practice Weak Spots (goal: 20 correct).');
   });
 
   dom.openGuideBtn.addEventListener('click', () => {
@@ -287,4 +413,8 @@ export function registerModalControls() {
       setResultMessage(message, 'error');
     }
   });
+
+  if (!isOnboardingCompleted()) {
+    openOnboardingModal();
+  }
 }
