@@ -50,7 +50,7 @@ test('hydrates built-in melody source tempo into the shared bpm slider and prese
   });
 
   await app.goto();
-  await app.selectTrainingMode('performance');
+  await app.switchWorkflow('perform');
   await page.locator('#melodySelector option[value="builtin:guitar:ode_to_joy_intro"]').waitFor({
     state: 'attached',
   });
@@ -69,3 +69,4 @@ test('hydrates built-in melody source tempo into the shared bpm slider and prese
   await melodyTempo.selectMelody('builtin:guitar:ode_to_joy_intro');
   await melodyTempo.expectTempo(126);
 });
+

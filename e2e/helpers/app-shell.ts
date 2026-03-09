@@ -13,6 +13,7 @@ export class AppShell {
 
   async goto() {
     await this.page.goto('/');
+    await this.waitForAppReady();
   }
 
   async dismissOnboardingIfVisible() {
@@ -21,6 +22,10 @@ export class AppShell {
       await this.page.locator('#onboardingSkipBtn').click();
       await expect(onboardingModal).toBeHidden();
     }
+  }
+
+  async waitForAppReady() {
+    await expect(this.page.locator('#loadingOverlay')).toBeHidden();
   }
 
   async expectLoaded() {
@@ -32,6 +37,23 @@ export class AppShell {
   }
 
   async selectTrainingMode(value: string) {
+    await this.waitForAppReady();
+    await this.dismissOnboardingIfVisible();
+    const optionState = await this.page.locator(`#trainingMode option[value="${value}"]`).evaluate((option) => ({
+      disabled: (option as HTMLOptionElement).disabled,
+    }));
+    if (optionState.disabled) {
+      const workflowByMode = {
+        melody: 'study-melody',
+        practice: 'practice',
+        performance: 'perform',
+        rhythm: 'perform',
+      } as const;
+      const workflow = workflowByMode[value as keyof typeof workflowByMode];
+      if (workflow) {
+        await this.switchWorkflow(workflow);
+      }
+    }
     await this.page.locator('#trainingMode').selectOption(value);
   }
 
@@ -44,6 +66,8 @@ export class AppShell {
       library: '#workflowLibraryBtn',
       editor: '#workflowEditorBtn',
     } as const;
+    await this.waitForAppReady();
+    await this.dismissOnboardingIfVisible();
     await this.page.locator(selectorMap[workflow]).click();
   }
 
@@ -94,6 +118,12 @@ export class SettingsHub {
   constructor(private readonly page: Page) {}
 
   async open() {
+    await expect(this.page.locator('#loadingOverlay')).toBeHidden();
+    const onboardingModal = this.page.locator('#onboardingModal');
+    if (await onboardingModal.isVisible()) {
+      await this.page.locator('#onboardingSkipBtn').click();
+      await expect(onboardingModal).toBeHidden();
+    }
     await this.page.locator('#settingsBtn').click();
     await expect(this.page.locator('#settingsModal')).toBeVisible();
     await expect(this.page.getByRole('heading', { name: /App Settings/i })).toBeVisible();
@@ -207,3 +237,4 @@ export class MelodyTempoControls {
     await expect(this.page.locator('#melodyDemoBpmValue')).toHaveText(String(value));
   }
 }
+
