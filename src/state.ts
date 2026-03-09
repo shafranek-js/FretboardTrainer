@@ -637,6 +637,8 @@ export const state = {
   micMonophonicAttackPeakVolume: 0,
   micMonophonicAttackLastVolume: 0,
   micMonophonicFirstDetectedAtMs: null as number | null,
+  studyMelodyRepeatPromptRequiresFreshAttack: false,
+  studyMelodyRepeatPromptSawSilence: false,
   micLastInputRms: 0,
   micLastMonophonicConfidence: null as number | null,
   micLastMonophonicPitchSpreadCents: null as number | null,
@@ -680,7 +682,3 @@ export const state = {
   isLoadingSamples: false,
   audioCache: {} as Partial<Record<IInstrument['name'], SoundfontPlayer>>, // Loaded soundfont players by instrument
 };
-
-
-
-

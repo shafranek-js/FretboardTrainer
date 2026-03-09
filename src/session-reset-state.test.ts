@@ -54,6 +54,8 @@ describe('createSessionStopResetState', () => {
       micPerformanceOnsetLastRejectedNote: null,
       micPerformanceOnsetLastRejectedAtMs: null,
       micPerformanceOnsetLastRejectedReasonKey: null,
+      studyMelodyRepeatPromptRequiresFreshAttack: false,
+      studyMelodyRepeatPromptSawSilence: false,
       performancePromptResolved: false,
       performancePromptMatched: false,
       performancePromptHadAttempt: false,

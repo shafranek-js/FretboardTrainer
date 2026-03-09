@@ -26,6 +26,7 @@ interface StableMonophonicDetectionControllerDeps {
     inputSource?: 'microphone' | 'midi';
     startTime: number;
     micMonophonicFirstDetectedAtMs: number | null;
+    studyMelodyRepeatPromptRequiresFreshAttack: boolean;
     performanceMicLastJudgedOnsetNote: string | null;
     performanceMicLastJudgedOnsetAtMs: number | null;
     showingAllNotes: boolean;
@@ -266,6 +267,9 @@ export function createStableMonophonicDetectionController(
 
 
     if (reactionPlan.kind === 'success') {
+      if (trainingMode === 'melody' && deps.state.studyMelodyRepeatPromptRequiresFreshAttack) {
+        return;
+      }
       deps.clearWrongDetectedHighlight();
       const elapsed = (Date.now() - deps.state.startTime) / 1000;
       deps.displayResult(true, elapsed);
@@ -369,6 +373,3 @@ export function createStableMonophonicDetectionController(
     handleDetectedNote,
   };
 }
-
-
-

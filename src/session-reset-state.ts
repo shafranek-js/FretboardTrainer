@@ -68,6 +68,8 @@ export interface SessionStopResetState {
   micPerformanceOnsetLastRejectedReasonKey:
     | MicPerformanceOnsetRejectReasonKey
     | null;
+  studyMelodyRepeatPromptRequiresFreshAttack: boolean;
+  studyMelodyRepeatPromptSawSilence: boolean;
   performancePrerollLeadInVisible: boolean;
   performancePrerollStartedAtMs: number | null;
   performancePrerollDurationMs: number;
@@ -139,6 +141,8 @@ export function createSessionStopResetState() {
     micPerformanceOnsetLastRejectedNote: null,
     micPerformanceOnsetLastRejectedAtMs: null,
     micPerformanceOnsetLastRejectedReasonKey: null,
+    studyMelodyRepeatPromptRequiresFreshAttack: false,
+    studyMelodyRepeatPromptSawSilence: false,
     performancePrerollLeadInVisible: false,
     performancePrerollStartedAtMs: null,
     performancePrerollDurationMs: 0,

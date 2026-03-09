@@ -161,6 +161,7 @@ import {
   resolveRuntimePerformanceMicHoldCalibrationLevel,
 } from './performance-mic-hold-calibration';
 import { shouldRearmMicOnsetForSameNote } from './mic-note-reattack';
+import { shouldResetStudyMelodyOnsetTrackingOnPromptChange } from './study-melody-prompt-transition';
 import {
   detectMicPolyphonicFrame,
   normalizeMicPolyphonicDetectorProvider,
@@ -241,7 +242,27 @@ function resetMicMonophonicAttackTracking() {
   state.micMonophonicFirstDetectedAtMs = null;
 }
 
-function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: number) {
+type MicMonophonicAttackTrackingEvent = 'reset' | 'started' | 'rearmed' | 'continued' | 'ignored';
+
+function clearStudyMelodyRepeatPromptFreshAttackGuard(event: MicMonophonicAttackTrackingEvent) {
+  if (!state.studyMelodyRepeatPromptRequiresFreshAttack) return;
+  if (dom.trainingMode.value !== 'melody') {
+    state.studyMelodyRepeatPromptRequiresFreshAttack = false;
+    state.studyMelodyRepeatPromptSawSilence = false;
+    return;
+  }
+  if (!state.studyMelodyRepeatPromptSawSilence) return;
+  if (event !== 'started' && event !== 'rearmed') return;
+  if (state.micMonophonicFirstDetectedAtMs === null) return;
+  if (state.micMonophonicFirstDetectedAtMs < state.startTime) return;
+  state.studyMelodyRepeatPromptRequiresFreshAttack = false;
+  state.studyMelodyRepeatPromptSawSilence = false;
+}
+
+function updateMicMonophonicAttackTracking(
+  detectedNote: string | null,
+  volume: number
+): MicMonophonicAttackTrackingEvent {
   const nowMs = Date.now();
   const eventDurationMs = state.currentPrompt?.melodyEventDurationMs ?? null;
   const melodyAdaptive = isMelodyWorkflowMode(dom.trainingMode.value);
@@ -259,16 +280,16 @@ function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: 
     })
   ) {
     resetMicMonophonicAttackTracking();
-    return;
+    return 'reset';
   }
-  if (!detectedNote) return;
+  if (!detectedNote) return 'ignored';
 
   if (state.micMonophonicAttackTrackedNote !== detectedNote) {
     state.micMonophonicAttackTrackedNote = detectedNote;
     state.micMonophonicAttackPeakVolume = volume;
     state.micMonophonicAttackLastVolume = volume;
     state.micMonophonicFirstDetectedAtMs = nowMs;
-    return;
+    return 'started';
   }
 
   const onsetAgeMs =
@@ -288,13 +309,14 @@ function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: 
     state.micMonophonicAttackPeakVolume = volume;
     state.micMonophonicFirstDetectedAtMs = nowMs;
     state.micMonophonicAttackLastVolume = volume;
-    return;
+    return 'rearmed';
   }
 
   if (volume > state.micMonophonicAttackPeakVolume) {
     state.micMonophonicAttackPeakVolume = volume;
   }
   state.micMonophonicAttackLastVolume = volume;
+  return 'continued';
 }
 
 function refreshMicPerformanceReadinessUiThrottled(nowMs = Date.now()) {
@@ -1269,6 +1291,9 @@ function processAudio() {
     state.consecutiveSilence = preflightPlan.nextConsecutiveSilence;
 
     if (preflightPlan.kind === 'silence_wait') {
+      if (studyMelodyMicInput && state.studyMelodyRepeatPromptRequiresFreshAttack) {
+        state.studyMelodyRepeatPromptSawSilence = true;
+      }
       if (preflightPlan.shouldResetTracking) {
         Object.assign(state, createStabilityTrackingResetState());
         resetMicMonophonicAttackTracking();
@@ -1381,7 +1406,8 @@ function processAudio() {
             if (performanceAdaptiveMicInput) {
               recordPerformanceStableDetectionByEvent();
             }
-            updateMicMonophonicAttackTracking(detectedNote, volume);
+            const attackTrackingEvent = updateMicMonophonicAttackTracking(detectedNote, volume);
+            clearStudyMelodyRepeatPromptFreshAttackGuard(attackTrackingEvent);
             const nowMs = Date.now();
             const performanceHoldCalibrationLevel =
               resolveEffectiveRuntimePerformanceMicHoldCalibrationLevel(
@@ -1550,7 +1576,8 @@ function processAudio() {
           },
         });
         if (monophonicReactionPlan.kind === 'none') {
-          updateMicMonophonicAttackTracking(monophonicResult.detectedNote, volume);
+          const attackTrackingEvent = updateMicMonophonicAttackTracking(monophonicResult.detectedNote, volume);
+          clearStudyMelodyRepeatPromptFreshAttackGuard(attackTrackingEvent);
         }
       }
     }
@@ -2185,6 +2212,13 @@ function nextPrompt() {
       updateTuner,
       setTunerVisible,
       applyPrompt: (nextPrompt) => {
+        const previousPrompt = state.currentPrompt;
+        state.studyMelodyRepeatPromptRequiresFreshAttack =
+          shouldResetStudyMelodyOnsetTrackingOnPromptChange(trainingMode, previousPrompt, nextPrompt);
+        state.studyMelodyRepeatPromptSawSilence = false;
+        if (state.studyMelodyRepeatPromptRequiresFreshAttack) {
+          resetMicMonophonicAttackTracking();
+        }
         state.currentPrompt = nextPrompt;
         state.currentMelodyEventFoundNotes.clear();
         setPromptText(nextPrompt.displayText);
@@ -2348,28 +2382,3 @@ function handleTimeUp() {
     handleSessionRuntimeError('handleTimeUp', error);
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
