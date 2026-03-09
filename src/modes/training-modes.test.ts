@@ -329,7 +329,6 @@ describe('RhythmTrainingMode', () => {
 });
 
 describe('MelodyPracticeMode', () => {
-describe('MelodyPracticeMode', () => {
   it('does not advance the melody index while only generating a prompt', () => {
     getMelodyByIdMock.mockReturnValue({
       id: 'builtin:test',
@@ -348,6 +347,9 @@ describe('MelodyPracticeMode', () => {
     expect(first?.targetString).toBe('A');
     expect(first?.displayText).toBe('Melody: Test Melody');
     expect(second?.targetNote).toBe('C');
+    expect(second?.displayText).toBe('Melody: Test Melody');
+    expect(mockState.currentMelodyEventIndex).toBe(0);
+  });
 
   it('uses stored melody tempo override from state instead of reading BPM directly from the DOM in study mode', () => {
     mockDom.melodyDemoBpm.value = '90';
@@ -362,9 +364,6 @@ describe('MelodyPracticeMode', () => {
     const prompt = mode.generatePrompt();
 
     expect(prompt?.melodyEventDurationMs).toBe(500);
-  });
-    expect(second?.displayText).toBe('Melody: Test Melody');
-    expect(mockState.currentMelodyEventIndex).toBe(0);
   });
 
   it('returns null and queues completion feedback after the last step', () => {
@@ -509,4 +508,5 @@ describe('MelodyPracticeMode', () => {
     expect(prompt?.melodyEventDurationMs).toBe(667);
   });
 });
+
 
