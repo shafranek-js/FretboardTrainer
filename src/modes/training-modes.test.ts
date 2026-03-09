@@ -141,6 +141,7 @@ beforeEach(() => {
   mockState.melodyStringShift = 0;
   mockState.melodyStudyRangeById = {};
   mockState.pendingSessionStopResultMessage = null;
+  mockState.melodyPlaybackBpmById = {};
   (mockState as unknown as { stats?: { noteStats: Record<string, unknown> } }).stats = {
     noteStats: {},
   };
@@ -404,7 +405,9 @@ describe('MelodyPracticeMode', () => {
 
     const mode = new MelodyPracticeMode();
     const first = mode.generatePrompt();
+    mockState.currentMelodyEventIndex = 2;
     const second = mode.generatePrompt();
+    mockState.currentMelodyEventIndex = 3;
     const third = mode.generatePrompt();
 
     expect(first?.targetNote).toBe('D');
@@ -493,9 +496,11 @@ describe('MelodyPracticeMode', () => {
 
   it('creates timed prompts for performance mode', () => {
     mockDom.trainingMode.value = 'performance';
+    mockState.melodyPlaybackBpmById = {};
     getMelodyByIdMock.mockReturnValue({
       id: 'builtin:test',
       name: 'Performance Test',
+      sourceTempoBpm: 90,
       events: [{ notes: [{ note: 'C', stringName: 'A', fret: 3 }], durationBeats: 1 }],
     });
 
@@ -508,5 +513,7 @@ describe('MelodyPracticeMode', () => {
     expect(prompt?.melodyEventDurationMs).toBe(667);
   });
 });
+
+
 
 

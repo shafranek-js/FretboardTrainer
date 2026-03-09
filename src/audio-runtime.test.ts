@@ -122,6 +122,7 @@ describe('ensureAudioRuntime and teardownAudioRuntime', () => {
     return {
       audioContext: null,
       analyser: null,
+      preEmphasisFilter: null,
       microphone: null,
       mediaStream: null,
       dataArray: null,
@@ -147,6 +148,16 @@ describe('ensureAudioRuntime and teardownAudioRuntime', () => {
       },
       disconnect: () => {},
     } as unknown as MediaStreamAudioSourceNode;
+
+    const preEmphasisFilter = {
+      type: 'highshelf',
+      frequency: { value: 0 },
+      gain: { value: 0 },
+      connect: () => {
+        connectCalls += 1;
+      },
+      disconnect: () => {},
+    } as unknown as BiquadFilterNode;
 
     const audioTrack = {
       contentHint: '',
@@ -181,6 +192,9 @@ describe('ensureAudioRuntime and teardownAudioRuntime', () => {
       }
       createMediaStreamSource() {
         return microphone;
+      }
+      createBiquadFilter() {
+        return preEmphasisFilter;
       }
     }
 
@@ -222,10 +236,14 @@ describe('ensureAudioRuntime and teardownAudioRuntime', () => {
         channelCount: 1,
       },
     });
-    expect(connectCalls).toBe(1);
+    expect(connectCalls).toBe(2);
+    expect(runtimeState.preEmphasisFilter).toBe(preEmphasisFilter);
+    expect(preEmphasisFilter.frequency.value).toBe(300);
+    expect(preEmphasisFilter.gain.value).toBe(5);
 
     teardownAudioRuntime(runtimeState);
     expect(runtimeState.mediaStream).toBeNull();
+    expect(runtimeState.preEmphasisFilter).toBeNull();
     expect(runtimeState.microphone).toBeNull();
     expect(runtimeState.analyser).toBeNull();
     expect(runtimeState.dataArray).toBeNull();
@@ -267,6 +285,15 @@ describe('ensureAudioRuntime and teardownAudioRuntime', () => {
           disconnect: () => {},
         } as unknown as MediaStreamAudioSourceNode;
       }
+      createBiquadFilter() {
+        return {
+          type: 'highshelf',
+          frequency: { value: 0 },
+          gain: { value: 0 },
+          connect: () => {},
+          disconnect: () => {},
+        } as unknown as BiquadFilterNode;
+      }
     }
     const stream = {
       getTracks: () => [] as MediaStreamTrack[],
@@ -301,3 +328,4 @@ describe('ensureAudioRuntime and teardownAudioRuntime', () => {
     expect(runtimeState.dataArray?.length).toBe(2048);
   });
 });
+

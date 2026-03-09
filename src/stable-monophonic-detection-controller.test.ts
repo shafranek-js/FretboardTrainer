@@ -327,7 +327,9 @@ describe('stable-monophonic-detection-controller', () => {
   });
 
   it('records ordinary monophonic mismatches and schedules redraw with wrong-note highlight', () => {
-    const deps = createDeps();
+    const deps = createDeps({
+      getTrainingMode: vi.fn(() => 'random'),
+    });
     const controller = createStableMonophonicDetectionController(deps);
 
     controller.handleDetectedNote('G', 196);

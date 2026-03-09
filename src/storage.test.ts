@@ -117,6 +117,18 @@ const mocked = vi.hoisted(() => {
     melodyTransposeValue: { textContent: '' } as HTMLElement,
     melodyStringShift: { value: '0' } as HTMLInputElement,
     melodyStringShiftValue: { textContent: '' } as HTMLElement,
+    studyMelodyMicGatePercent: { value: '85' } as HTMLInputElement,
+    studyMelodyMicGatePercentValue: { textContent: '' } as HTMLElement,
+    studyMelodyMicNoiseGuardPercent: { value: '100' } as HTMLInputElement,
+    studyMelodyMicNoiseGuardPercentValue: { textContent: '' } as HTMLElement,
+    studyMelodyMicSilenceResetFrames: { value: '0' } as HTMLInputElement,
+    studyMelodyMicSilenceResetFramesValue: { textContent: '' } as HTMLElement,
+    studyMelodyMicStableFrames: { value: '0' } as HTMLInputElement,
+    studyMelodyMicStableFramesValue: { textContent: '' } as HTMLElement,
+    studyMelodyPreEmphasisFrequencyHz: { value: '300' } as HTMLInputElement,
+    studyMelodyPreEmphasisFrequencyHzValue: { textContent: '' } as HTMLElement,
+    studyMelodyPreEmphasisGainDb: { value: '5' } as HTMLInputElement,
+    studyMelodyPreEmphasisGainDbValue: { textContent: '' } as HTMLElement,
   };
 
   const state = {
@@ -158,6 +170,12 @@ const mocked = vi.hoisted(() => {
     performanceTimingLeniencyPreset: 'normal',
     performanceMicLatencyCompensationMs: 0,
     uiMode: 'simple',
+    studyMelodyMicGatePercent: 85,
+    studyMelodyMicNoiseGuardPercent: 100,
+    studyMelodyMicSilenceResetFrames: 0,
+    studyMelodyMicStableFrames: 0,
+    studyMelodyPreEmphasisFrequencyHz: 300,
+    studyMelodyPreEmphasisGainDb: 5,
   };
 
   const panelState = {
@@ -344,6 +362,18 @@ function resetMockState() {
   mocked.dom.melodyLoopRange.checked = false;
   mocked.dom.melodyTranspose.value = '0';
   mocked.dom.melodyStringShift.value = '0';
+  mocked.dom.studyMelodyMicGatePercent.value = '85';
+  mocked.dom.studyMelodyMicGatePercentValue.textContent = '';
+  mocked.dom.studyMelodyMicNoiseGuardPercent.value = '100';
+  mocked.dom.studyMelodyMicNoiseGuardPercentValue.textContent = '';
+  mocked.dom.studyMelodyMicSilenceResetFrames.value = '0';
+  mocked.dom.studyMelodyMicSilenceResetFramesValue.textContent = '';
+  mocked.dom.studyMelodyMicStableFrames.value = '0';
+  mocked.dom.studyMelodyMicStableFramesValue.textContent = '';
+  mocked.dom.studyMelodyPreEmphasisFrequencyHz.value = '300';
+  mocked.dom.studyMelodyPreEmphasisFrequencyHzValue.textContent = '';
+  mocked.dom.studyMelodyPreEmphasisGainDb.value = '5';
+  mocked.dom.studyMelodyPreEmphasisGainDbValue.textContent = '';
 
   mocked.state.currentInstrument = { name: 'guitar', STRING_ORDER: ['E', 'A', 'D', 'G', 'B', 'e'] };
   mocked.state.currentTuningPresetKey = 'standard';
@@ -382,6 +412,12 @@ function resetMockState() {
   mocked.state.performanceTimingLeniencyPreset = 'normal';
   mocked.state.performanceMicLatencyCompensationMs = 0;
   mocked.state.uiMode = 'simple';
+  mocked.state.studyMelodyMicGatePercent = 85;
+  mocked.state.studyMelodyMicNoiseGuardPercent = 100;
+  mocked.state.studyMelodyMicSilenceResetFrames = 0;
+  mocked.state.studyMelodyMicStableFrames = 0;
+  mocked.state.studyMelodyPreEmphasisFrequencyHz = 300;
+  mocked.state.studyMelodyPreEmphasisGainDb = 5;
   mocked.dom.micDirectInputMode.checked = false;
   mocked.panelState.practiceSetupCollapsed = false;
   mocked.panelState.melodySetupCollapsed = false;
@@ -435,6 +471,12 @@ describe('storage', () => {
       performanceTimingLeniencyPreset: 'forgiving',
       performanceMicLatencyCompensationMs: 135,
       uiMode: 'simple',
+    studyMelodyMicGatePercent: 85,
+    studyMelodyMicNoiseGuardPercent: 100,
+    studyMelodyMicSilenceResetFrames: 0,
+    studyMelodyMicStableFrames: 0,
+    studyMelodyPreEmphasisFrequencyHz: 300,
+    studyMelodyPreEmphasisGainDb: 5,
       isDirectInputMode: true,
       practiceSetupCollapsed: true,
       melodySetupCollapsed: true,
@@ -526,3 +568,4 @@ describe('storage', () => {
     expect(mocked.state.preferredMelodyId).toBe('builtin:guitar:ode_to_joy_intro');
   });
 });
+

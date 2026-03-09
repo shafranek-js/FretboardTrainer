@@ -66,6 +66,7 @@ function createDeps() {
     registerMelodyPracticeControls: vi.fn(),
     registerSessionTransportControls: vi.fn(),
     registerAudioInputControls: vi.fn(),
+    registerStudyMelodyMicTuningControls: vi.fn(),
     registerMetronomeControls: vi.fn(),
     registerMetronomeBeatIndicator: vi.fn(),
   };
@@ -96,6 +97,7 @@ describe('session-bootstrap-controller', () => {
     expect(deps.setUiMode).toHaveBeenCalledWith('advanced');
     expect(deps.registerSessionTransportControls).toHaveBeenCalledTimes(1);
     expect(deps.registerAudioInputControls).toHaveBeenCalledTimes(1);
+    expect(deps.registerStudyMelodyMicTuningControls).toHaveBeenCalledTimes(1);
     expect(deps.registerMetronomeBeatIndicator).toHaveBeenCalledTimes(1);
   });
 
@@ -119,3 +121,4 @@ describe('session-bootstrap-controller', () => {
     expect(deps.seekMelodyTimelineToEvent).toHaveBeenCalledWith(4, { commit: false });
   });
 });
+
