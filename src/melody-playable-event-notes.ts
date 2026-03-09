@@ -5,7 +5,12 @@ function isPositionedNote(
   note: Partial<ChordNote> | MelodyEvent['notes'][number] | null | undefined
 ): note is { note: string; string?: string; stringName?: string; fret: number; finger?: number } {
   if (!note || typeof note.note !== 'string') return false;
-  const stringName = 'string' in note ? note.string : note.stringName;
+  const stringName =
+    'string' in note && typeof note.string === 'string'
+      ? note.string
+      : 'stringName' in note && typeof note.stringName === 'string'
+        ? note.stringName
+        : null;
   return typeof stringName === 'string' && typeof note.fret === 'number' && Number.isFinite(note.fret);
 }
 

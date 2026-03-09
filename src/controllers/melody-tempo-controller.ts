@@ -1,3 +1,4 @@
+import type { MelodyDefinition } from '../melody-library';
 import { resolveSharedMelodyTempoBpm, shouldLinkMelodyTempoControls } from '../shared-melody-tempo';
 import { resolveMelodyPlaybackTempoBpm, storeMelodyPlaybackTempoBpm } from '../melody-playback-tempo';
 import {
@@ -31,7 +32,7 @@ interface MelodyTempoControllerState {
   scrollingTabZoomPercent: number;
 }
 
-export interface MelodyTempoControllerDeps<TMelody> {
+export interface MelodyTempoControllerDeps<TMelody extends Pick<MelodyDefinition, 'id' | 'sourceTempoBpm'>> {
   dom: MelodyTempoControllerDom;
   state: MelodyTempoControllerState;
   getSelectedMelody: () => TMelody | null;
@@ -50,7 +51,7 @@ export interface MelodyTempoControllerDeps<TMelody> {
   isPerformanceStyleMode: (mode: string) => boolean;
 }
 
-export function createMelodyTempoController<TMelody>(deps: MelodyTempoControllerDeps<TMelody>) {
+export function createMelodyTempoController<TMelody extends Pick<MelodyDefinition, 'id' | 'sourceTempoBpm'>>(deps: MelodyTempoControllerDeps<TMelody>) {
   function syncHiddenMetronomeTempoFromSharedTempo() {
     const { melodyBpm, metronomeBpm } = resolveSharedMelodyTempoBpm(
       Number.parseInt(deps.dom.melodyDemoBpm.value, 10)
@@ -61,7 +62,7 @@ export function createMelodyTempoController<TMelody>(deps: MelodyTempoController
     deps.dom.metronomeBpmValue.textContent = String(metronomeBpm);
   }
 
-  function syncMelodyTempoFromMetronomeIfLinked() {
+  async function syncMelodyTempoFromMetronomeIfLinked() {
     syncHiddenMetronomeTempoFromSharedTempo();
     if (!shouldLinkMelodyTempoControls(deps.dom.trainingMode.value, deps.dom.metronomeEnabled.checked)) {
       return;
@@ -193,3 +194,4 @@ export function createMelodyTempoController<TMelody>(deps: MelodyTempoController
     syncScrollingTabZoomDisplay,
   };
 }
+

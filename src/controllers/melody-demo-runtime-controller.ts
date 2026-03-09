@@ -1,5 +1,6 @@
 import { createMelodyDemoController } from './melody-demo-controller';
 import { createMelodyDemoPresentationController } from './melody-demo-presentation-controller';
+import type { MelodyFingeringStrategy } from '../melody-fingering';
 import { getMelodyWithPracticeAdjustments } from '../melody-string-shift';
 import type { MelodyDefinition } from '../melody-library';
 import type { MelodyStudyRange } from '../melody-study-range';
@@ -39,7 +40,7 @@ interface MelodyDemoRuntimeControllerState {
   melodyDemoRuntimeBaseTimeSec: number;
   melodyDemoRuntimeAnchorStartedAtMs: number | null;
   melodyDemoRuntimePausedOffsetSec: number;
-  melodyFingeringStrategy?: 'minimax' | 'sequential' | 'anchor';
+  melodyFingeringStrategy?: MelodyFingeringStrategy;
   melodyFingeringLevel?: 'beginner' | 'intermediate' | 'advanced';
   calibratedA4: number;
   audioContext: {
@@ -268,3 +269,4 @@ export function createMelodyDemoRuntimeController(deps: MelodyDemoRuntimeControl
     findPlayableStringForNote,
   };
 }
+

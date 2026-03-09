@@ -1,4 +1,5 @@
 import type { UiWorkflow } from '../training-workflows';
+import type { UiMode } from '../ui-mode';
 interface SessionBootstrapControllerDom {
   metronomeBpm: HTMLInputElement;
   melodyDemoBpm: HTMLInputElement;
@@ -15,8 +16,8 @@ interface SessionBootstrapControllerState {
   melodyTimelineViewMode: string;
   showMelodyTimelineSteps: boolean;
   showMelodyTimelineDetails: boolean;
-  uiWorkflow: string;
-  uiMode: string;
+  uiWorkflow: UiWorkflow;
+  uiMode: UiMode;
 }
 
 export interface SessionBootstrapControllerDeps {
@@ -144,4 +145,5 @@ export function createSessionBootstrapController(deps: SessionBootstrapControlle
 
   return { initialize };
 }
+
 

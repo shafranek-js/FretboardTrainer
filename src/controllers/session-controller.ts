@@ -38,6 +38,7 @@ import {
   toggleLayoutControlsExpanded,
 } from '../ui-signals';
 import { getEnabledStrings } from '../fretboard-ui-state';
+import type { ChordNote } from '../types';
 import { type CurriculumPresetKey } from '../curriculum-presets';
 import {
   clampMetronomeVolumePercent,
@@ -754,7 +755,7 @@ const sessionTransportControlsController = createSessionTransportControlsControl
   clearResultMessage,
   drawHintFretboard: ({ noteToShow, stringToShow, melodyNotes }) => {
     if (melodyNotes) {
-      drawFretboard(false, null, null, melodyNotes);
+      drawFretboard(false, null, null, melodyNotes as ChordNote[]);
       return;
     }
     drawFretboard(false, noteToShow, stringToShow);
@@ -794,7 +795,9 @@ const melodyTempoController = createMelodyTempoController({
   getClampedMetronomeBpmFromInput,
   startMetronome,
   stopMetronome,
-  setMetronomeTempo: (bpm) => setMetronomeTempo(bpm),
+  setMetronomeTempo: async (bpm) => {
+    await setMetronomeTempo(bpm);
+  },
   isMetronomeRunning,
   resetMetronomeVisualIndicator,
   showNonBlockingError,
@@ -1353,6 +1356,7 @@ export function registerSessionControls() {
   registerConfirmControls();
   registerProfileControls();
 }
+
 
 
 
