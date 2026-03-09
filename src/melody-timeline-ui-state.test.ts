@@ -163,4 +163,27 @@ describe('melody-timeline-ui-state', () => {
     expect(renderState?.activeIndex).toBe(1);
     expect(renderState?.performanceFeedbackByEvent).toBe(feedback);
   });
+  it('uses the current study melody prompt index while listening instead of lagging one event behind', () => {
+    const renderState = resolveMelodyTimelineRenderState({
+      trainingMode: 'melody',
+      selectedMelodyId: 'test:melody',
+      instrument: instruments.guitar,
+      melodyTransposeSemitones: 0,
+      melodyStringShift: 0,
+      melodyStudyRangeStartIndex: 0,
+      melodyStudyRangeEndIndex: 4,
+      isListening: true,
+      currentMelodyEventIndex: 2,
+      performanceActiveEventIndex: null,
+      melodyTimelinePreviewIndex: null,
+      melodyTimelinePreviewLabel: null,
+      performanceTimelineFeedbackKey: null,
+      performanceTimelineFeedbackByEvent: {},
+    });
+
+    expect(renderState).not.toBeNull();
+    expect(renderState?.activeIndex).toBe(2);
+    expect(renderState?.modeLabel).toBe('Session');
+  });
 });
+

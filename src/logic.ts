@@ -1200,22 +1200,6 @@ function processAudio() {
       state.animationId = requestAnimationFrame(processAudio);
       return;
     }
-    if (
-      !state.isCalibrating &&
-      state.inputSource !== 'midi' &&
-      Date.now() < state.ignorePromptAudioUntilMs
-    ) {
-      Object.assign(state, createStabilityTrackingResetState());
-      resetMicMonophonicAttackTracking();
-      setVolumeLevel(0);
-      updateTuner(null);
-      if (dom.trainingMode.value === 'free') {
-        clearLiveDetectedHighlight(state, redrawFretboard);
-      }
-      state.animationId = requestAnimationFrame(processAudio);
-      return;
-    }
-
     // Shared volume calculation
     state.analyser.getFloatTimeDomainData(state.dataArray!);
     const volume = calculateRmsLevel(state.dataArray!);
@@ -1223,6 +1207,24 @@ function processAudio() {
     setVolumeLevel(volume);
 
     const trainingMode = dom.trainingMode.value;
+
+    if (
+      !state.isCalibrating &&
+      state.inputSource !== 'midi' &&
+      Date.now() < state.ignorePromptAudioUntilMs
+    ) {
+      Object.assign(state, createStabilityTrackingResetState());
+      if (dom.trainingMode.value === 'free') {
+        clearLiveDetectedHighlight(state, redrawFretboard);
+      }
+      
+      // Preserve an existing onset across the ignore gap, but never seed a new one from prompt audio.
+      const trackedNoteDuringIgnore = state.micMonophonicAttackTrackedNote;
+      updateMicMonophonicAttackTracking(trackedNoteDuringIgnore, volume);
+
+      state.animationId = requestAnimationFrame(processAudio);
+      return;
+    }
     const mode = modes[trainingMode];
     const baseMicVolumeThreshold = resolveMicVolumeThreshold(
       state.micSensitivityPreset,

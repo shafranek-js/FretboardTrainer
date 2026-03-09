@@ -133,15 +133,14 @@ export function resolveMelodyTimelineRenderState(input: {
   if (typeof input.melodyTimelinePreviewIndex === 'number') {
     activeIndex = input.melodyTimelinePreviewIndex;
     modeLabel = input.melodyTimelinePreviewLabel ?? 'Preview';
-  } else {
-    const sessionIndex =
-      isPerformanceStyleMode(input.trainingMode) && input.isListening
-        ? input.performanceActiveEventIndex
-        : input.currentMelodyEventIndex - 1;
+  } else if (input.isListening) {
+    const sessionIndex = isPerformanceStyleMode(input.trainingMode)
+      ? input.performanceActiveEventIndex
+      : input.currentMelodyEventIndex;
     if (Number.isFinite(sessionIndex) && sessionIndex >= 0) {
       activeIndex = sessionIndex;
     }
-    modeLabel = input.isListening ? 'Session' : null;
+    modeLabel = 'Session';
   }
 
   const studyRange = normalizeMelodyStudyRange(
@@ -191,3 +190,4 @@ export function resolveMelodyTimelineRenderState(input: {
     copyText,
   };
 }
+
