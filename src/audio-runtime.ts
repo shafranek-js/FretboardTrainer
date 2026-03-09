@@ -1,6 +1,9 @@
 export interface AudioRuntimeState {
   audioContext: AudioContext | null;
   analyser: AnalyserNode | null;
+  preEmphasisFilter: BiquadFilterNode | null;
+  studyMelodyPreEmphasisFrequencyHz?: number;
+  studyMelodyPreEmphasisGainDb?: number;
   microphone: MediaStreamAudioSourceNode | null;
   mediaStream: MediaStream | null;
   dataArray: Float32Array | null;
@@ -226,15 +229,29 @@ export async function ensureAudioRuntime(
   }
 
   if (shouldConnectMicrophone && runtimeState.microphone && runtimeState.analyser) {
-    runtimeState.microphone.connect(runtimeState.analyser);
+    if (!runtimeState.preEmphasisFilter && runtimeState.audioContext) {
+      runtimeState.preEmphasisFilter = runtimeState.audioContext.createBiquadFilter();
+      runtimeState.preEmphasisFilter.type = 'highshelf';
+    }
+
+    if (runtimeState.preEmphasisFilter) {
+      runtimeState.preEmphasisFilter.frequency.value = runtimeState.studyMelodyPreEmphasisFrequencyHz ?? 300;
+      runtimeState.preEmphasisFilter.gain.value = runtimeState.studyMelodyPreEmphasisGainDb ?? 5;
+      runtimeState.microphone.connect(runtimeState.preEmphasisFilter);
+      runtimeState.preEmphasisFilter.connect(runtimeState.analyser);
+    } else {
+      runtimeState.microphone.connect(runtimeState.analyser);
+    }
   }
 }
 
 export function teardownAudioRuntime(runtimeState: AudioRuntimeState) {
   if (runtimeState.microphone) runtimeState.microphone.disconnect();
+  if (runtimeState.preEmphasisFilter) runtimeState.preEmphasisFilter.disconnect();
   runtimeState.mediaStream?.getTracks().forEach((track) => track.stop());
 
   runtimeState.mediaStream = null;
+  runtimeState.preEmphasisFilter = null;
   runtimeState.microphone = null;
   runtimeState.analyser = null;
   runtimeState.dataArray = null;
@@ -245,3 +262,4 @@ export function teardownAudioRuntime(runtimeState: AudioRuntimeState) {
   runtimeState.activeAudioInputTrackContentHint = null;
   runtimeState.requestedAudioInputContentHint = null;
 }
+

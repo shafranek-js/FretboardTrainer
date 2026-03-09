@@ -30,3 +30,5 @@ export function resolvePerformanceRequiredStableFrames(eventDurationMs: number |
   if (normalizedDuration <= 360) return 1;
   return 2;
 }
+
+

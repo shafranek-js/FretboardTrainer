@@ -1,14 +1,15 @@
 import { dom, state } from '../state';
-import { notifyUserError } from '../user-feedback-port';
 import { getMelodyById, type MelodyEvent } from '../melody-library';
 import { getMelodyFingeredEvent } from '../melody-fingering';
 import { getPlayableMelodyEventNotes } from '../melody-playable-event-notes';
+import { resolveMelodyPlaybackTempoBpm } from '../melody-playback-tempo';
 import {
   formatMelodyStudyRange,
   isDefaultMelodyStudyRange,
   normalizeMelodyStudyRange,
 } from '../melody-study-range';
 import { getMelodyWithPracticeAdjustments } from '../melody-string-shift';
+import { getMelodyEventPlaybackDurationMs } from '../melody-timeline-duration';
 import type { Prompt } from '../types';
 import { ITrainingMode, DetectionType } from './training-mode';
 
@@ -20,43 +21,32 @@ function toMelodyEventChordNotes(event: MelodyEvent) {
   return [...new Set(event.notes.map((note) => note.note))];
 }
 
+function getMelodyStudyBpm(melody: { id: string; sourceTempoBpm?: number | null }) {
+  return resolveMelodyPlaybackTempoBpm(melody, state.melodyPlaybackBpmById, melody.sourceTempoBpm ?? 90);
+}
+
 export class MelodyPracticeMode implements ITrainingMode {
   detectionType: DetectionType = 'monophonic';
 
   generatePrompt(): Prompt | null {
     const selectedMelodyId = dom.melodySelector.value;
-    if (!selectedMelodyId) {
-      if (state.isListening) notifyUserError('Select a melody to practice.');
-      return null;
-    }
+    if (!selectedMelodyId) return null;
 
     const baseMelody = getMelodyById(selectedMelodyId, state.currentInstrument);
-    if (!baseMelody) {
-      if (state.isListening) {
-        notifyUserError(
-          'Selected melody is not available for the current instrument. Choose another melody or re-import the tab.'
-        );
-      }
-      return null;
-    }
+    if (!baseMelody) return null;
     const melody = getMelodyWithPracticeAdjustments(
       baseMelody,
       state.melodyTransposeSemitones,
       state.melodyStringShift,
       state.currentInstrument
     );
-
-    if (melody.events.length === 0) {
-      if (state.isListening) notifyUserError('Selected melody has no playable notes.');
-      return null;
-    }
+    if (melody.events.length === 0) return null;
 
     const studyRange = normalizeMelodyStudyRange(state.melodyStudyRangeById?.[melody.id], melody.events.length);
 
     if (state.currentMelodyId !== melody.id) {
       state.currentMelodyId = melody.id;
       state.currentMelodyEventIndex = studyRange.startIndex;
-      state.currentMelodyEventFoundNotes.clear();
     }
 
     if (state.currentMelodyEventIndex < studyRange.startIndex) {
@@ -74,10 +64,9 @@ export class MelodyPracticeMode implements ITrainingMode {
       return null;
     }
 
-    const event = melody.events[state.currentMelodyEventIndex];
     const currentEventIndex = state.currentMelodyEventIndex;
-    state.currentMelodyEventIndex++;
-    state.currentMelodyEventFoundNotes.clear();
+    const event = melody.events[currentEventIndex];
+    const bpm = getMelodyStudyBpm(melody);
 
     const firstNote = event.notes[0] ?? null;
     const fingeredEvent = getMelodyFingeredEvent(melody.events, currentEventIndex, {
@@ -95,10 +84,7 @@ export class MelodyPracticeMode implements ITrainingMode {
         : null;
 
     return {
-      displayText: formatMelodyPromptText(
-        melody.name
-      ),
-      // Keep a visual fallback target even for degraded polyphonic imports that have only one playable position.
+      displayText: formatMelodyPromptText(melody.name),
       targetNote: isPolyphonicEvent
         ? (melodyEventFingering.length <= 1 ? (fallbackSingleNoteTarget?.note ?? null) : null)
         : (fallbackSingleNoteTarget?.note ?? null),
@@ -108,7 +94,10 @@ export class MelodyPracticeMode implements ITrainingMode {
       targetChordNotes: isPolyphonicEvent ? targetPitchClasses : [],
       targetChordFingering: isPolyphonicEvent ? melodyEventFingering : [],
       targetMelodyEventNotes: melodyEventFingering,
+      melodyEventDurationMs: getMelodyEventPlaybackDurationMs(event, bpm, melody),
       baseChordName: null,
     };
   }
 }
+
+

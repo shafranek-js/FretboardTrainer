@@ -91,6 +91,14 @@ export function createSessionTransportControlsController(deps: SessionTransportC
     deps.dom.sessionToggleBtn.addEventListener('click', async () => {
       if (deps.isMelodyDemoActive()) {
         deps.stopMelodyDemoPlayback({ clearUi: true, message: 'Melody playback stopped.' });
+        if (
+          !deps.state.isListening &&
+          (deps.state.uiWorkflow === 'study-melody' ||
+            deps.state.uiWorkflow === 'practice' ||
+            deps.state.uiWorkflow === 'perform')
+        ) {
+          await deps.startSessionFromUi();
+        }
         return;
       }
       if (!deps.state.isListening && deps.state.uiWorkflow === 'library') {
@@ -138,3 +146,4 @@ export function createSessionTransportControlsController(deps: SessionTransportC
     register,
   };
 }
+

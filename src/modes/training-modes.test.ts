@@ -48,6 +48,7 @@ const { mockDom, mockState, getMelodyByIdMock } = vi.hoisted(() => ({
     pendingSessionStopResultMessage: null as
       | { text: string; tone: 'neutral' | 'success' | 'error' }
       | null,
+    melodyPlaybackBpmById: {} as Record<string, number>,
     isListening: false,
   },
   getMelodyByIdMock: vi.fn(),
@@ -328,7 +329,8 @@ describe('RhythmTrainingMode', () => {
 });
 
 describe('MelodyPracticeMode', () => {
-  it('generates sequential prompts from the selected melody', () => {
+describe('MelodyPracticeMode', () => {
+  it('does not advance the melody index while only generating a prompt', () => {
     getMelodyByIdMock.mockReturnValue({
       id: 'builtin:test',
       name: 'Test Melody',
@@ -345,8 +347,24 @@ describe('MelodyPracticeMode', () => {
     expect(first?.targetNote).toBe('C');
     expect(first?.targetString).toBe('A');
     expect(first?.displayText).toBe('Melody: Test Melody');
-    expect(second?.targetNote).toBe('D');
+    expect(second?.targetNote).toBe('C');
+
+  it('uses stored melody tempo override from state instead of reading BPM directly from the DOM in study mode', () => {
+    mockDom.melodyDemoBpm.value = '90';
+    mockState.melodyPlaybackBpmById = { 'builtin:test': 120 };
+    getMelodyByIdMock.mockReturnValue({
+      id: 'builtin:test',
+      name: 'Test Melody',
+      events: [{ notes: [{ note: 'C', stringName: 'A', fret: 3 }], durationBeats: 1 }],
+    });
+
+    const mode = new MelodyPracticeMode();
+    const prompt = mode.generatePrompt();
+
+    expect(prompt?.melodyEventDurationMs).toBe(500);
+  });
     expect(second?.displayText).toBe('Melody: Test Melody');
+    expect(mockState.currentMelodyEventIndex).toBe(0);
   });
 
   it('returns null and queues completion feedback after the last step', () => {
@@ -491,3 +509,4 @@ describe('MelodyPracticeMode', () => {
     expect(prompt?.melodyEventDurationMs).toBe(667);
   });
 });
+

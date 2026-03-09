@@ -1,4 +1,5 @@
 import { buildStableMonophonicReactionPlan } from './session-detection-reactions';
+import { getMelodyPromptPitchClasses, isPolyphonicMelodyPrompt } from './melody-prompt-polyphony';
 import { isMelodyWorkflowMode, isPerformanceStyleMode } from './training-mode-groups';
 import type { Prompt } from './types';
 import { shouldForgivePerformanceTimingBoundaryAttempt } from './performance-timing-forgiveness';
@@ -75,16 +76,10 @@ interface StableMonophonicDetectionControllerDeps {
   freqToScientificNoteName(frequency: number): string;
 }
 
-function isPolyphonicMelodyPrompt(
-  prompt: Prompt | null
-): prompt is Prompt & { targetMelodyEventNotes: NonNullable<Prompt['targetMelodyEventNotes']> } {
-  return Boolean(prompt && (prompt.targetMelodyEventNotes?.length ?? 0) > 1);
+function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
+  return getMelodyPromptPitchClasses(prompt);
 }
 
-function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
-  if (prompt.targetChordNotes.length > 0) return [...new Set(prompt.targetChordNotes)];
-  return [...new Set((prompt.targetMelodyEventNotes ?? []).map((note) => note.note))];
-}
 
 export function createStableMonophonicDetectionController(
   deps: StableMonophonicDetectionControllerDeps
@@ -239,6 +234,14 @@ export function createStableMonophonicDetectionController(
       deps.recordPerformanceTimelineWrongAttempt(detectedNote);
       return;
     }
+    const studyMelodyRequiresFreshOnset =
+      trainingMode === 'melody' &&
+      Boolean(prompt) &&
+      deps.state.micMonophonicFirstDetectedAtMs !== null &&
+      deps.state.micMonophonicFirstDetectedAtMs < deps.state.startTime;
+    if (studyMelodyRequiresFreshOnset) {
+      return;
+    }
 
     const reactionPlan = buildStableMonophonicReactionPlan({
       trainingMode,
@@ -258,6 +261,14 @@ export function createStableMonophonicDetectionController(
     if (reactionPlan.kind === 'rhythm_feedback') {
       deps.clearWrongDetectedHighlight();
       deps.handleRhythmModeStableNote(detectedNote);
+      return;
+    }
+
+
+    if (reactionPlan.kind === 'success') {
+      deps.clearWrongDetectedHighlight();
+      const elapsed = (Date.now() - deps.state.startTime) / 1000;
+      deps.displayResult(true, elapsed);
       return;
     }
 
@@ -296,13 +307,6 @@ export function createStableMonophonicDetectionController(
       return;
     }
 
-    if (reactionPlan.kind === 'success') {
-      deps.clearWrongDetectedHighlight();
-      const elapsed = (Date.now() - deps.state.startTime) / 1000;
-      deps.displayResult(true, elapsed);
-      return;
-    }
-
     if (reactionPlan.kind === 'ignore_no_prompt' || !prompt) return;
 
     deps.recordSessionAttempt(deps.state.activeSessionStats, prompt, false, 0, deps.state.currentInstrument);
@@ -312,6 +316,25 @@ export function createStableMonophonicDetectionController(
         : null;
     deps.setResultMessage(`Heard: ${detectedScientific ?? detectedNote} [wrong]`, 'error');
     deps.setWrongDetectedHighlight(detectedNote, detectedFrequency);
+    if (trainingMode === 'melody') {
+      if (reactionPlan.shouldDrawTargetFretboard) {
+        deps.drawFretboard(
+          false,
+          reactionPlan.targetNote,
+          reactionPlan.targetString,
+          [],
+          new Set(),
+          null,
+          deps.state.wrongDetectedNote,
+          deps.state.wrongDetectedString,
+          deps.state.wrongDetectedFret
+        );
+      } else {
+        deps.redrawFretboard();
+      }
+      return;
+    }
+
     if (reactionPlan.shouldDrawTargetFretboard) {
       deps.drawFretboard(
         false,
@@ -346,3 +369,6 @@ export function createStableMonophonicDetectionController(
     handleDetectedNote,
   };
 }
+
+
+

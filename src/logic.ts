@@ -142,12 +142,19 @@ import { resolveLatencyCompensatedPromptStartedAtMs } from './performance-mic-la
 import { resolvePerformanceMicJudgingThresholds } from './performance-mic-judging-thresholds';
 import { updatePerformanceTimingBias } from './performance-timing-bias';
 import type { PerformanceTimingGrade } from './performance-timing-grade';
-import { resolvePerformanceMicVolumeThreshold } from './performance-mic-volume-threshold';
+import {
+  resolvePerformanceMicVolumeThreshold,
+  resolveStudyMelodyMicVolumeThreshold,
+} from './performance-mic-volume-threshold';
 import {
   resolvePerformanceMicDropHoldMs,
   resolvePerformanceRequiredStableFrames,
   resolvePerformanceSilenceResetAfterFrames,
 } from './performance-mic-adaptive-gating';
+import {
+  resolveEffectiveStudyMelodySilenceResetFrames,
+  resolveEffectiveStudyMelodyStableFrames,
+} from './study-melody-mic-tuning';
 import {
   mergePerformanceMicHoldCalibrationLevel,
   resolvePerformanceMicHoldCalibrationLevelFromBundle,
@@ -165,6 +172,7 @@ import {
   setAudioInputGuidanceError,
 } from './audio-input-guidance-ui';
 import { isMelodyWorkflowMode, isPerformanceStyleMode } from './training-mode-groups';
+import { isPolyphonicMelodyPrompt } from './melody-prompt-polyphony';
 import { createPerformancePromptController } from './performance-prompt-controller';
 import {
   detectMonophonicOctaveMismatch as detectMonophonicOctaveMismatchHelper,
@@ -236,8 +244,8 @@ function resetMicMonophonicAttackTracking() {
 function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: number) {
   const nowMs = Date.now();
   const eventDurationMs = state.currentPrompt?.melodyEventDurationMs ?? null;
-  const performanceAdaptive = isPerformanceStyleMode(dom.trainingMode.value);
-  const performanceDropHoldMs = performanceAdaptive
+  const melodyAdaptive = isMelodyWorkflowMode(dom.trainingMode.value);
+  const performanceDropHoldMs = melodyAdaptive
     ? resolvePerformanceMicDropHoldMs(eventDurationMs)
     : undefined;
   if (
@@ -269,7 +277,7 @@ function updateMicMonophonicAttackTracking(detectedNote: string | null, volume: 
       : Math.max(0, nowMs - state.micMonophonicFirstDetectedAtMs);
   if (
     shouldRearmMicOnsetForSameNote({
-      performanceAdaptive,
+      performanceAdaptive: melodyAdaptive,
       onsetAgeMs,
       currentVolume: volume,
       previousVolume: state.micMonophonicAttackLastVolume,
@@ -687,12 +695,6 @@ const performancePromptController = createPerformancePromptController({
   nextPrompt,
 });
 
-function isPolyphonicMelodyPrompt(prompt: Prompt | null): prompt is Prompt & {
-  targetMelodyEventNotes: NonNullable<Prompt['targetMelodyEventNotes']>;
-} {
-  return Boolean(prompt && (prompt.targetMelodyEventNotes?.length ?? 0) > 1);
-}
-
 function updateMicPolyphonicDetectorRuntimeStatusFromResult(
   result: ReturnType<typeof detectMicPolyphonicFrame>,
   latencyMs: number
@@ -1008,6 +1010,10 @@ function detectMonophonicOctaveMismatch(
   detectedNote: string,
   detectedFrequency?: number | null
 ) {
+  if (dom.trainingMode.value === 'melody') {
+    return null;
+  }
+
   if (
     shouldIgnorePerformanceOctaveMismatch({
       trainingMode: dom.trainingMode.value,
@@ -1222,21 +1228,37 @@ function processAudio() {
       state.micSensitivityPreset,
       state.micAutoNoiseFloorRms
     );
+    const studyMelodyMicInput = state.inputSource !== 'midi' && trainingMode === 'melody';
+    const melodyAdaptiveMicInput = state.inputSource !== 'midi' && isMelodyWorkflowMode(trainingMode);
     const performanceAdaptiveMicInput = state.inputSource !== 'midi' && isPerformanceStyleMode(trainingMode);
-    const micVolumeThreshold = performanceAdaptiveMicInput
-      ? resolvePerformanceMicVolumeThreshold({
+    const automaticSilenceResetFrames = melodyAdaptiveMicInput
+      ? resolvePerformanceSilenceResetAfterFrames(state.currentPrompt?.melodyEventDurationMs ?? null)
+      : undefined;
+    const micVolumeThreshold = studyMelodyMicInput
+      ? resolveStudyMelodyMicVolumeThreshold({
           baseThreshold: baseMicVolumeThreshold,
           sensitivityPreset: state.micSensitivityPreset,
           autoNoiseFloorRms: state.micAutoNoiseFloorRms,
+          gatePercent: state.studyMelodyMicGatePercent,
+          noiseGuardPercent: state.studyMelodyMicNoiseGuardPercent,
         })
-      : baseMicVolumeThreshold;
+      : melodyAdaptiveMicInput
+        ? resolvePerformanceMicVolumeThreshold({
+            baseThreshold: baseMicVolumeThreshold,
+            sensitivityPreset: state.micSensitivityPreset,
+            autoNoiseFloorRms: state.micAutoNoiseFloorRms,
+          })
+        : baseMicVolumeThreshold;
     const preflightPlan = buildProcessAudioFramePreflightPlan({
       volume,
       volumeThreshold: micVolumeThreshold,
       consecutiveSilence: state.consecutiveSilence,
-      silenceResetAfterFrames: performanceAdaptiveMicInput
-        ? resolvePerformanceSilenceResetAfterFrames(state.currentPrompt?.melodyEventDurationMs ?? null)
-        : undefined,
+      silenceResetAfterFrames: studyMelodyMicInput
+        ? resolveEffectiveStudyMelodySilenceResetFrames(
+            automaticSilenceResetFrames ?? 6,
+            state.studyMelodyMicSilenceResetFrames
+          )
+        : automaticSilenceResetFrames,
       isCalibrating: state.isCalibrating,
       trainingMode,
       hasMode: Boolean(mode),
@@ -1273,8 +1295,8 @@ function processAudio() {
     } else {
       // --- Monophonic (Single Note) Detection ---
       const frequency = detectPitch(state.dataArray!, state.audioContext.sampleRate, micVolumeThreshold, {
-        expectedFrequency: performanceAdaptiveMicInput ? state.targetFrequency : null,
-        preferLowLatency: performanceAdaptiveMicInput,
+        expectedFrequency: melodyAdaptiveMicInput ? state.targetFrequency : null,
+        preferLowLatency: melodyAdaptiveMicInput,
       });
       if (state.isCalibrating) {
         const { expectedFrequency } = getOpenATuningInfoFromTuning(state.currentInstrument.TUNING);
@@ -1302,9 +1324,14 @@ function processAudio() {
         }
       } else {
         updateTuner(frequency);
-        const requiredStableFrames = performanceAdaptiveMicInput
-          ? resolvePerformanceRequiredStableFrames(state.currentPrompt?.melodyEventDurationMs ?? null)
-          : REQUIRED_STABLE_FRAMES;
+        const requiredStableFrames = studyMelodyMicInput
+          ? resolveEffectiveStudyMelodyStableFrames(
+              resolvePerformanceRequiredStableFrames(state.currentPrompt?.melodyEventDurationMs ?? null),
+              state.studyMelodyMicStableFrames
+            )
+          : melodyAdaptiveMicInput
+            ? resolvePerformanceRequiredStableFrames(state.currentPrompt?.melodyEventDurationMs ?? null)
+            : REQUIRED_STABLE_FRAMES;
         const monophonicResult = detectMonophonicFrame({
           frequency,
           lastPitches: state.lastPitches,
@@ -1315,7 +1342,7 @@ function processAudio() {
           requiredStableFrames,
           targetNote: state.currentPrompt.targetNote,
           noteResolver: freqToNoteName,
-          emaPreset: performanceAdaptiveMicInput ? 'performance_fast' : 'default',
+          emaPreset: melodyAdaptiveMicInput ? 'performance_fast' : 'default',
         });
         state.micLastMonophonicConfidence = monophonicResult.confidence;
         state.micLastMonophonicPitchSpreadCents = monophonicResult.pitchSpreadCents;
@@ -1511,26 +1538,9 @@ function processAudio() {
               setResultMessage('Low mic confidence. Play a cleaner single-note attack.', 'neutral');
             }
             if (
+              performanceAdaptiveMicInput &&
               state.inputSource !== 'midi' &&
-              !voicingAccepted
-            ) {
-              return;
-            }
-            if (
-              state.inputSource !== 'midi' &&
-              !confidenceAccepted
-            ) {
-              return;
-            }
-            if (
-              state.inputSource !== 'midi' &&
-              !attackAccepted
-            ) {
-              return;
-            }
-            if (
-              state.inputSource !== 'midi' &&
-              !holdAccepted
+              (!voicingAccepted || !confidenceAccepted || !attackAccepted || !holdAccepted)
             ) {
               return;
             }
@@ -1576,6 +1586,10 @@ export async function startListening(forCalibration = false) {
       progressionName: dom.progressionSelector.value,
       progressions: state.currentInstrument.CHORD_PROGRESSIONS,
       timedDuration: TIMED_CHALLENGE_DURATION,
+      selectedMelodyId: dom.melodySelector.value.trim() || null,
+      currentInstrument: state.currentInstrument,
+      melodyTransposeSemitones: state.melodyTransposeSemitones,
+      melodyStringShift: state.melodyStringShift,
     });
 
     setSessionButtonsState(startPlan.sessionButtons);
@@ -2055,6 +2069,11 @@ function displayResult(correct: boolean, elapsed: number) {
             state.currentArpeggioIndex = index;
           },
           setResultMessage,
+          advanceMelodyPromptIndex: () => {
+            if (dom.trainingMode.value === 'melody') {
+              state.currentMelodyEventIndex += 1;
+            }
+          },
           setScoreValue,
           setTunerVisible,
           redrawFretboard,
@@ -2095,10 +2114,12 @@ function nextPrompt() {
     state.wrongDetectedFret = null;
     state.rhythmLastJudgedBeatAtMs = null;
     state.currentMelodyEventFoundNotes.clear();
-    resetMicMonophonicAttackTracking();
-    Object.assign(state, createPromptCycleTrackingResetState());
 
     const trainingMode = dom.trainingMode.value;
+    if (trainingMode !== 'melody') {
+      resetMicMonophonicAttackTracking();
+    }
+    Object.assign(state, createPromptCycleTrackingResetState());
     const mode = modes[trainingMode];
       let prompt: Prompt | null = null;
       if (isPerformanceStyleMode(trainingMode)) {
@@ -2325,5 +2346,28 @@ function handleTimeUp() {
     handleSessionRuntimeError('handleTimeUp', error);
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

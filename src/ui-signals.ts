@@ -167,8 +167,9 @@ function syncSessionInlineFeedbackDividerVisibility() {
   ].some((text) => (text?.trim().length ?? 0) > 0);
   const hasAnyText = hasResultText || hasInfoText;
 
-  // Show the divider only when both sides have content.
-  dom.sessionInlineDivider.classList.toggle('hidden', !hasResultText || !hasInfoText);
+  // Keep divider width reserved so short result labels do not shift the dock.
+  dom.sessionInlineDivider.classList.remove('hidden');
+  dom.sessionInlineDivider.classList.toggle('invisible', !hasResultText || !hasInfoText);
   dom.sessionInlineFeedback.classList.toggle('opacity-60', !hasAnyText);
 }
 
@@ -450,6 +451,7 @@ function renderPlaybackControlsModeVisibility(mode: string, workflow: UiWorkflow
   const visibility = getTrainingModeUiVisibility(mode);
   const layout = resolveCurrentWorkflowLayout(mode, workflow);
   const showPlaybackControls = layout.showPlaybackControls && visibility.showMelodySelector;
+  const showStudyMelodyMicTuning = showPlaybackControls && workflow === 'study-melody';
   dom.melodyWorkspaceTransportSection.classList.toggle('hidden', !showPlaybackControls);
   dom.melodyWorkspaceTransportSection.style.display = showPlaybackControls ? 'flex' : 'none';
   dom.melodyPlaybackControls.classList.toggle('hidden', !showPlaybackControls);
@@ -457,6 +459,13 @@ function renderPlaybackControlsModeVisibility(mode: string, workflow: UiWorkflow
     'hidden',
     !showPlaybackControls || !layout.showPlaybackQuickControls
   );
+  dom.studyMelodyMicTuningHost.classList.toggle('hidden', !showStudyMelodyMicTuning);
+  dom.studyMelodyMicTuningHost.style.display = showStudyMelodyMicTuning ? 'flex' : 'none';
+  if (!showStudyMelodyMicTuning) {
+    dom.studyMelodyMicTuningPanel.classList.add('hidden');
+    dom.studyMelodyMicTuningPanel.style.display = 'none';
+    dom.studyMelodyMicTuningToggleBtn.setAttribute('aria-expanded', 'false');
+  }
 }
 
 function renderDisplayControlsModeVisibility(mode: string, workflow: UiWorkflow) {
@@ -1361,6 +1370,9 @@ export function refreshDisplayFormatting() {
   dom.sessionGoalProgress.textContent = goalProgressText;
   dom.sessionGoalProgress.classList.toggle('hidden', goalProgressText.length === 0);
 }
+
+
+
 
 
 

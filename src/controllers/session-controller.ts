@@ -162,6 +162,7 @@ import { registerProfileControls } from './profile-controller';
 import { createWorkflowLayoutController } from './workflow-layout-controller';
 import { createWorkflowLayoutControlsController } from './workflow-layout-controls-controller';
 import { createWorkflowController } from './workflow-controller';
+import { createStudyMelodyMicTuningController } from './study-melody-mic-tuning-controller';
 import { DEFAULT_TABLATURE_MAX_FRET } from '../tablature-optimizer';
 import {
   formatMelodyStudyRange,
@@ -569,10 +570,11 @@ function finalizeMelodyImportSelection(melodyId: string, successMessage: string)
   dom.melodyAsciiTabInput.value = '';
   melodyImportModalController.close();
   markCurriculumPresetAsCustom();
-  updatePracticeSetupSummary();
+  practiceSetupSummaryController.update();
   saveSettings();
   setResultMessage(successMessage, 'success');
-  refreshMelodyTimelineUi();
+  renderMelodyTabTimelineFromState();
+  syncMelodyTimelineEditingState();
 }
 
 function downloadBytesAsFile(bytes: Uint8Array, fileName: string, mimeType: string) {
@@ -895,7 +897,7 @@ const micSettingsController = createMicSettingsController({
   refreshAudioInputDeviceOptions,
   refreshMicPolyphonicDetectorAudioInfoUi,
   refreshMicPerformanceReadinessUi,
-  syncPracticePresetUi,
+  syncPracticePresetUi: () => practicePresetUiController.syncPracticePresetUi(),
   saveSettings,
   setResultMessage,
   formatUserFacingError,
@@ -997,9 +999,12 @@ const melodySetupControlsController = createMelodySetupControlsController({
   isMelodyWorkflowMode,
   stopListening,
   setResultMessage,
-  updatePracticeSetupSummary,
+  updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   saveSettings,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => {
+    renderMelodyTabTimelineFromState();
+    syncMelodyTimelineEditingState();
+  },
   refreshLayoutControlsVisibility,
   syncMelodyTimelineZoomDisplay,
   syncScrollingTabZoomDisplay,
@@ -1026,10 +1031,13 @@ const melodyPracticeActionsController = createMelodyPracticeActionsController({
   stopListening,
   markCurriculumPresetAsCustom,
   updateMelodyActionButtonsForSelection: () => workflowController.updateMelodyActionButtonsForSelection(),
-  updatePracticeSetupSummary,
+  updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   saveSettings,
   redrawFretboard,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => {
+    renderMelodyTabTimelineFromState();
+    syncMelodyTimelineEditingState();
+  },
   setResultMessage,
   applyMelodyTransposeSemitones,
   applyMelodyStringShift,
@@ -1071,8 +1079,8 @@ const workflowLayoutController = createWorkflowLayoutController({
   setMelodySetupCollapsed,
   setSessionToolsCollapsed,
   setLayoutControlsExpanded,
-  syncRecommendedDefaultsUi,
-  updatePracticeSetupSummary,
+  syncRecommendedDefaultsUi: () => practicePresetUiController.syncRecommendedDefaultsUi(),
+  updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   updateMelodySetupActionButtons: () => melodySetupUiController.updateActionButtons(),
   handleModeChange,
   resetMelodyWorkflowEditorState: () => {
@@ -1107,12 +1115,22 @@ const workflowLayoutControlsController = createWorkflowLayoutControlsController(
   selectMelodyById: (melodyId) => workflowController.selectMelodyById(melodyId),
 });
 
+
+const studyMelodyMicTuningController = createStudyMelodyMicTuningController({
+  dom,
+  state,
+  saveSettings,
+});
+
 const melodyEditingControlsController = createMelodyEditingControlsController({
   dom,
   state,
   maxFret: DEFAULT_TABLATURE_MAX_FRET,
   saveSettings,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => {
+    renderMelodyTabTimelineFromState();
+    syncMelodyTimelineEditingState();
+  },
   updateSelectedMelodyEventEditorNotePosition,
   addMelodyEventEditorNote,
   deleteSelectedMelodyEventEditorNote,
@@ -1161,7 +1179,7 @@ const melodyLibraryControlsController = createMelodyLibraryControlsController({
   deleteCustomMelody,
   refreshMelodyOptionsForCurrentInstrument,
   markCurriculumPresetAsCustom,
-  updatePracticeSetupSummary,
+  updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   saveSettings,
   setResultMessage,
   showNonBlockingError,
@@ -1172,7 +1190,7 @@ const practicePresetControlsController = createPracticePresetControlsController(
   dom,
   state,
   refreshMicPerformanceReadinessUi,
-  syncPracticePresetUi,
+  syncPracticePresetUi: () => practicePresetUiController.syncPracticePresetUi(),
   updateMicNoiseGateInfo,
   saveSettings,
 });
@@ -1191,7 +1209,7 @@ const practiceSetupControlsController = createPracticeSetupControlsController({
   applyUiWorkflowLayout: (workflow) => workflowController.applyUiWorkflowLayout(workflow),
   syncHiddenMetronomeTempoFromSharedTempo,
   syncMelodyMetronomeRuntime,
-  updatePracticeSetupSummary,
+  updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   refreshMicPerformanceReadinessUi,
   syncMelodyTimelineEditingState,
   setCurriculumPresetInfo,
@@ -1210,10 +1228,13 @@ const instrumentDisplayControlsController = createInstrumentDisplayControlsContr
   updateInstrumentUI,
   getEnabledStrings: () => Array.from(getEnabledStrings(dom.stringSelector)),
   refreshMelodyOptionsForCurrentInstrument,
-  updatePracticeSetupSummary,
+  updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   loadInstrumentSoundfont,
   saveSettings,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => {
+    renderMelodyTabTimelineFromState();
+    syncMelodyTimelineEditingState();
+  },
   stopListening,
   setResultMessage,
   redrawFretboard,
@@ -1224,24 +1245,6 @@ const practicePresetUiController = createPracticePresetUiController({
   state,
   hasCompletedOnboarding: () => localStorage.getItem(ONBOARDING_COMPLETED_KEY) === '1',
 });
-
-function syncPracticePresetUi() {
-  practicePresetUiController.syncPracticePresetUi();
-}
-
-function syncRecommendedDefaultsUi() {
-  practicePresetUiController.syncRecommendedDefaultsUi();
-}
-
-
-function updatePracticeSetupSummary() {
-  practiceSetupSummaryController.update();
-}
-
-function refreshMelodyTimelineUi() {
-  renderMelodyTabTimelineFromState();
-  syncMelodyTimelineEditingState();
-}
 
 const melodyTimelineEditingController = createMelodyTimelineEditingController({
   getSelectedMelodyId,
@@ -1284,7 +1287,8 @@ async function startSessionFromUi() {
   state.melodyTimelinePreviewIndex = null;
   state.melodyTimelinePreviewLabel = null;
   try {
-    refreshMelodyTimelineUi();
+    renderMelodyTabTimelineFromState();
+  syncMelodyTimelineEditingState();
     await startListening();
   } catch (error) {
     showNonBlockingError(formatUserFacingError('Failed to start session', error));
@@ -1325,13 +1329,13 @@ const sessionBootstrapController = createSessionBootstrapController({
   updateMicNoiseGateInfo,
   refreshMicPolyphonicDetectorAudioInfoUi,
   refreshMicPerformanceReadinessUi,
-  syncPracticePresetUi,
+  syncPracticePresetUi: () => practicePresetUiController.syncPracticePresetUi(),
   syncMicPolyphonicTelemetryButtonState: () => micPolyphonicTelemetryController.syncButtonState(),
   mountWorkspaceControls: () => workflowLayoutController.mountWorkspaceControls(),
   syncUiWorkflowFromTrainingMode: () => workflowController.syncUiWorkflowFromTrainingMode(),
   applyUiWorkflowLayout: (workflow) => workflowController.applyUiWorkflowLayout(workflow),
   setUiMode,
-  updatePracticeSetupSummary,
+  updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   syncMelodyTimelineEditingState,
   refreshInputSourceAvailabilityUi,
   refreshAudioInputDeviceOptions,
@@ -1348,6 +1352,7 @@ const sessionBootstrapController = createSessionBootstrapController({
   registerMelodyPracticeControls: () => melodyPracticeControlsController.register(),
   registerSessionTransportControls: () => sessionTransportControlsController.register(),
   registerAudioInputControls: () => audioInputControlsController.register(),
+  registerStudyMelodyMicTuningControls: () => studyMelodyMicTuningController.register(),
   registerMetronomeControls: () => metronomeControlsController.register(),
   registerMetronomeBeatIndicator: () => metronomeController.registerBeatIndicator(),
 });
@@ -1357,6 +1362,18 @@ export function registerSessionControls() {
   registerConfirmControls();
   registerProfileControls();
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

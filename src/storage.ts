@@ -30,6 +30,18 @@ import { normalizeMicSensitivityPreset } from './mic-input-sensitivity';
 import { normalizeMicNoteAttackFilterPreset } from './mic-note-attack-filter';
 import { normalizeMicNoteHoldFilterPreset } from './mic-note-hold-filter';
 import { normalizeMicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
+import {
+  formatStudyMelodyMicAutoFrameValue,
+  formatStudyMelodyMicPercent,
+  normalizeStudyMelodyMicGatePercent,
+  normalizeStudyMelodyMicNoiseGuardPercent,
+  normalizeStudyMelodyMicSilenceResetFrames,
+  normalizeStudyMelodyMicStableFrames,
+  normalizeStudyMelodyPreEmphasisFrequencyHz,
+  normalizeStudyMelodyPreEmphasisGainDb,
+  formatStudyMelodyPreEmphasisFrequency,
+  formatStudyMelodyPreEmphasisGain,
+} from './study-melody-mic-tuning';
 import { normalizeMelodyFingeringLevel } from './melody-fingering';
 import { normalizePerformanceMicTolerancePreset } from './performance-mic-tolerance';
 import {
@@ -133,6 +145,12 @@ export function gatherCurrentSettings(): ProfileSettings {
     isDirectInputMode: dom.micDirectInputMode.checked,
     micPolyphonicDetectorProvider: state.micPolyphonicDetectorProvider,
     micAutoNoiseFloorRms: state.micAutoNoiseFloorRms,
+    studyMelodyMicGatePercent: state.studyMelodyMicGatePercent,
+    studyMelodyMicNoiseGuardPercent: state.studyMelodyMicNoiseGuardPercent,
+    studyMelodyMicSilenceResetFrames: state.studyMelodyMicSilenceResetFrames,
+    studyMelodyMicStableFrames: state.studyMelodyMicStableFrames,
+    studyMelodyPreEmphasisFrequencyHz: state.studyMelodyPreEmphasisFrequencyHz,
+    studyMelodyPreEmphasisGainDb: state.studyMelodyPreEmphasisGainDb,
     midiInputDeviceId: state.preferredMidiInputDeviceId,
     startFret: dom.startFret.value,
     endFret: dom.endFret.value,
@@ -255,6 +273,44 @@ export async function applySettings(settings: ProfileSettings | null | undefined
       safeSettings.micAutoNoiseFloorRms >= 0
         ? safeSettings.micAutoNoiseFloorRms
         : null;
+    state.studyMelodyMicGatePercent = normalizeStudyMelodyMicGatePercent(safeSettings.studyMelodyMicGatePercent);
+    state.studyMelodyMicNoiseGuardPercent = normalizeStudyMelodyMicNoiseGuardPercent(
+      safeSettings.studyMelodyMicNoiseGuardPercent
+    );
+    state.studyMelodyMicSilenceResetFrames = normalizeStudyMelodyMicSilenceResetFrames(
+      safeSettings.studyMelodyMicSilenceResetFrames
+    );
+    state.studyMelodyMicStableFrames = normalizeStudyMelodyMicStableFrames(
+      safeSettings.studyMelodyMicStableFrames
+    );
+    state.studyMelodyPreEmphasisFrequencyHz = normalizeStudyMelodyPreEmphasisFrequencyHz(
+      safeSettings.studyMelodyPreEmphasisFrequencyHz
+    );
+    state.studyMelodyPreEmphasisGainDb = normalizeStudyMelodyPreEmphasisGainDb(
+      safeSettings.studyMelodyPreEmphasisGainDb
+    );
+    dom.studyMelodyMicGatePercent.value = String(state.studyMelodyMicGatePercent);
+    dom.studyMelodyMicGatePercentValue.textContent = formatStudyMelodyMicPercent(state.studyMelodyMicGatePercent);
+    dom.studyMelodyMicNoiseGuardPercent.value = String(state.studyMelodyMicNoiseGuardPercent);
+    dom.studyMelodyMicNoiseGuardPercentValue.textContent = formatStudyMelodyMicPercent(
+      state.studyMelodyMicNoiseGuardPercent
+    );
+    dom.studyMelodyMicSilenceResetFrames.value = String(state.studyMelodyMicSilenceResetFrames);
+    dom.studyMelodyMicSilenceResetFramesValue.textContent = formatStudyMelodyMicAutoFrameValue(
+      state.studyMelodyMicSilenceResetFrames
+    );
+    dom.studyMelodyMicStableFrames.value = String(state.studyMelodyMicStableFrames);
+    dom.studyMelodyMicStableFramesValue.textContent = formatStudyMelodyMicAutoFrameValue(
+      state.studyMelodyMicStableFrames
+    );
+    dom.studyMelodyPreEmphasisFrequencyHz.value = String(state.studyMelodyPreEmphasisFrequencyHz);
+    dom.studyMelodyPreEmphasisFrequencyHzValue.textContent = formatStudyMelodyPreEmphasisFrequency(
+      state.studyMelodyPreEmphasisFrequencyHz
+    );
+    dom.studyMelodyPreEmphasisGainDb.value = String(state.studyMelodyPreEmphasisGainDb);
+    dom.studyMelodyPreEmphasisGainDbValue.textContent = formatStudyMelodyPreEmphasisGain(
+      state.studyMelodyPreEmphasisGainDb
+    );
     setPreferredMidiInputDeviceId(normalizeMidiInputDeviceId(safeSettings.midiInputDeviceId));
     dom.startFret.value = safeSettings.startFret ?? '0';
     dom.endFret.value = safeSettings.endFret ?? '20';
@@ -373,3 +429,9 @@ export async function loadSettings() {
   await applySettings(settings);
   populateProfileSelector();
 }
+
+
+
+
+
+

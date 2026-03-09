@@ -11,12 +11,13 @@ export function updateSessionInputStatusHud() {
 
   if (state.inputSource === 'midi') {
     const statusText = buildInputStatusText('midi', getSelectedOptionLabel(dom.midiInputDevice));
-    dom.inputStatusBar.textContent = statusText.shortText;
+    dom.inputStatusBar.textContent = statusText.fullText;
     dom.inputStatusBar.title = statusText.fullText;
     return;
   }
 
   const statusText = buildInputStatusText('microphone', getSelectedOptionLabel(dom.audioInputDevice));
-  dom.inputStatusBar.textContent = statusText.shortText;
+  dom.inputStatusBar.textContent = statusText.fullText;
   dom.inputStatusBar.title = statusText.fullText;
 }
+

@@ -14,14 +14,36 @@ describe('mic-attack-tracking', () => {
     ).toBe(false);
   });
 
-  it('resets immediately in non-performance modes when detection disappears', () => {
+  it('resets immediately in non-melody note-training modes when detection disappears', () => {
+    expect(
+      shouldResetMicAttackTracking({
+        detectedNote: null,
+        trackedNote: 'E',
+        trainingMode: 'random',
+        lastDetectedAtMs: 1000,
+        nowMs: 1020,
+      })
+    ).toBe(true);
+  });
+
+  it('keeps tracking alive for short dropouts in study melody mode', () => {
     expect(
       shouldResetMicAttackTracking({
         detectedNote: null,
         trackedNote: 'E',
         trainingMode: 'melody',
         lastDetectedAtMs: 1000,
-        nowMs: 1020,
+        nowMs: 1089,
+      })
+    ).toBe(false);
+
+    expect(
+      shouldResetMicAttackTracking({
+        detectedNote: null,
+        trackedNote: 'E',
+        trainingMode: 'melody',
+        lastDetectedAtMs: 1000,
+        nowMs: 1091,
       })
     ).toBe(true);
   });
@@ -48,4 +70,3 @@ describe('mic-attack-tracking', () => {
     ).toBe(true);
   });
 });
-

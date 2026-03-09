@@ -34,6 +34,18 @@ describe('buildStableMonophonicReactionPlan', () => {
     ).toEqual({ kind: 'rhythm_feedback' });
   });
 
+  it('matches prompt target notes by pitch class even when the prompt includes an octave', () => {
+    expect(
+      buildStableMonophonicReactionPlan({
+        trainingMode: 'melody',
+        detectedNote: 'E',
+        hasCurrentPrompt: true,
+        promptTargetNote: 'E4',
+        promptTargetString: 'D',
+        showingAllNotes: false,
+      })
+    ).toEqual({ kind: 'success' });
+  });
   it('returns success for matching target note', () => {
     expect(
       buildStableMonophonicReactionPlan({
@@ -281,3 +293,4 @@ describe('buildCalibrationFrameReactionPlan', () => {
     });
   });
 });
+

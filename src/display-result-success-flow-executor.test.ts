@@ -24,6 +24,7 @@ function createDeps() {
       stopListening: vi.fn(),
       setCurrentArpeggioIndex: vi.fn(),
       setResultMessage: vi.fn(),
+      advanceMelodyPromptIndex: vi.fn(),
       setScoreValue: vi.fn(),
       setTunerVisible: vi.fn(),
       redrawFretboard: vi.fn(),
@@ -63,12 +64,37 @@ describe('executeDisplayResultSuccessFlow', () => {
     expect(ctx.deps.setSessionGoalProgress).toHaveBeenCalledWith('Goal progress: 3 / 10 correct');
     expect(ctx.deps.requestSessionSummaryOnStop).not.toHaveBeenCalled();
     expect(ctx.deps.setCurrentArpeggioIndex).toHaveBeenCalledWith(0);
+    expect(ctx.deps.advanceMelodyPromptIndex).not.toHaveBeenCalled();
     expect(ctx.deps.setResultMessage).toHaveBeenCalledWith('Correct! Time: 1.23s', 'success');
     expect(ctx.deps.scheduleSessionCooldown).toHaveBeenCalledWith(
       'standard cooldown nextPrompt',
       650,
       expect.any(Function)
     );
+  });
+
+  it('advances melody index only in study melody success flow', () => {
+    const ctx = createDeps();
+    const outcome = executeDisplayResultSuccessFlow(
+      {
+        prompt: createPrompt(),
+        trainingMode: 'melody',
+        modeDetectionType: 'monophonic',
+        elapsedSeconds: 0.5,
+        currentArpeggioIndex: 0,
+        showingAllNotes: false,
+        sessionPace: 'normal',
+        goalTargetCorrect: null,
+        correctAttempts: null,
+      },
+      ctx.deps
+    );
+
+    expect(outcome).toBe('success_plan_executed');
+    expect(ctx.deps.advanceMelodyPromptIndex).toHaveBeenCalledTimes(1);
+    expect(ctx.deps.scheduleSessionCooldown).not.toHaveBeenCalled();
+    expect(ctx.deps.scheduleSessionTimeout).not.toHaveBeenCalled();
+    expect(ctx.deps.nextPrompt).toHaveBeenCalledTimes(1);
   });
 
   it('stops session when non-timed goal is reached', () => {
@@ -93,6 +119,7 @@ describe('executeDisplayResultSuccessFlow', () => {
     expect(ctx.deps.stopListening).toHaveBeenCalledTimes(1);
     expect(ctx.deps.setResultMessage).toHaveBeenCalledWith('Goal reached: 3 correct answers.', 'success');
     expect(ctx.deps.setCurrentArpeggioIndex).not.toHaveBeenCalled();
+    expect(ctx.deps.advanceMelodyPromptIndex).not.toHaveBeenCalled();
     expect(ctx.deps.scheduleSessionCooldown).not.toHaveBeenCalled();
     expect(ctx.deps.scheduleSessionTimeout).not.toHaveBeenCalled();
   });

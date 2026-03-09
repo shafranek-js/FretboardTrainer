@@ -30,6 +30,7 @@ export interface DisplayResultSuccessFlowDeps extends SessionSuccessExecutorDeps
   stopListening: () => void;
   setCurrentArpeggioIndex: (index: number) => void;
   setResultMessage: (message: string, tone: ResultTone) => void;
+  advanceMelodyPromptIndex: () => void;
 }
 
 export type DisplayResultSuccessFlowOutcome = 'goal_reached' | 'success_plan_executed';
@@ -39,7 +40,9 @@ export function executeDisplayResultSuccessFlow(
   deps: DisplayResultSuccessFlowDeps
 ): DisplayResultSuccessFlowOutcome {
   const infoSlots = buildSuccessInfoSlots(input.prompt);
-  if (infoSlots.slot1 || infoSlots.slot2 || infoSlots.slot3) {
+  if (input.trainingMode === 'melody') {
+    deps.setInfoSlots('', '', '');
+  } else if (infoSlots.slot1 || infoSlots.slot2 || infoSlots.slot3) {
     deps.setInfoSlots(infoSlots.slot1, infoSlots.slot2, infoSlots.slot3);
   }
 
@@ -59,6 +62,10 @@ export function executeDisplayResultSuccessFlow(
     deps.stopListening();
     deps.setResultMessage(formatSessionGoalReached(input.goalTargetCorrect), 'success');
     return 'goal_reached';
+  }
+
+  if (input.trainingMode === 'melody') {
+    deps.advanceMelodyPromptIndex();
   }
 
   const successPlan = buildSessionSuccessPlan({

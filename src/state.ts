@@ -176,6 +176,22 @@ export const dom = {
   melodyPlaybackControls: requireElementById<HTMLElement>('melodyPlaybackControls'),
   melodyDemoQuickControls: requireElementById<HTMLElement>('melodyDemoQuickControls'),
   playbackPromptSoundHost: requireElementById<HTMLElement>('playbackPromptSoundHost'),
+  studyMelodyMicTuningHost: requireElementById<HTMLElement>('studyMelodyMicTuningHost'),
+  studyMelodyMicTuningToggleBtn: requireElementById<HTMLButtonElement>('studyMelodyMicTuningToggleBtn'),
+  studyMelodyMicTuningPanel: requireElementById<HTMLElement>('studyMelodyMicTuningPanel'),
+  studyMelodyMicGatePercent: requireElementById<HTMLInputElement>('studyMelodyMicGatePercent'),
+  studyMelodyMicGatePercentValue: requireElementById<HTMLElement>('studyMelodyMicGatePercentValue'),
+  studyMelodyMicNoiseGuardPercent: requireElementById<HTMLInputElement>('studyMelodyMicNoiseGuardPercent'),
+  studyMelodyMicNoiseGuardPercentValue: requireElementById<HTMLElement>('studyMelodyMicNoiseGuardPercentValue'),
+  studyMelodyMicSilenceResetFrames: requireElementById<HTMLInputElement>('studyMelodyMicSilenceResetFrames'),
+  studyMelodyMicSilenceResetFramesValue: requireElementById<HTMLElement>('studyMelodyMicSilenceResetFramesValue'),
+  studyMelodyMicStableFrames: requireElementById<HTMLInputElement>('studyMelodyMicStableFrames'),
+  studyMelodyMicStableFramesValue: requireElementById<HTMLElement>('studyMelodyMicStableFramesValue'),
+  studyMelodyPreEmphasisFrequencyHz: requireElementById<HTMLInputElement>('studyMelodyPreEmphasisFrequencyHz'),
+  studyMelodyPreEmphasisFrequencyHzValue: requireElementById<HTMLElement>('studyMelodyPreEmphasisFrequencyHzValue'),
+  studyMelodyPreEmphasisGainDb: requireElementById<HTMLInputElement>('studyMelodyPreEmphasisGainDb'),
+  studyMelodyPreEmphasisGainDbValue: requireElementById<HTMLElement>('studyMelodyPreEmphasisGainDbValue'),
+  studyMelodyMicTuningResetBtn: requireElementById<HTMLButtonElement>('studyMelodyMicTuningResetBtn'),
   playbackSessionActionHost: requireElementById<HTMLElement>('playbackSessionActionHost'),
   openMelodyImportBtn: requireElementById<HTMLButtonElement>('openMelodyImportBtn'),
   editMelodyBtn: requireElementById<HTMLButtonElement>('editMelodyBtn'),
@@ -476,6 +492,7 @@ export const dom = {
 export const state = {
   audioContext: null as AudioContext | null,
   analyser: null as AnalyserNode | null,
+  preEmphasisFilter: null as BiquadFilterNode | null,
   microphone: null as MediaStreamAudioSourceNode | null,
   mediaStream: null as MediaStream | null,
   activeAudioInputDeviceId: null as string | null,
@@ -511,6 +528,12 @@ export const state = {
   performanceMicTolerancePreset: 'normal' as PerformanceMicTolerancePreset,
   performanceTimingLeniencyPreset: 'normal' as PerformanceTimingLeniencyPreset,
   performanceMicLatencyCompensationMs: 0,
+  studyMelodyMicGatePercent: 100,
+  studyMelodyMicNoiseGuardPercent: 100,
+  studyMelodyMicSilenceResetFrames: 0,
+  studyMelodyMicStableFrames: 0,
+  studyMelodyPreEmphasisFrequencyHz: 300,
+  studyMelodyPreEmphasisGainDb: 5,
   performanceTimingBiasMs: 0,
   performanceTimingBiasSampleCount: 0,
   showMelodyTimelineSteps: false,
@@ -657,3 +680,7 @@ export const state = {
   isLoadingSamples: false,
   audioCache: {} as Partial<Record<IInstrument['name'], SoundfontPlayer>>, // Loaded soundfont players by instrument
 };
+
+
+
+

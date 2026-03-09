@@ -30,3 +30,5 @@ describe('performance-mic-adaptive-gating', () => {
     expect(resolvePerformanceRequiredStableFrames(null)).toBe(2);
   });
 });
+
+

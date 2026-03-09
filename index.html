@@ -226,7 +226,63 @@
                   title="Tempo and click"
                 >
                   <div id="playbackPromptSoundHost" class="flex items-center"></div>
-                  <label
+                  <div id="studyMelodyMicTuningHost" class="hidden relative flex items-center">
+                    <button
+                      id="studyMelodyMicTuningToggleBtn"
+                      type="button"
+                      class="playback-control-btn border border-slate-500 bg-slate-700 text-slate-100 transition-colors hover:bg-slate-600"
+                      aria-expanded="false"
+                      aria-label="Study Melody microphone tuning"
+                      title="Study Melody microphone tuning"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9m-9 6h9m-9 6h9M4.5 6h.008v.008H4.5V6Zm0 6h.008v.008H4.5V12Zm0 6h.008v.008H4.5V18Z" />
+                      </svg>
+                      <span>Tune</span>
+                    </button>
+                    <div id="studyMelodyMicTuningPanel" class="study-mic-tuning-panel hidden" aria-label="Study Melody microphone tuning panel">
+                      <div class="study-mic-tuning-header">
+                        <span>Study Melody Mic</span>
+                        <button
+                          id="studyMelodyMicTuningResetBtn"
+                          type="button"
+                          class="study-mic-tuning-reset"
+                          aria-label="Reset Study Melody microphone tuning"
+                          title="Reset Study Melody microphone tuning"
+                        >Reset</button>
+                      </div>
+                      <label class="study-mic-tuning-row" for="studyMelodyMicGatePercent">
+                        <span class="study-mic-tuning-label">Input Gate</span>
+                        <input id="studyMelodyMicGatePercent" type="range" min="60" max="140" step="5" value="100" class="study-mic-tuning-slider accent-cyan-400" />
+                        <span id="studyMelodyMicGatePercentValue" class="study-mic-tuning-value">100%</span>
+                      </label>
+                      <label class="study-mic-tuning-row" for="studyMelodyMicNoiseGuardPercent">
+                        <span class="study-mic-tuning-label">Noise Guard</span>
+                        <input id="studyMelodyMicNoiseGuardPercent" type="range" min="60" max="140" step="5" value="100" class="study-mic-tuning-slider accent-cyan-400" />
+                        <span id="studyMelodyMicNoiseGuardPercentValue" class="study-mic-tuning-value">100%</span>
+                      </label>
+                      <label class="study-mic-tuning-row" for="studyMelodyMicSilenceResetFrames">
+                        <span class="study-mic-tuning-label">Release</span>
+                        <input id="studyMelodyMicSilenceResetFrames" type="range" min="0" max="8" step="1" value="0" class="study-mic-tuning-slider accent-cyan-400" />
+                        <span id="studyMelodyMicSilenceResetFramesValue" class="study-mic-tuning-value">Auto</span>
+                      </label>
+                      <label class="study-mic-tuning-row" for="studyMelodyMicStableFrames">
+                        <span class="study-mic-tuning-label">Stable</span>
+                        <input id="studyMelodyMicStableFrames" type="range" min="0" max="3" step="1" value="0" class="study-mic-tuning-slider accent-cyan-400" />
+                        <span id="studyMelodyMicStableFramesValue" class="study-mic-tuning-value">Auto</span>
+                      </label>
+                      <label class="study-mic-tuning-row" for="studyMelodyPreEmphasisFrequencyHz">
+                        <span class="study-mic-tuning-label">Shelf Freq</span>
+                        <input id="studyMelodyPreEmphasisFrequencyHz" type="range" min="200" max="600" step="20" value="300" class="study-mic-tuning-slider accent-cyan-400" />
+                        <span id="studyMelodyPreEmphasisFrequencyHzValue" class="study-mic-tuning-value">300 Hz</span>
+                      </label>
+                      <label class="study-mic-tuning-row" for="studyMelodyPreEmphasisGainDb">
+                        <span class="study-mic-tuning-label">Shelf Gain</span>
+                        <input id="studyMelodyPreEmphasisGainDb" type="range" min="0" max="8" step="1" value="5" class="study-mic-tuning-slider accent-cyan-400" />
+                        <span id="studyMelodyPreEmphasisGainDbValue" class="study-mic-tuning-value">+5 dB</span>
+                      </label>
+                    </div>
+                  </div>                  <label
                     class="playback-control-btn inline-flex cursor-pointer items-center gap-1 border border-slate-500 bg-slate-700 text-slate-100 transition-colors hover:bg-slate-600"
                     title="Loop the selected melody range during playback"
                     aria-label="Loop the selected melody range during playback"
@@ -1073,23 +1129,23 @@
           aria-label="Timeline minimap"
         ></div>
       </div>
-      <div id="statusDock" class="status-dock shrink-0 px-2 sm:px-3 py-1.5">
+      <div id="statusDock" class="status-dock shrink-0 px-2 sm:px-3 py-2">
         <div class="status-dock-row">
           <div class="status-dock-primary" role="status">
-            <span id="statusBar" class="text-slate-200 font-semibold truncate">Ready</span>
-            <span id="inputStatusBar" class="text-slate-400 truncate">Mic: Default</span>
+            <span id="statusBar" class="text-slate-200 font-semibold">Ready</span>
+            <span id="inputStatusBar" class="text-slate-400">Mic: Default</span>
           </div>
           <div id="sessionInlineFeedback" class="status-inline-feedback" aria-live="polite">
-            <div class="result min-w-0 shrink text-[13px] sm:text-sm leading-4 truncate" id="result"></div>
+            <div class="result min-w-0 shrink" id="result"></div>
             <div id="sessionInlineDivider" class="h-3.5 w-px bg-slate-600/80 shrink-0"></div>
-            <div class="note-info-container min-w-0 flex flex-nowrap items-center gap-x-1.5 sm:gap-x-3 overflow-hidden text-[10px] leading-3.5 text-slate-400 font-medium">
-              <span id="infoSlot1" class="truncate whitespace-nowrap empty:hidden"></span>
-              <span id="infoSlot2" class="truncate whitespace-nowrap empty:hidden"></span>
-              <span id="infoSlot3" class="truncate whitespace-nowrap empty:hidden"></span>
+            <div class="note-info-container min-w-0 flex flex-nowrap items-center gap-x-1.5 sm:gap-x-3 overflow-hidden text-slate-400 font-medium">
+              <span id="infoSlot1" class="empty:hidden"></span>
+              <span id="infoSlot2" class="empty:hidden"></span>
+              <span id="infoSlot3" class="empty:hidden"></span>
             </div>
           </div>
         </div>
-        <div id="sessionGoalProgress" class="w-full hidden text-[10px] leading-3.5 text-emerald-200 bg-emerald-900/20 border border-emerald-700/35 rounded-md px-2 py-0.5" aria-live="polite"></div>
+        <div id="sessionGoalProgress" class="w-full hidden text-emerald-200 bg-emerald-900/20 border border-emerald-700/35 rounded-md px-2 py-0.5" aria-live="polite"></div>
       
     </div>
 
@@ -2731,6 +2787,9 @@
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
+
+
+
 
 
 

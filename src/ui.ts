@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -266,17 +266,16 @@ function renderSessionToolsStringSelector() {
 
   fretboardStringInputs.forEach((fretboardCheckbox) => {
     const label = document.createElement('label');
-    label.className =
-      'session-string-chip inline-flex items-center gap-1 cursor-pointer rounded-md border border-slate-600 bg-slate-800/70 px-1.5 py-0.5 text-slate-200';
+    label.className = 'session-string-chip';
 
     const mirrorCheckbox = document.createElement('input');
     mirrorCheckbox.type = 'checkbox';
     mirrorCheckbox.checked = fretboardCheckbox.checked;
-    mirrorCheckbox.className = 'h-3.5 w-3.5 accent-cyan-500';
+    mirrorCheckbox.className = 'session-string-chip-input';
     mirrorCheckbox.setAttribute('aria-label', `Enable ${fretboardCheckbox.value} string`);
 
     const text = document.createElement('span');
-    text.className = 'font-mono text-[11px] leading-3.5';
+    text.className = 'session-string-chip-label';
     text.textContent = fretboardCheckbox.value;
 
     mirrorCheckbox.addEventListener('change', () => {
@@ -324,19 +323,22 @@ export function updateInstrumentUI(loadedStrings?: string[], requestedTuningPres
   dom.stringSelector.innerHTML = ''; // Clear old strings
   instrument.STRING_ORDER.forEach((stringName) => {
     const label = document.createElement('label');
-    // Use simple flex layout, positioning is handled by CSS on the container
-    label.className = 'flex items-center gap-2 cursor-pointer text-sm font-mono text-slate-300';
-    label.dataset.stringName = stringName; // Keep for potential future use
+    label.className = 'fretboard-string-toggle';
+    label.dataset.stringName = stringName;
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.value = stringName;
     checkbox.checked = loadedStrings ? loadedStrings.includes(stringName) : true;
     checkbox.setAttribute('aria-label', `Enable ${stringName} string`);
-    checkbox.className = 'w-4 h-4 accent-cyan-500'; // Smaller to match screenshot
+    checkbox.className = 'fretboard-string-toggle-input';
+
+    const text = document.createElement('span');
+    text.className = 'fretboard-string-toggle-label';
+    text.textContent = stringName;
 
     label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(stringName));
+    label.appendChild(text);
     dom.stringSelector.appendChild(label);
   });
   dom.stringSelector.querySelectorAll('input').forEach((input) => {
@@ -619,3 +621,5 @@ export function setLoadingState(isLoading: boolean) {
     setLoadingUi(false);
   }
 }
+
+

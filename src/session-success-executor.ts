@@ -81,6 +81,11 @@ export function executeSessionSuccessPlan({
     return;
   }
 
+
+  if (successPlan.delayMs <= 0) {
+    deps.nextPrompt();
+    return;
+  }
   deps.scheduleSessionTimeout(
     successPlan.delayMs,
     () => {
@@ -89,3 +94,4 @@ export function executeSessionSuccessPlan({
     'standard nextPrompt'
   );
 }
+

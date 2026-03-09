@@ -7,6 +7,12 @@ describe('buildSessionStartPlan', () => {
     empty: [],
   };
 
+  const instrument = {
+    name: 'guitar' as const,
+    STRING_ORDER: ['E', 'A', 'D', 'G', 'B', 'e'],
+    getNoteWithOctave: () => 'E2',
+  };
+
   it('builds timed mode plan for monophonic detection', () => {
     const plan = buildSessionStartPlan({
       trainingMode: 'timed',
@@ -72,5 +78,52 @@ describe('buildSessionStartPlan', () => {
 
     expect(plan.resetArpeggioIndex).toBe(true);
     expect(plan.sessionButtons.hintDisabled).toBe(true);
+  });
+
+  it('blocks study melody start when no melody is selected', () => {
+    const plan = buildSessionStartPlan({
+      trainingMode: 'melody',
+      modeDetectionType: 'monophonic',
+      progressionName: '',
+      progressions,
+      timedDuration: 60,
+      selectedMelodyId: null,
+      currentInstrument: instrument,
+    });
+
+    expect(plan.shouldStart).toBe(false);
+    expect(plan.errorMessage).toBe('Select a melody to practice.');
+  });
+
+  it('blocks performance-style melody start when no melody is selected', () => {
+    const plan = buildSessionStartPlan({
+      trainingMode: 'practice',
+      modeDetectionType: 'monophonic',
+      progressionName: '',
+      progressions,
+      timedDuration: 60,
+      selectedMelodyId: null,
+      currentInstrument: instrument,
+    });
+
+    expect(plan.shouldStart).toBe(false);
+    expect(plan.errorMessage).toBe('Select a melody to perform.');
+  });
+
+  it('blocks melody start when selected melody is unavailable', () => {
+    const plan = buildSessionStartPlan({
+      trainingMode: 'melody',
+      modeDetectionType: 'monophonic',
+      progressionName: '',
+      progressions,
+      timedDuration: 60,
+      selectedMelodyId: 'missing:melody',
+      currentInstrument: instrument,
+    });
+
+    expect(plan.shouldStart).toBe(false);
+    expect(plan.errorMessage).toBe(
+      'Selected melody is not available for the current instrument. Choose another melody or re-import the tab.'
+    );
   });
 });

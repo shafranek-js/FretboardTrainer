@@ -1,3 +1,5 @@
+import { toPitchClass } from './pitch-class';
+
 export type StableMonophonicReactionPlan =
   | { kind: 'free_highlight' }
   | { kind: 'rhythm_feedback' }
@@ -36,7 +38,9 @@ export function buildStableMonophonicReactionPlan({
     return { kind: 'rhythm_feedback' };
   }
 
-  if (promptTargetNote && detectedNote === promptTargetNote) {
+  const detectedPitchClass = toPitchClass(detectedNote);
+  const targetPitchClass = toPitchClass(promptTargetNote);
+  if (detectedPitchClass && targetPitchClass && detectedPitchClass === targetPitchClass) {
     return { kind: 'success' };
   }
 

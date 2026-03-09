@@ -1,4 +1,4 @@
-﻿# План рефакторинга FretboardTrainer
+# План рефакторинга FretboardTrainer
 
 ## Цель документа
 
@@ -1553,8 +1553,20 @@ Recommended order from the current state:
 3. Only after that, start `dom` extraction out of `state.ts`.
 4. Leave `logic.ts` decomposition for a later phase after the UI composition root is stable again.
 
+
+### Completed since this update
+
+- P1 completed for MelodyPracticeMode: state.currentMelodyEventIndex++ was removed from generatePrompt() and is now advanced only from the success flow.
+- P2 completed for melody modes: melody-practice.ts and melody-performance.ts no longer read BPM directly from dom; they use playback tempo from state.
+- P3 completed for melody start validation: user-facing start errors for melody workflows now come from session-start-preflight.ts, and melody-practice.ts / melody-performance.ts no longer call 
+otifyUserError(...) during prompt generation.
+- New architectural boundary: melody modes are now closer to pure prompt producers; start gating lives at the session-start layer.
+
 ### Practical rule for the next steps
 
 - Prefer small controller extractions over broad architectural moves.
 - Do not combine `state.ts` slicing with `session-controller.ts` extraction in the same step.
 - Keep using targeted tests plus smoke verification after each meaningful extraction.
+
+
+

@@ -92,6 +92,7 @@ describe('stable-monophonic-detection-controller', () => {
       state: {
         ...createDeps().state,
         startTime: 500,
+        micMonophonicFirstDetectedAtMs: 1200,
         currentPrompt: createPrompt({
           targetNote: null,
           targetMelodyEventNotes: [
@@ -302,8 +303,14 @@ describe('stable-monophonic-detection-controller', () => {
     expect(deps.updateFreePlayLiveHighlight).toHaveBeenCalledWith('F');
   });
 
-  it('records and highlights octave mismatches with cooldown redraw when target fretboard is visible', () => {
+    it('accepts non-performance pitch-class matches before octave mismatch fallback', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1500);
     const deps = createDeps({
+      state: {
+        ...createDeps().state,
+        startTime: 500,
+        micMonophonicFirstDetectedAtMs: 1200,
+      },
       detectMonophonicOctaveMismatch: vi.fn(() => ({
         detectedScientific: 'C3',
         targetScientific: 'C4',
@@ -313,24 +320,10 @@ describe('stable-monophonic-detection-controller', () => {
 
     controller.handleDetectedNote('C', 130.81);
 
-    expect(deps.recordSessionAttempt).toHaveBeenCalled();
-    expect(deps.setWrongDetectedHighlight).toHaveBeenCalledWith('C', 130.81);
-    expect(deps.drawFretboard).toHaveBeenCalledWith(
-      false,
-      'C',
-      'A',
-      [],
-      expect.any(Set),
-      null,
-      'X',
-      'G',
-      7
-    );
-    expect(deps.scheduleSessionCooldown).toHaveBeenCalledWith(
-      'monophonic octave mismatch redraw',
-      1500,
-      expect.any(Function)
-    );
+    expect(deps.displayResult).toHaveBeenCalledWith(true, 1);
+    expect(deps.recordSessionAttempt).not.toHaveBeenCalled();
+    expect(deps.setWrongDetectedHighlight).not.toHaveBeenCalled();
+    expect(deps.scheduleSessionCooldown).not.toHaveBeenCalled();
   });
 
   it('records ordinary monophonic mismatches and schedules redraw with wrong-note highlight', () => {
@@ -360,3 +353,45 @@ describe('stable-monophonic-detection-controller', () => {
     );
   });
 });
+
+
+describe('study melody onset freshness', () => {
+  it('ignores stale onsets that started before the current prompt', () => {
+    const deps = createDeps({
+      state: {
+        ...createDeps().state,
+        startTime: 1000,
+        micMonophonicFirstDetectedAtMs: 900,
+        currentPrompt: createPrompt({ targetNote: 'C' }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('C', 261.63);
+
+    expect(deps.displayResult).not.toHaveBeenCalled();
+    expect(deps.recordSessionAttempt).not.toHaveBeenCalled();
+    expect(deps.setResultMessage).not.toHaveBeenCalled();
+  });
+
+  it('accepts fresh onsets that started after the current prompt', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1500);
+    const deps = createDeps({
+      state: {
+        ...createDeps().state,
+        startTime: 1000,
+        micMonophonicFirstDetectedAtMs: 1200,
+        currentPrompt: createPrompt({ targetNote: 'C' }),
+      },
+    });
+    const controller = createStableMonophonicDetectionController(deps);
+
+    controller.handleDetectedNote('C', 261.63);
+
+    expect(deps.displayResult).toHaveBeenCalledWith(true, 0.5);
+  });
+});
+
+
+
+

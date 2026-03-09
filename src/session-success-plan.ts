@@ -84,6 +84,20 @@ export function buildSessionSuccessPlan({
     };
   }
 
+  if (trainingMode === 'melody') {
+    return {
+      kind: 'standard',
+      nextArpeggioIndex: currentArpeggioIndex,
+      scoreDelta: 0,
+      message: '',
+      delayMs: 0,
+      hideTuner: false,
+      drawSolvedFretboard: false,
+      drawSolvedAsPolyphonic: false,
+      usesCooldownDelay: false,
+    };
+  }
+
   return {
     kind: 'standard',
     nextArpeggioIndex: currentArpeggioIndex,
@@ -96,3 +110,4 @@ export function buildSessionSuccessPlan({
     usesCooldownDelay: true,
   };
 }
+

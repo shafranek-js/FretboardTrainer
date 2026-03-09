@@ -68,6 +68,12 @@ export interface ProfileSettings {
   isDirectInputMode?: boolean;
   micPolyphonicDetectorProvider?: string;
   micAutoNoiseFloorRms?: number | null;
+  studyMelodyMicGatePercent?: number;
+  studyMelodyMicNoiseGuardPercent?: number;
+  studyMelodyMicSilenceResetFrames?: number;
+  studyMelodyMicStableFrames?: number;
+  studyMelodyPreEmphasisFrequencyHz?: number;
+  studyMelodyPreEmphasisGainDb?: number;
   midiInputDeviceId?: string | null;
   startFret?: string;
   endFret?: string;
@@ -150,3 +156,6 @@ export function resetSavedSettings() {
   removeStorageValue(localStorage, PROFILES_KEY);
   removeStorageValue(localStorage, ACTIVE_PROFILE_KEY);
 }
+
+
+

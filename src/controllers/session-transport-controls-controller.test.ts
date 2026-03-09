@@ -72,6 +72,22 @@ describe('session-transport-controls-controller', () => {
     expect(deps.dom.editMelodyBtn.click).toHaveBeenCalledTimes(1);
   });
 
+
+  it('stops preview and starts a study session in the same click', async () => {
+    const deps = createDeps();
+    deps.state.uiWorkflow = 'study-melody';
+    deps.isMelodyDemoActive.mockReturnValue(true);
+    const controller = createSessionTransportControlsController(deps as never);
+
+    controller.register();
+    await deps.dom.sessionToggleBtn.listeners.click();
+
+    expect(deps.stopMelodyDemoPlayback).toHaveBeenCalledWith({
+      clearUi: true,
+      message: 'Melody playback stopped.',
+    });
+    expect(deps.startSessionFromUi).toHaveBeenCalledTimes(1);
+  });
   it('starts and stops the session through the shared handlers', async () => {
     const deps = createDeps();
     const controller = createSessionTransportControlsController(deps as never);
@@ -138,3 +154,4 @@ describe('session-transport-controls-controller', () => {
     expect(deps.setResultMessage).toHaveBeenCalledWith('Hint: The answer is D4');
   });
 });
+

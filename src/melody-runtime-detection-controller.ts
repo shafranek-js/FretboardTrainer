@@ -12,6 +12,7 @@ import {
 } from './performance-mic-latency-compensation';
 import { evaluatePerformanceTimingGrade, type PerformanceTimingGrade } from './performance-timing-grade';
 import { isPerformanceStyleMode } from './training-mode-groups';
+import { getMelodyPromptPitchClasses, isPolyphonicMelodyPrompt } from './melody-prompt-polyphony';
 
 interface MicPolyphonicResult {
   detectedNotesText: string;
@@ -74,16 +75,10 @@ interface MelodyRuntimeDetectionControllerDeps {
   handleStableMonophonicDetectedNote(detectedNote: string): void;
 }
 
-function isPolyphonicMelodyPrompt(
-  prompt: Prompt | null
-): prompt is Prompt & { targetMelodyEventNotes: NonNullable<Prompt['targetMelodyEventNotes']> } {
-  return Boolean(prompt && (prompt.targetMelodyEventNotes?.length ?? 0) > 1);
+function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
+  return getMelodyPromptPitchClasses(prompt);
 }
 
-function getPolyphonicMelodyTargetPitchClasses(prompt: Prompt) {
-  if (prompt.targetChordNotes.length > 0) return [...new Set(prompt.targetChordNotes)];
-  return [...new Set((prompt.targetMelodyEventNotes ?? []).map((note) => note.note))];
-}
 
 function setsEqual<T>(a: Set<T>, b: Set<T>) {
   if (a.size !== b.size) return false;
