@@ -363,6 +363,9 @@ export function drawFretboardSvg(
   const STRING_ORDER = instrumentData.STRING_ORDER;
   const MARKER_POSITIONS = instrumentData.MARKER_POSITIONS;
   const enabledStrings = getEnabledStrings(dom.stringSelector);
+  const visibleStrings = isMelodyWorkflowMode(dom.trainingMode.value)
+    ? new Set(STRING_ORDER)
+    : enabledStrings;
   const { maxFret: selectedMaxFret } = getSelectedFretRange(dom.startFret.value, dom.endFret.value);
   const renderFretCount = Math.max(MIN_RENDER_FRET_COUNT, Math.min(MAX_RENDER_FRET_COUNT, selectedMaxFret));
 
@@ -408,7 +411,7 @@ export function drawFretboardSvg(
   const boardEndX = fretboardX + fretboardWidth;
   const fretTopY = fretboardY + Math.max(4, stringSpacing * 0.18);
   const fretBottomY = fretboardY + visualBoardHeight - Math.max(4, stringSpacing * 0.18);
-  const enabledStringsKey = [...enabledStrings].sort().join(',');
+  const enabledStringsKey = [...visibleStrings].sort().join(',');
   const staticRenderKey = [
     state.currentInstrument.name,
     renderFretCount,
@@ -592,7 +595,7 @@ export function drawFretboardSvg(
     const woundStringStartIndex = stringCount >= 6 ? 2 : Number.POSITIVE_INFINITY;
     STRING_ORDER.forEach((stringName, idx) => {
       const y = startY + idx * stringSpacing;
-      const isEnabled = enabledStrings.has(stringName);
+      const isEnabled = visibleStrings.has(stringName);
       const strokeWidth = 1.15 + idx * ((6 / stringCount) * 0.34);
       const isWoundString = idx >= woundStringStartIndex;
       const strokeColor = isEnabled
@@ -702,7 +705,7 @@ export function drawFretboardSvg(
     );
 
     STRING_ORDER.forEach((stringName, stringIdx) => {
-      if (!enabledStrings.has(stringName)) return;
+      if (!visibleStrings.has(stringName)) return;
       const y = startY + stringIdx * stringSpacing;
       const visibleMaxFret = Math.min(maxFret, fretCount);
       for (let fret = Math.max(0, minFret); fret <= visibleMaxFret; fret++) {
@@ -761,7 +764,7 @@ export function drawFretboardSvg(
       let highlightedCount = 0;
 
       STRING_ORDER.forEach((stringName, stringIdx) => {
-        if (!enabledStrings.has(stringName)) return;
+        if (!visibleStrings.has(stringName)) return;
         const y = startY + stringIdx * stringSpacing;
         const visibleMaxFret = Math.min(maxFret, fretCount);
         for (let fret = Math.max(0, minFret); fret <= visibleMaxFret; fret++) {
@@ -808,7 +811,7 @@ export function drawFretboardSvg(
     const chordFingerAnchor = resolveAnchorFretFromFrets(chordFingering.map((note) => note.fret));
     chordFingering.forEach((noteInfo) => {
       const { note, string, fret } = noteInfo;
-      if (!enabledStrings.has(string)) return;
+      if (!visibleStrings.has(string)) return;
       const stringIdx = STRING_ORDER.indexOf(string);
       if (stringIdx < 0) return;
 
@@ -840,7 +843,7 @@ export function drawFretboardSvg(
     svg.setAttribute('aria-label', `${state.currentInstrument.name} fretboard visualization.`);
   }
 
-  if (wrongDetectedNote && wrongDetectedString && enabledStrings.has(wrongDetectedString)) {
+  if (wrongDetectedNote && wrongDetectedString && visibleStrings.has(wrongDetectedString)) {
     const wrongStringIdx = STRING_ORDER.indexOf(wrongDetectedString);
     if (wrongStringIdx >= 0) {
       const wrongFret =

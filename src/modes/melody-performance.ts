@@ -2,6 +2,7 @@ import { dom, state } from '../state';
 import { notifyUserError } from '../user-feedback-port';
 import { getMelodyById, type MelodyEvent } from '../melody-library';
 import { getMelodyFingeredEvent } from '../melody-fingering';
+import { getPlayableMelodyEventNotes } from '../melody-playable-event-notes';
 import {
   formatMelodyStudyRange,
   isDefaultMelodyStudyRange,
@@ -38,10 +39,11 @@ export function buildPerformancePromptForEvent(input: {
   const event = melody.events[eventIndex];
   if (!event) return null;
   const firstNote = event.notes[0] ?? null;
-  const melodyEventFingering = getMelodyFingeredEvent(melody.events, eventIndex, {
+  const fingeredEvent = getMelodyFingeredEvent(melody.events, eventIndex, {
     strategy: state.melodyFingeringStrategy,
     level: state.melodyFingeringLevel,
   });
+  const melodyEventFingering = getPlayableMelodyEventNotes(event, fingeredEvent);
   const targetPitchClasses = toMelodyEventChordNotes(event);
   const isPolyphonicEvent = targetPitchClasses.length > 1;
   const firstPlayableNote = melodyEventFingering[0] ?? null;

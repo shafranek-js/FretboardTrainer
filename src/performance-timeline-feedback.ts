@@ -68,22 +68,7 @@ export function appendPerformanceTimelineAttempts(
 }
 
 export function buildPerformanceTimelineSuccessAttempts(prompt: Prompt): PerformanceTimelineAttempt[] {
-  const melodyNotes =
-    prompt.targetMelodyEventNotes?.length && prompt.targetMelodyEventNotes.length > 0
-      ? prompt.targetMelodyEventNotes
-      : prompt.targetChordFingering;
-
-  return melodyNotes
-    .filter(
-      (note): note is typeof note & { string: string; fret: number } =>
-        typeof note.string === 'string' && typeof note.fret === 'number'
-    )
-    .map((note) => ({
-      note: note.note,
-      stringName: note.string,
-      fret: note.fret,
-      status: 'correct' as const,
-    }));
+  return buildPositionedTimelineAttempts(prompt, 'correct');
 }
 
 export function buildPerformanceTimelineWrongAttempt(input: {
@@ -103,6 +88,28 @@ export function buildPerformanceTimelineWrongAttempt(input: {
 }
 
 export function buildPerformanceTimelineMissedAttempts(prompt: Prompt): PerformanceTimelineAttempt[] {
+  return buildPositionedTimelineAttempts(prompt, 'missed');
+}
+
+export function buildPerformanceTimelineWrongAttempts(
+  prompt: Prompt | null | undefined,
+  fallback?: {
+    note: string;
+    stringName?: string | null;
+    fret?: number | null;
+  }
+): PerformanceTimelineAttempt[] {
+  const positionedAttempts = prompt ? buildPositionedTimelineAttempts(prompt, 'wrong') : [];
+  if (positionedAttempts.length > 0) {
+    return positionedAttempts;
+  }
+  return fallback ? buildPerformanceTimelineWrongAttempt(fallback) : [];
+}
+
+function buildPositionedTimelineAttempts(
+  prompt: Prompt,
+  status: PerformanceTimelineAttemptStatus
+): PerformanceTimelineAttempt[] {
   const melodyNotes =
     prompt.targetMelodyEventNotes?.length && prompt.targetMelodyEventNotes.length > 0
       ? prompt.targetMelodyEventNotes
@@ -117,6 +124,6 @@ export function buildPerformanceTimelineMissedAttempts(prompt: Prompt): Performa
       note: note.note,
       stringName: note.string,
       fret: note.fret,
-      status: 'missed' as const,
+      status,
     }));
 }

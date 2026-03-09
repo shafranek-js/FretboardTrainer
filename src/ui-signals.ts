@@ -741,6 +741,14 @@ function renderHintButtonVisibility(mode: string, workflow: UiWorkflow) {
   dom.hintBtn.style.display = showHintButton ? 'inline-flex' : 'none';
 }
 
+function renderLearnNotesPromptVisibility(workflow: UiWorkflow) {
+  const sessionActive = !sessionButtonsSignal.get().stopDisabled;
+  const hasPromptText = promptTextSignal.get().trim().length > 0;
+  const showLearnNotesPrompt = workflow === 'learn-notes' && sessionActive && hasPromptText;
+  dom.learnNotesPromptHost.classList.toggle('hidden', !showLearnNotesPrompt);
+  dom.learnNotesPromptHost.style.display = showLearnNotesPrompt ? 'flex' : 'none';
+}
+
 function renderWorkflowUiCopy(workflow: UiWorkflow) {
   const copy = getWorkflowUiCopy(workflow);
   const melodySelectionCopy = getMelodySelectionSectionCopy(workflow);
@@ -763,6 +771,7 @@ function renderWorkflowUiCopy(workflow: UiWorkflow) {
   renderTrainingModeWorkflowOptions(workflow);
   renderUiModeVisibility(uiModeSignal.get());
   renderHintButtonVisibility(trainingModeUiSignal.get(), workflow);
+  renderLearnNotesPromptVisibility(workflow);
   renderPlaybackControlsModeVisibility(trainingModeUiSignal.get(), workflow);
   renderDisplayControlsModeVisibility(trainingModeUiSignal.get(), workflow);
   syncSessionToggleButton();
@@ -778,6 +787,7 @@ export function bindUiSignals() {
 
   promptTextSignal.subscribe((promptText) => {
     renderPromptText(promptText);
+    renderLearnNotesPromptVisibility(uiWorkflowSignal.get());
   });
 
   resultViewSignal.subscribe((resultView) => {
@@ -855,6 +865,7 @@ export function bindUiSignals() {
 
       syncSessionToggleButton();
       renderHintButtonVisibility(trainingModeUiSignal.get(), uiWorkflowSignal.get());
+      renderLearnNotesPromptVisibility(uiWorkflowSignal.get());
     }
   );
 
@@ -1311,3 +1322,5 @@ export function refreshDisplayFormatting() {
   dom.sessionGoalProgress.textContent = goalProgressText;
   dom.sessionGoalProgress.classList.toggle('hidden', goalProgressText.length === 0);
 }
+
+

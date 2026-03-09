@@ -1,5 +1,6 @@
 import type { IInstrument } from './instruments/instrument';
 import { getMelodyById, type MelodyDefinition } from './melody-library';
+import { getPlayableMelodyEventNotes } from './melody-playable-event-notes';
 import { exportMelodyToAsciiTab } from './melody-ascii-export';
 import { getMelodyFingeredEvent } from './melody-fingering';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
@@ -87,10 +88,11 @@ export function resolveMelodyFretboardPreview(input: {
 
   const safeIndex = Math.max(0, Math.min(melody.events.length - 1, input.melodyTimelinePreviewIndex));
   const previewEvent = melody.events[safeIndex];
-  const eventFingering = getMelodyFingeredEvent(melody.events, safeIndex, {
+  const fingeredEvent = getMelodyFingeredEvent(melody.events, safeIndex, {
     strategy: input.melodyFingeringStrategy ?? 'minimax',
     level: input.melodyFingeringLevel ?? 'beginner',
   });
+  const eventFingering = getPlayableMelodyEventNotes(previewEvent, fingeredEvent);
   const firstPlayable = eventFingering[0] ?? null;
   const firstEventNote = previewEvent?.notes[0] ?? null;
 

@@ -1,6 +1,7 @@
 import type { MelodyDefinition } from './melody-library';
 import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 import { buildMelodyFingeredEvents } from './melody-fingering';
+import { getPlayableMelodyEventNotes } from './melody-playable-event-notes';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import type {
   PerformanceTimelineAttemptStatus,
@@ -101,20 +102,21 @@ export function buildScrollingTabPanelModel(
       getMelodyEventPlaybackDurationExactMs(melodyEvent, input.bpm, input.melody) / 1000;
     const playedNotes = input.performanceFeedbackByEvent?.[index] ?? [];
     const matchedPlayedNoteIndexes = new Set<number>();
-    const notes = melodyEvent.notes
-      .filter(
-        (note): note is { note: string; stringName: string; fret: number } =>
-          typeof note.stringName === 'string' && typeof note.fret === 'number'
-      )
+    const playableNotes = getPlayableMelodyEventNotes(melodyEvent, fingeredEvents[index] ?? []);
+    const notes = playableNotes
       .map((note, noteIndex) => {
-        const fingeredNote = (fingeredEvents[index] ?? []).find(
-          (candidate) => candidate.string === note.stringName && candidate.fret === note.fret
-        );
+        const sourceNoteIndex =
+          melodyEvent.notes.findIndex(
+            (candidate) =>
+              candidate.note === note.note &&
+              candidate.stringName === note.string &&
+              candidate.fret === note.fret
+          ) ?? -1;
         const matchingCorrectAttempt = playedNotes.findIndex(
           (attempt, attemptIndex) =>
             !matchedPlayedNoteIndexes.has(attemptIndex) &&
             attempt.status === 'correct' &&
-            attempt.stringName === note.stringName &&
+            attempt.stringName === note.string &&
             attempt.fret === note.fret
         );
         const matchingWrongAttempt =
@@ -124,7 +126,7 @@ export function buildScrollingTabPanelModel(
                 (attempt, attemptIndex) =>
                   !matchedPlayedNoteIndexes.has(attemptIndex) &&
                   attempt.status === 'wrong' &&
-                  attempt.stringName === note.stringName &&
+                  attempt.stringName === note.string &&
                   attempt.fret === note.fret
               );
         const matchingMissedAttempt =
@@ -134,7 +136,7 @@ export function buildScrollingTabPanelModel(
                 (attempt, attemptIndex) =>
                   !matchedPlayedNoteIndexes.has(attemptIndex) &&
                   attempt.status === 'missed' &&
-                  attempt.stringName === note.stringName &&
+                  attempt.stringName === note.string &&
                   attempt.fret === note.fret
               );
         const matchedAttemptIndex =
@@ -149,12 +151,12 @@ export function buildScrollingTabPanelModel(
           matchedPlayedNoteIndexes.add(matchedAttemptIndex);
         }
         return {
-          noteIndex,
-          stringIndex: stringIndexByName.get(note.stringName) ?? 0,
-          stringName: note.stringName,
+          noteIndex: sourceNoteIndex >= 0 ? sourceNoteIndex : noteIndex,
+          stringIndex: stringIndexByName.get(note.string) ?? 0,
+          stringName: note.string,
           fret: note.fret,
           note: note.note,
-          finger: typeof fingeredNote?.finger === 'number' ? fingeredNote.finger : 0,
+          finger: typeof note.finger === 'number' ? note.finger : 0,
           performanceStatus,
         };
       })

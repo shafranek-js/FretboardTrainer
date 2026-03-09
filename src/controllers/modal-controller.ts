@@ -1,5 +1,5 @@
 import { dom, state } from '../state';
-import { startListening, cancelCalibration } from '../logic';
+import { startListening, cancelCalibration, clearRetainedSessionTimelineFeedback } from '../logic';
 import { displayStats, handleModeChange, redrawFretboard, updateInstrumentUI } from '../ui';
 import { loadSettings, resetSavedSettings, resetStats, saveSettings } from '../storage';
 import { setModalVisible, setResultMessage, showCalibrationModal } from '../ui-signals';
@@ -245,6 +245,7 @@ export function registerModalControls() {
 
   const closeSessionSummaryModal = () => {
     maybeAutoExportSessionAnalysisBundle();
+    clearRetainedSessionTimelineFeedback();
     setModalVisible('sessionSummary', false);
   };
   dom.closeSessionSummaryBtn.addEventListener('click', closeSessionSummaryModal);
@@ -418,3 +419,5 @@ export function registerModalControls() {
     openOnboardingModal();
   }
 }
+
+

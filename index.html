@@ -12,29 +12,31 @@
         class="session-area text-center shrink-0 flex flex-col gap-y-1.5 px-2 sm:px-3 pt-1 pb-0.5 bg-slate-700 rounded-lg"
       >
         <div class="w-full grid grid-cols-1 sm:grid-cols-[auto,minmax(0,1fr),auto] items-center gap-1.5 sm:gap-3">
-          <div class="prompt-container order-1 sm:order-2 min-w-0 flex items-center justify-center gap-2 sm:gap-3">
-            <div
-              class="prompt text-lg sm:text-2xl md:text-[1.7rem] font-bold min-h-[30px] sm:min-h-[34px] min-w-0 flex items-center justify-center text-center px-1.5 leading-tight"
-              id="prompt"
-              aria-live="polite"
-            ></div>
-            <button
-              id="playSoundBtn"
-              class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
-              disabled
-              aria-label="Play note sound"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                class="w-5 h-5 sm:w-6 sm:h-6"
+          <div id="topPromptHost" class="order-1 sm:order-2 min-w-0 flex items-center justify-center gap-2 sm:gap-3">
+            <div id="promptContainer" class="prompt-container min-w-0 flex items-center justify-center gap-2 sm:gap-3">
+              <div
+                class="prompt text-lg sm:text-2xl md:text-[1.7rem] font-bold min-h-[30px] sm:min-h-[34px] min-w-0 flex items-center justify-center text-center px-1.5 leading-tight"
+                id="prompt"
+                aria-live="polite"
+              ></div>
+              <button
+                id="playSoundBtn"
+                class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
+                disabled
+                aria-label="Play note sound"
               >
-                <path
-                  d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-                ></path>
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="w-5 h-5 sm:w-6 sm:h-6"
+                >
+                  <path
+                    d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                  ></path>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div class="timed-info order-2 sm:order-1 hidden justify-self-center sm:justify-self-start flex gap-1.5 sm:gap-2.5" id="timedInfo">
@@ -83,25 +85,29 @@
 
         <div class="controls-row w-full max-w-[70rem] mx-auto grid grid-cols-1 sm:grid-cols-[auto,minmax(0,1fr)] gap-1.5 sm:gap-3 items-center">
           <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-            <div class="order-1 flex items-center justify-end gap-1.5 sm:order-2 sm:ml-auto">
-              <button
-                id="sessionToggleBtn"
-                class="btn-primary min-w-[8.25rem] bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 sm:px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed text-sm sm:text-base"
-              >
-                Start Session
-              </button>
-              <button
-                id="startSessionHelpBtn"
-                type="button"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-500/80 bg-slate-700/80 text-sm font-semibold text-slate-100 transition-colors hover:bg-slate-600"
-                aria-label="Help for starting a session"
-                title="Help for starting a session"
-              >
-                ?
-              </button>
+            <div id="sessionPrimaryActionHost" class="order-1 flex items-center justify-end gap-1.5 sm:order-2 sm:ml-auto">
+              <div id="sessionPrimaryActionControls" class="flex items-center gap-1.5">
+                <button
+                  id="sessionToggleBtn"
+                  class="ff-top-toolbar-btn ff-session-start-btn border border-blue-500/80 bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-slate-500/80 disabled:bg-slate-600 disabled:text-slate-300"
+                >
+                  Start Session
+                </button>
+              </div>
             </div>
           </div>
           <div class="hidden" aria-hidden="true">
+            <button
+              id="startSessionHelpBtn"
+              type="button"
+              class="hidden"
+              tabindex="-1"
+              aria-hidden="true"
+              aria-label="Help for starting a session"
+              title="Help for starting a session"
+            >
+              ?
+            </button>
             <button
               id="startBtn"
               class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
@@ -193,7 +199,9 @@
               <button
                 id="workflowPerformHelpBtn"
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-500/80 bg-slate-800/70 text-[11px] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                class="hidden"
+                aria-hidden="true"
+                tabindex="-1"
                 aria-label="Help for Perform workflow"
                 title="Help for Perform workflow"
               >
@@ -241,6 +249,7 @@
             >
               <span id="melodyWorkspaceTransportTitle" class="hidden">Playback Controls</span>
               <div id="melodyWorkspaceTransportSlot" class="flex flex-wrap items-center gap-1">
+                <div id="playbackSessionActionHost" class="hidden flex items-center gap-1.5"></div>
                 <div id="melodyPlaybackControls" class="hidden flex items-center gap-1">
                   <button
                     id="melodyDemoBtn"
@@ -396,6 +405,34 @@
               </button>
             </div>
             <div
+              id="hintControlsHost"
+              class="ff-panel-shell ff-top-panel hidden flex-wrap items-center gap-1 xl:flex-none"
+            >
+              <button
+                id="hintBtn"
+                class="ff-top-toolbar-btn"
+                disabled
+                aria-label="Show hint"
+                title="Show hint"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3c-4.97 0-9 3.58-9 8 0 4.41 4.03 8 9 8 4.96 0 9-3.59 9-8 0-4.42-4.04-8-9-8Zm0 2c3.79 0 6.96 2.5 6.96 6S15.79 17 12 17s-6.96-2.5-6.96-6S8.21 5 12 5Zm0 2.5A3.5 3.5 0 1 0 12 14a3.5 3.5 0 0 0 0-6.5Zm0 2A1.5 1.5 0 1 1 12 12a1.5 1.5 0 0 1 0-3Z" />
+                </svg>
+                <span>Hint</span>
+              </button>
+            </div>
+            <div id="learnNotesPromptHost" class="hidden items-center justify-start xl:flex-none"></div>
+            <div
+              id="learnNotesSessionActionHost"
+              class="ff-panel-shell ff-top-panel hidden items-center justify-start xl:flex-none"
+            ></div>
+            <div
               id="uiModeSwitcher"
               class="hidden"
               role="toolbar"
@@ -497,31 +534,6 @@
                 id="sessionToolsSummary"
                 class="truncate min-w-0 max-w-[22rem]"
               ></div>
-            </div>
-          </div>
-          <div class="flex items-center gap-3 flex-wrap">
-            <div
-              id="hintControlsHost"
-              class="ff-panel-shell ff-top-panel hidden flex-wrap items-center gap-1 xl:flex-none"
-            >
-              <button
-                id="hintBtn"
-                class="ff-top-toolbar-btn"
-                disabled
-                aria-label="Show hint"
-                title="Show hint"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="h-4 w-4"
-                  aria-hidden="true"
-                >
-                  <path d="M12 3c-4.97 0-9 3.58-9 8 0 4.41 4.03 8 9 8 4.96 0 9-3.59 9-8 0-4.42-4.04-8-9-8Zm0 2c3.79 0 6.96 2.5 6.96 6S15.79 17 12 17s-6.96-2.5-6.96-6S8.21 5 12 5Zm0 2.5A3.5 3.5 0 1 0 12 14a3.5 3.5 0 0 0 0-6.5Zm0 2A1.5 1.5 0 1 1 12 12a1.5 1.5 0 0 1 0-3Z" />
-                </svg>
-                <span>Hint</span>
-              </button>
             </div>
           </div>
         </div>
@@ -2706,4 +2718,9 @@
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
+
+
+
+
+
 

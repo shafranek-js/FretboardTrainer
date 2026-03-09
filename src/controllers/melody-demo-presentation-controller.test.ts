@@ -170,9 +170,10 @@ describe('melody-demo-presentation-controller', () => {
     expect(state.melodyTimelinePreviewIndex).toBe(0);
     expect(state.melodyTimelinePreviewLabel).toBe('Playback');
     expect(deps.setPromptText).toHaveBeenCalledWith('Playback: Romanza');
+    expect(deps.drawFretboard).toHaveBeenCalledTimes(1);
+    expect(deps.drawFretboard).toHaveBeenCalledWith(false, null, null, expect.any(Array));
     expect(deps.redrawFretboard).toHaveBeenCalledTimes(1);
     expect(deps.renderTimeline).toHaveBeenCalledTimes(1);
-    expect(deps.drawFretboard).not.toHaveBeenCalled();
     expect(deps.playSound).toHaveBeenCalledWith('A3');
   });
 
@@ -191,9 +192,10 @@ describe('melody-demo-presentation-controller', () => {
 
     controller.previewEvent(events, 'Romanza', events[0]!, 0, 1, { startIndex: 0, endIndex: 0 }, { autoplaySound: false });
 
+    expect(deps.drawFretboard).toHaveBeenCalledTimes(1);
+    expect(deps.drawFretboard).toHaveBeenCalledWith(false, null, null, expect.any(Array));
     expect(deps.redrawFretboard).toHaveBeenCalledTimes(1);
     expect(deps.renderTimeline).toHaveBeenCalledTimes(1);
-    expect(deps.drawFretboard).not.toHaveBeenCalled();
     expect(deps.playSound).not.toHaveBeenCalled();
   });
 
@@ -217,3 +219,5 @@ describe('melody-demo-presentation-controller', () => {
     expect(deps.showNonBlockingError).toHaveBeenCalledWith('Failed to initialize sound for melody playback');
   });
 });
+
+

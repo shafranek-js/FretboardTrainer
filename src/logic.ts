@@ -179,7 +179,7 @@ import {
   buildPerformanceTimelineMissedAttempts,
   buildPerformanceTimelineFeedbackKey,
   buildPerformanceTimelineSuccessAttempts,
-  buildPerformanceTimelineWrongAttempt,
+  buildPerformanceTimelineWrongAttempts,
   clearPerformanceTimelineFeedbackState,
 } from './performance-timeline-feedback';
 import { buildSessionInitialPromptPlan } from './session-initial-prompt-plan';
@@ -818,7 +818,7 @@ function recordPerformanceTimelineWrongAttempt(note: string) {
   appendPerformanceTimelineAttempts(
     state.performanceTimelineFeedbackByEvent,
     eventIndex,
-    buildPerformanceTimelineWrongAttempt({
+    buildPerformanceTimelineWrongAttempts(state.currentPrompt, {
       note,
       stringName: state.wrongDetectedString,
       fret: state.wrongDetectedFret,
@@ -1822,6 +1822,15 @@ export function stopListening(keepStreamOpen = false) {
   const preservedMicLatencyCalibrationState = captureMicPerformanceLatencyCalibrationState(state);
   if (state.isLoadingSamples) return;
   const shouldShowSessionSummary = state.showSessionSummaryOnStop;
+  const preservedPerformanceTimelineVisualState = shouldShowSessionSummary
+    ? {
+        performanceTimelineFeedbackKey: state.performanceTimelineFeedbackKey,
+        performanceTimelineFeedbackByEvent: structuredClone(state.performanceTimelineFeedbackByEvent),
+        performanceTimingByEvent: structuredClone(state.performanceTimingByEvent),
+        performanceOnsetRejectsByEvent: structuredClone(state.performanceOnsetRejectsByEvent),
+        performanceCaptureTelemetryByEvent: structuredClone(state.performanceCaptureTelemetryByEvent),
+      }
+    : null;
   if (state.activeSessionStats && !state.isCalibrating) {
     const finalizedSessionStats = finalizeSessionStats(state.activeSessionStats);
     if (finalizedSessionStats && typeof finalizedSessionStats.completedRun !== 'boolean') {
@@ -1961,6 +1970,17 @@ export function stopListening(keepStreamOpen = false) {
   clearSessionGoalProgress();
   setInfoSlots();
   Object.assign(state, createSessionStopResetState());
+  if (preservedPerformanceTimelineVisualState) {
+    state.performanceTimelineFeedbackKey =
+      preservedPerformanceTimelineVisualState.performanceTimelineFeedbackKey;
+    state.performanceTimelineFeedbackByEvent =
+      preservedPerformanceTimelineVisualState.performanceTimelineFeedbackByEvent;
+    state.performanceTimingByEvent = preservedPerformanceTimelineVisualState.performanceTimingByEvent;
+    state.performanceOnsetRejectsByEvent =
+      preservedPerformanceTimelineVisualState.performanceOnsetRejectsByEvent;
+    state.performanceCaptureTelemetryByEvent =
+      preservedPerformanceTimelineVisualState.performanceCaptureTelemetryByEvent;
+  }
   restoreMicPerformanceLatencyCalibrationState(state, preservedMicLatencyCalibrationState);
   dom.melodyTabTimelineGrid.scrollLeft = 0;
   setTimedInfoVisible(false);
@@ -2266,6 +2286,12 @@ export function finishCalibration() {
   }
 }
 
+export function clearRetainedSessionTimelineFeedback() {
+  if (state.isListening) return;
+  clearPerformanceTimelineFeedback();
+  scheduleMelodyTimelineRenderFromState();
+}
+
 export function cancelCalibration() {
   try {
     closeCalibrationSession(state, { hideCalibrationModal, stopListening });
@@ -2299,3 +2325,5 @@ function handleTimeUp() {
     handleSessionRuntimeError('handleTimeUp', error);
   }
 }
+
+

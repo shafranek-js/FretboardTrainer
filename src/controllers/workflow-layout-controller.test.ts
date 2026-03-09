@@ -86,6 +86,10 @@ function createDeps(overrides?: {
 }) {
   const dom = {
     trainingMode: createElement({ value: overrides?.trainingMode ?? 'random' }) as unknown as HTMLSelectElement,
+    topPromptHost: createElement() as unknown as HTMLElement,
+    promptContainer: createElement() as unknown as HTMLElement,
+    learnNotesPromptHost: createElement() as unknown as HTMLElement,
+    learnNotesSessionActionHost: createElement() as unknown as HTMLElement,
     melodyShowTabTimeline: createElement({ checked: overrides?.showTabTimeline ?? true }) as unknown as HTMLInputElement,
     melodyShowScrollingTab: createElement({ checked: overrides?.showScrollingTab ?? true }) as unknown as HTMLInputElement,
     melodyPracticeSection: createElement() as unknown as HTMLElement,
@@ -96,6 +100,10 @@ function createDeps(overrides?: {
     editingToolsActionsRow: createElement() as unknown as HTMLElement,
     sessionToolsAutoPlayPromptSoundHost: createElement() as unknown as HTMLElement,
     playbackPromptSoundHost: createElement() as unknown as HTMLElement,
+    sessionPrimaryActionHost: createElement() as unknown as HTMLElement,
+    sessionPrimaryActionControls: createElement() as unknown as HTMLElement,
+    startSessionHelpBtn: createElement() as unknown as HTMLButtonElement,
+    playbackSessionActionHost: createElement() as unknown as HTMLElement,
     sessionToolsAutoPlayPromptSoundRow: createElement() as unknown as HTMLElement,
     sessionToolsShowAllNotesRow: createElement() as unknown as HTMLElement,
     sessionToolsShowStringTogglesRow: createElement() as unknown as HTMLElement,
@@ -153,9 +161,11 @@ describe('workflow-layout-controller', () => {
 
     controller.mountWorkspaceControls();
 
+    expect(dom.promptContainer.parentElement).toBe(dom.learnNotesPromptHost);
     expect(dom.melodyPlaybackControls.parentElement).toBe(dom.melodyWorkspaceTransportSlot);
     expect(dom.melodyDemoQuickControls.parentElement).toBe(dom.melodyWorkspaceTransportSlot);
     expect(dom.melodyDisplayControls.parentElement).toBe(dom.melodyDisplayControlsSlot);
+    expect(dom.sessionPrimaryActionControls.parentElement).toBe(dom.learnNotesSessionActionHost);
     expect((dom.melodyPlaybackControls as unknown as { classList: FakeClassList }).classList.contains('flex-wrap')).toBe(true);
     expect((dom.melodyDisplayControls as unknown as { classList: FakeClassList }).classList.contains('flex-wrap')).toBe(true);
   });
@@ -178,9 +188,24 @@ describe('workflow-layout-controller', () => {
 
     expect(deps.syncRecommendedDefaultsUi).toHaveBeenCalledTimes(1);
     expect(dom.sessionToolsAutoPlayPromptSoundRow.parentElement).toBe(dom.playbackPromptSoundHost);
+    expect(dom.promptContainer.parentElement).toBe(dom.topPromptHost);
+    expect(dom.sessionPrimaryActionControls.parentElement).toBe(dom.playbackSessionActionHost);
     expect(dom.sessionToolsShowAllNotesRow.parentElement).toBe(dom.sessionToolsLearnNotesLayoutControlsHost);
     expect(deps.setPracticeSetupCollapsed).toHaveBeenCalledWith(false);
     expect(deps.setLayoutControlsExpanded).toHaveBeenCalledWith(false);
+  });
+
+  it('moves prompt and primary actions into the lower learn-notes action row', () => {
+    const { deps, dom } = createDeps({ trainingMode: 'random', uiWorkflow: 'learn-notes' });
+    const controller = createWorkflowLayoutController(deps);
+
+    controller.applyUiWorkflowLayout('learn-notes');
+
+    expect(dom.promptContainer.parentElement).toBe(dom.learnNotesPromptHost);
+    expect(dom.sessionPrimaryActionControls.parentElement).toBe(dom.learnNotesSessionActionHost);
+    expect(dom.topPromptHost.style.display).toBe('none');
+    expect(dom.learnNotesPromptHost.style.display).toBe('flex');
+    expect(dom.learnNotesSessionActionHost.style.display).toBe('flex');
   });
 
   it('normalizes training mode when switching into another workflow', () => {

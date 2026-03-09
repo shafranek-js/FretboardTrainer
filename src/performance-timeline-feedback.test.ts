@@ -4,6 +4,7 @@ import {
   appendPerformanceTimelineAttempts,
   buildPerformanceTimelineFeedbackKey,
   buildPerformanceTimelineSuccessAttempts,
+  buildPerformanceTimelineWrongAttempts,
 } from './performance-timeline-feedback';
 
 function createPrompt(): Prompt {
@@ -39,6 +40,30 @@ describe('performance-timeline-feedback', () => {
       { note: 'C', stringName: 'A', fret: 3, status: 'correct' },
       { note: 'E', stringName: 'D', fret: 2, status: 'correct' },
     ]);
+  });
+
+  it('builds wrong attempts from target melody positions when a prompt is available', () => {
+    expect(buildPerformanceTimelineWrongAttempts(createPrompt(), { note: 'F' })).toEqual([
+      { note: 'C', stringName: 'A', fret: 3, status: 'wrong' },
+      { note: 'E', stringName: 'D', fret: 2, status: 'wrong' },
+    ]);
+  });
+
+  it('falls back to the detected wrong note when the prompt has no positioned notes', () => {
+    expect(
+      buildPerformanceTimelineWrongAttempts(
+        {
+          displayText: 'Performance: mystery',
+          targetNote: 'F',
+          targetString: null,
+          targetChordNotes: [],
+          targetChordFingering: [],
+          targetMelodyEventNotes: [],
+          baseChordName: null,
+        },
+        { note: 'F', stringName: 'E', fret: 1 }
+      )
+    ).toEqual([{ note: 'F', stringName: 'E', fret: 1, status: 'wrong' }]);
   });
 
   it('deduplicates immediately repeated attempts in the same event bucket', () => {

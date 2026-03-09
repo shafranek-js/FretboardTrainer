@@ -1,5 +1,6 @@
 import type { MelodyDefinition, MelodyEvent } from './melody-library';
 import { buildMelodyFingeredEvents } from './melody-fingering';
+import { getPlayableMelodyEventNotes } from './melody-playable-event-notes';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { normalizeMelodyStudyRange, type MelodyStudyRange } from './melody-study-range';
 import type {
@@ -70,16 +71,17 @@ export function buildMelodyTabTimelineViewModel(
         (attempt) => attempt.stringName === stringName && typeof attempt.fret === 'number'
       );
       const matchedPlayedNoteIndexes = new Set<number>();
-      const notes = (event?.notes ?? [])
+      const playableNotes = getPlayableMelodyEventNotes(event, eventNotes);
+      const notes = playableNotes
+        .filter((note) => note.string === stringName && typeof note.fret === 'number')
         .map((note, noteIndex) => {
-          if (note.stringName !== stringName || typeof note.fret !== 'number') return null;
-          const playableIndex = event.notes
-            .slice(0, noteIndex + 1)
-            .filter(
-              (candidate): candidate is MelodyEvent['notes'][number] & { stringName: string; fret: number } =>
-                candidate.stringName !== null && typeof candidate.fret === 'number'
-            ).length - 1;
-          const fingered = eventNotes[playableIndex];
+          const sourceNoteIndex =
+            event?.notes.findIndex(
+              (candidate) =>
+                candidate.note === note.note &&
+                candidate.stringName === note.string &&
+                candidate.fret === note.fret
+            ) ?? -1;
           const correctAttemptIndex = playedNotes.findIndex(
             (attempt, attemptIndex) =>
               !matchedPlayedNoteIndexes.has(attemptIndex) &&
@@ -119,12 +121,11 @@ export function buildMelodyTabTimelineViewModel(
             note: note.note,
             stringName,
             fret: note.fret,
-            finger: typeof fingered?.finger === 'number' ? fingered.finger : 0,
-            noteIndex,
+            finger: typeof note.finger === 'number' ? note.finger : 0,
+            noteIndex: sourceNoteIndex >= 0 ? sourceNoteIndex : noteIndex,
             performanceStatus,
           };
         })
-        .filter((note): note is TimelineNoteChip => note !== null)
         .sort((a, b) => a.fret - b.fret || a.note.localeCompare(b.note));
       return {
         eventIndex,

@@ -1512,3 +1512,49 @@ Definition of Done:
 
 Это даст самый заметный выигрыш в управляемости без захода в самую хрупкую
 часть audio runtime.
+
+## Status Update (2026-03-09)
+
+This plan predates a substantial controller extraction pass. The codebase has already moved further along than the original early-phase backlog implies.
+
+### What is already true in the current tree
+
+- `src/controllers/session-controller.ts` is no longer a single UI monolith; it already wires many extracted controllers.
+- The following controllers are already present and in use in the composition root:
+  - `workflow-layout-controller.ts`
+  - `workflow-layout-controls-controller.ts`
+  - `melody-import-controls-controller.ts`
+  - `melody-editing-controls-controller.ts`
+  - `melody-playback-controls-controller.ts`
+  - `melody-library-controls-controller.ts`
+  - `practice-preset-controls-controller.ts`
+  - `practice-setup-controls-controller.ts`
+  - `metronome-controls-controller.ts`
+  - `instrument-display-controls-controller.ts`
+  - `melody-setup-controls-controller.ts`
+  - `melody-practice-controls-controller.ts`
+  - `session-transport-controls-controller.ts`
+  - `audio-input-controls-controller.ts`
+  - `melody-tempo-controller.ts`
+  - `session-bootstrap-controller.ts`
+  - `practice-preset-ui-controller.ts`
+  - `melody-demo-runtime-controller.ts`
+- `index.tsx` is the real application entrypoint and already owns bootstrap ordering.
+- `src/workflow-layout.ts` already exists and partially centralizes workflow/layout policy.
+
+### Revised immediate priority
+
+The safest next refactor step is not state slicing yet. The immediate priority is to keep shrinking `src/controllers/session-controller.ts` until it is a thinner composition root.
+
+Recommended order from the current state:
+
+1. Remove remaining workflow/layout bridge helpers from `session-controller.ts`.
+2. Remove remaining summary/refresh bridge helpers from `session-controller.ts`.
+3. Only after that, start `dom` extraction out of `state.ts`.
+4. Leave `logic.ts` decomposition for a later phase after the UI composition root is stable again.
+
+### Practical rule for the next steps
+
+- Prefer small controller extractions over broad architectural moves.
+- Do not combine `state.ts` slicing with `session-controller.ts` extraction in the same step.
+- Keep using targeted tests plus smoke verification after each meaningful extraction.

@@ -16,6 +16,10 @@ import {
 
 export interface WorkflowLayoutControllerDom {
   trainingMode: HTMLSelectElement;
+  topPromptHost: HTMLElement;
+  promptContainer: HTMLElement;
+  learnNotesPromptHost: HTMLElement;
+  learnNotesSessionActionHost: HTMLElement;
   melodyShowTabTimeline: HTMLInputElement;
   melodyShowScrollingTab: HTMLInputElement;
   melodyPracticeSection: HTMLElement;
@@ -26,6 +30,10 @@ export interface WorkflowLayoutControllerDom {
   editingToolsActionsRow: HTMLElement;
   sessionToolsAutoPlayPromptSoundHost: HTMLElement;
   playbackPromptSoundHost: HTMLElement;
+  sessionPrimaryActionHost: HTMLElement;
+  sessionPrimaryActionControls: HTMLElement;
+  startSessionHelpBtn: HTMLButtonElement;
+  playbackSessionActionHost: HTMLElement;
   sessionToolsAutoPlayPromptSoundRow: HTMLElement;
   sessionToolsShowAllNotesRow: HTMLElement;
   sessionToolsShowStringTogglesRow: HTMLElement;
@@ -118,6 +126,42 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
     deps.dom.sessionToolsLearnNotesLayoutControlsHost.style.display = workflow === 'learn-notes' ? 'none' : '';
   }
 
+  function mountLearnNotesPromptControls(workflow: UiWorkflow) {
+    const targetHost = deps.dom.topPromptHost;
+    if (deps.dom.promptContainer.parentElement !== targetHost) {
+      targetHost.appendChild(deps.dom.promptContainer);
+    }
+    const isLearnNotesWorkflow = workflow === 'learn-notes';
+    deps.dom.topPromptHost.classList.add('hidden');
+    deps.dom.topPromptHost.style.display = 'none';
+    if (!isLearnNotesWorkflow) {
+      deps.dom.learnNotesPromptHost.classList.add('hidden');
+      deps.dom.learnNotesPromptHost.style.display = 'none';
+      return;
+    }
+    if (deps.dom.promptContainer.parentElement !== deps.dom.learnNotesPromptHost) {
+      deps.dom.learnNotesPromptHost.appendChild(deps.dom.promptContainer);
+    }
+  }
+
+  function mountSessionPrimaryActions(workflow: UiWorkflow) {
+    const targetHost =
+      workflow === 'learn-notes'
+        ? deps.dom.learnNotesSessionActionHost
+        : workflow === 'study-melody' || workflow === 'practice' || workflow === 'perform'
+          ? deps.dom.playbackSessionActionHost
+          : deps.dom.sessionPrimaryActionHost;
+    if (deps.dom.sessionPrimaryActionControls.parentElement !== targetHost) {
+      targetHost.appendChild(deps.dom.sessionPrimaryActionControls);
+    }
+    const inLearnNotesHost = targetHost === deps.dom.learnNotesSessionActionHost;
+    const inPlaybackHost = targetHost === deps.dom.playbackSessionActionHost;
+    deps.dom.learnNotesSessionActionHost.classList.toggle('hidden', !inLearnNotesHost);
+    deps.dom.learnNotesSessionActionHost.style.display = inLearnNotesHost ? 'flex' : 'none';
+    deps.dom.playbackSessionActionHost.classList.toggle('hidden', !inPlaybackHost);
+    deps.dom.playbackSessionActionHost.style.display = inPlaybackHost ? 'flex' : 'none';
+  }
+
   function mountPromptSoundControl(workflow: UiWorkflow) {
     const layout = resolveCurrentWorkflowLayout(workflow);
     const targetHost =
@@ -194,6 +238,8 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
   function applyUiWorkflowLayout(workflow: UiWorkflow) {
     const layout = resolveCurrentWorkflowLayout(workflow);
     deps.syncRecommendedDefaultsUi();
+    mountLearnNotesPromptControls(workflow);
+    mountSessionPrimaryActions(workflow);
     mountPromptSoundControl(workflow);
     mountLearnNotesLayoutControls(workflow);
     syncWorkflowMelodyActionVisibility();
@@ -237,11 +283,14 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
     applyUiWorkflowLayout,
     getLayout: resolveCurrentWorkflowLayout,
     mountWorkspaceControls() {
+      mountLearnNotesPromptControls(deps.state.uiWorkflow);
       mountMelodyWorkspaceTransport();
       mountMelodyDisplayControls();
+      mountSessionPrimaryActions(deps.state.uiWorkflow);
     },
     refreshMelodyEmptyState,
     syncUiWorkflowFromTrainingMode,
     updateMelodyActionButtonsForSelection,
   };
 }
+

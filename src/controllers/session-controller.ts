@@ -155,8 +155,12 @@ import { createMelodyPracticeActionsController } from './melody-practice-actions
 import { createMelodyDemoRuntimeController } from './melody-demo-runtime-controller';
 import { createMicPolyphonicBenchmarkController } from './mic-polyphonic-benchmark-controller';
 import { createMicPolyphonicTelemetryController } from './mic-polyphonic-telemetry-controller';
+import { registerModalControls } from './modal-controller';
+import { registerConfirmControls } from './confirm-controller';
+import { registerProfileControls } from './profile-controller';
 import { createWorkflowLayoutController } from './workflow-layout-controller';
 import { createWorkflowLayoutControlsController } from './workflow-layout-controls-controller';
+import { createWorkflowController } from './workflow-controller';
 import { DEFAULT_TABLATURE_MAX_FRET } from '../tablature-optimizer';
 import {
   formatMelodyStudyRange,
@@ -166,7 +170,6 @@ import {
 } from '../melody-study-range';
 import { isMelodyWorkflowMode, isPerformanceStyleMode } from '../training-mode-groups';
 import { clampMelodyPlaybackBpm } from '../melody-timeline-duration';
-import { type UiWorkflow } from '../training-workflows';
 import { ONBOARDING_COMPLETED_KEY } from '../app-storage-keys';
 import {
   getPlaybackCompletedLabel,
@@ -546,8 +549,8 @@ function isAnyBlockingModalOpen() {
 export function refreshMelodyOptionsForCurrentInstrument() {
   melodyPracticeSettingsController.refreshMelodyOptionsForCurrentInstrument();
   hydrateMelodyTempoForSelectedMelody();
-  updateMelodyActionButtonsForSelection();
-  refreshMelodyEmptyState();
+  workflowController.updateMelodyActionButtonsForSelection();
+  workflowController.refreshMelodyEmptyState();
 }
 
 function finalizeMelodyImportSelection(melodyId: string, successMessage: string) {
@@ -560,7 +563,7 @@ function finalizeMelodyImportSelection(melodyId: string, successMessage: string)
   hydrateMelodyStudyRangeForSelectedMelody();
   hydrateMelodyTempoForSelectedMelody();
   melodyDemoRuntimeController.clearPreviewState();
-  updateMelodyActionButtonsForSelection();
+  workflowController.updateMelodyActionButtonsForSelection();
   dom.melodyNameInput.value = '';
   dom.melodyAsciiTabInput.value = '';
   melodyImportModalController.close();
@@ -734,7 +737,7 @@ const sessionTransportControlsController = createSessionTransportControlsControl
   state,
   isMelodyDemoActive: () => melodyDemoRuntimeController.isActive(),
   stopMelodyDemoPlayback,
-  applyUiWorkflow: (workflow) => applyUiWorkflow(workflow),
+  applyUiWorkflow: (workflow) => workflowController.applyUiWorkflow(workflow),
   saveSettings,
   getSelectedMelodyId,
   stopListening,
@@ -987,7 +990,7 @@ const melodySetupControlsController = createMelodySetupControlsController({
   hydrateMelodyTempoForSelectedMelody,
   syncMetronomeMeterFromSelectedMelody,
   clearMelodyDemoPreviewState: () => melodyDemoRuntimeController.clearPreviewState(),
-  updateMelodyActionButtonsForSelection,
+  updateMelodyActionButtonsForSelection: () => workflowController.updateMelodyActionButtonsForSelection(),
   isMelodyWorkflowMode,
   stopListening,
   setResultMessage,
@@ -1019,7 +1022,7 @@ const melodyPracticeActionsController = createMelodyPracticeActionsController({
   stopMelodyDemoPlayback,
   stopListening,
   markCurriculumPresetAsCustom,
-  updateMelodyActionButtonsForSelection,
+  updateMelodyActionButtonsForSelection: () => workflowController.updateMelodyActionButtonsForSelection(),
   updatePracticeSetupSummary,
   saveSettings,
   redrawFretboard,
@@ -1079,17 +1082,25 @@ const workflowLayoutController = createWorkflowLayoutController({
   getAvailableMelodyCount: () => listMelodiesForInstrument(state.currentInstrument).length,
 });
 
+const workflowController = createWorkflowController({
+  dom: {
+    melodySelector: dom.melodySelector,
+  },
+  workflowLayoutController,
+  listAvailableMelodyIds: () => listMelodiesForInstrument(state.currentInstrument).map((entry) => entry.id),
+});
+
 const workflowLayoutControlsController = createWorkflowLayoutControlsController({
   dom,
   state,
   toggleLayoutControlsExpanded,
   stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
-  applyUiWorkflow,
+  applyUiWorkflow: (workflow) => workflowController.applyUiWorkflow(workflow),
   saveSettings,
   setUiMode,
   openMelodyImport: () => dom.openMelodyImportBtn.click(),
-  getFirstAvailableMelodyId,
-  selectMelodyById,
+  getFirstAvailableMelodyId: () => workflowController.getFirstAvailableMelodyId(),
+  selectMelodyById: (melodyId) => workflowController.selectMelodyById(melodyId),
 });
 
 const melodyEditingControlsController = createMelodyEditingControlsController({
@@ -1170,10 +1181,10 @@ const practiceSetupControlsController = createPracticeSetupControlsController({
   redrawFretboard,
   refreshDisplayFormatting,
   setNoteNamingPreference,
-  resolveSessionToolsVisibility: (workflow) => resolveCurrentWorkflowLayout(workflow).sessionTools,
+  resolveSessionToolsVisibility: (workflow) => workflowController.resolveCurrentWorkflowLayout(workflow).sessionTools,
   stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
   handleModeChange,
-  applyUiWorkflowLayout,
+  applyUiWorkflowLayout: (workflow) => workflowController.applyUiWorkflowLayout(workflow),
   syncHiddenMetronomeTempoFromSharedTempo,
   syncMelodyMetronomeRuntime,
   updatePracticeSetupSummary,
@@ -1210,41 +1221,14 @@ const practicePresetUiController = createPracticePresetUiController({
   hasCompletedOnboarding: () => localStorage.getItem(ONBOARDING_COMPLETED_KEY) === '1',
 });
 
-const syncPracticePresetUi = () => practicePresetUiController.syncPracticePresetUi();
-const syncRecommendedDefaultsUi = () => practicePresetUiController.syncRecommendedDefaultsUi();
-
-function syncUiWorkflowFromTrainingMode() {
-  workflowLayoutController.syncUiWorkflowFromTrainingMode();
+function syncPracticePresetUi() {
+  practicePresetUiController.syncPracticePresetUi();
 }
 
-function applyUiWorkflowLayout(workflow: UiWorkflow) {
-  workflowLayoutController.applyUiWorkflowLayout(workflow);
+function syncRecommendedDefaultsUi() {
+  practicePresetUiController.syncRecommendedDefaultsUi();
 }
 
-function applyUiWorkflow(workflow: UiWorkflow) {
-  workflowLayoutController.applyUiWorkflow(workflow);
-}
-
-function resolveCurrentWorkflowLayout(workflow: UiWorkflow) {
-  return workflowLayoutController.getLayout(workflow);
-}
-
-function updateMelodyActionButtonsForSelection() {
-  workflowLayoutController.updateMelodyActionButtonsForSelection();
-}
-
-function refreshMelodyEmptyState() {
-  workflowLayoutController.refreshMelodyEmptyState();
-}
-
-function getFirstAvailableMelodyId() {
-  return listMelodiesForInstrument(state.currentInstrument)[0]?.id ?? null;
-}
-
-function selectMelodyById(melodyId: string) {
-  dom.melodySelector.value = melodyId;
-  dom.melodySelector.dispatchEvent(new Event('change'));
-}
 
 function updatePracticeSetupSummary() {
   practiceSetupSummaryController.update();
@@ -1340,8 +1324,8 @@ const sessionBootstrapController = createSessionBootstrapController({
   syncPracticePresetUi,
   syncMicPolyphonicTelemetryButtonState: () => micPolyphonicTelemetryController.syncButtonState(),
   mountWorkspaceControls: () => workflowLayoutController.mountWorkspaceControls(),
-  syncUiWorkflowFromTrainingMode,
-  applyUiWorkflowLayout,
+  syncUiWorkflowFromTrainingMode: () => workflowController.syncUiWorkflowFromTrainingMode(),
+  applyUiWorkflowLayout: (workflow) => workflowController.applyUiWorkflowLayout(workflow),
   setUiMode,
   updatePracticeSetupSummary,
   syncMelodyTimelineEditingState,
@@ -1365,7 +1349,16 @@ const sessionBootstrapController = createSessionBootstrapController({
 });
 export function registerSessionControls() {
   sessionBootstrapController.initialize();
+  registerModalControls();
+  registerConfirmControls();
+  registerProfileControls();
 }
+
+
+
+
+
+
 
 
 

@@ -1,5 +1,6 @@
 import { buildPromptAudioPlan } from '../prompt-audio-plan';
 import { getMelodyFingeredEvent } from '../melody-fingering';
+import { getPlayableMelodyEventNotes } from '../melody-playable-event-notes';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from '../melody-fingering';
 import type { MelodyStudyRange } from '../melody-study-range';
 import {
@@ -60,20 +61,21 @@ interface MelodyDemoPresentationControllerDeps {
 function buildMelodyDemoPrompt(
   melodyName: string,
   event: MelodyEvent,
-  fingering: ChordNote[],
+  playableNotes: ChordNote[],
   options?: { label?: string }
 ): Prompt {
-  const isPolyphonic = event.notes.length > 1;
-  const first = event.notes[0] ?? null;
+  const isPolyphonic = playableNotes.length > 1 || event.notes.length > 1;
+  const firstPlayable = playableNotes[0] ?? null;
+  const firstEventNote = event.notes[0] ?? null;
   const prefixLabel = options?.label ?? 'Playback';
 
   return {
     displayText: `${prefixLabel}: ${melodyName}`,
-    targetNote: isPolyphonic ? null : (first?.note ?? null),
-    targetString: isPolyphonic ? null : (first?.stringName ?? null),
+    targetNote: isPolyphonic ? null : (firstPlayable?.note ?? firstEventNote?.note ?? null),
+    targetString: isPolyphonic ? null : (firstPlayable?.string ?? firstEventNote?.stringName ?? null),
     targetChordNotes: isPolyphonic ? [...new Set(event.notes.map((note) => note.note))] : [],
-    targetChordFingering: isPolyphonic ? fingering : [],
-    targetMelodyEventNotes: fingering,
+    targetChordFingering: isPolyphonic ? playableNotes : [],
+    targetMelodyEventNotes: playableNotes,
     baseChordName: null,
   };
 }
@@ -189,13 +191,19 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
       strategy: deps.state.melodyFingeringStrategy ?? 'minimax',
       level: deps.state.melodyFingeringLevel ?? 'beginner',
     });
+    const playableNotes = getPlayableMelodyEventNotes(event, fingering);
     const prompt = buildMelodyDemoPrompt(
       melodyName,
       event,
-      fingering,
+      playableNotes,
       { label: options?.label }
     );
     deps.setPromptText(prompt.displayText);
+    if (playableNotes.length > 0) {
+      deps.drawFretboard(false, null, null, playableNotes);
+    } else {
+      deps.drawFretboard(false, prompt.targetNote, prompt.targetString);
+    }
     deps.redrawFretboard();
     deps.renderTimeline();
 
@@ -213,3 +221,5 @@ export function createMelodyDemoPresentationController(deps: MelodyDemoPresentat
     previewEvent,
   };
 }
+
+

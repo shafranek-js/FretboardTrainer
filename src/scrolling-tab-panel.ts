@@ -3,7 +3,6 @@ import type { MelodyDefinition } from './melody-library';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { buildScrollingTabPanelModel } from './scrolling-tab-panel-model';
 import { computeScrollingTabPanelLayout } from './scrolling-tab-panel-geometry';
-import { buildMelodyContentSignature } from './melody-tab-timeline-metadata';
 import {
   renderScrollingTabPanelSelection,
   renderScrollingTabPanelFeedback,
@@ -16,6 +15,7 @@ import type { PerformanceTimelineFeedbackByEvent } from './performance-timeline-
 import type { ScrollingTabPanelModel } from './scrolling-tab-panel-model';
 import { renderTimelineContextMenu } from './melody-tab-timeline-context-menu';
 import { bindScrollingTabPanelInteractions, updateScrollingTabPanelInteractionState } from './scrolling-tab-panel-interactions';
+import { buildScrollingTabPanelStructuralKey, getPerformanceFeedbackSignature } from './scrolling-tab-panel-render-key';
 
 let lastRenderKey = '';
 let lastStructuralRenderKey = '';
@@ -59,18 +59,6 @@ function ensureScrollingTabViewportObserver() {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function getPerformanceFeedbackSignature(feedbackByEvent: PerformanceTimelineFeedbackByEvent | null | undefined) {
-  if (!feedbackByEvent) return '';
-  return Object.entries(feedbackByEvent)
-    .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([eventIndex, attempts]) =>
-      `${eventIndex}:${attempts
-        .map((attempt) => `${attempt.status}:${attempt.note}:${attempt.stringName ?? '-'}:${attempt.fret ?? '-'}`)
-        .join(',')}`
-    )
-    .join('|');
 }
 
 function clearScrollingTabCanvas() {
@@ -321,16 +309,15 @@ export function renderScrollingTabPanel(
   }
 ) {
   lastRenderedMelody = melody;
-  const structuralRenderKey = JSON.stringify({
-    melodyId: melody.id,
-    melodyContentSignature: buildMelodyContentSignature(melody),
-    eventCount: melody.events.length,
+  const structuralRenderKey = buildScrollingTabPanelStructuralKey({
+    melody,
     bpm: options.bpm,
     zoomScale: options.zoomScale,
     studyRange: options.studyRange,
-    fingeringStrategy: options.fingeringStrategy ?? 'minimax',
-    fingeringLevel: options.fingeringLevel ?? 'beginner',
+    fingeringStrategy: options.fingeringStrategy,
+    fingeringLevel: options.fingeringLevel,
     leadInSec: options.leadInSec,
+    performanceFeedbackByEvent: options.performanceFeedbackByEvent,
   });
   if (structuralRenderKey !== lastStructuralRenderKey || lastStructuralModel === null) {
     lastStructuralRenderKey = structuralRenderKey;
@@ -344,6 +331,7 @@ export function renderScrollingTabPanel(
       fingeringLevel: options.fingeringLevel,
       currentTimeSec: options.currentTimeSec,
       leadInSec: options.leadInSec,
+      performanceFeedbackByEvent: options.performanceFeedbackByEvent,
     });
   }
   lastRenderContext = {
@@ -382,3 +370,4 @@ export function renderScrollingTabPanel(
     selectedNoteIndex: options.selectedNoteIndex,
   });
 }
+
