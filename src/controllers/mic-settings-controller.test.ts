@@ -42,6 +42,7 @@ function createDeps() {
     refreshAudioInputDeviceOptions: vi.fn(async () => {}),
     refreshMicPolyphonicDetectorAudioInfoUi: vi.fn(),
     refreshMicPerformanceReadinessUi: vi.fn(),
+    syncPracticePresetUi: vi.fn(),
     saveSettings: vi.fn(),
     setResultMessage: vi.fn(),
     formatUserFacingError: vi.fn((prefix: string) => prefix),

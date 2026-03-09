@@ -1,4 +1,5 @@
-import type { UiWorkflow } from './training-workflows';
+import { getDefaultTrainingModeForUiWorkflow, type UiWorkflow } from './training-workflows';
+import { resolveWorkflowLayout } from './workflow-layout';
 
 export interface WorkflowUiCopy {
   primaryActionLabel: string;
@@ -19,6 +20,13 @@ export interface MelodySelectionSectionCopy {
 export interface TrainingModeFieldCopy {
   label: string;
   fieldHintPrefix: string;
+}
+
+function resolveWorkflowUiLayout(workflow: UiWorkflow) {
+  return resolveWorkflowLayout({
+    workflow,
+    trainingMode: getDefaultTrainingModeForUiWorkflow(workflow),
+  });
 }
 
 export function getWorkflowUiCopy(workflow: UiWorkflow): WorkflowUiCopy {
@@ -114,35 +122,35 @@ export function shouldShowMelodyDeleteAction(workflow: UiWorkflow) {
 }
 
 export function shouldShowPlaybackQuickControls(workflow: UiWorkflow) {
-  return workflow === 'study-melody' || workflow === 'practice' || workflow === 'perform';
+  return resolveWorkflowUiLayout(workflow).showPlaybackQuickControls;
 }
 
 export function shouldShowPlaybackPromptSoundControl(workflow: UiWorkflow) {
-  return workflow === 'study-melody' || workflow === 'practice' || workflow === 'perform';
+  return resolveWorkflowUiLayout(workflow).showPlaybackPromptSoundControl;
 }
 
 export function shouldShowMelodyPracticeControls(workflow: UiWorkflow) {
-  return false;
+  return resolveWorkflowUiLayout(workflow).showMelodyPracticeControls;
 }
 
 export function shouldShowEditingToolsControls(workflow: UiWorkflow) {
-  return workflow === 'editor';
+  return resolveWorkflowUiLayout(workflow).showEditingToolsControls;
 }
 
 export function shouldShowMelodyActionControls(workflow: UiWorkflow) {
-  return workflow === 'library' || workflow === 'editor';
+  return resolveWorkflowUiLayout(workflow).showMelodyActionControls;
 }
 
 export function shouldShowMelodyNoteHintDisplayControl(workflow: UiWorkflow) {
-  return workflow === 'study-melody' || workflow === 'practice' || workflow === 'perform';
+  return resolveWorkflowUiLayout(workflow).showMelodyNoteHintDisplayControl;
 }
 
 export function shouldShowMelodyDisplayControls(workflow: UiWorkflow) {
-  return workflow !== 'learn-notes';
+  return resolveWorkflowUiLayout(workflow).showMelodyDisplayControls;
 }
 
 export function shouldShowLayoutZoomControls(workflow: UiWorkflow) {
-  return workflow !== 'learn-notes';
+  return resolveWorkflowUiLayout(workflow).showLayoutZoomControls;
 }
 
 export function getPlaybackTransportIdleLabel(workflow: UiWorkflow) {

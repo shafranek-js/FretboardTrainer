@@ -1,4 +1,4 @@
-import { isMelodyWorkflowMode } from './training-mode-groups';
+import { resolveWorkflowLayout } from './workflow-layout';
 
 export type UiWorkflow = 'learn-notes' | 'study-melody' | 'practice' | 'perform' | 'library' | 'editor';
 
@@ -52,23 +52,24 @@ export function getDefaultTrainingModeForUiWorkflow(workflow: UiWorkflow) {
 }
 
 export function shouldShowPracticeSetupForUiWorkflow(workflow: UiWorkflow) {
-  return workflow === 'learn-notes';
+  return resolveWorkflowLayout({
+    workflow,
+    trainingMode: getDefaultTrainingModeForUiWorkflow(workflow),
+  }).showPracticeSetup;
 }
 
 export function shouldShowMelodySetupForUiWorkflow(workflow: UiWorkflow, trainingMode: string) {
-  return workflow === 'library' || workflow === 'editor' || isMelodyWorkflowMode(trainingMode);
+  return resolveWorkflowLayout({ workflow, trainingMode }).showMelodySetup;
 }
 
 export function shouldShowPlaybackControlsForUiWorkflow(workflow: UiWorkflow, trainingMode: string) {
-  return workflow !== 'learn-notes' && shouldShowMelodySetupForUiWorkflow(workflow, trainingMode);
+  return resolveWorkflowLayout({ workflow, trainingMode }).showPlaybackControls;
 }
 
 export function shouldShowDisplayControlsForUiWorkflow(workflow: UiWorkflow, trainingMode: string) {
-  if (workflow === 'learn-notes') return true;
-  return shouldShowMelodySetupForUiWorkflow(workflow, trainingMode);
+  return resolveWorkflowLayout({ workflow, trainingMode }).showDisplayControls;
 }
 
 export function shouldShowSessionToolsForUiWorkflow(workflow: UiWorkflow, trainingMode: string) {
-  if (workflow === 'library' || workflow === 'editor') return false;
-  return trainingMode !== 'rhythm';
+  return resolveWorkflowLayout({ workflow, trainingMode }).showSessionTools;
 }

@@ -91,6 +91,7 @@ function createDeps(overrides: Partial<Parameters<typeof createMelodyTimelineEdi
   const melody = { id: 'melody-1', name: 'Test melody' } as MelodyDefinition;
   return {
     getSelectedMelodyId: vi.fn(() => 'melody-1'),
+    isEditorWorkflowActive: vi.fn(() => true),
     canEditSelectedMelodyOnTimeline: vi.fn(() => ({ editable: true as const, melody })),
     ensureDraftLoaded: vi.fn(),
     ensureSelection: vi.fn(),

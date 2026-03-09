@@ -3,30 +3,12 @@ import { createSignal } from './reactive/signal';
 import { CENTS_TOLERANCE, CENTS_VISUAL_RANGE } from './constants';
 import { computeTunerView } from './tuner-view';
 import { getTrainingModeUiVisibility } from './training-mode-ui';
-import {
-  type UiWorkflow,
-  shouldShowDisplayControlsForUiWorkflow,
-  shouldShowPlaybackControlsForUiWorkflow,
-  shouldShowMelodySetupForUiWorkflow,
-  shouldShowPracticeSetupForUiWorkflow,
-  shouldShowSessionToolsForUiWorkflow,
-} from './training-workflows';
+import type { UiWorkflow } from './training-workflows';
 import type { UiMode } from './ui-mode';
 import type { LastSessionHeatmapView, LastSessionViewModel, StatsViewModel } from './stats-view';
 import { formatMusicText } from './note-display';
-import { resolveSessionToolsVisibility } from './session-tools-visibility';
-import {
-  getMelodySelectionSectionCopy,
-  getTrainingModeFieldCopy,
-  getWorkflowUiCopy,
-  shouldShowMelodyActionControls,
-  shouldShowLayoutZoomControls,
-  shouldShowEditingToolsControls,
-  shouldShowMelodyDisplayControls,
-  shouldShowMelodyPracticeControls,
-  shouldShowMelodyNoteHintDisplayControl,
-  shouldShowPlaybackQuickControls,
-} from './workflow-ui-copy';
+import { resolveWorkflowLayout } from './workflow-layout';
+import { getMelodySelectionSectionCopy, getTrainingModeFieldCopy, getWorkflowUiCopy } from './workflow-ui-copy';
 
 const statusTextSignal = createSignal('Ready');
 const promptTextSignal = createSignal('');
@@ -145,6 +127,15 @@ let wasAutoCollapsedForSession = false;
 let wasAutoCollapsedMelodySetupForSession = false;
 let wasAutoCollapsedSessionToolsForSession = false;
 
+function resolveCurrentWorkflowLayout(mode: string, workflow: UiWorkflow) {
+  return resolveWorkflowLayout({
+    workflow,
+    trainingMode: mode,
+    showTabTimeline: dom.melodyShowTabTimeline.checked,
+    showScrollingTab: dom.melodyShowScrollingTab.checked,
+  });
+}
+
 function renderPromptText(promptText: string) {
   dom.prompt.textContent = formatMusicText(promptText);
 }
@@ -251,11 +242,11 @@ function renderPracticeSetupCollapsed(collapsed: boolean) {
 }
 
 function renderPracticeSetupModeVisibility(workflow: UiWorkflow) {
-  const showPracticeSetup = shouldShowPracticeSetupForUiWorkflow(workflow);
+  const layout = resolveCurrentWorkflowLayout(trainingModeUiSignal.get(), workflow);
   dom.practiceSetupToggleBtn.classList.add('hidden');
   dom.practiceSetupSummary.style.display =
-    !showPracticeSetup || practiceSetupSummarySignal.get().length === 0 ? 'none' : '';
-  if (!showPracticeSetup) {
+    !layout.showPracticeSetup || practiceSetupSummarySignal.get().length === 0 ? 'none' : '';
+  if (!layout.showPracticeSetup) {
     dom.practiceSetupPanel.classList.add('hidden');
     dom.practiceSetupPanel.style.display = 'none';
     dom.practiceSetupToggleBtn.setAttribute('aria-expanded', 'false');
@@ -303,11 +294,9 @@ function renderSessionToolsCollapsed(collapsed: boolean) {
 }
 
 function renderSessionToolsModeVisibility(mode: string, workflow: UiWorkflow) {
-  const visibility = resolveSessionToolsVisibility(mode, workflow);
-  const hasVisibleSessionToolsContent =
-    visibility.showPlanSection || visibility.showDisplaySection || visibility.showActiveStringsSection;
-  const hideSessionTools =
-    !shouldShowSessionToolsForUiWorkflow(workflow, mode) || !hasVisibleSessionToolsContent;
+  const layout = resolveCurrentWorkflowLayout(mode, workflow);
+  const visibility = layout.sessionTools;
+  const hideSessionTools = !layout.showSessionTools || !layout.showSessionToolsContent;
   dom.sessionToolsToggleBtn.classList.add('hidden');
   dom.sessionToolsSummary.style.display =
     hideSessionTools || sessionToolsSummarySignal.get().length === 0 ? 'none' : '';
@@ -365,12 +354,12 @@ function renderSessionToolsModeVisibility(mode: string, workflow: UiWorkflow) {
 }
 
 function renderMelodySetupModeVisibility(mode: string, workflow: UiWorkflow) {
-  const showMelodyActionControls = shouldShowMelodyActionControls(workflow);
-  const showMelodyPracticeSection = shouldShowMelodyPracticeControls(workflow);
-  const showEditingToolsSection = shouldShowEditingToolsControls(workflow);
+  const layout = resolveCurrentWorkflowLayout(mode, workflow);
   const showMelodySetup =
-    shouldShowMelodySetupForUiWorkflow(workflow, mode) &&
-    (showMelodyActionControls || showMelodyPracticeSection || showEditingToolsSection);
+    layout.showMelodySetup &&
+    (layout.showMelodyActionControls ||
+      layout.showMelodyPracticeControls ||
+      layout.showEditingToolsControls);
   dom.melodySetupToggleBtn.classList.add('hidden');
   dom.melodySetupSummary.style.display =
     !showMelodySetup || melodySetupSummarySignal.get().length === 0 ? 'none' : '';
@@ -387,10 +376,10 @@ function renderMelodySetupModeVisibility(mode: string, workflow: UiWorkflow) {
     dom.melodySetupChevron.textContent = 'v';
     setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
   }
-  dom.melodyLibrarySection.classList.toggle('hidden', !showMelodyActionControls);
-  dom.melodyLibrarySection.hidden = !showMelodyActionControls;
-  dom.melodyLibrarySection.style.display = showMelodyActionControls ? '' : 'none';
-  if (!showMelodyPracticeSection) {
+  dom.melodyLibrarySection.classList.toggle('hidden', !layout.showMelodyActionControls);
+  dom.melodyLibrarySection.hidden = !layout.showMelodyActionControls;
+  dom.melodyLibrarySection.style.display = layout.showMelodyActionControls ? '' : 'none';
+  if (!layout.showMelodyPracticeControls) {
     dom.melodyPracticeSection.classList.add('hidden');
     dom.melodyPracticeSection.style.setProperty('display', 'none', 'important');
     dom.melodyPracticeSection.hidden = true;
@@ -406,7 +395,7 @@ function renderMelodySetupModeVisibility(mode: string, workflow: UiWorkflow) {
     dom.melodyPracticeFieldsRow.style.removeProperty('display');
     dom.melodyPracticeActionsRow.style.removeProperty('display');
   }
-  if (!showEditingToolsSection) {
+  if (!layout.showEditingToolsControls) {
     dom.editingToolsSection.classList.add('hidden');
     dom.editingToolsSection.style.setProperty('display', 'none', 'important');
     dom.editingToolsSection.hidden = true;
@@ -426,32 +415,38 @@ function renderMelodySetupModeVisibility(mode: string, workflow: UiWorkflow) {
 
 function renderPlaybackControlsModeVisibility(mode: string, workflow: UiWorkflow) {
   const visibility = getTrainingModeUiVisibility(mode);
-  const showPlaybackControls =
-    shouldShowPlaybackControlsForUiWorkflow(workflow, mode) && visibility.showMelodySelector;
+  const layout = resolveCurrentWorkflowLayout(mode, workflow);
+  const showPlaybackControls = layout.showPlaybackControls && visibility.showMelodySelector;
   dom.melodyWorkspaceTransportSection.classList.toggle('hidden', !showPlaybackControls);
   dom.melodyWorkspaceTransportSection.style.display = showPlaybackControls ? 'flex' : 'none';
   dom.melodyPlaybackControls.classList.toggle('hidden', !showPlaybackControls);
   dom.melodyDemoQuickControls.classList.toggle(
     'hidden',
-    !showPlaybackControls || !shouldShowPlaybackQuickControls(workflow)
+    !showPlaybackControls || !layout.showPlaybackQuickControls
   );
 }
 
 function renderDisplayControlsModeVisibility(mode: string, workflow: UiWorkflow) {
-  const showDisplayControls = shouldShowDisplayControlsForUiWorkflow(workflow, mode);
-  const showExpandedPanel = showDisplayControls && layoutControlsExpandedSignal.get();
-  const showMelodyControls = shouldShowMelodyDisplayControls(workflow);
-  const showZoomControls = shouldShowLayoutZoomControls(workflow);
-  dom.layoutControlsHost.classList.toggle('hidden', !showDisplayControls);
-  dom.layoutControlsHost.style.display = showDisplayControls ? 'flex' : 'none';
+  const layout = resolveCurrentWorkflowLayout(mode, workflow);
+  const showExpandedPanel = layout.showDisplayControls && layoutControlsExpandedSignal.get();
+  dom.layoutControlsHost.classList.toggle('hidden', !layout.showDisplayControls);
+  dom.layoutControlsHost.style.display = layout.showDisplayControls ? 'flex' : 'none';
   dom.layoutToggleBtn.setAttribute('aria-expanded', String(showExpandedPanel));
   setPanelToggleVisualState(dom.layoutToggleBtn, showExpandedPanel);
   dom.melodyDisplayControlsSection.classList.toggle('hidden', !showExpandedPanel);
   dom.melodyDisplayControlsSection.style.display = showExpandedPanel ? 'flex' : 'none';
-  dom.melodyDisplayControls.classList.toggle('hidden', !showExpandedPanel || !showMelodyControls);
-  dom.melodyShowNoteChip.classList.toggle('hidden', !shouldShowMelodyNoteHintDisplayControl(workflow));
-  dom.layoutDisplayDivider.classList.toggle('hidden', !showMelodyControls || !showZoomControls);
-  dom.layoutZoomControls.classList.toggle('hidden', !showZoomControls);
+  dom.melodyDisplayControls.classList.toggle(
+    'hidden',
+    !showExpandedPanel || !layout.showMelodyDisplayControls
+  );
+  dom.melodyShowNoteChip.classList.toggle('hidden', !layout.showMelodyNoteHintDisplayControl);
+  dom.layoutDisplayDivider.classList.toggle(
+    'hidden',
+    !layout.showMelodyDisplayControls || !layout.showAnyZoomControl
+  );
+  dom.layoutZoomControls.classList.toggle('hidden', !layout.showAnyZoomControl);
+  dom.melodyTimelineZoomControl.classList.toggle('hidden', !layout.showTimelineZoomControl);
+  dom.scrollingTabZoomControl.classList.toggle('hidden', !layout.showScrollingZoomControl);
 }
 
 function renderPracticeSetupSummary(summaryText: string) {
@@ -1238,6 +1233,10 @@ export function setTrainingModeUi(mode: string) {
 
 export function setUiWorkflow(workflow: UiWorkflow) {
   uiWorkflowSignal.set(workflow);
+}
+
+export function refreshLayoutControlsVisibility() {
+  renderDisplayControlsModeVisibility(trainingModeUiSignal.get(), uiWorkflowSignal.get());
 }
 
 export function setUiMode(uiMode: UiMode) {

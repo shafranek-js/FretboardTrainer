@@ -28,6 +28,7 @@ function createCustomMelody(events: MelodyEvent[]): MelodyDefinition {
 function createDeps(options?: {
   melody?: MelodyDefinition | null;
   trainingMode?: string;
+  uiWorkflow?: 'learn-notes' | 'study-melody' | 'practice' | 'perform' | 'library' | 'editor';
   transpose?: number;
   stringShift?: number;
 }) {
@@ -44,6 +45,7 @@ function createDeps(options?: {
     getMelodyTransposeSemitones: vi.fn(() => options?.transpose ?? 0),
     getMelodyStringShift: vi.fn(() => options?.stringShift ?? 0),
     getTrainingMode: vi.fn(() => options?.trainingMode ?? 'melody'),
+    getUiWorkflow: vi.fn(() => options?.uiWorkflow ?? 'editor'),
     isMelodyWorkflowMode: vi.fn((mode: string) => mode === 'melody' || mode === 'performance'),
     updateCustomEventMelody: vi.fn(
       (

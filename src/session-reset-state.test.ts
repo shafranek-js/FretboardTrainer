@@ -74,6 +74,7 @@ describe('createSessionStopResetState', () => {
       performancePrerollStepIndex: null,
       performanceRuntimeStartedAtMs: null,
       performanceTransportAnimationId: 0,
+      performanceRunCompleted: false,
       showSessionSummaryOnStop: false,
       pendingSessionStopResultMessage: null,
     });

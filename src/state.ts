@@ -141,6 +141,8 @@ export const dom = {
   layoutLearnNotesControlsHost: requireElementById<HTMLElement>('layoutLearnNotesControlsHost'),
   layoutDisplayDivider: requireElementById<HTMLElement>('layoutDisplayDivider'),
   layoutZoomControls: requireElementById<HTMLElement>('layoutZoomControls'),
+  melodyTimelineZoomControl: requireElementById<HTMLElement>('melodyTimelineZoomControl'),
+  scrollingTabZoomControl: requireElementById<HTMLElement>('scrollingTabZoomControl'),
   melodySelector: requireElementById<HTMLSelectElement>('melodySelector'),
   melodyTranspose: requireElementById<HTMLInputElement>('melodyTranspose'),
   melodyTransposeValue: requireElementById<HTMLElement>('melodyTransposeValue'),

@@ -57,9 +57,9 @@ describe('workflow-ui-copy', () => {
     expect(shouldShowMelodyCreateAction('library')).toBe(false);
     expect(shouldShowMelodyEditAction('practice')).toBe(false);
     expect(shouldShowMelodyExportAction('editor')).toBe(false);
-    expect(shouldShowMelodyPracticeControls('study-melody')).toBe(true);
-    expect(shouldShowMelodyPracticeControls('practice')).toBe(true);
-    expect(shouldShowMelodyPracticeControls('perform')).toBe(true);
+    expect(shouldShowMelodyPracticeControls('study-melody')).toBe(false);
+    expect(shouldShowMelodyPracticeControls('practice')).toBe(false);
+    expect(shouldShowMelodyPracticeControls('perform')).toBe(false);
     expect(shouldShowMelodyPracticeControls('library')).toBe(false);
     expect(shouldShowMelodyPracticeControls('editor')).toBe(false);
     expect(shouldShowEditingToolsControls('editor')).toBe(true);

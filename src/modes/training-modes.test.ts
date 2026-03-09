@@ -15,6 +15,7 @@ const { mockDom, mockState, getMelodyByIdMock } = vi.hoisted(() => ({
       value: 'C Major',
       options: [] as { value: string }[],
     },
+    trainingMode: { value: 'melody' },
     arpeggioPatternSelector: { value: 'ascending' },
     melodySelector: { value: 'builtin:test' },
     melodyShowNote: { checked: true },
@@ -90,6 +91,7 @@ beforeEach(() => {
   mockDom.randomizeChords.checked = false;
   mockDom.chordSelector.value = 'C Major';
   mockDom.chordSelector.options = [{ value: 'C Major' }, { value: 'G Major' }];
+  mockDom.trainingMode.value = 'melody';
   mockDom.arpeggioPatternSelector.value = 'ascending';
   mockDom.melodyShowNote.checked = true;
   mockDom.melodyDemoBpm.value = '90';
@@ -473,6 +475,7 @@ describe('MelodyPracticeMode', () => {
   });
 
   it('creates timed prompts for performance mode', () => {
+    mockDom.trainingMode.value = 'performance';
     getMelodyByIdMock.mockReturnValue({
       id: 'builtin:test',
       name: 'Performance Test',
