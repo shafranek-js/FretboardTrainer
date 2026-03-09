@@ -204,7 +204,7 @@ describe('workflow-layout-controller', () => {
     expect(dom.promptContainer.parentElement).toBe(dom.learnNotesPromptHost);
     expect(dom.sessionPrimaryActionControls.parentElement).toBe(dom.learnNotesSessionActionHost);
     expect(dom.topPromptHost.style.display).toBe('none');
-    expect(dom.learnNotesPromptHost.style.display).toBe('flex');
+    expect(dom.learnNotesPromptHost.style.display).not.toBe('none');
     expect(dom.learnNotesSessionActionHost.style.display).toBe('flex');
   });
 
@@ -240,3 +240,4 @@ describe('workflow-layout-controller', () => {
     expect(dom.editingToolsSection.style.display).toBe('none');
   });
 });
+

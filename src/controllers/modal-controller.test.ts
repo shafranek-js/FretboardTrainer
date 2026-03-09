@@ -32,6 +32,7 @@ const locationReload = vi.fn();
 const mockLocation = { reload: locationReload };
 
 const harness = vi.hoisted(() => {
+  const clearRetainedSessionTimelineFeedback = vi.fn();
   const dom = {
     onboardingModal: createEventTargetStub(),
     closeOnboardingBtn: createEventTargetStub(),
@@ -222,6 +223,7 @@ const harness = vi.hoisted(() => {
     applyAppUserDataSnapshot: vi.fn(),
     settingsModalLayoutShowHub: vi.fn(),
     settingsModalLayoutOpenSection: vi.fn(),
+    clearRetainedSessionTimelineFeedback,
   };
 });
 
@@ -263,6 +265,7 @@ vi.mock('../state', () => ({
 vi.mock('../logic', () => ({
   startListening: harness.startListening,
   cancelCalibration: harness.cancelCalibration,
+  clearRetainedSessionTimelineFeedback: harness.clearRetainedSessionTimelineFeedback,
 }));
 
 vi.mock('../ui', () => ({
@@ -670,3 +673,5 @@ describe('modal-controller', () => {
     expect(locationReload).toHaveBeenCalledTimes(1);
   });
 });
+
+

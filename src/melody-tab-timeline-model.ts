@@ -1,4 +1,4 @@
-import type { MelodyDefinition, MelodyEvent } from './melody-library';
+import type { MelodyDefinition } from './melody-library';
 import { buildMelodyFingeredEvents } from './melody-fingering';
 import { getPlayableMelodyEventNotes } from './melody-playable-event-notes';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
@@ -153,3 +153,4 @@ export function buildMelodyTabTimelineViewModel(
     activeEventIndex: clampedActive,
   };
 }
+
