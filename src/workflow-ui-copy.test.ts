@@ -26,8 +26,8 @@ describe('workflow-ui-copy', () => {
     expect(getWorkflowUiCopy('study-melody').primaryActionLabel).toBe('Start Study');
     expect(getWorkflowUiCopy('practice').primaryActionLabel).toBe('Start Practice');
     expect(getWorkflowUiCopy('perform').primaryActionLabel).toBe('Start Run');
-    expect(getWorkflowUiCopy('library').primaryActionLabel).toBe('Open Editor');
-    expect(getWorkflowUiCopy('editor').primaryActionLabel).toBe('Create Melody');
+    expect(getWorkflowUiCopy('library').primaryActionLabel).toBe('');
+    expect(getWorkflowUiCopy('editor').primaryActionLabel).toBe('');
   });
 
   it('returns workflow-specific panel labels and workspace titles', () => {
@@ -74,7 +74,7 @@ describe('workflow-ui-copy', () => {
     expect(shouldShowLayoutZoomControls('learn-notes')).toBe(false);
     expect(shouldShowLayoutZoomControls('editor')).toBe(true);
     expect(shouldShowPlaybackPromptSoundControl('learn-notes')).toBe(false);
-    expect(shouldShowPlaybackPromptSoundControl('study-melody')).toBe(true);
+    expect(shouldShowPlaybackPromptSoundControl('study-melody')).toBe(false);
     expect(shouldShowPlaybackPromptSoundControl('perform')).toBe(true);
     expect(shouldShowPlaybackPromptSoundControl('library')).toBe(false);
     expect(shouldShowPlaybackQuickControls('library')).toBe(false);
@@ -103,3 +103,5 @@ describe('workflow-ui-copy', () => {
     expect(getMelodySelectionSectionCopy('study-melody').ariaLabel).toBe('Melody selection');
   });
 });
+
+

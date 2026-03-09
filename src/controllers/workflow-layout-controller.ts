@@ -15,6 +15,8 @@ import {
 } from '../workflow-ui-copy';
 
 export interface WorkflowLayoutControllerDom {
+  learningControls: HTMLElement;
+  practiceSetupPanel: HTMLElement;
   trainingMode: HTMLSelectElement;
   topPromptHost: HTMLElement;
   promptContainer: HTMLElement;
@@ -143,15 +145,14 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
       deps.dom.learnNotesPromptHost.appendChild(deps.dom.promptContainer);
     }
   }
-
   function mountSessionPrimaryActions(workflow: UiWorkflow) {
     const targetHost =
       workflow === 'learn-notes'
         ? deps.dom.learnNotesSessionActionHost
         : workflow === 'study-melody' || workflow === 'practice' || workflow === 'perform'
           ? deps.dom.playbackSessionActionHost
-          : deps.dom.sessionPrimaryActionHost;
-    if (deps.dom.sessionPrimaryActionControls.parentElement !== targetHost) {
+          : null;
+    if (targetHost && deps.dom.sessionPrimaryActionControls.parentElement !== targetHost) {
       targetHost.appendChild(deps.dom.sessionPrimaryActionControls);
     }
     const inLearnNotesHost = targetHost === deps.dom.learnNotesSessionActionHost;
@@ -160,6 +161,9 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
     deps.dom.learnNotesSessionActionHost.style.display = inLearnNotesHost ? 'flex' : 'none';
     deps.dom.playbackSessionActionHost.classList.toggle('hidden', !inPlaybackHost);
     deps.dom.playbackSessionActionHost.style.display = inPlaybackHost ? 'flex' : 'none';
+    deps.dom.sessionPrimaryActionHost.classList.add('hidden');
+    deps.dom.sessionPrimaryActionHost.style.display = 'none';
+    deps.dom.sessionPrimaryActionControls.style.display = targetHost ? 'flex' : 'none';
   }
 
   function mountPromptSoundControl(workflow: UiWorkflow) {
@@ -262,6 +266,12 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
   }
 
   function applyUiWorkflow(workflow: UiWorkflow) {
+    if (workflow !== 'learn-notes') {
+      deps.dom.learningControls.dataset.panelLayout = 'default';
+      deps.dom.practiceSetupPanel.classList.add('hidden');
+      deps.dom.practiceSetupPanel.style.display = 'none';
+    }
+
     if (workflow !== 'editor') {
       deps.resetMelodyWorkflowEditorState();
     }
@@ -293,4 +303,6 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
     updateMelodyActionButtonsForSelection,
   };
 }
+
+
 

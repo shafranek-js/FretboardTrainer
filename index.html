@@ -8,149 +8,71 @@
   </head>
   <body class="text-slate-100 font-sans">
     <div class="app-shell w-full h-full overflow-hidden bg-slate-800 flex flex-col gap-y-3">
-      <div
-        class="session-area text-center shrink-0 flex flex-col gap-y-1.5 px-2 sm:px-3 pt-1 pb-0.5 bg-slate-700 rounded-lg"
-      >
-        <div class="w-full grid grid-cols-1 sm:grid-cols-[auto,minmax(0,1fr),auto] items-center gap-1.5 sm:gap-3">
-          <div id="topPromptHost" class="order-1 sm:order-2 min-w-0 flex items-center justify-center gap-2 sm:gap-3">
-            <div id="promptContainer" class="prompt-container min-w-0 flex items-center justify-center gap-2 sm:gap-3">
-              <div
-                class="prompt text-lg sm:text-2xl md:text-[1.7rem] font-bold min-h-[30px] sm:min-h-[34px] min-w-0 flex items-center justify-center text-center px-1.5 leading-tight"
-                id="prompt"
-                aria-live="polite"
-              ></div>
-              <button
-                id="playSoundBtn"
-                class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
-                disabled
-                aria-label="Play note sound"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="w-5 h-5 sm:w-6 sm:h-6"
-                >
-                  <path
-                    d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-                  ></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div class="timed-info order-2 sm:order-1 hidden justify-self-center sm:justify-self-start flex gap-1.5 sm:gap-2.5" id="timedInfo">
-            <div class="info-box bg-slate-800 px-2 sm:px-3 py-0.5 rounded-lg">
-              <span class="info-label block text-[10px] text-slate-400">Time</span>
-              <span id="timer" class="info-value text-lg sm:text-xl font-bold text-white">60</span>
-            </div>
-            <div class="info-box bg-slate-800 px-2 sm:px-3 py-0.5 rounded-lg">
-              <span class="info-label block text-[10px] text-slate-400">Score</span>
-              <span id="score" class="info-value text-lg sm:text-xl font-bold text-white">0</span>
-            </div>
-          </div>
-
-          <div class="session-toolbar order-3 flex w-full flex-wrap items-start justify-end gap-1.5 sm:w-auto sm:flex-nowrap sm:items-center sm:justify-self-end sm:justify-normal">
+      <div id="legacySessionHosts" class="hidden" aria-hidden="true">
+        <div id="topPromptHost">
+          <div id="promptContainer" class="prompt-container min-w-0 flex items-center justify-center gap-2 sm:gap-3">
             <div
-              class="session-status order-2 basis-full min-w-0 flex flex-col items-start gap-0 bg-slate-800/90 border border-slate-600 rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] sm:order-none sm:basis-auto sm:min-w-[320px] sm:flex-row sm:items-center sm:gap-2"
-              role="status"
-            >
-              <div class="flex items-center gap-1 min-w-0">
-                <span id="statusBar" class="text-slate-200 font-semibold truncate max-w-[220px] sm:max-w-[190px]">Ready</span>
-              </div>
-              <div class="hidden sm:flex items-center gap-1 text-[10px] min-w-0">
-                <span id="inputStatusBar" class="text-slate-400 truncate max-w-[220px] sm:max-w-[138px]">
-                  Mic: Default
-                </span>
-              </div>
-            </div>
+              class="prompt text-lg sm:text-2xl md:text-[1.7rem] font-bold min-h-[30px] sm:min-h-[34px] min-w-0 flex items-center justify-center text-center px-1.5 leading-tight"
+              id="prompt"
+              aria-live="polite"
+            ></div>
             <button
-              id="settingsBtn"
-              class="order-1 shrink-0 bg-slate-500 hover:bg-slate-600 text-white font-semibold w-10 h-10 rounded-md flex items-center justify-center transition-colors sm:order-none"
-              aria-label="Open app settings"
-              title="App Settings"
+              id="playSoundBtn"
+              class="sound-btn border-2 border-slate-400 text-slate-400 rounded-full w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer transition-colors hover:enabled:bg-slate-600 hover:enabled:border-slate-600 hover:enabled:text-white disabled:border-slate-600 disabled:text-slate-600 disabled:cursor-not-allowed"
+              disabled
+              aria-label="Play note sound"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="currentColor"
-                class="h-5 w-5"
-                aria-hidden="true"
+                class="w-5 h-5 sm:w-6 sm:h-6"
               >
-                <path d="M10.325 4.317a1 1 0 0 1 .95-.69h1.45a1 1 0 0 1 .95.69l.262.806a1 1 0 0 0 .95.69h.847a1 1 0 0 0 .707-.293l.62-.62a1 1 0 0 1 1.414 0l1.025 1.025a1 1 0 0 1 0 1.414l-.62.62a1 1 0 0 0-.293.707v.847a1 1 0 0 0 .69.95l.806.262a1 1 0 0 1 .69.95v1.45a1 1 0 0 1-.69.95l-.806.262a1 1 0 0 0-.69.95v.847a1 1 0 0 0 .293.707l.62.62a1 1 0 0 1 0 1.414l-1.025 1.025a1 1 0 0 1-1.414 0l-.62-.62a1 1 0 0 0-.707-.293h-.847a1 1 0 0 0-.95.69l-.262.806a1 1 0 0 1-.95.69h-1.45a1 1 0 0 1-.95-.69l-.262-.806a1 1 0 0 0-.95-.69h-.847a1 1 0 0 0-.707.293l-.62.62a1 1 0 0 1-1.414 0L4.95 18.78a1 1 0 0 1 0-1.414l.62-.62a1 1 0 0 0 .293-.707v-.847a1 1 0 0 0-.69-.95l-.806-.262a1 1 0 0 1-.69-.95v-1.45a1 1 0 0 1 .69-.95l.806-.262a1 1 0 0 0 .69-.95v-.847a1 1 0 0 0-.293-.707l-.62-.62a1 1 0 0 1 0-1.414L5.975 4.89a1 1 0 0 1 1.414 0l.62.62a1 1 0 0 0 .707.293h.847a1 1 0 0 0 .95-.69l.262-.806ZM12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" />
+                <path
+                  d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                ></path>
               </svg>
             </button>
           </div>
         </div>
-
-        <div class="controls-row w-full max-w-[70rem] mx-auto grid grid-cols-1 sm:grid-cols-[auto,minmax(0,1fr)] gap-1.5 sm:gap-3 items-center">
-          <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-            <div id="sessionPrimaryActionHost" class="order-1 flex items-center justify-end gap-1.5 sm:order-2 sm:ml-auto">
-              <div id="sessionPrimaryActionControls" class="flex items-center gap-1.5">
-                <button
-                  id="sessionToggleBtn"
-                  class="ff-top-toolbar-btn ff-session-start-btn border border-blue-500/80 bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-slate-500/80 disabled:bg-slate-600 disabled:text-slate-300"
-                >
-                  Start Session
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="hidden" aria-hidden="true">
+        <div id="sessionPrimaryActionHost">
+          <div id="sessionPrimaryActionControls" class="flex items-center gap-1.5">
             <button
-              id="startSessionHelpBtn"
-              type="button"
-              class="hidden"
-              tabindex="-1"
-              aria-hidden="true"
-              aria-label="Help for starting a session"
-              title="Help for starting a session"
-            >
-              ?
-            </button>
-            <button
-              id="startBtn"
-              class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+              id="sessionToggleBtn"
+              class="ff-top-toolbar-btn ff-session-start-btn" data-session-state="start"
             >
               Start Session
             </button>
-            <button
-              id="stopBtn"
-              class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
-              disabled
-            >
-              Stop Session
-            </button>
-          </div>
-          <div
-            id="sessionInlineFeedback"
-            class="session-inline-feedback min-w-0 h-8 sm:h-9 flex items-center gap-1.5 sm:gap-2 rounded-md border border-slate-600/70 bg-slate-800/70 px-1.5 sm:px-2.5"
-            aria-live="polite"
-          >
-            <div
-              class="result min-w-0 shrink text-[13px] sm:text-sm leading-4 truncate"
-              id="result"
-            ></div>
-            <div id="sessionInlineDivider" class="h-3.5 w-px bg-slate-600/80 shrink-0"></div>
-            <div
-              class="note-info-container min-w-0 flex flex-nowrap items-center gap-x-1.5 sm:gap-x-3 overflow-hidden text-[10px] leading-3.5 text-slate-400 font-medium"
-            >
-              <span id="infoSlot1" class="truncate whitespace-nowrap empty:hidden"></span>
-              <span id="infoSlot2" class="truncate whitespace-nowrap empty:hidden"></span>
-              <span id="infoSlot3" class="truncate whitespace-nowrap empty:hidden"></span>
-            </div>
           </div>
         </div>
-
-        <div
-          id="sessionGoalProgress"
-          class="w-full hidden text-[10px] leading-3.5 text-emerald-200 bg-emerald-900/20 border border-emerald-700/35 rounded-md px-2 py-0.5"
-          aria-live="polite"
-        ></div>
+        <button
+          id="startSessionHelpBtn"
+          type="button"
+          class="hidden"
+          tabindex="-1"
+          aria-hidden="true"
+          aria-label="Help for starting a session"
+          title="Help for starting a session"
+        >
+          ?
+        </button>
+        <button
+          id="startBtn"
+          class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+        >
+          Start Session
+        </button>
+        <button
+          id="stopBtn"
+          class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
+          disabled
+        >
+          Stop Session
+        </button>
       </div>
 
       <div id="learningControls" class="learning-controls px-3 py-1.5 bg-slate-700 rounded-lg shrink-0 text-[10px]">
-        <div class="flex items-center justify-between flex-wrap gap-3">
+        <div id="learningControlsTopRow" class="flex items-center justify-between flex-wrap gap-3">
           <div class="min-w-0 flex flex-1 flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center xl:gap-0">
             <div
               id="workflowSwitcher"
@@ -311,7 +233,7 @@
                   >
                     <input id="melodyLoopRange" type="checkbox" class="sr-only peer" />
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4 text-slate-300 peer-checked:text-amber-200" aria-hidden="true">
-                      <path d="M17 7V4l4 4-4 4V9H9a4 4 0 0 0 0 8h2v2H9A6 6 0 1 1 9 7h8Zm-2 8v-3h8v2h-6v3l-4-4 4-4v3h2a6 6 0 1 1 0 12h-8v-2h8a4 4 0 1 0 0-8h-2Z" />
+                      <path fill-rule="evenodd" d="M12 5.25a6 6 0 0 0-6 6 .75.75 0 0 1-1.5 0A7.5 7.5 0 0 1 12 3.75h5.69l-2.47-2.47a.75.75 0 1 1 1.06-1.06l3.75 3.75a.75.75 0 0 1 0 1.06l-3.75 3.75a.75.75 0 0 1-1.06-1.06l2.47-2.47H12Zm6 6.75a.75.75 0 0 1 1.5 0A7.5 7.5 0 0 1 12 19.5H6.31l2.47 2.47a.75.75 0 1 1-1.06 1.06l-3.75-3.75a.75.75 0 0 1 0-1.06l3.75-3.75a.75.75 0 0 1 1.06 1.06l-2.47 2.47H12a6 6 0 0 0 6-6Z" clip-rule="evenodd" />
                     </svg>
                     <span class="peer-checked:text-amber-100">Loop</span>
                   </label>
@@ -432,6 +354,18 @@
               id="learnNotesSessionActionHost"
               class="ff-panel-shell ff-top-panel hidden items-center justify-start xl:flex-none"
             ></div>
+            <div id="learnNotesTimedInfoHost" class="items-center justify-start xl:flex-none">
+              <div id="timedInfo" class="ff-panel-shell ff-top-panel hidden items-center gap-1 xl:flex-none" aria-live="polite">
+                <div class="info-box ff-timed-stat">
+                  <span class="info-label">Time</span>
+                  <span id="timer" class="info-value">60</span>
+                </div>
+                <div class="info-box ff-timed-stat">
+                  <span class="info-label">Score</span>
+                  <span id="score" class="info-value">0</span>
+                </div>
+              </div>
+            </div>
             <div
               id="uiModeSwitcher"
               class="hidden"
@@ -535,6 +469,29 @@
                 class="truncate min-w-0 max-w-[22rem]"
               ></div>
             </div>
+          </div>
+          <div id="settingsControlsHost" class="ff-panel-shell ff-top-panel flex items-center justify-center self-start justify-self-end xl:flex-none">
+            <button
+              id="settingsBtn"
+              class="ff-top-toolbar-btn"
+              aria-label="Open app settings"
+              title="App Settings"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-4 w-4"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -834,10 +791,46 @@
                 <div id="sessionToolsAutoPlayPromptSoundHost" class="flex items-center">
                   <label
                     id="sessionToolsAutoPlayPromptSoundRow"
-                    class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-500 bg-slate-700 px-2.5 text-[11px] text-slate-200 cursor-pointer"
+                    class="playback-control-btn inline-flex cursor-pointer items-center gap-1 border border-slate-500 bg-slate-700 text-slate-100 transition-colors hover:bg-slate-600"
+                    title="Play the prompt sound automatically for the current note"
+                    aria-label="Play the prompt sound automatically for the current note"
                   >
-                    <input type="checkbox" id="autoPlayPromptSound" class="h-3.5 w-3.5 accent-cyan-500" checked />
-                    Play Prompt Sound
+                    <input id="autoPlayPromptSound" type="checkbox" class="sr-only" checked />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      class="prompt-sound-eye-open h-4 w-4 text-cyan-200"
+                      aria-hidden="true"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      class="prompt-sound-eye-closed h-4 w-4 text-slate-300"
+                      aria-hidden="true"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M10.58 10.58A2 2 0 0 0 10 12a2 2 0 0 0 3.42 1.42" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.88 5.09A10.94 10.94 0 0 1 12 4.88c6 0 9.75 7.12 9.75 7.12a17.28 17.28 0 0 1-3.04 3.93" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6.61 6.61A17.8 17.8 0 0 0 2.25 12s3.75 7.12 9.75 7.12a10.7 10.7 0 0 0 4.25-.88" />
+                    </svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      class="h-4 w-4 text-amber-200"
+                      aria-hidden="true"
+                    >
+                      <path d="M16.5 3.75a.75.75 0 0 0-1.5 0v8.087a3.75 3.75 0 1 0 1.5 3.006V8.43l3.22-.92a.75.75 0 1 0-.412-1.442l-2.808.802V3.75Z" />
+                    </svg>
                   </label>
                 </div>
                 <label id="sessionToolsPitchMatchRow" class="session-setting-chip inline-flex items-center gap-1">
@@ -1080,8 +1073,28 @@
           aria-label="Timeline minimap"
         ></div>
       </div>
+      <div id="statusDock" class="status-dock shrink-0 px-2 sm:px-3 py-1.5">
+        <div class="status-dock-row">
+          <div class="status-dock-primary" role="status">
+            <span id="statusBar" class="text-slate-200 font-semibold truncate">Ready</span>
+            <span id="inputStatusBar" class="text-slate-400 truncate">Mic: Default</span>
+          </div>
+          <div id="sessionInlineFeedback" class="status-inline-feedback" aria-live="polite">
+            <div class="result min-w-0 shrink text-[13px] sm:text-sm leading-4 truncate" id="result"></div>
+            <div id="sessionInlineDivider" class="h-3.5 w-px bg-slate-600/80 shrink-0"></div>
+            <div class="note-info-container min-w-0 flex flex-nowrap items-center gap-x-1.5 sm:gap-x-3 overflow-hidden text-[10px] leading-3.5 text-slate-400 font-medium">
+              <span id="infoSlot1" class="truncate whitespace-nowrap empty:hidden"></span>
+              <span id="infoSlot2" class="truncate whitespace-nowrap empty:hidden"></span>
+              <span id="infoSlot3" class="truncate whitespace-nowrap empty:hidden"></span>
+            </div>
+          </div>
+        </div>
+        <div id="sessionGoalProgress" class="w-full hidden text-[10px] leading-3.5 text-emerald-200 bg-emerald-900/20 border border-emerald-700/35 rounded-md px-2 py-0.5" aria-live="polite"></div>
+      
+    </div>
 
     </div>
+
 
     <div
       id="loadingOverlay"
@@ -2718,6 +2731,16 @@
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
+
+
+
+
+
+
+
+
+
+
 
 
 

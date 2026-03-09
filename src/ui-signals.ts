@@ -234,6 +234,15 @@ function renderTrainingModeWorkflowOptions(workflow: UiWorkflow) {
 }
 
 function renderPracticeSetupCollapsed(collapsed: boolean) {
+  const layout = resolveCurrentWorkflowLayout(trainingModeUiSignal.get(), uiWorkflowSignal.get());
+  if (!layout.showPracticeSetup) {
+    dom.practiceSetupPanel.classList.add('hidden');
+    dom.practiceSetupPanel.style.display = 'none';
+    dom.practiceSetupToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.practiceSetupChevron.textContent = '>';
+    setPanelToggleVisualState(dom.practiceSetupToggleBtn, false);
+    return;
+  }
   dom.practiceSetupPanel.classList.toggle('hidden', collapsed);
   dom.practiceSetupPanel.style.display = collapsed ? 'none' : 'flex';
   dom.practiceSetupToggleBtn.setAttribute('aria-expanded', String(!collapsed));
@@ -262,6 +271,20 @@ function renderPracticeSetupModeVisibility(workflow: UiWorkflow) {
 }
 
 function renderMelodySetupCollapsed(collapsed: boolean) {
+  const layout = resolveCurrentWorkflowLayout(trainingModeUiSignal.get(), uiWorkflowSignal.get());
+  const showMelodySetup =
+    layout.showMelodySetup &&
+    (layout.showMelodyActionControls ||
+      layout.showMelodyPracticeControls ||
+      layout.showEditingToolsControls);
+  if (!showMelodySetup) {
+    dom.melodySetupPanel.classList.add('hidden');
+    dom.melodySetupPanel.style.display = 'none';
+    dom.melodySetupToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.melodySetupChevron.textContent = '>';
+    setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
+    return;
+  }
   if (dom.melodySetupToggleBtn.classList.contains('hidden')) {
     dom.melodySetupPanel.classList.add('hidden');
     dom.melodySetupPanel.style.display = 'none';
@@ -278,6 +301,16 @@ function renderMelodySetupCollapsed(collapsed: boolean) {
 }
 
 function renderSessionToolsCollapsed(collapsed: boolean) {
+  const layout = resolveCurrentWorkflowLayout(trainingModeUiSignal.get(), uiWorkflowSignal.get());
+  const hideSessionTools = !layout.showSessionTools || !layout.showSessionToolsContent;
+  if (hideSessionTools) {
+    dom.sessionToolsPanel.classList.add('hidden');
+    dom.sessionToolsPanel.style.display = 'none';
+    dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'false');
+    dom.sessionToolsChevron.textContent = '>';
+    setPanelToggleVisualState(dom.sessionToolsToggleBtn, false);
+    return;
+  }
   if (dom.sessionToolsToggleBtn.classList.contains('hidden')) {
     dom.sessionToolsPanel.classList.add('hidden');
     dom.sessionToolsPanel.style.display = 'none';
@@ -724,12 +757,11 @@ function syncSessionToggleButton() {
   );
   const startActionDisabled = hideStartActions ? true : startDisabled || isLoading;
   dom.sessionToggleBtn.disabled = isStopMode ? stopDisabled : startActionDisabled;
-  dom.sessionToggleBtn.classList.toggle('bg-red-600', isStopMode);
-  dom.sessionToggleBtn.classList.toggle('hover:bg-red-700', isStopMode);
-  dom.sessionToggleBtn.classList.toggle('bg-blue-600', !isStopMode);
-  dom.sessionToggleBtn.classList.toggle('hover:bg-blue-700', !isStopMode);
+  dom.sessionToggleBtn.dataset.sessionState = isStopMode ? 'stop' : 'start';
   dom.sessionToggleBtn.classList.toggle('hidden', hideStartActions);
+  dom.sessionToggleBtn.style.display = hideStartActions ? 'none' : 'flex';
   dom.startSessionHelpBtn.classList.toggle('hidden', hideStartActions);
+  dom.startSessionHelpBtn.style.display = hideStartActions ? 'none' : '';
 }
 
 function renderHintButtonVisibility(mode: string, workflow: UiWorkflow) {
@@ -747,6 +779,13 @@ function renderLearnNotesPromptVisibility(workflow: UiWorkflow) {
   const showLearnNotesPrompt = workflow === 'learn-notes' && sessionActive && hasPromptText;
   dom.learnNotesPromptHost.classList.toggle('hidden', !showLearnNotesPrompt);
   dom.learnNotesPromptHost.style.display = showLearnNotesPrompt ? 'flex' : 'none';
+}
+
+function renderTimedInfoVisibility(mode: string, workflow: UiWorkflow) {
+  const sessionActive = !sessionButtonsSignal.get().stopDisabled;
+  const showTimedInfo = workflow === 'learn-notes' && mode === 'timed' && sessionActive && timedInfoVisibleSignal.get();
+  dom.timedInfo.classList.toggle('hidden', !showTimedInfo);
+  dom.timedInfo.style.display = showTimedInfo ? 'inline-flex' : 'none';
 }
 
 function renderWorkflowUiCopy(workflow: UiWorkflow) {
@@ -772,6 +811,7 @@ function renderWorkflowUiCopy(workflow: UiWorkflow) {
   renderUiModeVisibility(uiModeSignal.get());
   renderHintButtonVisibility(trainingModeUiSignal.get(), workflow);
   renderLearnNotesPromptVisibility(workflow);
+  renderTimedInfoVisibility(trainingModeUiSignal.get(), workflow);
   renderPlaybackControlsModeVisibility(trainingModeUiSignal.get(), workflow);
   renderDisplayControlsModeVisibility(trainingModeUiSignal.get(), workflow);
   syncSessionToggleButton();
@@ -866,6 +906,7 @@ export function bindUiSignals() {
       syncSessionToggleButton();
       renderHintButtonVisibility(trainingModeUiSignal.get(), uiWorkflowSignal.get());
       renderLearnNotesPromptVisibility(uiWorkflowSignal.get());
+      renderTimedInfoVisibility(trainingModeUiSignal.get(), uiWorkflowSignal.get());
     }
   );
 
@@ -910,6 +951,7 @@ export function bindUiSignals() {
       !visibility.showArpeggioPatternSelector
     );
     renderHintButtonVisibility(mode, workflow);
+    renderTimedInfoVisibility(mode, workflow);
     dom.volumeSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
     dom.tunerSection.classList.toggle('hidden', !visibility.showFretboardMonitoring);
     dom.metronomeQuickControls.classList.add('hidden');
@@ -936,6 +978,7 @@ export function bindUiSignals() {
     renderPlaybackControlsModeVisibility(trainingModeUiSignal.get(), workflow);
     renderDisplayControlsModeVisibility(trainingModeUiSignal.get(), workflow);
     renderSessionToolsModeVisibility(trainingModeUiSignal.get(), workflow);
+    renderTimedInfoVisibility(trainingModeUiSignal.get(), workflow);
   });
 
   uiModeSignal.subscribe((uiMode) => {
@@ -1046,12 +1089,8 @@ export function bindUiSignals() {
     }
   });
 
-  timedInfoVisibleSignal.subscribe((isVisible) => {
-    if (isVisible) {
-      dom.timedInfo.classList.remove('hidden');
-    } else {
-      dom.timedInfo.classList.add('hidden');
-    }
+  timedInfoVisibleSignal.subscribe(() => {
+    renderTimedInfoVisibility(trainingModeUiSignal.get(), uiWorkflowSignal.get());
   });
 
   sessionGoalProgressSignal.subscribe((text) => {
@@ -1322,5 +1361,11 @@ export function refreshDisplayFormatting() {
   dom.sessionGoalProgress.textContent = goalProgressText;
   dom.sessionGoalProgress.classList.toggle('hidden', goalProgressText.length === 0);
 }
+
+
+
+
+
+
 
 

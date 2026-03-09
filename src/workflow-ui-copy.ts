@@ -68,8 +68,8 @@ export function getWorkflowUiCopy(workflow: UiWorkflow): WorkflowUiCopy {
 
   if (workflow === 'library') {
     return {
-      primaryActionLabel: 'Open Editor',
-      primaryActionAriaLabel: 'Open the melody editor workflow',
+      primaryActionLabel: '',
+      primaryActionAriaLabel: '',
       melodySetupLabelMobile: 'Library',
       melodySetupLabelDesktop: 'Library',
       sessionToolsLabelMobile: 'Library',
@@ -80,8 +80,8 @@ export function getWorkflowUiCopy(workflow: UiWorkflow): WorkflowUiCopy {
 
   if (workflow === 'editor') {
     return {
-      primaryActionLabel: 'Create Melody',
-      primaryActionAriaLabel: 'Create or import a custom melody',
+      primaryActionLabel: '',
+      primaryActionAriaLabel: '',
       melodySetupLabelMobile: 'Editor',
       melodySetupLabelDesktop: 'Editor',
       sessionToolsLabelMobile: 'Editor',
@@ -205,3 +205,4 @@ export function getTrainingModeFieldCopy(workflow: UiWorkflow): TrainingModeFiel
     fieldHintPrefix: 'Mode',
   };
 }
+

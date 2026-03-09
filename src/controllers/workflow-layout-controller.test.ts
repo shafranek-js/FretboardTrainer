@@ -85,6 +85,8 @@ function createDeps(overrides?: {
   showScrollingTab?: boolean;
 }) {
   const dom = {
+    learningControls: createElement({ dataset: {} }) as unknown as HTMLElement,
+    practiceSetupPanel: createElement() as unknown as HTMLElement,
     trainingMode: createElement({ value: overrides?.trainingMode ?? 'random' }) as unknown as HTMLSelectElement,
     topPromptHost: createElement() as unknown as HTMLElement,
     promptContainer: createElement() as unknown as HTMLElement,
@@ -187,7 +189,7 @@ describe('workflow-layout-controller', () => {
     controller.applyUiWorkflowLayout('study-melody');
 
     expect(deps.syncRecommendedDefaultsUi).toHaveBeenCalledTimes(1);
-    expect(dom.sessionToolsAutoPlayPromptSoundRow.parentElement).toBe(dom.playbackPromptSoundHost);
+    expect(dom.sessionToolsAutoPlayPromptSoundRow.parentElement).toBe(dom.sessionToolsAutoPlayPromptSoundHost);
     expect(dom.promptContainer.parentElement).toBe(dom.topPromptHost);
     expect(dom.sessionPrimaryActionControls.parentElement).toBe(dom.playbackSessionActionHost);
     expect(dom.sessionToolsShowAllNotesRow.parentElement).toBe(dom.sessionToolsLearnNotesLayoutControlsHost);
@@ -222,6 +224,17 @@ describe('workflow-layout-controller', () => {
     expect(deps.updatePracticeSetupSummary).toHaveBeenCalledTimes(1);
   });
 
+  it('force-hides practice setup when switching away from learn-notes', () => {
+    const { deps, dom } = createDeps({ trainingMode: 'melody', uiWorkflow: 'library' });
+    const controller = createWorkflowLayoutController(deps);
+
+    controller.applyUiWorkflow('practice');
+
+    expect((dom.practiceSetupPanel as unknown as { classList: FakeClassList }).classList.contains('hidden')).toBe(true);
+    expect(dom.practiceSetupPanel.style.display).toBe('none');
+    expect((dom.learningControls as unknown as { dataset: Record<string, string> }).dataset.panelLayout).toBe('default');
+  });
+
   it('shows the editor empty state when no melody is selected', () => {
     const { deps, dom } = createDeps({
       trainingMode: 'melody',
@@ -240,4 +253,6 @@ describe('workflow-layout-controller', () => {
     expect(dom.editingToolsSection.style.display).toBe('none');
   });
 });
+
+
 

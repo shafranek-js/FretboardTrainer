@@ -31,6 +31,7 @@ describe('workflow-layout', () => {
     expect(layout.showDisplayControls).toBe(true);
     expect(layout.showPlaybackQuickControls).toBe(true);
     expect(layout.showMelodyNoteHintDisplayControl).toBe(true);
+    expect(layout.showPlaybackPromptSoundControl).toBe(false);
     expect(layout.showTimelineZoomControl).toBe(false);
     expect(layout.showScrollingZoomControl).toBe(true);
     expect(layout.showAnyZoomControl).toBe(true);

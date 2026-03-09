@@ -58,7 +58,7 @@ export function resolveWorkflowLayout(options: ResolveWorkflowLayoutOptions): Wo
   const showMelodyPracticeControls = false;
   const showEditingToolsControls = workflow === 'editor';
   const showPlaybackQuickControls = workflow === 'study-melody' || workflow === 'practice' || workflow === 'perform';
-  const showPlaybackPromptSoundControl = showPlaybackQuickControls;
+  const showPlaybackPromptSoundControl = workflow === 'practice' || workflow === 'perform';
   const showMelodyNoteHintDisplayControl = showPlaybackQuickControls;
   const showMelodyDisplayControls = workflow !== 'learn-notes';
   const showLayoutZoomControls = workflow !== 'learn-notes';

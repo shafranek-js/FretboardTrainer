@@ -1098,6 +1098,7 @@ const workflowLayoutControlsController = createWorkflowLayoutControlsController(
   state,
   toggleLayoutControlsExpanded,
   stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
+  stopListening,
   applyUiWorkflow: (workflow) => workflowController.applyUiWorkflow(workflow),
   saveSettings,
   setUiMode,
@@ -1356,6 +1357,7 @@ export function registerSessionControls() {
   registerConfirmControls();
   registerProfileControls();
 }
+
 
 
 

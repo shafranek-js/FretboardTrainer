@@ -41,7 +41,7 @@ describe('session-tools-visibility', () => {
     expect(view.showActiveStringsSection).toBe(false);
     expect(view.showShowAllNotesRow).toBe(false);
     expect(view.showShowStringTogglesRow).toBe(false);
-    expect(view.showAutoPlayPromptSoundRow).toBe(true);
+    expect(view.showAutoPlayPromptSoundRow).toBe(false);
     expect(view.showPitchMatchRow).toBe(false);
     expect(view.showMicLatencyRow).toBe(false);
   });

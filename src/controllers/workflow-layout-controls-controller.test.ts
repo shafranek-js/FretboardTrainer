@@ -14,6 +14,7 @@ function createButton() {
 function createDeps(overrides?: {
   uiWorkflow?: 'learn-notes' | 'study-melody' | 'practice' | 'perform' | 'library' | 'editor';
   starterMelodyId?: string | null;
+  isListening?: boolean;
 }) {
   const dom = {
     layoutToggleBtn: createButton(),
@@ -34,9 +35,11 @@ function createDeps(overrides?: {
     state: {
       uiWorkflow: overrides?.uiWorkflow ?? 'learn-notes',
       uiMode: 'simple' as const,
+      isListening: overrides?.isListening ?? false,
     },
     toggleLayoutControlsExpanded: vi.fn(),
     stopMelodyDemoPlayback: vi.fn(),
+    stopListening: vi.fn(),
     applyUiWorkflow: vi.fn(),
     saveSettings: vi.fn(),
     setUiMode: vi.fn(),
@@ -49,6 +52,30 @@ function createDeps(overrides?: {
 }
 
 describe('workflow-layout-controls-controller', () => {
+
+  it('stops an active session before switching to another workflow', () => {
+    const { deps, dom } = createDeps({ uiWorkflow: 'learn-notes', isListening: true });
+    const controller = createWorkflowLayoutControlsController(deps);
+
+    controller.register();
+    dom.workflowPracticeBtn.listeners.click();
+
+    expect(deps.stopListening).toHaveBeenCalledTimes(1);
+    expect(deps.stopMelodyDemoPlayback).toHaveBeenCalledWith({ clearUi: true });
+    expect(deps.applyUiWorkflow).toHaveBeenCalledWith('practice');
+  });
+
+  it('does not stop the session when re-clicking the active workflow', () => {
+    const { deps, dom } = createDeps({ uiWorkflow: 'practice', isListening: true });
+    const controller = createWorkflowLayoutControlsController(deps);
+
+    controller.register();
+    dom.workflowPracticeBtn.listeners.click();
+
+    expect(deps.stopListening).not.toHaveBeenCalled();
+    expect(deps.applyUiWorkflow).toHaveBeenCalledWith('practice');
+  });
+
   it('wires layout toggle and workflow buttons', () => {
     const { deps, dom } = createDeps();
     const controller = createWorkflowLayoutControlsController(deps);
@@ -115,3 +142,5 @@ describe('workflow-layout-controls-controller', () => {
     expect(withoutStarter.deps.selectMelodyById).not.toHaveBeenCalled();
   });
 });
+
+

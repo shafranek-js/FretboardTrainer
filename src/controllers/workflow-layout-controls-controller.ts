@@ -18,6 +18,7 @@ interface WorkflowLayoutControlsDom {
 interface WorkflowLayoutControlsState {
   uiWorkflow: UiWorkflow;
   uiMode: UiMode;
+  isListening: boolean;
 }
 
 export interface WorkflowLayoutControlsControllerDeps {
@@ -25,6 +26,7 @@ export interface WorkflowLayoutControlsControllerDeps {
   state: WorkflowLayoutControlsState;
   toggleLayoutControlsExpanded: () => void;
   stopMelodyDemoPlayback: (options: { clearUi: boolean }) => void;
+  stopListening: () => void;
   applyUiWorkflow: (workflow: UiWorkflow) => void;
   saveSettings: () => void;
   setUiMode: (uiMode: UiMode) => void;
@@ -38,6 +40,10 @@ export function createWorkflowLayoutControlsController(
 ) {
   function registerWorkflowButton(button: HTMLButtonElement, workflow: UiWorkflow) {
     button.addEventListener('click', () => {
+      const isWorkflowChange = deps.state.uiWorkflow !== workflow;
+      if (isWorkflowChange && deps.state.isListening) {
+        deps.stopListening();
+      }
       deps.stopMelodyDemoPlayback({ clearUi: true });
       deps.applyUiWorkflow(workflow);
       deps.saveSettings();
@@ -89,3 +95,4 @@ export function createWorkflowLayoutControlsController(
 
   return { register };
 }
+
