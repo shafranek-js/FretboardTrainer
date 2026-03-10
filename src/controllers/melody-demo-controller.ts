@@ -59,6 +59,7 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
   let seekResumeMode: 'playing' | 'paused' | null = null;
   let playbackBaseTimeSec = 0;
   let currentEventStartedAtMs: number | null = null;
+  let currentEventDurationMs = 0;
   let pausedOffsetSec = 0;
 
   function isActive() {
@@ -388,6 +389,49 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     }, firstStepDelayMs);
   }
 
+  function retimePlayback() {
+    if (!isPlaying || currentEventStartedAtMs === null) return false;
+    const selection = deps.getSelection();
+    if (!selection) return false;
+
+    const { melody, studyRange } = selection;
+    const currentIndex = Math.max(
+      studyRange.startIndex,
+      Math.min(studyRange.endIndex, nextEventIndex - 1)
+    );
+    const currentEvent = melody.events[currentIndex];
+    if (!currentEvent) return false;
+
+    const previousDurationMs = Math.max(1, currentEventDurationMs || deps.getStepDelayMs(currentEvent, melody.events));
+    const elapsedMs = Math.max(0, Date.now() - currentEventStartedAtMs);
+    const progress = Math.max(0, Math.min(1, elapsedMs / previousDurationMs));
+    currentEventDurationMs = deps.getStepDelayMs(currentEvent, melody.events);
+    playbackBaseTimeSec = getElapsedSecondsBeforeEvent(selection, currentIndex);
+    pausedOffsetSec = 0;
+    currentEventStartedAtMs = Date.now() - Math.round(progress * currentEventDurationMs);
+
+    deps.onPlaybackCursorChange({
+      active: true,
+      paused: false,
+      baseTimeSec: playbackBaseTimeSec,
+      anchorStartedAtMs: currentEventStartedAtMs,
+      pausedOffsetSec: 0,
+    });
+
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+
+    const remainingMs = Math.max(0, Math.round(currentEventDurationMs * (1 - progress)));
+    const resumeToken = ++runToken;
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      if (!isPlaying || isPaused || resumeToken !== runToken) return;
+      startPlaybackFromIndex(selection, currentIndex + 1);
+    }, remainingMs);
+    return true;
+  }
   function shouldHandleHotkeys() {
     return isPlaying || isPaused;
   }
@@ -400,9 +444,14 @@ export function createMelodyDemoController(deps: MelodyDemoControllerDeps) {
     seekToEvent,
     stepPreview,
     startPlayback,
+    retimePlayback,
     shouldHandleHotkeys,
     isActive,
     isPlaying: () => isPlaying,
     isPaused: () => isPaused,
   };
 }
+
+
+
+

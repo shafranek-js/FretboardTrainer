@@ -36,7 +36,7 @@ class FakeClassList {
 
 function createDeps(overrides?: { trainingMode?: string; enabled?: boolean }) {
   const beatHandlers: Array<
-    (payload: { beatInBar: number; accented: boolean; secondaryAccented?: boolean }) => void
+    (payload: { beatInBar: number; beatIndex: number; timestampMs: number; accented: boolean; secondaryAccented?: boolean }) => void
   > = [];
   const deps = {
     dom: {

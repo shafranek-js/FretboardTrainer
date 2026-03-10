@@ -49,6 +49,7 @@ export interface MelodySetupControlsControllerDeps {
   clampMelodyDemoBpmInput: () => void;
   persistSelectedMelodyTempoOverride: () => void;
   syncMetronomeTempoFromMelodyIfLinked: () => Promise<void>;
+  retimeMelodyDemoPlayback: () => boolean;
   getSelectedMelodyEventCount: () => number | null;
 }
 
@@ -119,6 +120,7 @@ export function createMelodySetupControlsController(deps: MelodySetupControlsCon
   function handleMelodyDemoBpmChange() {
     deps.clampMelodyDemoBpmInput();
     deps.persistSelectedMelodyTempoOverride();
+    deps.retimeMelodyDemoPlayback();
     void deps.syncMetronomeTempoFromMelodyIfLinked();
     deps.saveSettings();
   }
@@ -180,3 +182,4 @@ export function createMelodySetupControlsController(deps: MelodySetupControlsCon
     register,
   };
 }
+

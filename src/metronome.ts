@@ -19,7 +19,11 @@ let metronomeBeatUnitDenominator = DEFAULT_METRONOME_BEAT_UNIT_DENOMINATOR;
 let metronomeSecondaryAccentBeatIndices: number[] = [];
 let metronomeLastBeatAtMs: number | null = null;
 let metronomeNextTickAtMs: number | null = null;
+let metronomeNextBeatTimeSec: number | null = null;
+let metronomeAudioPerfOffsetMs: number | null = null;
 const METRONOME_ALIGNMENT_TOLERANCE_MS = 1;
+const METRONOME_SCHEDULER_LOOKAHEAD_MS = 25;
+const METRONOME_SCHEDULE_AHEAD_SEC = 0.1;
 type MetronomeBeatListener = (payload: {
   beatInBar: number;
   beatIndex: number;
@@ -28,6 +32,15 @@ type MetronomeBeatListener = (payload: {
   secondaryAccented?: boolean;
 }) => void;
 const metronomeBeatListeners = new Set<MetronomeBeatListener>();
+type ScheduledMetronomeClick = {
+  source: AudioBufferSourceNode | null;
+  gain: GainNode | null;
+  startTimeSec: number;
+  uiTimeoutId: number | null;
+};
+const scheduledMetronomeClicks = new Set<ScheduledMetronomeClick>();
+let metronomeAccentedClickBuffer: AudioBuffer | null = null;
+let metronomeRegularClickBuffer: AudioBuffer | null = null;
 
 export function clampMetronomeBpm(bpm: number) {
   if (!Number.isFinite(bpm)) return 80;
@@ -115,31 +128,61 @@ export function setMetronomeVolume(nextVolumePercent: number) {
   return metronomeVolumePercent;
 }
 
-function playMetronomeClick(audioContext: AudioContext, accented: boolean) {
+function resetMetronomeClickBuffers() {
+  metronomeAccentedClickBuffer = null;
+  metronomeRegularClickBuffer = null;
+}
+
+function createMetronomeClickBuffer(audioContext: AudioContext, accented: boolean) {
+  const durationSec = 0.06;
+  const frameCount = Math.max(1, Math.round(audioContext.sampleRate * durationSec));
+  const buffer = audioContext.createBuffer(1, frameCount, audioContext.sampleRate);
+  const channel = buffer.getChannelData(0);
+  const baseFrequency = accented ? 1760 : 1320;
+  const peakAmplitude = accented ? 0.12 : 0.08;
+
+  for (let index = 0; index < frameCount; index += 1) {
+    const timeSec = index / audioContext.sampleRate;
+    const envelope = Math.exp(-timeSec * 52);
+    channel[index] = Math.sin(2 * Math.PI * baseFrequency * timeSec) * peakAmplitude * envelope;
+  }
+
+  return buffer;
+}
+
+function getMetronomeClickBuffer(audioContext: AudioContext, accented: boolean) {
+  if (accented) {
+    if (!metronomeAccentedClickBuffer || metronomeAccentedClickBuffer.sampleRate !== audioContext.sampleRate) {
+      metronomeAccentedClickBuffer = createMetronomeClickBuffer(audioContext, true);
+    }
+    return metronomeAccentedClickBuffer;
+  }
+  if (!metronomeRegularClickBuffer || metronomeRegularClickBuffer.sampleRate !== audioContext.sampleRate) {
+    metronomeRegularClickBuffer = createMetronomeClickBuffer(audioContext, false);
+  }
+  return metronomeRegularClickBuffer;
+}
+
+function playMetronomeClick(audioContext: AudioContext, accented: boolean, startTimeSec = audioContext.currentTime) {
   const linearGain = metronomeVolumePercent / 100;
-  if (linearGain <= 0) return;
+  if (linearGain <= 0) {
+    return { source: null, gain: null };
+  }
 
-  const now = audioContext.currentTime;
-  const oscillator = audioContext.createOscillator();
+  const source = audioContext.createBufferSource();
   const gain = audioContext.createGain();
-
-  oscillator.type = accented ? 'triangle' : 'sine';
-  oscillator.frequency.setValueAtTime(accented ? 1760 : 1320, now);
-
-  const peakGain = (accented ? 0.12 : 0.08) * linearGain;
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peakGain), now + 0.005);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
-
-  oscillator.connect(gain);
+  source.buffer = getMetronomeClickBuffer(audioContext, accented);
+  gain.gain.setValueAtTime(linearGain, startTimeSec);
+  source.connect(gain);
   gain.connect(audioContext.destination);
-  oscillator.start(now);
-  oscillator.stop(now + 0.06);
+  source.start(startTimeSec);
 
-  oscillator.onended = () => {
-    oscillator.disconnect();
-    gain.disconnect();
-  };
+  return { source, gain };
+}
+
+export async function playMetronomeCue(accented = false) {
+  const audioContext = await ensureMetronomeAudioContext();
+  playMetronomeClick(audioContext, accented);
 }
 
 async function ensureMetronomeAudioContext() {
@@ -153,6 +196,7 @@ async function ensureMetronomeAudioContext() {
       throw new Error('Web Audio API is not supported in this browser.');
     }
     metronomeAudioContext = new ctor();
+    resetMetronomeClickBuffers();
   }
 
   if (metronomeAudioContext.state === 'suspended') {
@@ -160,27 +204,6 @@ async function ensureMetronomeAudioContext() {
   }
 
   return metronomeAudioContext;
-}
-
-function tickMetronome() {
-  if (!metronomeAudioContext) return;
-  metronomeLastBeatAtMs = Date.now();
-  const beatZeroIndexed = metronomeBeatIndex % metronomeBeatsPerBar;
-  const accented = beatZeroIndexed === 0;
-  const secondaryAccented =
-    !accented && metronomeSecondaryAccentBeatIndices.includes(beatZeroIndexed);
-  playMetronomeClick(metronomeAudioContext, accented || secondaryAccented);
-  const beatInBar = (metronomeBeatIndex % metronomeBeatsPerBar) + 1;
-  metronomeBeatListeners.forEach((listener) => {
-    listener({
-      beatInBar,
-      beatIndex: metronomeBeatIndex,
-      timestampMs: metronomeLastBeatAtMs!,
-      accented,
-      secondaryAccented,
-    });
-  });
-  metronomeBeatIndex++;
 }
 
 function getMetronomeIntervalExactMs(bpm: number) {
@@ -195,29 +218,123 @@ function clearMetronomeTimer() {
   }
 }
 
+function clearScheduledMetronomeClicks(options?: { keepStarted?: boolean }) {
+  const cutoffSec = metronomeAudioContext?.currentTime ?? 0;
+  scheduledMetronomeClicks.forEach((click) => {
+    if (options?.keepStarted && click.startTimeSec < cutoffSec) {
+      return;
+    }
+    if (click.uiTimeoutId !== null) {
+      clearTimeout(click.uiTimeoutId);
+    }
+    if (click.source) {
+      try {
+        click.source.onended = null;
+        click.source.stop();
+      } catch {
+        // Ignore clicks that already ended.
+      }
+      click.source.disconnect();
+    }
+    click.gain?.disconnect();
+    scheduledMetronomeClicks.delete(click);
+  });
+}
+
+function syncMetronomeAudioPerfOffset(audioContext: AudioContext) {
+  metronomeAudioPerfOffsetMs = performance.now() - audioContext.currentTime * 1000;
+}
+
+function getMetronomeAudioPerfOffset(audioContext: AudioContext) {
+  if (metronomeAudioPerfOffsetMs === null) {
+    syncMetronomeAudioPerfOffset(audioContext);
+  }
+  return metronomeAudioPerfOffsetMs;
+}
+
+function toPerformanceTimeMs(audioContext: AudioContext, audioTimeSec: number) {
+  return audioTimeSec * 1000 + getMetronomeAudioPerfOffset(audioContext);
+}
+
+function emitScheduledMetronomeBeat(beatIndex: number, timestampMs: number) {
+  metronomeLastBeatAtMs = timestampMs;
+  const beatZeroIndexed = beatIndex % metronomeBeatsPerBar;
+  const accented = beatZeroIndexed === 0;
+  const secondaryAccented =
+    !accented && metronomeSecondaryAccentBeatIndices.includes(beatZeroIndexed);
+  const beatInBar = beatZeroIndexed + 1;
+  metronomeBeatListeners.forEach((listener) => {
+    listener({
+      beatInBar,
+      beatIndex,
+      timestampMs,
+      accented,
+      secondaryAccented,
+    });
+  });
+}
+
+function scheduleMetronomeBeat(audioContext: AudioContext, beatIndex: number, beatTimeSec: number) {
+  const beatZeroIndexed = beatIndex % metronomeBeatsPerBar;
+  const accented = beatZeroIndexed === 0;
+  const secondaryAccented =
+    !accented && metronomeSecondaryAccentBeatIndices.includes(beatZeroIndexed);
+  const clickNodes = playMetronomeClick(audioContext, accented || secondaryAccented, beatTimeSec);
+  const beatTimePerfMs = toPerformanceTimeMs(audioContext, beatTimeSec);
+  const uiDelayMs = Math.max(0, Math.round(beatTimePerfMs - performance.now()));
+  const scheduledClick: ScheduledMetronomeClick = {
+    source: clickNodes.source,
+    gain: clickNodes.gain,
+    startTimeSec: beatTimeSec,
+    uiTimeoutId: null,
+  };
+  scheduledMetronomeClicks.add(scheduledClick);
+  scheduledClick.uiTimeoutId = window.setTimeout(() => {
+    scheduledClick.uiTimeoutId = null;
+    emitScheduledMetronomeBeat(beatIndex, beatTimePerfMs);
+  }, uiDelayMs);
+
+  if (!clickNodes.source) {
+    return;
+  }
+
+  clickNodes.source.onended = () => {
+    if (scheduledClick.uiTimeoutId !== null) {
+      clearTimeout(scheduledClick.uiTimeoutId);
+      scheduledClick.uiTimeoutId = null;
+    }
+    clickNodes.source.disconnect();
+    clickNodes.gain?.disconnect();
+    scheduledMetronomeClicks.delete(scheduledClick);
+  };
+}
+
 function scheduleNextMetronomeTick() {
   clearMetronomeTimer();
-  if (metronomeNextTickAtMs === null) {
-    metronomeNextTickAtMs = performance.now();
+  if (!metronomeAudioContext || metronomeNextBeatTimeSec === null) {
+    return;
   }
-  const nowMs = performance.now();
-  const delayMs = Math.max(0, Math.round(metronomeNextTickAtMs - nowMs));
+
+  const audioContext = metronomeAudioContext;
+  const intervalSec = getMetronomeIntervalExactMs(metronomeBpm) / 1000;
+  const nowSec = audioContext.currentTime;
+
+  while (metronomeNextBeatTimeSec < nowSec - intervalSec) {
+    metronomeBeatIndex += 1;
+    metronomeNextBeatTimeSec += intervalSec;
+  }
+
+  while (metronomeNextBeatTimeSec < nowSec + METRONOME_SCHEDULE_AHEAD_SEC) {
+    scheduleMetronomeBeat(audioContext, metronomeBeatIndex, metronomeNextBeatTimeSec);
+    metronomeBeatIndex += 1;
+    metronomeNextBeatTimeSec += intervalSec;
+  }
+
+  metronomeNextTickAtMs = toPerformanceTimeMs(audioContext, metronomeNextBeatTimeSec);
   metronomeTimerId = window.setTimeout(() => {
     if (!metronomeAudioContext) return;
-    tickMetronome();
-    const intervalMs = getMetronomeIntervalExactMs(metronomeBpm);
-    let nextTickAtMs = (metronomeNextTickAtMs ?? performance.now()) + intervalMs;
-    const driftNowMs = performance.now();
-    if (nextTickAtMs < driftNowMs - intervalMs) {
-      const skippedTicks = Math.floor((driftNowMs - nextTickAtMs) / intervalMs);
-      if (skippedTicks > 0) {
-        metronomeBeatIndex += skippedTicks;
-        nextTickAtMs += skippedTicks * intervalMs;
-      }
-    }
-    metronomeNextTickAtMs = nextTickAtMs;
     scheduleNextMetronomeTick();
-  }, delayMs);
+  }, METRONOME_SCHEDULER_LOOKAHEAD_MS);
 }
 
 export function isMetronomeRunning() {
@@ -258,9 +375,11 @@ export interface StartMetronomeOptions {
 
 export async function startMetronome(nextBpm: number, options?: StartMetronomeOptions) {
   metronomeBpm = clampMetronomeBpm(nextBpm);
-  await ensureMetronomeAudioContext();
+  const audioContext = await ensureMetronomeAudioContext();
 
   clearMetronomeTimer();
+  clearScheduledMetronomeClicks();
+  syncMetronomeAudioPerfOffset(audioContext);
 
   const explicitStartBeatIndex = options?.startBeatIndex;
   if (typeof explicitStartBeatIndex === 'number' && Number.isFinite(explicitStartBeatIndex)) {
@@ -275,22 +394,22 @@ export async function startMetronome(nextBpm: number, options?: StartMetronomeOp
       ? options.alignToPerformanceTimeMs
       : null;
   if (alignedStartMs !== null && alignedStartMs > nowMs + METRONOME_ALIGNMENT_TOLERANCE_MS) {
-    metronomeNextTickAtMs = alignedStartMs;
-    scheduleNextMetronomeTick();
-    return;
+    metronomeNextBeatTimeSec = (alignedStartMs - getMetronomeAudioPerfOffset(audioContext)) / 1000;
+  } else {
+    metronomeNextBeatTimeSec = audioContext.currentTime;
   }
 
-  metronomeNextTickAtMs = nowMs;
-  tickMetronome();
-  metronomeNextTickAtMs += getMetronomeIntervalExactMs(metronomeBpm);
   scheduleNextMetronomeTick();
 }
 
 export function stopMetronome() {
   clearMetronomeTimer();
+  clearScheduledMetronomeClicks();
   metronomeBeatIndex = 0;
   metronomeLastBeatAtMs = null;
   metronomeNextTickAtMs = null;
+  metronomeNextBeatTimeSec = null;
+  metronomeAudioPerfOffsetMs = null;
 }
 
 export async function setMetronomeTempo(nextBpm: number) {
@@ -300,7 +419,16 @@ export async function setMetronomeTempo(nextBpm: number) {
   if (!isMetronomeRunning()) return metronomeBpm;
   if (!bpmChanged) return metronomeBpm;
 
-  metronomeNextTickAtMs = performance.now() + getMetronomeIntervalExactMs(metronomeBpm);
+  if (metronomeAudioContext) {
+    clearScheduledMetronomeClicks({ keepStarted: true });
+    metronomeNextBeatTimeSec = metronomeAudioContext.currentTime + getMetronomeIntervalExactMs(metronomeBpm) / 1000;
+    metronomeNextTickAtMs = toPerformanceTimeMs(metronomeAudioContext, metronomeNextBeatTimeSec);
+  }
   scheduleNextMetronomeTick();
   return metronomeBpm;
 }
+
+
+
+
+

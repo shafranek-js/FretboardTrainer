@@ -90,6 +90,7 @@ import {
   setMetronomeMeter,
   getMetronomeTimingSnapshot,
   isMetronomeRunning,
+  playMetronomeCue,
   setMetronomeTempo,
   startMetronome,
   stopMetronome,
@@ -1671,9 +1672,18 @@ export async function startListening(forCalibration = false) {
   }
 
   try {
+    const selectedMelodyId = dom.melodySelector.value.trim();
+    const selectedBaseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
+    const initialPromptMeterProfile = resolveMelodyMetronomeMeterProfile(selectedBaseMelody);
     const initialPromptPlan = !forCalibration
-      ? buildSessionInitialPromptPlan(dom.trainingMode.value)
-      : { delayMs: 0, prepMessage: '', pulseCount: 0 };
+      ? buildSessionInitialPromptPlan({
+          trainingMode: dom.trainingMode.value,
+          bpm: clampMelodyPlaybackBpm(dom.melodyDemoBpm.value),
+          beatsPerBar: initialPromptMeterProfile.beatsPerBar,
+          beatUnitDenominator: initialPromptMeterProfile.beatUnitDenominator,
+          secondaryAccentStepIndices: initialPromptMeterProfile.secondaryAccentBeatIndices,
+        })
+      : { delayMs: 0, prepMessage: '', pulseCount: 0, secondaryAccentStepIndices: [] };
     if (!forCalibration) {
       // Keep runtime source in sync with what the user currently selected in UI.
       // This prevents starting a MIDI-only session while the UI shows microphone (or vice versa).
@@ -1807,12 +1817,22 @@ export async function startListening(forCalibration = false) {
           }
           applySessionInitialTimelinePreview(initialPromptPlan.prepMessage);
           beginPerformancePrerollTimeline(initialPromptPlan.pulseCount, initialPromptPlan.delayMs);
+          if (initialPromptPlan.pulseCount > 0) {
+            void playMetronomeCue(true).catch((error) => {
+              showNonBlockingError(formatUserFacingError('Failed to play preroll count-in', error));
+            });
+          }
           const pulseIntervalMs =
             initialPromptPlan.pulseCount > 0 ? initialPromptPlan.delayMs / initialPromptPlan.pulseCount : 0;
           for (let pulseIndex = 1; pulseIndex < initialPromptPlan.pulseCount; pulseIndex += 1) {
             scheduleSessionTimeout(
               Math.round(pulseIntervalMs * pulseIndex),
               () => {
+                void playMetronomeCue(
+                  initialPromptPlan.secondaryAccentStepIndices.includes(pulseIndex)
+                ).catch((error) => {
+                  showNonBlockingError(formatUserFacingError('Failed to play preroll count-in', error));
+                });
                 advancePerformancePrerollTimeline(pulseIndex, initialPromptPlan.pulseCount);
               },
               `session initial prompt preroll pulse ${pulseIndex + 1}`
@@ -2382,3 +2402,4 @@ function handleTimeUp() {
     handleSessionRuntimeError('handleTimeUp', error);
   }
 }
+

@@ -508,6 +508,10 @@ async function startMelodyDemoPlayback() {
   await melodyDemoRuntimeController.startPlayback();
 }
 
+function retimeMelodyDemoPlayback() {
+  return melodyDemoRuntimeController.retimePlayback();
+}
+
 function findPlayableStringForNote(note: string): string | null {
   return melodyDemoRuntimeController.findPlayableStringForNote(note);
 }
@@ -1014,6 +1018,7 @@ const melodySetupControlsController = createMelodySetupControlsController({
   },
   persistSelectedMelodyTempoOverride,
   syncMetronomeTempoFromMelodyIfLinked,
+  retimeMelodyDemoPlayback,
   getSelectedMelodyEventCount: () => {
     const selectedMelodyId = getSelectedMelodyId();
     const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
@@ -1362,33 +1367,4 @@ export function registerSessionControls() {
   registerConfirmControls();
   registerProfileControls();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -262,6 +262,7 @@ export function createMelodyDemoRuntimeController(deps: MelodyDemoRuntimeControl
     seekToEvent: (eventIndex: number, options?: { commit?: boolean }) =>
       melodyDemoController.seekToEvent(eventIndex, options),
     stepPreview: async (direction: -1 | 1) => melodyDemoController.stepPreview(direction),
+    retimePlayback: () => melodyDemoController.retimePlayback(),
     shouldHandleHotkeys: () => melodyDemoController.shouldHandleHotkeys(),
     isActive: () => melodyDemoController.isActive(),
     isPlaying: () => melodyDemoController.isPlaying(),

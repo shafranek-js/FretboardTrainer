@@ -1561,12 +1561,16 @@ Recommended order from the current state:
 - P3 completed for melody start validation: user-facing start errors for melody workflows now come from session-start-preflight.ts, and melody-practice.ts / melody-performance.ts no longer call 
 otifyUserError(...) during prompt generation.
 - New architectural boundary: melody modes are now closer to pure prompt producers; start gating lives at the session-start layer.
+- P1 completed for metronome runtime: src/metronome.ts now uses lookahead scheduling against the audio clock instead of scheduling click starts directly from setTimeout. This keeps the public metronome API unchanged while making click timing resilient to main-thread jitter.
 
 ### Practical rule for the next steps
 
 - Prefer small controller extractions over broad architectural moves.
 - Do not combine `state.ts` slicing with `session-controller.ts` extraction in the same step.
 - Keep using targeted tests plus smoke verification after each meaningful extraction.
+
+
+
 
 
 

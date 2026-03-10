@@ -14,7 +14,13 @@ interface MetronomeControllerDeps {
   stopMetronome(): void;
   setMetronomeTempo(bpm: number): Promise<void>;
   subscribeMetronomeBeat(
-    handler: (payload: { beatInBar: number; accented: boolean; secondaryAccented?: boolean }) => void
+    handler: (payload: {
+      beatInBar: number;
+      beatIndex: number;
+      timestampMs: number;
+      accented: boolean;
+      secondaryAccented?: boolean;
+    }) => void
   ): void;
   saveSettings(): void;
   formatUserFacingError(prefix: string, error: unknown): string;
@@ -22,6 +28,9 @@ interface MetronomeControllerDeps {
 }
 
 export function createMetronomeController(deps: MetronomeControllerDeps) {
+  let pulseResetTimerId: number | null = null;
+  let pulseAnimationFrameId: number | null = null;
+
   function syncBpmDisplay() {
     deps.dom.metronomeBpmValue.textContent = deps.dom.metronomeBpm.value;
   }
@@ -35,6 +44,14 @@ export function createMetronomeController(deps: MetronomeControllerDeps) {
   }
 
   function resetVisualIndicator() {
+    if (pulseResetTimerId !== null) {
+      clearTimeout(pulseResetTimerId);
+      pulseResetTimerId = null;
+    }
+    if (pulseAnimationFrameId !== null) {
+      cancelAnimationFrame(pulseAnimationFrameId);
+      pulseAnimationFrameId = null;
+    }
     deps.dom.metronomeBeatLabel.textContent = '-';
     deps.dom.metronomePulse.classList.remove(
       'bg-amber-400',
@@ -61,24 +78,52 @@ export function createMetronomeController(deps: MetronomeControllerDeps) {
     }
   }
 
-  function registerBeatIndicator() {
-    deps.subscribeMetronomeBeat(({ beatInBar, accented, secondaryAccented }) => {
-      deps.dom.metronomeBeatLabel.textContent = String(beatInBar);
-      deps.dom.metronomePulse.classList.remove('bg-slate-500');
-      deps.dom.metronomePulse.classList.toggle('bg-amber-400', accented);
-      deps.dom.metronomePulse.classList.toggle('bg-amber-300', !accented && Boolean(secondaryAccented));
-      deps.dom.metronomePulse.classList.toggle('bg-amber-200', !accented && !secondaryAccented);
-      deps.dom.metronomePulse.classList.add('scale-125');
+  function applyBeatIndicator(beatInBar: number, accented: boolean, secondaryAccented?: boolean) {
+    deps.dom.metronomeBeatLabel.textContent = String(beatInBar);
+    deps.dom.metronomePulse.classList.remove('bg-slate-500');
+    deps.dom.metronomePulse.classList.toggle('bg-amber-400', accented);
+    deps.dom.metronomePulse.classList.toggle('bg-amber-300', !accented && Boolean(secondaryAccented));
+    deps.dom.metronomePulse.classList.toggle('bg-amber-200', !accented && !secondaryAccented);
+    deps.dom.metronomePulse.classList.add('scale-125');
 
-      window.setTimeout(() => {
-        deps.dom.metronomePulse.classList.remove(
-          'bg-amber-400',
-          'bg-amber-300',
-          'bg-amber-200',
-          'scale-125'
-        );
-        deps.dom.metronomePulse.classList.add('bg-slate-500');
-      }, 90);
+    if (pulseResetTimerId !== null) {
+      clearTimeout(pulseResetTimerId);
+    }
+    pulseResetTimerId = window.setTimeout(() => {
+      pulseResetTimerId = null;
+      deps.dom.metronomePulse.classList.remove(
+        'bg-amber-400',
+        'bg-amber-300',
+        'bg-amber-200',
+        'scale-125'
+      );
+      deps.dom.metronomePulse.classList.add('bg-slate-500');
+    }, 90);
+  }
+
+  function registerBeatIndicator() {
+    deps.subscribeMetronomeBeat(({ beatInBar, timestampMs, accented, secondaryAccented }) => {
+      const renderBeatIndicator = () => {
+        pulseAnimationFrameId = null;
+        applyBeatIndicator(beatInBar, accented, secondaryAccented);
+      };
+      const waitForBeatFrame = () => {
+        if (performance.now() + 2 >= timestampMs) {
+          renderBeatIndicator();
+          return;
+        }
+        pulseAnimationFrameId = window.requestAnimationFrame(waitForBeatFrame);
+      };
+
+      if (pulseAnimationFrameId !== null) {
+        cancelAnimationFrame(pulseAnimationFrameId);
+        pulseAnimationFrameId = null;
+      }
+      if (performance.now() + 2 >= timestampMs) {
+        renderBeatIndicator();
+        return;
+      }
+      pulseAnimationFrameId = window.requestAnimationFrame(waitForBeatFrame);
     });
   }
 

@@ -70,6 +70,7 @@ function createDeps() {
     clampMelodyDemoBpmInput: vi.fn(),
     persistSelectedMelodyTempoOverride: vi.fn(),
     syncMetronomeTempoFromMelodyIfLinked: vi.fn(async () => {}),
+    retimeMelodyDemoPlayback: vi.fn(() => false),
     getSelectedMelodyEventCount: vi.fn(() => 8),
   };
 }
@@ -175,7 +176,9 @@ describe('melody-setup-controls-controller', () => {
     expect(deps.updatePracticeSetupSummary).toHaveBeenCalledTimes(1);
     expect(deps.clampMelodyDemoBpmInput).toHaveBeenCalledTimes(2);
     expect(deps.persistSelectedMelodyTempoOverride).toHaveBeenCalledTimes(2);
+    expect(deps.retimeMelodyDemoPlayback).toHaveBeenCalledTimes(2);
     expect(deps.syncMetronomeTempoFromMelodyIfLinked).toHaveBeenCalledTimes(2);
     expect(deps.saveSettings).toHaveBeenCalledTimes(3);
   });
 });
+
