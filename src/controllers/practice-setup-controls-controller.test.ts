@@ -49,6 +49,8 @@ function createDeps() {
     showStringToggles: createElement('', false),
     stringSelector: createElement(),
     autoPlayPromptSound: createElement('', false),
+    promptSoundTail: createElement('450'),
+    promptSoundTailValue: createElement(),
     relaxPerformanceOctaveCheck: createElement('', false),
     noteNaming: createElement('letters'),
     trainingMode: createElement('melody'),
@@ -72,6 +74,7 @@ function createDeps() {
       uiWorkflow: 'learn-notes' as const,
       showingAllNotes: false,
       autoPlayPromptSound: false,
+      promptSoundTailMs: 450,
       relaxPerformanceOctaveCheck: false,
       sessionPace: 'normal',
     },
@@ -192,3 +195,4 @@ describe('practice-setup-controls-controller', () => {
     expect(deps.saveSettings).toHaveBeenCalledTimes(1);
   });
 });
+

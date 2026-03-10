@@ -50,6 +50,7 @@ export interface ProfileSettings {
   showAllNotes?: boolean;
   showStringToggles?: boolean;
   autoPlayPromptSound?: boolean;
+  promptSoundTailMs?: number;
   relaxPerformanceOctaveCheck?: boolean;
   performanceMicTolerancePreset?: PerformanceMicTolerancePreset;
   performanceTimingLeniencyPreset?: PerformanceTimingLeniencyPreset;
@@ -158,3 +159,5 @@ export function resetSavedSettings() {
   removeStorageValue(localStorage, PROFILES_KEY);
   removeStorageValue(localStorage, ACTIVE_PROFILE_KEY);
 }
+
+

@@ -37,6 +37,7 @@ export interface WorkflowLayoutControllerDom {
   startSessionHelpBtn: HTMLButtonElement;
   playbackSessionActionHost: HTMLElement;
   sessionToolsAutoPlayPromptSoundRow: HTMLElement;
+  promptSoundTailControl: HTMLElement;
   sessionToolsShowAllNotesRow: HTMLElement;
   sessionToolsShowStringTogglesRow: HTMLElement;
   layoutLearnNotesControlsHost: HTMLElement;
@@ -175,6 +176,9 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
     if (deps.dom.sessionToolsAutoPlayPromptSoundRow.parentElement !== targetHost) {
       targetHost.appendChild(deps.dom.sessionToolsAutoPlayPromptSoundRow);
     }
+    if (deps.dom.promptSoundTailControl.parentElement !== targetHost) {
+      targetHost.appendChild(deps.dom.promptSoundTailControl);
+    }
   }
 
   function syncWorkflowMelodyActionVisibility() {
@@ -305,6 +309,7 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
     updateMelodyActionButtonsForSelection,
   };
 }
+
 
 
 

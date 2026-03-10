@@ -107,6 +107,7 @@ function createDeps(overrides?: {
     startSessionHelpBtn: createElement() as unknown as HTMLButtonElement,
     playbackSessionActionHost: createElement() as unknown as HTMLElement,
     sessionToolsAutoPlayPromptSoundRow: createElement() as unknown as HTMLElement,
+    promptSoundTailControl: createElement() as unknown as HTMLElement,
     sessionToolsShowAllNotesRow: createElement() as unknown as HTMLElement,
     sessionToolsShowStringTogglesRow: createElement() as unknown as HTMLElement,
     layoutLearnNotesControlsHost: createElement() as unknown as HTMLElement,
@@ -253,6 +254,7 @@ describe('workflow-layout-controller', () => {
     expect(dom.editingToolsSection.style.display).toBe('none');
   });
 });
+
 
 
 

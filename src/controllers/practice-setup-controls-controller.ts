@@ -1,4 +1,5 @@
 import { normalizeSessionPace } from '../session-pace';
+import { formatPromptSoundTailMs, normalizePromptSoundTailMs } from '../prompt-sound-tail';
 import type { CurriculumPresetKey } from '../curriculum-presets';
 import type { UiWorkflow } from '../training-workflows';
 
@@ -7,6 +8,8 @@ interface PracticeSetupControlsDom {
   showStringToggles: HTMLInputElement;
   stringSelector: HTMLElement;
   autoPlayPromptSound: HTMLInputElement;
+  promptSoundTail: HTMLInputElement;
+  promptSoundTailValue: HTMLElement;
   relaxPerformanceOctaveCheck: HTMLInputElement;
   noteNaming: HTMLSelectElement;
   trainingMode: HTMLSelectElement;
@@ -28,6 +31,7 @@ interface PracticeSetupControlsState {
   uiWorkflow: UiWorkflow;
   showingAllNotes: boolean;
   autoPlayPromptSound: boolean;
+  promptSoundTailMs: number;
   relaxPerformanceOctaveCheck: boolean;
   sessionPace: string;
 }
@@ -90,6 +94,13 @@ export function createPracticeSetupControlsController(deps: PracticeSetupControl
 
     deps.dom.autoPlayPromptSound.addEventListener('change', () => {
       deps.state.autoPlayPromptSound = deps.dom.autoPlayPromptSound.checked;
+      deps.saveSettings();
+    });
+
+    deps.dom.promptSoundTail.addEventListener('input', () => {
+      deps.state.promptSoundTailMs = normalizePromptSoundTailMs(deps.dom.promptSoundTail.value);
+      deps.dom.promptSoundTail.value = String(deps.state.promptSoundTailMs);
+      deps.dom.promptSoundTailValue.textContent = formatPromptSoundTailMs(deps.state.promptSoundTailMs);
       deps.saveSettings();
     });
 
@@ -201,4 +212,5 @@ export function createPracticeSetupControlsController(deps: PracticeSetupControl
     syncStringSelectorVisibility,
   };
 }
+
 

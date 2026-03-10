@@ -58,6 +58,7 @@ import {
 } from './midi-runtime';
 import { normalizeMelodyTimelineZoomPercent } from './melody-timeline-zoom';
 import { clampMetronomeVolumePercent, setMetronomeVolume } from './metronome';
+import { formatPromptSoundTailMs, normalizePromptSoundTailMs } from './prompt-sound-tail';
 import {
   getActiveProfileName,
   getDefaultMelodyIdForInstrument,
@@ -131,6 +132,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     showAllNotes: dom.showAllNotes.checked,
     showStringToggles: dom.showStringToggles.checked,
     autoPlayPromptSound: dom.autoPlayPromptSound.checked,
+    promptSoundTailMs: normalizePromptSoundTailMs(dom.promptSoundTail.value),
     relaxPerformanceOctaveCheck: dom.relaxPerformanceOctaveCheck.checked,
     performanceMicTolerancePreset: normalizePerformanceMicTolerancePreset(dom.performanceMicTolerancePreset.value),
     performanceTimingLeniencyPreset: normalizePerformanceTimingLeniencyPreset(
@@ -230,6 +232,9 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.showAllNotes.checked = safeSettings.showAllNotes ?? false;
     dom.showStringToggles.checked = safeSettings.showStringToggles ?? false;
     dom.autoPlayPromptSound.checked = safeSettings.autoPlayPromptSound ?? true;
+    state.promptSoundTailMs = normalizePromptSoundTailMs(safeSettings.promptSoundTailMs);
+    dom.promptSoundTail.value = String(state.promptSoundTailMs);
+    dom.promptSoundTailValue.textContent = formatPromptSoundTailMs(state.promptSoundTailMs);
     dom.relaxPerformanceOctaveCheck.checked = safeSettings.relaxPerformanceOctaveCheck ?? true;
     state.performanceMicTolerancePreset = normalizePerformanceMicTolerancePreset(
       safeSettings.performanceMicTolerancePreset
@@ -402,6 +407,7 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     state.calibratedA4 = safeSettings.calibratedA4 ?? DEFAULT_A4_FREQUENCY;
     state.showingAllNotes = dom.showAllNotes.checked;
     state.autoPlayPromptSound = dom.autoPlayPromptSound.checked;
+    state.promptSoundTailMs = normalizePromptSoundTailMs(dom.promptSoundTail.value);
     state.relaxPerformanceOctaveCheck = dom.relaxPerformanceOctaveCheck.checked;
     state.performanceMicTolerancePreset = normalizePerformanceMicTolerancePreset(
       dom.performanceMicTolerancePreset.value
@@ -450,5 +456,7 @@ export async function loadSettings() {
   await applySettings(settings);
   populateProfileSelector();
 }
+
+
 
 

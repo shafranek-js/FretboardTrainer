@@ -225,7 +225,7 @@
                   data-field-hint="Tempo and click"
                   title="Tempo and click"
                 >
-                  <div id="playbackPromptSoundHost" class="flex items-center"></div>
+                  <div id="playbackPromptSoundHost" class="flex flex-wrap items-center gap-1"></div>
                   <div id="studyMelodyMicTuningHost" class="hidden relative flex items-center">
                     <button
                       id="studyMelodyMicTuningToggleBtn"
@@ -844,7 +844,7 @@
                     Show String Buttons
                   </label>
                 </div>
-                <div id="sessionToolsAutoPlayPromptSoundHost" class="flex items-center">
+                <div id="sessionToolsAutoPlayPromptSoundHost" class="flex flex-wrap items-center gap-1">
                   <label
                     id="sessionToolsAutoPlayPromptSoundRow"
                     class="playback-control-btn inline-flex cursor-pointer items-center gap-1 border border-slate-500 bg-slate-700 text-slate-100 transition-colors hover:bg-slate-600"
@@ -887,6 +887,24 @@
                     >
                       <path d="M16.5 3.75a.75.75 0 0 0-1.5 0v8.087a3.75 3.75 0 1 0 1.5 3.006V8.43l3.22-.92a.75.75 0 1 0-.412-1.442l-2.808.802V3.75Z" />
                     </svg>
+                  </label>
+                  <label
+                    id="promptSoundTailControl"
+                    class="session-setting-chip inline-flex items-center gap-2"
+                    title="How long the prompt note rings out"
+                    aria-label="Prompt sound tail duration"
+                  >
+                    <span>Tail</span>
+                    <input
+                      id="promptSoundTail"
+                      type="range"
+                      min="100"
+                      max="2000"
+                      step="25"
+                      value="450"
+                      class="h-3 w-24 accent-cyan-400"
+                    />
+                    <span id="promptSoundTailValue" class="text-cyan-200">450 ms</span>
                   </label>
                 </div>
                 <label id="sessionToolsPitchMatchRow" class="session-setting-chip inline-flex items-center gap-1">
@@ -2787,6 +2805,7 @@
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
+
 
 
 

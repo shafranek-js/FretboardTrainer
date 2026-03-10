@@ -60,6 +60,8 @@ const mocked = vi.hoisted(() => {
     showAllNotes: { checked: false } as HTMLInputElement,
     showStringToggles: { checked: false } as HTMLInputElement,
     autoPlayPromptSound: { checked: true } as HTMLInputElement,
+    promptSoundTail: { value: '450' } as HTMLInputElement,
+    promptSoundTailValue: { textContent: '450 ms' } as HTMLElement,
     relaxPerformanceOctaveCheck: { checked: true } as HTMLInputElement,
     performanceMicTolerancePreset: createSelect('normal', ['strict', 'normal', 'forgiving']) as unknown as HTMLSelectElement,
     performanceTimingLeniencyPreset: createSelect('normal', ['strict', 'normal', 'forgiving']) as unknown as HTMLSelectElement,
@@ -165,6 +167,7 @@ const mocked = vi.hoisted(() => {
     preferredMelodyId: null as string | null,
     showingAllNotes: false,
     autoPlayPromptSound: true,
+    promptSoundTailMs: 450,
     relaxPerformanceOctaveCheck: true,
     performanceMicTolerancePreset: 'normal',
     performanceTimingLeniencyPreset: 'normal',
@@ -326,6 +329,8 @@ function resetMockState() {
   mocked.dom.showAllNotes.checked = false;
   mocked.dom.showStringToggles.checked = false;
   mocked.dom.autoPlayPromptSound.checked = true;
+  mocked.dom.promptSoundTail.value = '450';
+  mocked.dom.promptSoundTailValue.textContent = '450 ms';
   mocked.dom.relaxPerformanceOctaveCheck.checked = true;
   mocked.dom.performanceMicTolerancePreset.value = 'normal';
   mocked.dom.performanceTimingLeniencyPreset.value = 'normal';
@@ -410,6 +415,7 @@ function resetMockState() {
   mocked.state.preferredMelodyId = null;
   mocked.state.showingAllNotes = false;
   mocked.state.autoPlayPromptSound = true;
+  mocked.state.promptSoundTailMs = 450;
   mocked.state.relaxPerformanceOctaveCheck = true;
   mocked.state.performanceMicTolerancePreset = 'normal';
   mocked.state.performanceTimingLeniencyPreset = 'normal';
@@ -475,6 +481,7 @@ describe('storage', () => {
       melodyFingeringLevel: 'intermediate',
       performanceTimingLeniencyPreset: 'forgiving',
       performanceMicLatencyCompensationMs: 135,
+      promptSoundTailMs: 450,
       uiMode: 'simple',
       studyMelodyMicGatePercent: 85,
       studyMelodyMicNoiseGuardPercent: 100,
@@ -503,6 +510,7 @@ describe('storage', () => {
           melodyTimelineZoomPercent: 145,
           showAllNotes: true,
           autoPlayPromptSound: false,
+          promptSoundTailMs: 725,
           relaxPerformanceOctaveCheck: false,
           performanceMicTolerancePreset: 'forgiving',
           performanceTimingLeniencyPreset: 'strict',
@@ -537,6 +545,8 @@ describe('storage', () => {
     expect(mocked.dom.melodyTimelineZoomValue.textContent).toBe('145%');
     expect(mocked.dom.showAllNotes.checked).toBe(true);
     expect(mocked.dom.autoPlayPromptSound.checked).toBe(false);
+    expect(mocked.dom.promptSoundTail.value).toBe('725');
+    expect(mocked.dom.promptSoundTailValue.textContent).toBe('725 ms');
     expect(mocked.dom.relaxPerformanceOctaveCheck.checked).toBe(false);
     expect(mocked.dom.performanceMicTolerancePreset.value).toBe('forgiving');
     expect(mocked.dom.performanceTimingLeniencyPreset.value).toBe('strict');
@@ -575,6 +585,10 @@ describe('storage', () => {
     expect(mocked.state.preferredMelodyId).toBe('builtin:guitar:ode_to_joy_intro');
   });
 });
+
+
+
+
 
 
 

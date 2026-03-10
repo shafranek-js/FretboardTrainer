@@ -27,6 +27,7 @@ import type { AudioInputProcessingSettings } from './audio-runtime';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import type { UiWorkflow } from './training-workflows';
 import type { UiMode } from './ui-mode';
+import { DEFAULT_PROMPT_SOUND_TAIL_MS } from './prompt-sound-tail';
 
 function requireElementById<T extends Element>(id: string): T {
   const element = document.getElementById(id);
@@ -49,6 +50,8 @@ export const dom = {
   showAllNotes: requireElementById<HTMLInputElement>('showAllNotes'),
   showStringToggles: requireElementById<HTMLInputElement>('showStringToggles'),
   autoPlayPromptSound: requireElementById<HTMLInputElement>('autoPlayPromptSound'),
+  promptSoundTail: requireElementById<HTMLInputElement>('promptSoundTail'),
+  promptSoundTailValue: requireElementById<HTMLElement>('promptSoundTailValue'),
   relaxPerformanceOctaveCheck: requireElementById<HTMLInputElement>('relaxPerformanceOctaveCheck'),
   performanceMicTolerancePreset: requireElementById<HTMLSelectElement>('performanceMicTolerancePreset'),
   performanceTimingLeniencyPreset: requireElementById<HTMLSelectElement>('performanceTimingLeniencyPreset'),
@@ -301,6 +304,7 @@ export const dom = {
   sessionToolsLearnNotesLayoutControlsHost: requireElementById<HTMLElement>('sessionToolsLearnNotesLayoutControlsHost'),
   sessionToolsAutoPlayPromptSoundHost: requireElementById<HTMLElement>('sessionToolsAutoPlayPromptSoundHost'),
   sessionToolsAutoPlayPromptSoundRow: requireElementById<HTMLElement>('sessionToolsAutoPlayPromptSoundRow'),
+  promptSoundTailControl: requireElementById<HTMLElement>('promptSoundTailControl'),
   sessionToolsRelaxPerformanceOctaveRow: requireElementById<HTMLElement>('sessionToolsRelaxPerformanceOctaveRow'),
   sessionToolsPitchMatchRow: requireElementById<HTMLElement>('sessionToolsPitchMatchRow'),
   sessionToolsTimingWindowRow: requireElementById<HTMLElement>('sessionToolsTimingWindowRow'),
@@ -522,6 +526,7 @@ export const state = {
   rhythmLastJudgedBeatAtMs: null as number | null,
   showingAllNotes: false,
   autoPlayPromptSound: true,
+  promptSoundTailMs: DEFAULT_PROMPT_SOUND_TAIL_MS,
   relaxPerformanceOctaveCheck: true,
   melodyFingeringStrategy: 'minimax' as MelodyFingeringStrategy,
   melodyFingeringLevel: 'beginner' as MelodyFingeringLevel,
@@ -682,3 +687,4 @@ export const state = {
   isLoadingSamples: false,
   audioCache: {} as Partial<Record<IInstrument['name'], SoundfontPlayer>>, // Loaded soundfont players by instrument
 };
+

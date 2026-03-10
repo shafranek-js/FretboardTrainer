@@ -10,6 +10,7 @@ import { setLoadingState } from './ui';
 import { detectPitchYin } from './dsp/pitch';
 import { showNonBlockingInfo } from './app-feedback';
 import { getPromptAudioInputIgnoreMs } from './session-pace';
+import { getPromptSoundTailDurationSec } from './prompt-sound-tail';
 import {
   DEFAULT_YIN_MAX_FREQUENCY,
   DEFAULT_YIN_MIN_FREQUENCY,
@@ -115,10 +116,13 @@ export function playSound(notesToPlay: string | string[]) {
     // producing a "Buffer not found" warning. As a workaround, we can schedule
     // each note individually to play at the same time, which produces the same result.
     const notes = Array.isArray(notesToPlay) ? notesToPlay : [notesToPlay];
+    const duration = getPromptSoundTailDurationSec(state.promptSoundTailMs);
     notes.forEach((note) => {
-      player.play(note, time, { gain: 1.5 });
+      player.play(note, time, { gain: 1.5, duration });
     });
   } catch (error) {
     console.error('Error playing soundfont sound:', error);
   }
 }
+
+
