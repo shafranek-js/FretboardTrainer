@@ -234,7 +234,9 @@ export function createWorkflowLayoutController(deps: WorkflowLayoutControllerDep
   }
 
   function syncUiWorkflowFromTrainingMode() {
-    const nextWorkflow = resolveUiWorkflowFromTrainingMode(deps.dom.trainingMode.value);
+    const nextWorkflow = isTrainingModeInUiWorkflow(deps.dom.trainingMode.value, deps.state.uiWorkflow)
+      ? deps.state.uiWorkflow
+      : resolveUiWorkflowFromTrainingMode(deps.dom.trainingMode.value);
     deps.state.uiWorkflow = nextWorkflow;
     deps.setUiWorkflow(nextWorkflow);
   }

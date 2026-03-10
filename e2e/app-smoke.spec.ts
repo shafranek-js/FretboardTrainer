@@ -45,3 +45,35 @@ test('loads main UI and opens Settings + Stats modals', async ({ page }) => {
   await stats.openFromTools();
   await stats.expectBaseActionsVisible();
 });
+
+test('persists Learn Notes string buttons visibility across reload', async ({ page }) => {
+  const app = new AppShell(page);
+  const stringButtons = page.locator('.fretboard-string-toggle-label');
+
+  await app.seedStorage({
+    'fretboardTrainer.onboardingCompleted.v1': '1',
+  });
+  await app.goto();
+  await app.expectLoaded();
+  await app.switchWorkflow('learn-notes');
+  await app.selectTrainingMode('random');
+  await expect(page.locator('#trainingMode')).toHaveValue('random');
+  await page.locator('#layoutToggleBtn').click();
+  await expect(page.locator('#showStringToggles')).toBeVisible();
+  await page.locator('#showStringToggles').setChecked(true);
+
+  await expect(stringButtons.first()).toBeVisible();
+
+  await page.reload();
+  await app.waitForAppReady();
+  await app.expectLoaded();
+
+  await expect(page.locator('#workflowLearnNotesBtn')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#trainingMode')).toHaveValue('random');
+  await expect(stringButtons.first()).toBeVisible();
+  await page.locator('#layoutToggleBtn').click();
+  await expect(page.locator('#showStringToggles')).toBeVisible();
+  await expect(page.locator('#showStringToggles')).toBeChecked();
+});
+
+

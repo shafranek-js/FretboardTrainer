@@ -46,7 +46,7 @@ import {
   getTuningPresetsForInstrument,
   isChordCompatibleTuning,
 } from './tuning-presets';
-import { resolveUiWorkflowFromTrainingMode } from './training-workflows';
+import { isTrainingModeInUiWorkflow, resolveUiWorkflowFromTrainingMode } from './training-workflows';
 
 let scrollingTabAnimationFrameId: number | null = null;
 let pendingMelodyTimelineRenderFrameId: number | null = null;
@@ -589,7 +589,10 @@ export function renderMelodyTabTimelineFromState() {
 /** Handles UI changes when the training mode is switched. */
 export function handleModeChange() {
   const mode = dom.trainingMode.value;
-  state.uiWorkflow = resolveUiWorkflowFromTrainingMode(mode);
+  const nextWorkflow = isTrainingModeInUiWorkflow(mode, state.uiWorkflow)
+    ? state.uiWorkflow
+    : resolveUiWorkflowFromTrainingMode(mode);
+  state.uiWorkflow = nextWorkflow;
   setTunerVisible(false);
   setTrainingModeUi(mode);
   setUiWorkflow(state.uiWorkflow);

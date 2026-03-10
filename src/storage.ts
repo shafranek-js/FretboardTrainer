@@ -16,6 +16,7 @@ import {
   setMelodySetupCollapsed,
   setPracticeSetupCollapsed,
   setSessionToolsCollapsed,
+  setUiWorkflow,
   setUiMode,
 } from './ui-signals';
 import { DEFAULT_A4_FREQUENCY } from './constants';
@@ -82,6 +83,14 @@ import {
   resolveStoredMelodySettings,
 } from './storage-melody-settings';
 import { normalizeUiMode } from './ui-mode';
+import {
+  getDefaultTrainingModeForUiWorkflow,
+  isTrainingModeInUiWorkflow,
+  normalizeUiWorkflow,
+  resolveUiWorkflowFromTrainingMode,
+} from './training-workflows';
+
+import { resolveSessionToolsVisibility } from './session-tools-visibility';
 
 export {
   getProfiles,
@@ -156,6 +165,7 @@ export function gatherCurrentSettings(): ProfileSettings {
     endFret: dom.endFret.value,
     enabledStrings: enabledStrings,
     trainingMode: dom.trainingMode.value,
+    uiWorkflow: state.uiWorkflow,
     uiMode: state.uiMode,
     sessionGoal: dom.sessionGoal.value,
     sessionPace: state.sessionPace,
@@ -314,7 +324,16 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     setPreferredMidiInputDeviceId(normalizeMidiInputDeviceId(safeSettings.midiInputDeviceId));
     dom.startFret.value = safeSettings.startFret ?? '0';
     dom.endFret.value = safeSettings.endFret ?? '20';
-    dom.trainingMode.value = safeSettings.trainingMode ?? getDefaultTrainingMode();
+    const requestedTrainingMode = safeSettings.trainingMode ?? getDefaultTrainingMode();
+    const requestedUiWorkflow = normalizeUiWorkflow(
+      safeSettings.uiWorkflow ?? resolveUiWorkflowFromTrainingMode(requestedTrainingMode)
+    );
+    dom.trainingMode.value = requestedTrainingMode;
+    if (!isTrainingModeInUiWorkflow(dom.trainingMode.value, requestedUiWorkflow)) {
+      dom.trainingMode.value = getDefaultTrainingModeForUiWorkflow(requestedUiWorkflow);
+    }
+    state.uiWorkflow = requestedUiWorkflow;
+    setUiWorkflow(state.uiWorkflow);
     state.uiMode = normalizeUiMode(safeSettings.uiMode);
     setUiMode(state.uiMode);
     dom.sessionGoal.value = safeSettings.sessionGoal ?? 'none';
@@ -333,10 +352,6 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     dom.metronomeVolumeValue.textContent = `${resolvedMetronomeVolume}%`;
     setMetronomeVolume(resolvedMetronomeVolume);
     dom.rhythmTimingWindow.value = safeSettings.rhythmTimingWindow ?? 'normal';
-    const selectedTrainingModeOption = dom.trainingMode.selectedOptions[0];
-    if (selectedTrainingModeOption?.disabled) {
-      dom.trainingMode.value = 'random';
-    }
     dom.scaleSelector.value = safeSettings.selectedScale ?? 'C Major';
     dom.randomizeChords.checked = safeSettings.randomizeChords ?? false;
 
@@ -413,6 +428,12 @@ export async function applySettings(settings: ProfileSettings | null | undefined
     }
 
     handleModeChange();
+    const stringSelectorVisibility = resolveSessionToolsVisibility(dom.trainingMode.value, state.uiWorkflow);
+    const shouldShowStringSelector =
+      stringSelectorVisibility.showShowStringTogglesRow && dom.showStringToggles.checked;
+    dom.stringSelector.hidden = !shouldShowStringSelector;
+    dom.stringSelector.classList.toggle('hidden', !shouldShowStringSelector);
+    dom.stringSelector.style.display = shouldShowStringSelector ? '' : 'none';
     redrawFretboard();
   } catch (error) {
     console.error('Failed to apply settings:', error);
@@ -429,9 +450,5 @@ export async function loadSettings() {
   await applySettings(settings);
   populateProfileSelector();
 }
-
-
-
-
 
 

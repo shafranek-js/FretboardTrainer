@@ -56,7 +56,7 @@ const mocked = vi.hoisted(() => {
   }
 
   const dom = {
-    stringSelector: { classList: new FakeClassList() } as unknown as HTMLElement,
+    stringSelector: { classList: new FakeClassList(), style: {}, hidden: false } as unknown as HTMLElement,
     showAllNotes: { checked: false } as HTMLInputElement,
     showStringToggles: { checked: false } as HTMLInputElement,
     autoPlayPromptSound: { checked: true } as HTMLInputElement,
@@ -170,6 +170,7 @@ const mocked = vi.hoisted(() => {
     performanceTimingLeniencyPreset: 'normal',
     performanceMicLatencyCompensationMs: 0,
     uiMode: 'simple',
+    uiWorkflow: 'learn-notes',
     studyMelodyMicGatePercent: 85,
     studyMelodyMicNoiseGuardPercent: 100,
     studyMelodyMicSilenceResetFrames: 0,
@@ -195,6 +196,7 @@ const mocked = vi.hoisted(() => {
       redrawFretboard: vi.fn(),
     },
     setUiMode: vi.fn(),
+    setUiWorkflow: vi.fn(),
     loadInstrumentSoundfont: vi.fn(async () => {}),
     setNoteNamingPreference: vi.fn(),
     setPreferredAudioInputDeviceId: vi.fn(),
@@ -223,6 +225,7 @@ vi.mock('./ui-signals', () => ({
     mocked.panelState.sessionToolsCollapsed = value;
   },
   setUiMode: mocked.setUiMode,
+  setUiWorkflow: mocked.setUiWorkflow,
 }));
 vi.mock('./constants', () => ({ DEFAULT_A4_FREQUENCY: 440 }));
 vi.mock('./audio', () => ({ loadInstrumentSoundfont: mocked.loadInstrumentSoundfont }));
@@ -435,6 +438,7 @@ describe('storage', () => {
 
   it('persists changes for the implicit Default Settings profile', () => {
     mocked.dom.trainingMode.value = 'performance';
+    mocked.state.uiWorkflow = 'perform';
     mocked.dom.curriculumPreset.value = 'beginner_essentials';
     mocked.dom.melodyDemoBpm.value = '132';
     mocked.dom.melodyFingeringStrategy.value = 'minimax';
@@ -459,6 +463,7 @@ describe('storage', () => {
     expect(storageModule.getActiveProfileName()).toBe('__default__');
     expect(profiles.__default__).toMatchObject({
       trainingMode: 'performance',
+      uiWorkflow: 'perform',
       curriculumPreset: 'beginner_essentials',
       melodyDemoBpm: '132',
       melodyShowTabTimeline: false,
@@ -471,12 +476,12 @@ describe('storage', () => {
       performanceTimingLeniencyPreset: 'forgiving',
       performanceMicLatencyCompensationMs: 135,
       uiMode: 'simple',
-    studyMelodyMicGatePercent: 85,
-    studyMelodyMicNoiseGuardPercent: 100,
-    studyMelodyMicSilenceResetFrames: 0,
-    studyMelodyMicStableFrames: 0,
-    studyMelodyPreEmphasisFrequencyHz: 300,
-    studyMelodyPreEmphasisGainDb: 5,
+      studyMelodyMicGatePercent: 85,
+      studyMelodyMicNoiseGuardPercent: 100,
+      studyMelodyMicSilenceResetFrames: 0,
+      studyMelodyMicStableFrames: 0,
+      studyMelodyPreEmphasisFrequencyHz: 300,
+      studyMelodyPreEmphasisGainDb: 5,
       isDirectInputMode: true,
       practiceSetupCollapsed: true,
       melodySetupCollapsed: true,
@@ -520,6 +525,7 @@ describe('storage', () => {
     await storageModule.loadSettings();
 
     expect(mocked.dom.trainingMode.value).toBe('performance');
+    expect(mocked.state.uiWorkflow).toBe('perform');
     expect(mocked.dom.curriculumPreset.value).toBe('beginner_essentials');
     expect(mocked.dom.curriculumPresetInfo.textContent).toBe('Core note-reading path.');
     expect(mocked.dom.curriculumPresetInfo.classList.contains('hidden')).toBe(false);
@@ -554,6 +560,7 @@ describe('storage', () => {
     expect(mocked.panelState.practiceSetupCollapsed).toBe(true);
     expect(mocked.panelState.melodySetupCollapsed).toBe(true);
     expect(mocked.panelState.sessionToolsCollapsed).toBe(false);
+    expect(mocked.setUiWorkflow).toHaveBeenCalledWith('perform');
     expect(mocked.setUiMode).toHaveBeenCalledWith('advanced');
     expect(mocked.ui.populateProfileSelector).toHaveBeenCalledTimes(1);
   });
@@ -568,4 +575,6 @@ describe('storage', () => {
     expect(mocked.state.preferredMelodyId).toBe('builtin:guitar:ode_to_joy_intro');
   });
 });
+
+
 

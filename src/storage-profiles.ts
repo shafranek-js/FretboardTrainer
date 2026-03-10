@@ -4,6 +4,7 @@ import type { PerformanceMicTolerancePreset } from './performance-mic-tolerance'
 import type { PerformanceTimingLeniencyPreset } from './performance-timing-forgiveness';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import type { UiMode } from './ui-mode';
+import type { UiWorkflow } from './training-workflows';
 import { normalizePerformanceMicLatencyCompensationMs } from './performance-mic-latency-compensation';
 import type { CurriculumPresetKey } from './curriculum-presets';
 import { ACTIVE_PROFILE_KEY, PROFILES_KEY } from './app-storage-keys';
@@ -79,6 +80,7 @@ export interface ProfileSettings {
   endFret?: string;
   enabledStrings?: Partial<Record<InstrumentName, string[]>>;
   trainingMode?: string;
+  uiWorkflow?: UiWorkflow;
   uiMode?: UiMode;
   sessionGoal?: string;
   sessionPace?: 'slow' | 'normal' | 'fast' | 'ultra';
@@ -156,6 +158,3 @@ export function resetSavedSettings() {
   removeStorageValue(localStorage, PROFILES_KEY);
   removeStorageValue(localStorage, ACTIVE_PROFILE_KEY);
 }
-
-
-

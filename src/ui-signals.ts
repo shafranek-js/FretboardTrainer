@@ -287,11 +287,6 @@ function renderMelodySetupCollapsed(collapsed: boolean) {
     return;
   }
   if (dom.melodySetupToggleBtn.classList.contains('hidden')) {
-    dom.melodySetupPanel.classList.add('hidden');
-    dom.melodySetupPanel.style.display = 'none';
-    dom.melodySetupToggleBtn.setAttribute('aria-expanded', 'false');
-    dom.melodySetupChevron.textContent = '>';
-    setPanelToggleVisualState(dom.melodySetupToggleBtn, false);
     return;
   }
   dom.melodySetupPanel.classList.toggle('hidden', collapsed);
@@ -313,11 +308,6 @@ function renderSessionToolsCollapsed(collapsed: boolean) {
     return;
   }
   if (dom.sessionToolsToggleBtn.classList.contains('hidden')) {
-    dom.sessionToolsPanel.classList.add('hidden');
-    dom.sessionToolsPanel.style.display = 'none';
-    dom.sessionToolsToggleBtn.setAttribute('aria-expanded', 'false');
-    dom.sessionToolsChevron.textContent = '>';
-    setPanelToggleVisualState(dom.sessionToolsToggleBtn, false);
     return;
   }
   dom.sessionToolsPanel.classList.toggle('hidden', collapsed);
@@ -383,6 +373,7 @@ function renderSessionToolsModeVisibility(mode: string, workflow: UiWorkflow) {
   dom.sessionToolsMicLatencyRow.style.display = visibility.showMicLatencyRow ? '' : 'none';
   dom.sessionToolsPrimaryControls.classList.toggle('opacity-80', visibility.dimPrimaryControls);
   const showStringSelector = visibility.showShowStringTogglesRow && dom.showStringToggles.checked;
+  dom.stringSelector.hidden = !showStringSelector;
   dom.stringSelector.classList.toggle('hidden', !showStringSelector);
   dom.stringSelector.style.display = showStringSelector ? '' : 'none';
 }
@@ -1370,6 +1361,7 @@ export function refreshDisplayFormatting() {
   dom.sessionGoalProgress.textContent = goalProgressText;
   dom.sessionGoalProgress.classList.toggle('hidden', goalProgressText.length === 0);
 }
+
 
 
 

@@ -64,6 +64,7 @@ export function createPracticeSetupControlsController(deps: PracticeSetupControl
     const visibility = deps.resolveSessionToolsVisibility(deps.state.uiWorkflow);
     const shouldShowStringSelector =
       visibility.showShowStringTogglesRow && deps.dom.showStringToggles.checked;
+    deps.dom.stringSelector.hidden = !shouldShowStringSelector;
     deps.dom.stringSelector.classList.toggle('hidden', !shouldShowStringSelector);
     deps.dom.stringSelector.style.display = shouldShowStringSelector ? '' : 'none';
   }
@@ -200,3 +201,4 @@ export function createPracticeSetupControlsController(deps: PracticeSetupControl
     syncStringSelectorVisibility,
   };
 }
+

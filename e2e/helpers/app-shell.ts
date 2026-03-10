@@ -33,7 +33,6 @@ export class AppShell {
     await expect(this.page.locator('#statusBar')).not.toHaveText(/Startup failed|Runtime error/i);
     await expect(this.page.locator('#inputStatusBar')).toContainText(/Mic:/i);
     await expect(this.page.locator('#workflowSwitcher')).toBeVisible();
-    await expect(this.page.locator('#practiceSetupPanel')).toBeVisible();
   }
 
   async selectTrainingMode(value: string) {
