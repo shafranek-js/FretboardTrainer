@@ -18,7 +18,6 @@ let metronomeBeatsPerBar = DEFAULT_METRONOME_BEATS_PER_BAR;
 let metronomeBeatUnitDenominator = DEFAULT_METRONOME_BEAT_UNIT_DENOMINATOR;
 let metronomeSecondaryAccentBeatIndices: number[] = [];
 let metronomeLastBeatAtMs: number | null = null;
-let metronomeNextTickAtMs: number | null = null;
 let metronomeNextBeatTimeSec: number | null = null;
 let metronomeAudioPerfOffsetMs: number | null = null;
 const METRONOME_ALIGNMENT_TOLERANCE_MS = 1;
@@ -330,7 +329,6 @@ function scheduleNextMetronomeTick() {
     metronomeNextBeatTimeSec += intervalSec;
   }
 
-  metronomeNextTickAtMs = toPerformanceTimeMs(audioContext, metronomeNextBeatTimeSec);
   metronomeTimerId = window.setTimeout(() => {
     if (!metronomeAudioContext) return;
     scheduleNextMetronomeTick();
@@ -407,7 +405,6 @@ export function stopMetronome() {
   clearScheduledMetronomeClicks();
   metronomeBeatIndex = 0;
   metronomeLastBeatAtMs = null;
-  metronomeNextTickAtMs = null;
   metronomeNextBeatTimeSec = null;
   metronomeAudioPerfOffsetMs = null;
 }
@@ -422,7 +419,6 @@ export async function setMetronomeTempo(nextBpm: number) {
   if (metronomeAudioContext) {
     clearScheduledMetronomeClicks({ keepStarted: true });
     metronomeNextBeatTimeSec = metronomeAudioContext.currentTime + getMetronomeIntervalExactMs(metronomeBpm) / 1000;
-    metronomeNextTickAtMs = toPerformanceTimeMs(metronomeAudioContext, metronomeNextBeatTimeSec);
   }
   scheduleNextMetronomeTick();
   return metronomeBpm;
