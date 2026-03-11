@@ -14,6 +14,7 @@ interface WorkflowControllerDeps {
     getLayout: (workflow: UiWorkflow) => WorkflowLayout;
     updateMelodyActionButtonsForSelection: () => void;
     refreshMelodyEmptyState: () => void;
+    mountWorkspaceControls: () => void;
   };
   listAvailableMelodyIds: () => string[];
 }
@@ -43,6 +44,14 @@ export function createWorkflowController(deps: WorkflowControllerDeps) {
     deps.workflowLayoutController.refreshMelodyEmptyState();
   }
 
+  function resolveSessionToolsVisibility(workflow: UiWorkflow) {
+    return deps.workflowLayoutController.getLayout(workflow).sessionTools;
+  }
+
+  function mountWorkspaceControls() {
+    deps.workflowLayoutController.mountWorkspaceControls();
+  }
+
   function getFirstAvailableMelodyId() {
     return deps.listAvailableMelodyIds()[0] ?? null;
   }
@@ -57,8 +66,10 @@ export function createWorkflowController(deps: WorkflowControllerDeps) {
     applyUiWorkflowLayout,
     applyUiWorkflow,
     resolveCurrentWorkflowLayout,
+    resolveSessionToolsVisibility,
     updateMelodyActionButtonsForSelection,
     refreshMelodyEmptyState,
+    mountWorkspaceControls,
     getFirstAvailableMelodyId,
     selectMelodyById,
   };

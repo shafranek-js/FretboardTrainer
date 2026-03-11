@@ -4,7 +4,8 @@
  */
 import { ITrainingMode, DetectionType } from './training-mode';
 import { Prompt } from '../types';
-import { dom, state } from '../state';
+import { dom } from '../dom';
+import { state } from '../state';
 import { CHORDS } from '../constants';
 import { generateChordPrompt, getIntervalNameFromIndex } from './modes-util';
 

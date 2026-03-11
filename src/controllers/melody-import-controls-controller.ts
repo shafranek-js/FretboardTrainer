@@ -1,5 +1,3 @@
-type MelodyImportMode = 'create' | 'edit-custom';
-
 interface MelodyImportControlsDom {
   closeMelodyImportBtn: HTMLButtonElement;
   cancelMelodyImportBtn: HTMLButtonElement;
@@ -20,9 +18,10 @@ interface MelodyImportControlsDom {
   importMelodyBtn: HTMLButtonElement;
 }
 
-interface MelodyImportModalControllerLike {
-  open(options: { mode: MelodyImportMode }): boolean;
-  close(): void;
+interface MelodyImportWorkspaceControllerLike {
+  openCreate(): boolean;
+  openEditCustom(): boolean;
+  closeAndResetInputs(): void;
 }
 
 interface MelodyImportPreviewControllerLike {
@@ -40,7 +39,7 @@ export interface MelodyImportControlsControllerDeps {
   stopMelodyDemoPlayback: (options: { clearUi: boolean }) => void;
   resetMelodyGpFileInput: () => void;
   resetMelodyMidiFileInput: () => void;
-  melodyImportModalController: MelodyImportModalControllerLike;
+  melodyImportWorkspaceController: MelodyImportWorkspaceControllerLike;
   melodyImportPreviewController: MelodyImportPreviewControllerLike;
   savePendingMidiImportedTrack: () => void;
   savePendingGpImportedTrack: () => void;
@@ -53,9 +52,7 @@ export interface MelodyImportControlsControllerDeps {
 
 export function createMelodyImportControlsController(deps: MelodyImportControlsControllerDeps) {
   function closeImportModal() {
-    deps.resetMelodyGpFileInput();
-    deps.resetMelodyMidiFileInput();
-    deps.melodyImportModalController.close();
+    deps.melodyImportWorkspaceController.closeAndResetInputs();
   }
 
   async function handleGpImportChange() {
@@ -125,11 +122,11 @@ export function createMelodyImportControlsController(deps: MelodyImportControlsC
 
     deps.dom.openMelodyImportBtn.addEventListener('click', () => {
       deps.stopMelodyDemoPlayback({ clearUi: true });
-      deps.melodyImportModalController.open({ mode: 'create' });
+      deps.melodyImportWorkspaceController.openCreate();
     });
     deps.dom.editMelodyBtn.addEventListener('click', () => {
       deps.stopMelodyDemoPlayback({ clearUi: true });
-      deps.melodyImportModalController.open({ mode: 'edit-custom' });
+      deps.melodyImportWorkspaceController.openEditCustom();
     });
     deps.dom.importMelodyGpBtn.addEventListener('click', () => {
       deps.dom.melodyGpFileInput.click();

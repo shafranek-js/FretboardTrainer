@@ -77,6 +77,9 @@ export interface SessionBootstrapControllerDeps {
   registerStudyMelodyMicTuningControls: () => void;
   registerMetronomeControls: () => void;
   registerMetronomeBeatIndicator: () => void;
+  registerModalControls: () => void;
+  registerConfirmControls: () => void;
+  registerProfileControls: () => void;
 }
 
 export function createSessionBootstrapController(deps: SessionBootstrapControllerDeps) {
@@ -145,7 +148,17 @@ export function createSessionBootstrapController(deps: SessionBootstrapControlle
     deps.registerMetronomeBeatIndicator();
   }
 
-  return { initialize };
+  function registerSessionControls() {
+    initialize();
+    deps.registerModalControls();
+    deps.registerConfirmControls();
+    deps.registerProfileControls();
+  }
+
+  return {
+    initialize,
+    registerSessionControls,
+  };
 }
 
 

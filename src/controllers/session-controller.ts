@@ -1,4 +1,5 @@
-import { dom, state } from '../state';
+import { dom } from '../dom';
+import { state } from '../state';
 import { saveSettings } from '../storage';
 import {
   handleModeChange,
@@ -127,15 +128,10 @@ import { updateScrollingTabPanelRuntime } from '../scrolling-tab-panel';
 import { createMelodyTimelineEditingController } from './melody-timeline-editing-controller';
 import { createMelodyTimelineEditingBridgeController } from './melody-timeline-editing-bridge-controller';
 import { createMelodyTimelineEditingOrchestrator } from './melody-timeline-editing-orchestrator';
-import { createMelodyImportPreviewController } from './melody-import-preview-controller';
-import { createMelodyEventEditorController } from './melody-event-editor-controller';
-import { createMelodyEventEditorBridgeController } from './melody-event-editor-bridge-controller';
-import { createMelodyImportModalController } from './melody-import-modal-controller';
-import { createMelodyImportControlsController } from './melody-import-controls-controller';
+import { createMelodyImportEditorCluster } from './melody-import-editor-cluster';
 import { createMelodyEditingControlsController } from './melody-editing-controls-controller';
 import { createMelodyPlaybackControlsController } from './melody-playback-controls-controller';
 import { createMelodyLibraryControlsController } from './melody-library-controls-controller';
-import { createMelodyLibraryActionsController } from './melody-library-actions-controller';
 import { createPracticePresetControlsController } from './practice-preset-controls-controller';
 import { createPracticeSetupControlsController } from './practice-setup-controls-controller';
 import { createInstrumentDisplayControlsController } from './instrument-display-controls-controller';
@@ -145,13 +141,16 @@ import { createSessionTransportControlsController } from './session-transport-co
 import { createAudioInputControlsController } from './audio-input-controls-controller';
 import { createMelodyTempoController } from './melody-tempo-controller';
 import { createSessionBootstrapController } from './session-bootstrap-controller';
+import { createSessionStartController } from './session-start-controller';
 import { createPracticePresetUiController } from './practice-preset-ui-controller';
 import { createMelodyPracticeSettingsController } from './melody-practice-settings-controller';
 import { createMelodyPracticeSettingsBridgeController } from './melody-practice-settings-bridge-controller';
 import { createMelodySetupUiController } from './melody-setup-ui-controller';
 import { createPracticeSetupSummaryController } from './practice-setup-summary-controller';
 import { createCurriculumPresetController } from './curriculum-preset-controller';
+import { createCurriculumPresetBridgeController } from './curriculum-preset-bridge-controller';
 import { createMetronomeController } from './metronome-controller';
+import { createMetronomeRuntimeBridgeController } from './metronome-runtime-bridge-controller';
 import { createMetronomeControlsController } from './metronome-controls-controller';
 import { createMicSettingsController } from './mic-settings-controller';
 import { createInputDeviceController } from './input-device-controller';
@@ -169,8 +168,6 @@ import { createStudyMelodyMicTuningController } from './study-melody-mic-tuning-
 import { createMelodySelectionController } from './melody-selection-controller';
 import { createMelodyTimelineUiController } from './melody-timeline-ui-controller';
 import { createSelectedMelodyContextController } from './selected-melody-context-controller';
-import { createMelodyImportIoController } from './melody-import-io-controller';
-import { createMelodyImportWorkspaceController } from './melody-import-workspace-controller';
 import { createInteractionGuardsController } from './interaction-guards-controller';
 import { createMetronomeBridgeController } from './metronome-bridge-controller';
 import { DEFAULT_TABLATURE_MAX_FRET } from '../tablature-optimizer';
@@ -206,101 +203,30 @@ const selectedMelodyContextController = createSelectedMelodyContextController({
   setMetronomeMeter,
 });
 
-const getSelectedMelodyId = () => selectedMelodyContextController.getSelectedMelodyId();
-const getSelectedBaseMelody = () => selectedMelodyContextController.getSelectedMelody();
-const syncMetronomeMeterFromSelectedMelody = () =>
-  selectedMelodyContextController.syncMetronomeMeterFromSelectedMelody();
-const getSelectedMelodyEventCount = () => selectedMelodyContextController.getSelectedMelodyEventCount();
-
 function cloneMelodyEventsDraft(events: MelodyEvent[]) {
   return cloneMelodyEventsDraftModel(events);
 }
-
-const melodyEventEditorController = createMelodyEventEditorController({
-  dom: {
-    melodyPreviewStatus: dom.melodyPreviewStatus,
-    melodyPreviewSummary: dom.melodyPreviewSummary,
-    melodyPreviewList: dom.melodyPreviewList,
-    melodyEventEditorPanel: dom.melodyEventEditorPanel,
-    melodyEventEditorSelection: dom.melodyEventEditorSelection,
-    melodyEventEditorNoteSelector: dom.melodyEventEditorNoteSelector,
-    melodyEventEditorString: dom.melodyEventEditorString,
-    melodyEventEditorFret: dom.melodyEventEditorFret,
-    melodyEventEditorAddBtn: dom.melodyEventEditorAddBtn,
-    melodyEventEditorDeleteBtn: dom.melodyEventEditorDeleteBtn,
-    melodyEventEditorUndoBtn: dom.melodyEventEditorUndoBtn,
-    melodyEventEditorRedoBtn: dom.melodyEventEditorRedoBtn,
-  },
-  getCurrentInstrument: () => state.currentInstrument,
-  cloneDraft: cloneMelodyEventsDraft,
-  formatUserFacingError,
-  onStateChange: () => melodyImportWorkspaceController.syncUi(),
-});
-
-const melodyEventEditorBridgeController = createMelodyEventEditorBridgeController({
-  clearPreview: () => melodyEventEditorController.clearPreview(),
-  renderPreviewError: (prefix: string, error: unknown) => melodyEventEditorController.renderPreviewError(prefix, error),
-  renderPreviewFromEvents: (parsedEvents: MelodyEvent[], options) =>
-    melodyEventEditorController.renderPreviewFromEvents(parsedEvents, options),
-  renderInspector: () => melodyEventEditorController.renderInspector(),
-  updateSelectedNotePosition: (stringName: string, fretValue: number) =>
-    melodyEventEditorController.updateSelectedNotePosition(stringName, fretValue),
-  deleteSelectedNote: () => melodyEventEditorController.deleteSelectedNote(),
-  addNote: () => melodyEventEditorController.addNote(),
-  undo: () => melodyEventEditorController.undo(),
-  redo: () => melodyEventEditorController.redo(),
-  hasDraft: () => melodyEventEditorController.hasDraft(),
-  getDraft: () => melodyEventEditorController.getDraft(),
-  getSourceMetadata: () => melodyEventEditorController.getSourceMetadata(),
-});
-
-const melodyImportModalController = createMelodyImportModalController({
-  dom: {
-    melodyNameInput: dom.melodyNameInput,
-    melodyAsciiTabInput: dom.melodyAsciiTabInput,
-    importMelodyGpBtn: dom.importMelodyGpBtn,
-    importMelodyMidiBtn: dom.importMelodyMidiBtn,
-    importMelodyBtn: dom.importMelodyBtn,
-    melodyImportTitle: dom.melodyImportTitle,
-    melodyImportHelpText: dom.melodyImportHelpText,
-  },
-  state,
-  hasStructuredEventDraft: () => melodyEventEditorBridgeController.hasDraft(),
-  resetImportPreviewDraft: () => melodyImportPreviewController.reset(),
-  updatePreview: () => melodyImportPreviewController.updatePreview(),
-  renderStructuredPreview: (parsedEvents, options) =>
-    melodyEventEditorBridgeController.renderPreviewFromEvents(parsedEvents, options),
-  getSelectedMelodyId,
-  getSelectedMelody: getSelectedBaseMelody,
-  setModalVisible: (visible) => setModalVisible('melodyImport', visible),
-  focusNameInput: (selectText) => {
-    dom.melodyNameInput.focus();
-    if (selectText) {
-      dom.melodyNameInput.select();
-    }
-  },
-  setResultMessage,
-});
 
 function getSelectedMidiImportQuantize(): MidiImportQuantize {
   return normalizeMidiImportQuantize(dom.melodyMidiQuantize.value);
 }
 
-const melodyImportPreviewController = createMelodyImportPreviewController({
-  dom: {
-    melodyNameInput: dom.melodyNameInput,
-    melodyAsciiTabInput: dom.melodyAsciiTabInput,
-    melodyGpTrackImportPanel: dom.melodyGpTrackImportPanel,
-    melodyGpTrackSelector: dom.melodyGpTrackSelector,
-    melodyGpTrackInfo: dom.melodyGpTrackInfo,
-    saveMelodyGpTrackBtn: dom.saveMelodyGpTrackBtn,
-    melodyMidiTrackImportPanel: dom.melodyMidiTrackImportPanel,
-    melodyMidiTrackSelector: dom.melodyMidiTrackSelector,
-    melodyMidiQuantize: dom.melodyMidiQuantize,
-    melodyMidiTrackInfo: dom.melodyMidiTrackInfo,
-    saveMelodyMidiTrackBtn: dom.saveMelodyMidiTrackBtn,
-  },
+const {
+  melodyEventEditorBridgeController,
+  melodyImportEditorBridgeController,
+  melodyImportWorkspaceController,
+  melodyLibraryActionsController,
+  melodyImportControlsController,
+} = createMelodyImportEditorCluster({
+  dom,
+  state,
+  cloneDraft: cloneMelodyEventsDraft,
+  formatUserFacingError,
+  setResultMessage,
   getCurrentInstrument: () => state.currentInstrument,
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
+  getSelectedMelody: () => selectedMelodyContextController.getSelectedMelody(),
+  setMelodyImportModalVisible: (visible) => setModalVisible('melodyImport', visible),
   getSelectedMidiImportQuantize,
   parseAsciiTabToEvents: parseAsciiTabToMelodyEvents,
   loadGpScoreFromBytes,
@@ -309,47 +235,12 @@ const melodyImportPreviewController = createMelodyImportPreviewController({
   loadMusescoreFileFromBytes,
   convertLoadedMidiTrackToImportedMelody,
   convertLoadedMusescoreTrackToImportedMelody,
-  renderPreviewFromEvents: (parsedEvents, options) =>
-    melodyEventEditorBridgeController.renderPreviewFromEvents(parsedEvents, options),
-  renderPreviewError: (prefix, error) => melodyEventEditorBridgeController.renderPreviewError(prefix, error),
-  clearPreview: () => melodyEventEditorBridgeController.clearPreview(),
-});
-
-
-
-const melodyImportIoController = createMelodyImportIoController({
-  dom: {
-    melodyGpFileInput: dom.melodyGpFileInput,
-    melodyMidiFileInput: dom.melodyMidiFileInput,
-  },
-  createObjectUrl: (blob) => URL.createObjectURL(blob),
-  revokeObjectUrl: (url) => URL.revokeObjectURL(url),
-  createAnchor: () => document.createElement('a'),
-  appendAnchor: (anchor) => document.body.appendChild(anchor),
-  scheduleCleanup: (callback) => {
-    window.setTimeout(callback, 0);
-  },
-});
-
-const melodyImportWorkspaceController = createMelodyImportWorkspaceController({
-  syncModalUi: () => melodyImportModalController.syncUi(),
-  resetImportDraft: () => melodyImportModalController.resetDraft(),
-  closeModal: () => melodyImportModalController.close(),
-  resetImportInputs: () => melodyImportIoController.resetImportInputs(),
-});
-
-
-const melodyLibraryActionsController = createMelodyLibraryActionsController({
-  getSelectedMelody: getSelectedBaseMelody,
-  getCurrentInstrument: () => state.currentInstrument,
-  getMelodyEditorMode: () => state.melodyEditorMode,
-  getEditingMelodyId: () => state.editingMelodyId,
-  getMelodyNameInputValue: () => dom.melodyNameInput.value.trim(),
-  getAsciiTabInputValue: () => dom.melodyAsciiTabInput.value,
-  getEventEditorDraft: () => melodyEventEditorBridgeController.getDraft(),
-  getEventEditorMetadata: () => melodyEventEditorBridgeController.getSourceMetadata(),
-  resolvePendingGpImportedPreview: () => melodyImportPreviewController.resolvePendingGpImportedPreview(),
-  resolvePendingMidiImportedPreview: () => melodyImportPreviewController.resolvePendingMidiImportedPreview(),
+  saveCustomEventMelody,
+  updateCustomEventMelody,
+  saveCustomAsciiTabMelody,
+  updateCustomAsciiTabMelody,
+  exportMelodyToMidiBytes,
+  buildExportMidiFileName,
   getPracticeAdjustedMelody: (melody) =>
     getMelodyWithPracticeAdjustments(
       melody,
@@ -361,39 +252,18 @@ const melodyLibraryActionsController = createMelodyLibraryActionsController({
     const parsed = Number.parseInt(dom.melodyDemoBpm.value, 10);
     return Number.isFinite(parsed) ? parsed : melody.sourceTempoBpm ?? undefined;
   },
-  saveCustomEventMelody,
-  updateCustomEventMelody,
-  saveCustomAsciiTabMelody,
-  updateCustomAsciiTabMelody,
-  exportMelodyToMidiBytes,
-  buildExportMidiFileName,
-  downloadBytesAsFile: (bytes, fileName, mimeType) =>
-    melodyImportIoController.downloadBytesAsFile(bytes, fileName, mimeType),
   getPracticeAdjustmentSummary: () => ({
     transposeSemitones: state.melodyTransposeSemitones,
     stringShift: state.melodyStringShift,
   }),
-  finalizeImportSelection: finalizeMelodyImportSelection,
-});
-
-const melodyImportControlsController = createMelodyImportControlsController({
-  dom,
-  stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
-  resetMelodyGpFileInput: () => melodyImportIoController.resetGpFileInput(),
-  resetMelodyMidiFileInput: () => melodyImportIoController.resetMidiFileInput(),
-  melodyImportModalController,
-  melodyImportPreviewController,
-  savePendingMidiImportedTrack: () => melodyLibraryActionsController.savePendingMidiImportedTrack(),
-  savePendingGpImportedTrack: () => melodyLibraryActionsController.savePendingGpImportedTrack(),
-  saveFromModal: () => melodyLibraryActionsController.saveFromModal(),
-  setResultMessage,
-  renderMelodyEditorPreviewError: (prefix, error) => melodyEventEditorBridgeController.renderPreviewError(prefix, error),
-  formatUserFacingError,
+  finalizeImportSelection: (melodyId, successMessage) =>
+    melodySelectionController.finalizeImportSelection(melodyId, successMessage),
+  stopMelodyDemoPlayback: ({ clearUi }) => melodyDemoRuntimeController.stopPlayback({ clearUi }),
   showNonBlockingError,
 });
 
 const melodyTimelineEditingOrchestrator = createMelodyTimelineEditingOrchestrator({
-  getSelectedMelody: getSelectedBaseMelody,
+  getSelectedMelody: () => selectedMelodyContextController.getSelectedMelody(),
   getCurrentInstrument: () => state.currentInstrument,
   getTimelineSelection: () => ({
     eventIndex: state.melodyTimelineSelectedEventIndex,
@@ -443,9 +313,6 @@ const melodyTimelineEditingBridgeController = createMelodyTimelineEditingBridgeC
   redo: () => melodyTimelineEditingOrchestrator.redo(),
 });
 
-const resetMelodyTimelineEditingState = () => melodyTimelineEditingBridgeController.resetState();
-const syncMelodyTimelineEditingState = (statusText?: string) => melodyTimelineEditingBridgeController.syncState(statusText);
-
 const melodyDemoRuntimeController = createMelodyDemoRuntimeController({
   dom: {
     melodySelector: dom.melodySelector,
@@ -462,7 +329,7 @@ const melodyDemoRuntimeController = createMelodyDemoRuntimeController({
     stringSelector: dom.stringSelector,
   },
   state,
-  getSelectedMelodyId,
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
   getMelodyById,
   getStoredMelodyStudyRange: (melodyId, totalEvents) =>
     melodyPracticeSettingsBridgeController.getStoredMelodyStudyRange(melodyId, totalEvents),
@@ -482,8 +349,8 @@ const melodyDemoRuntimeController = createMelodyDemoRuntimeController({
   seekActiveMelodySessionToEvent: (eventIndex) => seekActiveMelodySessionToEvent(eventIndex),
   getStudyRangeLength: getMelodyStudyRangeLength,
   formatStudyRange: formatMelodyStudyRange,
-  startMelodyMetronomeIfEnabled: (options) => startMelodyMetronomeIfEnabled(options),
-  syncMelodyMetronomeRuntime: () => syncMelodyMetronomeRuntime(),
+  startMelodyMetronomeIfEnabled: (options) => metronomeBridgeController.startMelodyMetronomeIfEnabled(options),
+  syncMelodyMetronomeRuntime: () => metronomeBridgeController.syncMelodyMetronomeRuntime(),
   updateScrollingTabPanelRuntime,
   getPlaybackActionLabel: getPlaybackTransportIdleLabel,
   getPlaybackPromptLabel,
@@ -491,57 +358,27 @@ const melodyDemoRuntimeController = createMelodyDemoRuntimeController({
   requestAnimationFrame: (callback) => requestAnimationFrame(callback),
 });
 
-function stopMelodyDemoPlayback(options?: { clearUi?: boolean; message?: string }) {
-  melodyDemoRuntimeController.stopPlayback(options);
-}
-
-function pauseMelodyDemoPlayback() {
-  melodyDemoRuntimeController.pausePlayback();
-}
-
-async function resumeMelodyDemoPlayback() {
-  await melodyDemoRuntimeController.resumePlayback();
-}
-
-function seekMelodyTimelineToEvent(eventIndex: number, options?: { commit?: boolean }) {
-  melodyDemoRuntimeController.seekToEvent(eventIndex, options);
-}
-
-async function stepMelodyPreview(direction: -1 | 1) {
-  await melodyDemoRuntimeController.stepPreview(direction);
-}
-
-async function startMelodyDemoPlayback() {
-  await melodyDemoRuntimeController.startPlayback();
-}
-
-function retimeMelodyDemoPlayback() {
-  return melodyDemoRuntimeController.retimePlayback();
-}
-
 const melodyTimelineUiController = createMelodyTimelineUiController({
   renderMelodyTabTimeline: renderMelodyTabTimelineFromState,
-  syncMelodyTimelineEditingState,
+  syncMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.syncState(),
   isMelodyDemoPlaybackActive: () => melodyDemoRuntimeController.isActive(),
-  stopMelodyDemoPlayback,
+  stopMelodyDemoPlayback: (options) => melodyDemoRuntimeController.stopPlayback(options),
   isListening: () => state.isListening,
   stopListening,
   setResultMessage,
 });
 
-const refreshMelodyTimelineUi = () => melodyTimelineUiController.refreshUi();
-
-function findPlayableStringForNote(note: string): string | null {
-  return melodyDemoRuntimeController.findPlayableStringForNote(note);
-}
-
-function applyEnabledStrings(enabledStrings: string[]) {
-  const enabled = new Set(enabledStrings);
-  dom.stringSelector.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-    const checkbox = input as HTMLInputElement;
-    checkbox.checked = enabled.has(checkbox.value);
-  });
-}
+const sessionStartController = createSessionStartController({
+  isListening: () => state.isListening,
+  clearMelodyTimelinePreviewState: () => {
+    state.melodyTimelinePreviewIndex = null;
+    state.melodyTimelinePreviewLabel = null;
+  },
+  refreshMelodyTimelineUi: () => melodyTimelineUiController.refreshUi(),
+  startListening,
+  showNonBlockingError,
+  formatUserFacingError,
+});
 
 const interactionGuardsController = createInteractionGuardsController({
   blockingModals: [
@@ -566,10 +403,6 @@ const isAnyBlockingModalOpen = interactionGuardsController.isAnyBlockingModalOpe
 
 export function refreshMelodyOptionsForCurrentInstrument() {
   melodySelectionController.refreshOptionsForCurrentInstrument();
-}
-
-function finalizeMelodyImportSelection(melodyId: string, successMessage: string) {
-  melodySelectionController.finalizeImportSelection(melodyId, successMessage);
 }
 
 const melodyPracticeSettingsController = createMelodyPracticeSettingsController({
@@ -633,8 +466,8 @@ const melodySetupUiController = createMelodySetupUiController({
     deleteMelodyBtn: dom.deleteMelodyBtn,
   },
   state,
-  getSelectedMelody: getSelectedBaseMelody,
-  getSelectedMelodyId,
+  getSelectedMelody: () => selectedMelodyContextController.getSelectedMelody(),
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
   listMelodies: () => listMelodiesForInstrument(state.currentInstrument),
   getAdjustedMelody: (melody, stringShift) =>
     getMelodyWithPracticeAdjustments(
@@ -675,7 +508,7 @@ const practiceSetupSummaryController = createPracticeSetupSummaryController({
   },
   state,
   getEnabledStringsCount: () => getEnabledStrings(dom.stringSelector).size,
-  getSelectedMelody: getSelectedBaseMelody,
+  getSelectedMelody: () => selectedMelodyContextController.getSelectedMelody(),
   getStoredMelodyStudyRangeText: (melody) =>
     formatMelodyStudyRange(
       melodyPracticeSettingsBridgeController.getStoredMelodyStudyRange(melody.id, melody.events.length),
@@ -710,20 +543,22 @@ const metronomeController = createMetronomeController({
   showNonBlockingError,
 });
 
-const syncMetronomeBpmDisplay = () => metronomeController.syncBpmDisplay();
-const getClampedMetronomeBpmFromInput = () => metronomeController.getClampedBpmFromInput();
-const resetMetronomeVisualIndicator = () => metronomeController.resetVisualIndicator();
+const metronomeRuntimeBridgeController = createMetronomeRuntimeBridgeController({
+  syncBpmDisplay: () => metronomeController.syncBpmDisplay(),
+  getClampedBpmFromInput: () => metronomeController.getClampedBpmFromInput(),
+  resetVisualIndicator: () => metronomeController.resetVisualIndicator(),
+});
 
 const sessionTransportControlsController = createSessionTransportControlsController({
   dom,
   state,
   isMelodyDemoActive: () => melodyDemoRuntimeController.isActive(),
-  stopMelodyDemoPlayback,
+  stopMelodyDemoPlayback: (options) => melodyDemoRuntimeController.stopPlayback(options),
   applyUiWorkflow: (workflow) => workflowController.applyUiWorkflow(workflow),
   saveSettings,
-  getSelectedMelodyId,
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
   stopListening,
-  startSessionFromUi,
+  startSessionFromUi: () => sessionStartController.startSessionFromUi(),
   buildPromptAudioPlan: () =>
     buildPromptAudioPlan({
       prompt: state.currentPrompt,
@@ -751,7 +586,7 @@ const sessionTransportControlsController = createSessionTransportControlsControl
       label
     );
   },
-  findPlayableStringForNote,
+  findPlayableStringForNote: (note) => melodyDemoRuntimeController.findPlayableStringForNote(note),
   setResultMessage,
 });
 
@@ -770,17 +605,17 @@ const melodyTempoController = createMelodyTempoController({
     scrollingTabZoomValue: dom.scrollingTabZoomValue,
   },
   state,
-  getSelectedMelody: getSelectedBaseMelody,
+  getSelectedMelody: () => selectedMelodyContextController.getSelectedMelody(),
   syncMelodyDemoBpmDisplay: () => melodyDemoRuntimeController.syncBpmDisplay(),
-  syncMetronomeMeterFromSelectedMelody,
-  getClampedMetronomeBpmFromInput,
+  syncMetronomeMeterFromSelectedMelody: () => selectedMelodyContextController.syncMetronomeMeterFromSelectedMelody(),
+  getClampedMetronomeBpmFromInput: () => metronomeRuntimeBridgeController.getClampedBpmFromInput(),
   startMetronome,
   stopMetronome,
   setMetronomeTempo: async (bpm) => {
     await setMetronomeTempo(bpm);
   },
   isMetronomeRunning,
-  resetMetronomeVisualIndicator,
+  resetMetronomeVisualIndicator: () => metronomeRuntimeBridgeController.resetVisualIndicator(),
   showNonBlockingError,
   formatUserFacingError,
   isMelodyDemoPlaying: () => melodyDemoRuntimeController.isPlaying(),
@@ -794,9 +629,9 @@ const metronomeBridgeController = createMetronomeBridgeController({
     metronomeVolumeValue: dom.metronomeVolumeValue,
   },
   metronomeRuntime: {
-    syncBpmDisplay: () => metronomeController.syncBpmDisplay(),
-    getClampedBpmFromInput: () => metronomeController.getClampedBpmFromInput(),
-    resetVisualIndicator: () => metronomeController.resetVisualIndicator(),
+    syncBpmDisplay: () => metronomeRuntimeBridgeController.syncBpmDisplay(),
+    getClampedBpmFromInput: () => metronomeRuntimeBridgeController.getClampedBpmFromInput(),
+    resetVisualIndicator: () => metronomeRuntimeBridgeController.resetVisualIndicator(),
   },
   melodyTempo: {
     syncMelodyTempoFromMetronomeIfLinked: () => melodyTempoController.syncMelodyTempoFromMetronomeIfLinked(),
@@ -814,19 +649,6 @@ const metronomeBridgeController = createMetronomeBridgeController({
   setMetronomeVolume,
 });
 
-const syncMelodyTempoFromMetronomeIfLinked = () => metronomeBridgeController.syncMelodyTempoFromMetronomeIfLinked();
-const hydrateMelodyTempoForSelectedMelody = () => metronomeBridgeController.hydrateMelodyTempoForSelectedMelody();
-const persistSelectedMelodyTempoOverride = () => metronomeBridgeController.persistSelectedMelodyTempoOverride();
-const syncHiddenMetronomeTempoFromSharedTempo = () => metronomeBridgeController.syncHiddenMetronomeTempoFromSharedTempo();
-const syncMetronomeTempoFromMelodyIfLinked = () => metronomeBridgeController.syncMetronomeTempoFromMelodyIfLinked();
-const startMelodyMetronomeIfEnabled = (options?: { alignToPerformanceTimeMs?: number | null }) =>
-  metronomeBridgeController.startMelodyMetronomeIfEnabled(options);
-const syncMelodyMetronomeRuntime = () => metronomeBridgeController.syncMelodyMetronomeRuntime();
-const renderMetronomeToggleButton = () => metronomeBridgeController.renderMetronomeToggleButton();
-const syncMelodyTimelineZoomDisplay = () => metronomeBridgeController.syncMelodyTimelineZoomDisplay();
-const syncScrollingTabZoomDisplay = () => metronomeBridgeController.syncScrollingTabZoomDisplay();
-const syncMetronomeVolumeDisplayAndRuntime = () => metronomeBridgeController.syncMetronomeVolumeDisplayAndRuntime();
-
 const metronomeControlsController = createMetronomeControlsController({
   dom: {
     metronomeToggleBtn: dom.metronomeToggleBtn,
@@ -834,12 +656,12 @@ const metronomeControlsController = createMetronomeControlsController({
     metronomeBpm: dom.metronomeBpm,
     metronomeVolume: dom.metronomeVolume,
   },
-  syncHiddenMetronomeTempoFromSharedTempo,
-  syncMelodyMetronomeRuntime,
-  renderMetronomeToggleButton,
+  syncHiddenMetronomeTempoFromSharedTempo: () => metronomeBridgeController.syncHiddenMetronomeTempoFromSharedTempo(),
+  syncMelodyMetronomeRuntime: () => metronomeBridgeController.syncMelodyMetronomeRuntime(),
+  renderMetronomeToggleButton: () => metronomeBridgeController.renderMetronomeToggleButton(),
   saveSettings,
-  syncMelodyTempoFromMetronomeIfLinked,
-  syncMetronomeVolumeDisplayAndRuntime,
+  syncMelodyTempoFromMetronomeIfLinked: () => metronomeBridgeController.syncMelodyTempoFromMetronomeIfLinked(),
+  syncMetronomeVolumeDisplayAndRuntime: () => metronomeBridgeController.syncMetronomeVolumeDisplayAndRuntime(),
 });
 
 const curriculumPresetController = createCurriculumPresetController({
@@ -861,8 +683,14 @@ const curriculumPresetController = createCurriculumPresetController({
     endFret: dom.endFret,
   },
   state,
-  getClampedMetronomeBpmFromInput,
-  applyEnabledStrings,
+  getClampedMetronomeBpmFromInput: () => metronomeRuntimeBridgeController.getClampedBpmFromInput(),
+  applyEnabledStrings: (enabledStrings) => {
+    const enabled = new Set(enabledStrings);
+    dom.stringSelector.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      const checkbox = input as HTMLInputElement;
+      checkbox.checked = enabled.has(checkbox.value);
+    });
+  },
   handleModeChange,
   redrawFretboard,
   saveSettings,
@@ -871,11 +699,12 @@ const curriculumPresetController = createCurriculumPresetController({
   stopListening,
 });
 
-const setCurriculumPresetInfo = (text: string) => curriculumPresetController.setPresetInfo(text);
-const setCurriculumPresetSelection = (key: CurriculumPresetKey) =>
-  curriculumPresetController.setSelection(key);
-const markCurriculumPresetAsCustom = () => curriculumPresetController.markAsCustom();
-const applyCurriculumPreset = (key: CurriculumPresetKey) => curriculumPresetController.applyPreset(key);
+const curriculumPresetBridgeController = createCurriculumPresetBridgeController({
+  setPresetInfo: (text: string) => curriculumPresetController.setPresetInfo(text),
+  setSelection: (key: CurriculumPresetKey) => curriculumPresetController.setSelection(key),
+  markAsCustom: () => curriculumPresetController.markAsCustom(),
+  applyPreset: (key: CurriculumPresetKey) => curriculumPresetController.applyPreset(key),
+});
 
 const micSettingsController = createMicSettingsController({
   dom: {
@@ -924,7 +753,7 @@ const inputDeviceController = createInputDeviceController({
   refreshMidiInputDevices,
   normalizeMidiInputDeviceId,
   setPreferredMidiInputDeviceId,
-  stopMelodyDemoPlayback,
+  stopMelodyDemoPlayback: (options) => melodyDemoRuntimeController.stopPlayback(options),
   stopListening,
   saveSettings,
   updateMicNoiseGateInfo: () => micSettingsController.updateNoiseGateInfo(),
@@ -932,7 +761,6 @@ const inputDeviceController = createInputDeviceController({
   setResultMessage,
 });
 
-const updateMicNoiseGateInfo = () => micSettingsController.updateNoiseGateInfo();
 const micPolyphonicBenchmarkController = createMicPolyphonicBenchmarkController({
   dom: {
     runMicPolyphonicBenchmarkBtn: dom.runMicPolyphonicBenchmarkBtn,
@@ -980,14 +808,14 @@ const micPolyphonicTelemetryController = createMicPolyphonicTelemetryController(
 const melodySetupControlsController = createMelodySetupControlsController({
   dom,
   state,
-  stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
-  markCurriculumPresetAsCustom,
-  resetMelodyTimelineEditingState,
+  stopMelodyDemoPlayback: ({ clearUi }) => melodyDemoRuntimeController.stopPlayback({ clearUi }),
+  markCurriculumPresetAsCustom: () => curriculumPresetBridgeController.markAsCustom(),
+  resetMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.resetState(),
   hydrateMelodyTransposeForSelectedMelody: () => melodyPracticeSettingsBridgeController.hydrateMelodyTransposeForSelectedMelody(),
   hydrateMelodyStringShiftForSelectedMelody: () => melodyPracticeSettingsBridgeController.hydrateMelodyStringShiftForSelectedMelody(),
   hydrateMelodyStudyRangeForSelectedMelody: () => melodyPracticeSettingsBridgeController.hydrateMelodyStudyRangeForSelectedMelody(),
-  hydrateMelodyTempoForSelectedMelody,
-  syncMetronomeMeterFromSelectedMelody,
+  hydrateMelodyTempoForSelectedMelody: () => metronomeBridgeController.hydrateMelodyTempoForSelectedMelody(),
+  syncMetronomeMeterFromSelectedMelody: () => selectedMelodyContextController.syncMetronomeMeterFromSelectedMelody(),
   clearMelodyDemoPreviewState: () => melodyDemoRuntimeController.clearPreviewState(),
   updateMelodyActionButtonsForSelection: () => workflowController.updateMelodyActionButtonsForSelection(),
   isMelodyWorkflowMode,
@@ -995,18 +823,18 @@ const melodySetupControlsController = createMelodySetupControlsController({
   setResultMessage,
   updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   saveSettings,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => melodyTimelineUiController.refreshUi(),
   refreshLayoutControlsVisibility,
-  syncMelodyTimelineZoomDisplay,
-  syncScrollingTabZoomDisplay,
+  syncMelodyTimelineZoomDisplay: () => metronomeBridgeController.syncMelodyTimelineZoomDisplay(),
+  syncScrollingTabZoomDisplay: () => metronomeBridgeController.syncScrollingTabZoomDisplay(),
   syncMelodyLoopRangeDisplay: () => melodyPracticeSettingsBridgeController.syncMelodyLoopRangeDisplay(),
   clampMelodyDemoBpmInput: () => {
     melodyDemoRuntimeController.getClampedBpmFromInput();
   },
-  persistSelectedMelodyTempoOverride,
-  syncMetronomeTempoFromMelodyIfLinked,
-  retimeMelodyDemoPlayback,
-  getSelectedMelodyEventCount,
+  persistSelectedMelodyTempoOverride: () => metronomeBridgeController.persistSelectedMelodyTempoOverride(),
+  syncMetronomeTempoFromMelodyIfLinked: () => metronomeBridgeController.syncMetronomeTempoFromMelodyIfLinked(),
+  retimeMelodyDemoPlayback: () => melodyDemoRuntimeController.retimePlayback(),
+  getSelectedMelodyEventCount: () => selectedMelodyContextController.getSelectedMelodyEventCount(),
 });
 
 const melodyPracticeActionsController = createMelodyPracticeActionsController({
@@ -1015,14 +843,14 @@ const melodyPracticeActionsController = createMelodyPracticeActionsController({
   },
   state,
   isMelodyWorkflowMode,
-  stopMelodyDemoPlayback,
+  stopMelodyDemoPlayback: (options) => melodyDemoRuntimeController.stopPlayback(options),
   stopListening,
-  markCurriculumPresetAsCustom,
+  markCurriculumPresetAsCustom: () => curriculumPresetBridgeController.markAsCustom(),
   updateMelodyActionButtonsForSelection: () => workflowController.updateMelodyActionButtonsForSelection(),
   updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   saveSettings,
   redrawFretboard,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => melodyTimelineUiController.refreshUi(),
   setResultMessage,
   applyMelodyTransposeSemitones: (nextValue) => melodyPracticeSettingsBridgeController.applyMelodyTransposeSemitones(nextValue),
   applyMelodyStringShift: (nextValue) => melodyPracticeSettingsBridgeController.applyMelodyStringShift(nextValue),
@@ -1046,7 +874,7 @@ const melodyPracticeControlsController = createMelodyPracticeControlsController(
     melodyPracticeActionsController.applyCurrentTransposeToAllCustomMelodies(),
   handleStudyRangeChange: (range, options) =>
     melodyPracticeActionsController.handleStudyRangeChange(range, options),
-  stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
+  stopMelodyDemoPlayback: ({ clearUi }) => melodyDemoRuntimeController.stopPlayback({ clearUi }),
 });
 
 const workflowLayoutController = createWorkflowLayoutController({
@@ -1063,9 +891,9 @@ const workflowLayoutController = createWorkflowLayoutController({
   handleModeChange,
   resetMelodyWorkflowEditorState: () => {
     melodyImportWorkspaceController.closeAndResetInputs();
-    resetMelodyTimelineEditingState();
+    melodyTimelineEditingBridgeController.resetState();
   },
-  getSelectedMelodyId,
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
   getAvailableMelodyCount: () => listMelodiesForInstrument(state.currentInstrument).length,
 });
 
@@ -1088,25 +916,25 @@ const melodySelectionController = createMelodySelectionController({
   hydrateMelodyTransposeForSelectedMelody: () => melodyPracticeSettingsBridgeController.hydrateMelodyTransposeForSelectedMelody(),
   hydrateMelodyStringShiftForSelectedMelody: () => melodyPracticeSettingsBridgeController.hydrateMelodyStringShiftForSelectedMelody(),
   hydrateMelodyStudyRangeForSelectedMelody: () => melodyPracticeSettingsBridgeController.hydrateMelodyStudyRangeForSelectedMelody(),
-  hydrateMelodyTempoForSelectedMelody,
+  hydrateMelodyTempoForSelectedMelody: () => metronomeBridgeController.hydrateMelodyTempoForSelectedMelody(),
   clearMelodyDemoPreviewState: () => melodyDemoRuntimeController.clearPreviewState(),
   updateMelodyActionButtonsForSelection: () => workflowController.updateMelodyActionButtonsForSelection(),
   refreshMelodyEmptyState: () => workflowController.refreshMelodyEmptyState(),
-  resetMelodyTimelineEditingState,
+  resetMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.resetState(),
   closeMelodyImportModal: () => melodyImportWorkspaceController.close(),
-  markCurriculumPresetAsCustom,
+  markCurriculumPresetAsCustom: () => curriculumPresetBridgeController.markAsCustom(),
   updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   saveSettings,
   setResultMessage,
   renderMelodyTabTimeline: renderMelodyTabTimelineFromState,
-  syncMelodyTimelineEditingState,
+  syncMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.syncState(),
 });
 
 const workflowLayoutControlsController = createWorkflowLayoutControlsController({
   dom,
   state,
   toggleLayoutControlsExpanded,
-  stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
+  stopMelodyDemoPlayback: ({ clearUi }) => melodyDemoRuntimeController.stopPlayback({ clearUi }),
   stopListening,
   applyUiWorkflow: (workflow) => workflowController.applyUiWorkflow(workflow),
   saveSettings,
@@ -1128,7 +956,7 @@ const melodyEditingControlsController = createMelodyEditingControlsController({
   state,
   maxFret: DEFAULT_TABLATURE_MAX_FRET,
   saveSettings,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => melodyTimelineUiController.refreshUi(),
   updateSelectedMelodyEventEditorNotePosition: (stringName, fretValue) =>
     melodyEventEditorBridgeController.updateSelectedNotePosition(stringName, fretValue),
   addMelodyEventEditorNote: () => melodyEventEditorBridgeController.addNote(),
@@ -1137,7 +965,7 @@ const melodyEditingControlsController = createMelodyEditingControlsController({
   redoMelodyEventEditorMutation: () => melodyEventEditorBridgeController.redo(),
   renderMelodyEventEditorInspector: () => melodyEventEditorBridgeController.renderInspector(),
   handleTimelineHotkey: (event) => melodyTimelineEditingController.handleHotkey(event),
-  syncMelodyTimelineEditingState: () => syncMelodyTimelineEditingState(),
+  syncMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.syncState(),
   clearMelodyTimelineSelection: () => melodyTimelineEditingController.clearSelection(),
   clearMelodyTimelineContextMenu,
   renderMelodyTabTimelineFromState,
@@ -1149,11 +977,11 @@ const melodyPlaybackControlsController = createMelodyPlaybackControlsController(
   dom,
   state,
   setPracticeSetupCollapsed,
-  startMelodyDemoPlayback,
-  pauseMelodyDemoPlayback,
-  resumeMelodyDemoPlayback,
-  stopMelodyDemoPlayback,
-  stepMelodyPreview,
+  startMelodyDemoPlayback: () => melodyDemoRuntimeController.startPlayback(),
+  pauseMelodyDemoPlayback: () => melodyDemoRuntimeController.pausePlayback(),
+  resumeMelodyDemoPlayback: () => melodyDemoRuntimeController.resumePlayback(),
+  stopMelodyDemoPlayback: (options) => melodyDemoRuntimeController.stopPlayback(options),
+  stepMelodyPreview: (direction) => melodyDemoRuntimeController.stepPreview(direction),
   isPlaying: () => melodyDemoRuntimeController.isPlaying(),
   isPaused: () => melodyDemoRuntimeController.isPaused(),
   canHandleHotkeys: () => melodyDemoRuntimeController.shouldHandleHotkeys(),
@@ -1166,18 +994,19 @@ const melodyPlaybackControlsController = createMelodyPlaybackControlsController(
 const melodyLibraryControlsController = createMelodyLibraryControlsController({
   dom,
   state,
-  stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
+  stopMelodyDemoPlayback: ({ clearUi }) => melodyDemoRuntimeController.stopPlayback({ clearUi }),
   stopListening,
   isMelodyWorkflowMode,
   getTrainingMode: () => dom.trainingMode.value,
   exportSelectedMelodyAsMidi: () => melodyLibraryActionsController.exportSelectedMelodyAsMidi(),
-  bakeSelectedPracticeAdjustedMelodyAsCustom: () => melodyLibraryActionsController.bakeSelectedPracticeAdjustedMelodyAsCustom(),
-  getSelectedMelodyId,
+  bakeSelectedPracticeAdjustedMelodyAsCustom: () =>
+    melodyLibraryActionsController.bakeSelectedPracticeAdjustedMelodyAsCustom(),
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
   isCustomMelodyId,
   confirmUserAction,
   deleteCustomMelody,
   refreshMelodyOptionsForCurrentInstrument,
-  markCurriculumPresetAsCustom,
+  markCurriculumPresetAsCustom: () => curriculumPresetBridgeController.markAsCustom(),
   updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   saveSettings,
   setResultMessage,
@@ -1190,47 +1019,47 @@ const practicePresetControlsController = createPracticePresetControlsController(
   state,
   refreshMicPerformanceReadinessUi,
   syncPracticePresetUi: () => practicePresetUiController.syncPracticePresetUi(),
-  updateMicNoiseGateInfo,
+  updateMicNoiseGateInfo: () => micSettingsController.updateNoiseGateInfo(),
   saveSettings,
 });
 
 const practiceSetupControlsController = createPracticeSetupControlsController({
   dom,
   state,
-  markCurriculumPresetAsCustom,
+  markCurriculumPresetAsCustom: () => curriculumPresetBridgeController.markAsCustom(),
   saveSettings,
   redrawFretboard,
   refreshDisplayFormatting,
   setNoteNamingPreference,
-  resolveSessionToolsVisibility: (workflow) => workflowController.resolveCurrentWorkflowLayout(workflow).sessionTools,
-  stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
+  resolveSessionToolsVisibility: (workflow) => workflowController.resolveSessionToolsVisibility(workflow),
+  stopMelodyDemoPlayback: ({ clearUi }) => melodyDemoRuntimeController.stopPlayback({ clearUi }),
   handleModeChange,
   applyUiWorkflowLayout: (workflow) => workflowController.applyUiWorkflowLayout(workflow),
-  syncHiddenMetronomeTempoFromSharedTempo,
-  syncMelodyMetronomeRuntime,
+  syncHiddenMetronomeTempoFromSharedTempo: () => metronomeBridgeController.syncHiddenMetronomeTempoFromSharedTempo(),
+  syncMelodyMetronomeRuntime: () => metronomeBridgeController.syncMelodyMetronomeRuntime(),
   updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   refreshMicPerformanceReadinessUi,
-  syncMelodyTimelineEditingState,
-  setCurriculumPresetInfo,
-  applyCurriculumPreset,
-  persistSelectedMelodyTempoOverride,
-  renderMetronomeToggleButton,
+  syncMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.syncState(),
+  setCurriculumPresetInfo: (text) => curriculumPresetBridgeController.setPresetInfo(text),
+  applyCurriculumPreset: (key) => curriculumPresetBridgeController.applyPreset(key),
+  persistSelectedMelodyTempoOverride: () => metronomeBridgeController.persistSelectedMelodyTempoOverride(),
+  renderMetronomeToggleButton: () => metronomeBridgeController.renderMetronomeToggleButton(),
 });
 
 const instrumentDisplayControlsController = createInstrumentDisplayControlsController({
   dom,
   state,
   resolveInstrumentById: (instrumentId) => instruments[instrumentId],
-  stopMelodyDemoPlayback: ({ clearUi }) => stopMelodyDemoPlayback({ clearUi }),
-  markCurriculumPresetAsCustom,
-  resetMelodyTimelineEditingState,
+  stopMelodyDemoPlayback: ({ clearUi }) => melodyDemoRuntimeController.stopPlayback({ clearUi }),
+  markCurriculumPresetAsCustom: () => curriculumPresetBridgeController.markAsCustom(),
+  resetMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.resetState(),
   updateInstrumentUI,
   getEnabledStrings: () => Array.from(getEnabledStrings(dom.stringSelector)),
   refreshMelodyOptionsForCurrentInstrument,
   updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
   loadInstrumentSoundfont,
   saveSettings,
-  refreshMelodyTimelineUi,
+  refreshMelodyTimelineUi: () => melodyTimelineUiController.refreshUi(),
   stopListening,
   setResultMessage,
   redrawFretboard,
@@ -1243,7 +1072,7 @@ const practicePresetUiController = createPracticePresetUiController({
 });
 
 const melodyTimelineEditingController = createMelodyTimelineEditingController({
-  getSelectedMelodyId,
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
   isEditorWorkflowActive: () => state.uiWorkflow === 'editor',
   canEditSelectedMelodyOnTimeline: () => melodyTimelineEditingBridgeController.canEditSelectedMelodyOnTimeline(),
   ensureDraftLoaded: (melody) => melodyTimelineEditingBridgeController.ensureDraftLoaded(melody),
@@ -1279,35 +1108,23 @@ const melodyTimelineEditingController = createMelodyTimelineEditingController({
   isMelodyWorkflowMode,
 });
 
-async function startSessionFromUi() {
-  if (state.isListening) return;
-  state.melodyTimelinePreviewIndex = null;
-  state.melodyTimelinePreviewLabel = null;
-  try {
-    refreshMelodyTimelineUi();
-    await startListening();
-  } catch (error) {
-    showNonBlockingError(formatUserFacingError('Failed to start session', error));
-  }
-}
-
 const sessionBootstrapController = createSessionBootstrapController({
   dom,
   state,
-  setCurriculumPresetSelection,
-  getClampedMetronomeBpmFromInput,
+  setCurriculumPresetSelection: (key) => curriculumPresetBridgeController.setSelection(key as CurriculumPresetKey),
+  getClampedMetronomeBpmFromInput: () => metronomeRuntimeBridgeController.getClampedBpmFromInput(),
   getClampedMelodyDemoBpmFromInput: () => melodyDemoRuntimeController.getClampedBpmFromInput(),
   syncMelodyLoopRangeDisplay: () => melodyPracticeSettingsBridgeController.syncMelodyLoopRangeDisplay(),
-  syncMelodyTimelineZoomDisplay,
-  syncScrollingTabZoomDisplay,
-  syncMetronomeMeterFromSelectedMelody,
-  syncHiddenMetronomeTempoFromSharedTempo,
-  syncMetronomeBpmDisplay,
-  syncMetronomeVolumeDisplayAndRuntime,
+  syncMelodyTimelineZoomDisplay: () => metronomeBridgeController.syncMelodyTimelineZoomDisplay(),
+  syncScrollingTabZoomDisplay: () => metronomeBridgeController.syncScrollingTabZoomDisplay(),
+  syncMetronomeMeterFromSelectedMelody: () => selectedMelodyContextController.syncMetronomeMeterFromSelectedMelody(),
+  syncHiddenMetronomeTempoFromSharedTempo: () => metronomeBridgeController.syncHiddenMetronomeTempoFromSharedTempo(),
+  syncMetronomeBpmDisplay: () => metronomeRuntimeBridgeController.syncBpmDisplay(),
+  syncMetronomeVolumeDisplayAndRuntime: () => metronomeBridgeController.syncMetronomeVolumeDisplayAndRuntime(),
   syncMelodyDemoBpmDisplay: () => melodyDemoRuntimeController.syncBpmDisplay(),
   refreshMelodyOptionsForCurrentInstrument,
   setMelodyTimelineStudyRangeCommitHandler,
-  getSelectedMelodyId,
+  getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
   handleStudyRangeCommit: (range) => {
     melodyPracticeActionsController.handleStudyRangeChange(range, {
       stopMessage: 'Study range adjusted. Session stopped; press Start to continue.',
@@ -1316,23 +1133,23 @@ const sessionBootstrapController = createSessionBootstrapController({
   registerMelodyTimelineEditingInteractionHandlers: () =>
     melodyTimelineEditingController.registerInteractionHandlers(),
   setMelodyTimelineSeekHandler,
-  seekMelodyTimelineToEvent,
+  seekMelodyTimelineToEvent: (eventIndex, options) => melodyDemoRuntimeController.seekToEvent(eventIndex, options),
   resetMelodyImportDraft: () => melodyImportWorkspaceController.resetDraft(),
   syncMelodyImportModalUi: () => melodyImportWorkspaceController.syncUi(),
   renderMelodyDemoButtonState: () => melodyDemoRuntimeController.renderButtonState(),
-  resetMetronomeVisualIndicator,
-  renderMetronomeToggleButton,
-  updateMicNoiseGateInfo,
+  resetMetronomeVisualIndicator: () => metronomeRuntimeBridgeController.resetVisualIndicator(),
+  renderMetronomeToggleButton: () => metronomeBridgeController.renderMetronomeToggleButton(),
+  updateMicNoiseGateInfo: () => micSettingsController.updateNoiseGateInfo(),
   refreshMicPolyphonicDetectorAudioInfoUi,
   refreshMicPerformanceReadinessUi,
   syncPracticePresetUi: () => practicePresetUiController.syncPracticePresetUi(),
   syncMicPolyphonicTelemetryButtonState: () => micPolyphonicTelemetryController.syncButtonState(),
-  mountWorkspaceControls: () => workflowLayoutController.mountWorkspaceControls(),
+  mountWorkspaceControls: () => workflowController.mountWorkspaceControls(),
   syncUiWorkflowFromTrainingMode: () => workflowController.syncUiWorkflowFromTrainingMode(),
   applyUiWorkflowLayout: (workflow) => workflowController.applyUiWorkflowLayout(workflow),
   setUiMode,
   updatePracticeSetupSummary: () => practiceSetupSummaryController.update(),
-  syncMelodyTimelineEditingState,
+  syncMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.syncState(),
   refreshInputSourceAvailabilityUi,
   refreshAudioInputDeviceOptions,
   refreshMidiInputDevices,
@@ -1351,13 +1168,17 @@ const sessionBootstrapController = createSessionBootstrapController({
   registerStudyMelodyMicTuningControls: () => studyMelodyMicTuningController.register(),
   registerMetronomeControls: () => metronomeControlsController.register(),
   registerMetronomeBeatIndicator: () => metronomeController.registerBeatIndicator(),
+  registerModalControls,
+  registerConfirmControls,
+  registerProfileControls,
 });
 export function registerSessionControls() {
-  sessionBootstrapController.initialize();
-  registerModalControls();
-  registerConfirmControls();
-  registerProfileControls();
+  sessionBootstrapController.registerSessionControls();
 }
+
+
+
+
 
 
 

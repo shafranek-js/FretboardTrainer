@@ -257,8 +257,11 @@ vi.stubGlobal('document', {
   }),
 });
 
-vi.mock('../state', () => ({
+vi.mock('../dom', () => ({
   dom: harness.dom,
+}));
+
+vi.mock('../state', () => ({
   state: harness.state,
 }));
 
@@ -673,5 +676,7 @@ describe('modal-controller', () => {
     expect(locationReload).toHaveBeenCalledTimes(1);
   });
 });
+
+
 
 

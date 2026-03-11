@@ -1574,3 +1574,128 @@ otifyUserError(...) during prompt generation.
 
 
 
+
+## Status Update (2026-03-10)
+
+Since the previous status update, the following additional behavior-preserving refactors and stabilizations landed:
+
+- workflow restore is now persisted and restored explicitly through `uiWorkflow`, so `Practice`, `Library`, and `Editor` no longer collapse back to default melody workflows after reload
+- `Learn Notes` string-button visibility now restores correctly across reload
+- `MelodyPracticeMode` cleanup is further completed:
+  - prompt index mutation removed from `generatePrompt()`
+  - BPM is no longer read directly from the DOM
+  - start validation moved into preflight
+  - `currentMelodyEventFoundNotes.clear()` no longer lives in prompt generation
+- `Study Melody` repeated-note detection was hardened so identical adjacent notes require a fresh post-silence attack instead of passing on sustain
+- metronome runtime refactor is effectively complete for the current phase:
+  - lookahead audio-clock scheduling
+  - cached click buffers
+  - visual pulse aligned to scheduled beat timing
+
+Practical implication:
+
+1. The workflow/UI state layer is more stable than it was on 2026-03-09.
+2. The MelodyPracticeMode cleanup called out in this document as a near-term target is now substantially complete.
+3. The highest-value next step remains shrinking `src/controllers/session-controller.ts` further rather than starting a broad `state.ts` or `logic.ts` rewrite.
+
+
+## Status Update (2026-03-11)
+
+Since the 2026-03-10 update, the refactor moved further from broad controller extraction into seam cleanup inside and around `src/controllers/session-controller.ts`.
+
+### What is now true in the current tree
+
+- `src/controllers/session-controller.ts` is down to roughly `1279` lines and is increasingly acting as a composition root rather than a mixed behavior/controller file.
+- The following additional bridge/controller seams are now present and in use:
+  - `melody-selection-controller.ts`
+  - `melody-timeline-ui-controller.ts`
+  - `selected-melody-context-controller.ts`
+  - `melody-import-io-controller.ts`
+  - `melody-import-workspace-controller.ts`
+  - `interaction-guards-controller.ts`
+  - `metronome-bridge-controller.ts`
+  - `melody-timeline-editing-bridge-controller.ts`
+  - `melody-event-editor-bridge-controller.ts`
+  - `melody-practice-settings-bridge-controller.ts`
+  - `metronome-runtime-bridge-controller.ts`
+  - `curriculum-preset-bridge-controller.ts`
+  - `melody-import-editor-bridge-controller.ts`
+  - `melody-library-actions-bridge-controller.ts`
+  - `session-start-controller.ts`
+- Local thin-wrapper helpers around selected melody lookup, metronome runtime sync, timeline editing reset/sync, melody demo transport calls, and workflow facade calls have been substantially removed from `session-controller.ts`.
+- `workflow-controller.ts` now acts as a more complete facade for session-layer workflow usage, including workspace mounting and session-tools visibility.
+- Import flows are now more layered:
+  - `melody-import-controls-controller.ts` talks to `melody-import-workspace-controller.ts` for open/close flows
+  - preview/editor draft access is funneled through `melody-import-editor-bridge-controller.ts`
+  - library/import save actions are funneled through `melody-library-actions-bridge-controller.ts`
+- Startup/session entry points are thinner:
+  - `startSessionFromUi` now lives in `session-start-controller.ts`
+  - `registerSessionControls()` is now delegated through `session-bootstrap-controller.ts`
+
+### Revised immediate priority from the current state
+
+The next refactor step should not be a broad rewrite of `state.ts` or `logic.ts`.
+
+Recommended order now:
+
+1. Finish the upper `event-editor / import-preview / import-workspace` seam only if there is still a behavior-preserving extraction with clear value.
+2. After that, stop and re-evaluate whether `session-controller.ts` still contains cheap wins, or whether it is already "thin enough" for the current phase.
+3. Only then choose the next major hotspot, most likely:
+   - `src/ui-signals.ts`, or
+   - targeted runtime decomposition around `src/logic.ts` prerequisites, or
+   - DOM extraction from `src/state.ts` if it can be done without coupling it to another large refactor.
+
+### Practical implication
+
+- The original backlog items under "Session Controller Decomposition" are partially complete in practice, even if the checklist above still reads as if they were mostly pending.
+- The cheapest remaining work is no longer "remove another wrapper"; it is "decide whether another extraction still improves boundaries enough to justify added surface area".
+- The document's original ordering still largely holds, but the current tree is already deeper into R3-style decomposition than the unchecked tasks suggest.
+
+## Status Update (2026-03-11, later)
+
+Since the previous 2026-03-11 update, the center of gravity moved again.
+
+### What is now true in the current tree
+
+- src/controllers/session-controller.ts is now roughly 1131 lines and is functioning primarily as a composition root.
+- src/ui-signals.ts is now roughly 409 lines after view/sync/binding extraction and is much closer to a thin signal hub.
+- The next major hotspot has clearly become src/logic.ts, and that file has already started to decompose along runtime seams.
+- Additional runtime modules now exist and are wired in practice:
+  - performance-transport-runtime-controller.ts
+  - performance-timeline-feedback-controller.ts
+  - performance-mic-telemetry-controller.ts
+  - mic-monophonic-attack-tracking-controller.ts
+  - mic-performance-runtime-status-controller.ts
+  - session-prompt-runtime-controller.ts
+  - performance-adaptive-runtime-controller.ts
+  - monophonic-audio-frame-controller.ts
+  - audio-frame-runtime-controller.ts
+- src/logic.ts is down to roughly 1373 lines after moving several performance/mic/session runtime clusters out.
+
+### What changed architecturally
+
+- Performance transport clock / preroll / active-event runtime sync no longer lives inline in logic.ts.
+- Performance timeline feedback mutations (success, missed, wrong, timing buckets) are now isolated from prompt orchestration.
+- Performance mic telemetry and onset-gate bookkeeping are now isolated from the monophonic detection loop.
+- Mic monophonic attack tracking and repeated-prompt fresh-attack guarding are now isolated from the larger audio-processing path.
+- Mic readiness / detector-status runtime refresh is now behind its own seam instead of being maintained as ad hoc helper logic.
+- Session goal progress, initial timeline preview, and prompt-audio runtime application are now isolated from the main prompt loop.
+- Performance adaptive mic-hold calibration and timing-bias runtime updates are now isolated from the remaining logic.ts helper layer.
+- The non-calibration monophonic audio-frame branch is now isolated from processAudio() behind its own runtime controller.
+- processAudio() frame preflight/dispatch orchestration is now isolated behind a dedicated runtime controller instead of living inline in logic.ts.
+
+### Revised immediate priority from the current state
+
+The best next refactor steps are now inside src/logic.ts, not session-controller.ts.
+
+Recommended order now:
+
+1. Continue extracting runtime-only mic/performance clusters from logic.ts while preserving the existing audio loop behavior.
+2. The next best candidates are startup/session-reset glue still coupled to runtime state resets and the remaining session start/stop orchestration in logic.ts.
+3. Only re-evaluate state.ts slicing after the remaining high-density runtime glue in logic.ts has been reduced further.
+
+### Practical implication
+
+- The application is now past the earlier "thin session controller" phase and into a targeted runtime-decomposition phase.
+- The cheapest remaining wins are no longer in UI composition; they are in isolating mic/performance runtime mutations from the main audio loop and remaining session runtime orchestration glue.
+- logic.ts still remains the largest hotspot, but it is now shrinking through behavior-preserving seams instead of broad rewrites.

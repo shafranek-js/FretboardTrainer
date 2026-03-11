@@ -1,4 +1,5 @@
-import { dom, state } from '../state';
+import { dom } from '../dom';
+import { state } from '../state';
 import { getMelodyById, type MelodyEvent } from '../melody-library';
 import { getMelodyFingeredEvent } from '../melody-fingering';
 import { getPlayableMelodyEventNotes } from '../melody-playable-event-notes';

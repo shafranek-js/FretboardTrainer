@@ -65,9 +65,10 @@ function createDeps() {
     stopMelodyDemoPlayback: vi.fn(),
     resetMelodyGpFileInput: vi.fn(),
     resetMelodyMidiFileInput: vi.fn(),
-    melodyImportModalController: {
-      open: vi.fn(() => true),
-      close: vi.fn(),
+    melodyImportWorkspaceController: {
+      openCreate: vi.fn(() => true),
+      openEditCustom: vi.fn(() => true),
+      closeAndResetInputs: vi.fn(),
     },
     melodyImportPreviewController: {
       schedulePreviewUpdate: vi.fn(),
@@ -100,9 +101,9 @@ describe('melody-import-controls-controller', () => {
     dom.cancelMelodyImportBtn.listeners.click();
     dom.melodyImportModal.listeners.click({ target: dom.melodyImportModal });
 
-    expect(deps.resetMelodyGpFileInput).toHaveBeenCalledTimes(3);
-    expect(deps.resetMelodyMidiFileInput).toHaveBeenCalledTimes(3);
-    expect(deps.melodyImportModalController.close).toHaveBeenCalledTimes(3);
+    expect(deps.resetMelodyGpFileInput).not.toHaveBeenCalled();
+    expect(deps.resetMelodyMidiFileInput).not.toHaveBeenCalled();
+    expect(deps.melodyImportWorkspaceController.closeAndResetInputs).toHaveBeenCalledTimes(3);
   });
 
   it('wires preview inputs and open/edit modal actions', () => {
@@ -119,8 +120,8 @@ describe('melody-import-controls-controller', () => {
     expect(deps.melodyImportPreviewController.schedulePreviewUpdate).toHaveBeenCalledTimes(1);
     expect(deps.melodyImportPreviewController.updatePreview).toHaveBeenCalledTimes(1);
     expect(deps.stopMelodyDemoPlayback).toHaveBeenCalledWith({ clearUi: true });
-    expect(deps.melodyImportModalController.open).toHaveBeenNthCalledWith(1, { mode: 'create' });
-    expect(deps.melodyImportModalController.open).toHaveBeenNthCalledWith(2, { mode: 'edit-custom' });
+    expect(deps.melodyImportWorkspaceController.openCreate).toHaveBeenCalledTimes(1);
+    expect(deps.melodyImportWorkspaceController.openEditCustom).toHaveBeenCalledTimes(1);
   });
 
   it('loads a gp import draft and restores button state', async () => {

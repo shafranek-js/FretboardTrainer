@@ -2,7 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { dom, state } from './state';
+import { dom } from './dom';
+import { state } from './state';
 import {
   flushPendingStatsSave,
   updateStats,
@@ -55,7 +56,6 @@ import {
   TIMED_CHALLENGE_DURATION,
 } from './constants';
 import { getEnabledStrings, getSelectedFretRange } from './fretboard-ui-state';
-import { buildPromptAudioPlan } from './prompt-audio-plan';
 import {
   createPromptCycleTrackingResetState,
   createStabilityTrackingResetState,
@@ -96,11 +96,11 @@ import {
   stopMetronome,
 } from './metronome';
 import { formatUserFacingError, showNonBlockingError } from './app-feedback';
-import { evaluateRhythmTiming, formatRhythmFeedback } from './rhythm-timing';
 import {
   formatSessionGoalProgress,
   getSessionGoalTargetCorrect,
 } from './session-goal';
+import { evaluateRhythmTiming, formatRhythmFeedback } from './rhythm-timing';
 import {
   clearTrackedTimeouts,
   scheduleTrackedCooldown,
@@ -111,11 +111,19 @@ import { createSessionRuntimeErrorHandler } from './session-runtime-error-handle
 import { buildAudioMonophonicReactionPlan, buildCalibrationFrameReactionPlan } from './session-detection-reactions';
 import { executeSessionNextPromptPlan } from './session-next-prompt-executor';
 import { getTrainingModeLabel } from './training-mode-labels';
+import { createPerformanceTransportRuntimeController } from './performance-transport-runtime-controller';
+import { createPerformanceTimelineFeedbackController } from './performance-timeline-feedback-controller';
+import { createPerformanceMicTelemetryController } from './performance-mic-telemetry-controller';
+import { createMicMonophonicAttackTrackingController } from './mic-monophonic-attack-tracking-controller';
+import { createMicPerformanceRuntimeStatusController } from './mic-performance-runtime-status-controller';
+import { createSessionPromptRuntimeController } from './session-prompt-runtime-controller';
+import { createPerformanceAdaptiveRuntimeController } from './performance-adaptive-runtime-controller';
+import { createMonophonicAudioFrameController } from './monophonic-audio-frame-controller';
+import { createAudioFrameRuntimeController } from './audio-frame-runtime-controller';
 import {
   buildFinishCalibrationOutcome,
   closeCalibrationSession,
 } from './calibration-session-flow';
-import { executePromptAudioPlan } from './prompt-audio-executor';
 import { executeSessionTimeUpPlan } from './session-timeup-executor';
 import {
   executeAudioMonophonicReaction,
@@ -138,10 +146,11 @@ import {
   type PerformanceMicHoldCalibrationLevel,
 } from './mic-note-hold-filter';
 import { shouldResetMicAttackTracking } from './mic-attack-tracking';
+import { shouldRearmMicOnsetForSameNote } from './mic-note-reattack';
+import { shouldResetStudyMelodyOnsetTrackingOnPromptChange } from './study-melody-prompt-transition';
 import { shouldReportPerformanceMicUncertainFrame } from './performance-mic-uncertain';
 import { resolveLatencyCompensatedPromptStartedAtMs } from './performance-mic-latency-compensation';
 import { resolvePerformanceMicJudgingThresholds } from './performance-mic-judging-thresholds';
-import { updatePerformanceTimingBias } from './performance-timing-bias';
 import type { PerformanceTimingGrade } from './performance-timing-grade';
 import {
   resolvePerformanceMicVolumeThreshold,
@@ -156,13 +165,6 @@ import {
   resolveEffectiveStudyMelodySilenceResetFrames,
   resolveEffectiveStudyMelodyStableFrames,
 } from './study-melody-mic-tuning';
-import {
-  mergePerformanceMicHoldCalibrationLevel,
-  resolvePerformanceMicHoldCalibrationLevelFromBundle,
-  resolveRuntimePerformanceMicHoldCalibrationLevel,
-} from './performance-mic-hold-calibration';
-import { shouldRearmMicOnsetForSameNote } from './mic-note-reattack';
-import { shouldResetStudyMelodyOnsetTrackingOnPromptChange } from './study-melody-prompt-transition';
 import {
   detectMicPolyphonicFrame,
   normalizeMicPolyphonicDetectorProvider,
@@ -193,7 +195,6 @@ import {
   clearPerformanceTimelineFeedbackState,
 } from './performance-timeline-feedback';
 import { buildSessionInitialPromptPlan } from './session-initial-prompt-plan';
-import { buildSessionInitialTimelinePreview } from './session-initial-timeline-preview';
 import { shouldIgnorePerformanceOctaveMismatch } from './performance-octave-policy';
 import { isPerformancePitchWithinTolerance as isPerformancePitchWithinToleranceHelper } from './performance-pitch-tolerance';
 import { getMelodyById } from './melody-library';
@@ -201,7 +202,6 @@ import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationExactMs } from '.
 import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
 import { resolveMelodyMetronomeMeterProfile } from './melody-meter';
 import { formatMelodyStudyRange, isDefaultMelodyStudyRange, normalizeMelodyStudyRange } from './melody-study-range';
-import { resolvePerformanceTransportFrame } from './performance-transport';
 import {
   captureMicPerformanceLatencyCalibrationState,
   restoreMicPerformanceLatencyCalibrationState,
@@ -234,529 +234,6 @@ export function resetMicPolyphonicDetectorTelemetry() {
   state.micPolyphonicDetectorTelemetryWarningFrames = 0;
   state.micPolyphonicDetectorTelemetryWindowStartedAtMs = 0;
   state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = 0;
-}
-
-function resetMicMonophonicAttackTracking() {
-  state.micMonophonicAttackTrackedNote = null;
-  state.micMonophonicAttackPeakVolume = 0;
-  state.micMonophonicAttackLastVolume = 0;
-  state.micMonophonicFirstDetectedAtMs = null;
-}
-
-type MicMonophonicAttackTrackingEvent = 'reset' | 'started' | 'rearmed' | 'continued' | 'ignored';
-
-function clearStudyMelodyRepeatPromptFreshAttackGuard(event: MicMonophonicAttackTrackingEvent) {
-  if (!state.studyMelodyRepeatPromptRequiresFreshAttack) return;
-  if (dom.trainingMode.value !== 'melody') {
-    state.studyMelodyRepeatPromptRequiresFreshAttack = false;
-    state.studyMelodyRepeatPromptSawSilence = false;
-    return;
-  }
-  if (!state.studyMelodyRepeatPromptSawSilence) return;
-  if (event !== 'started' && event !== 'rearmed') return;
-  if (state.micMonophonicFirstDetectedAtMs === null) return;
-  if (state.micMonophonicFirstDetectedAtMs < state.startTime) return;
-  state.studyMelodyRepeatPromptRequiresFreshAttack = false;
-  state.studyMelodyRepeatPromptSawSilence = false;
-}
-
-function updateMicMonophonicAttackTracking(
-  detectedNote: string | null,
-  volume: number
-): MicMonophonicAttackTrackingEvent {
-  const nowMs = Date.now();
-  const eventDurationMs = state.currentPrompt?.melodyEventDurationMs ?? null;
-  const melodyAdaptive = isMelodyWorkflowMode(dom.trainingMode.value);
-  const performanceDropHoldMs = melodyAdaptive
-    ? resolvePerformanceMicDropHoldMs(eventDurationMs)
-    : undefined;
-  if (
-    shouldResetMicAttackTracking({
-      detectedNote,
-      trackedNote: state.micMonophonicAttackTrackedNote,
-      trainingMode: dom.trainingMode.value,
-      lastDetectedAtMs: state.micLastMonophonicDetectedAtMs,
-      nowMs,
-      performanceDropHoldMs,
-    })
-  ) {
-    resetMicMonophonicAttackTracking();
-    return 'reset';
-  }
-  if (!detectedNote) return 'ignored';
-
-  if (state.micMonophonicAttackTrackedNote !== detectedNote) {
-    state.micMonophonicAttackTrackedNote = detectedNote;
-    state.micMonophonicAttackPeakVolume = volume;
-    state.micMonophonicAttackLastVolume = volume;
-    state.micMonophonicFirstDetectedAtMs = nowMs;
-    return 'started';
-  }
-
-  const onsetAgeMs =
-    state.micMonophonicFirstDetectedAtMs === null
-      ? null
-      : Math.max(0, nowMs - state.micMonophonicFirstDetectedAtMs);
-  if (
-    shouldRearmMicOnsetForSameNote({
-      performanceAdaptive: melodyAdaptive,
-      onsetAgeMs,
-      currentVolume: volume,
-      previousVolume: state.micMonophonicAttackLastVolume,
-      peakVolume: state.micMonophonicAttackPeakVolume,
-      eventDurationMs,
-    })
-  ) {
-    state.micMonophonicAttackPeakVolume = volume;
-    state.micMonophonicFirstDetectedAtMs = nowMs;
-    state.micMonophonicAttackLastVolume = volume;
-    return 'rearmed';
-  }
-
-  if (volume > state.micMonophonicAttackPeakVolume) {
-    state.micMonophonicAttackPeakVolume = volume;
-  }
-  state.micMonophonicAttackLastVolume = volume;
-  return 'continued';
-}
-
-function refreshMicPerformanceReadinessUiThrottled(nowMs = Date.now()) {
-  if (nowMs - state.micPerformanceReadinessLastUiRefreshAtMs < 250) return;
-  state.micPerformanceReadinessLastUiRefreshAtMs = nowMs;
-  refreshMicPerformanceReadinessUi(nowMs);
-}
-
-function recordMicPerformanceOnsetRejectReason(input: {
-  reasonKey: MicPerformanceOnsetRejectReasonKey;
-  onsetNote: string | null;
-  onsetAtMs: number | null;
-}) {
-  const dedupeMatched =
-    state.micPerformanceOnsetLastRejectedReasonKey === input.reasonKey &&
-    state.micPerformanceOnsetLastRejectedNote === input.onsetNote &&
-    state.micPerformanceOnsetLastRejectedAtMs === input.onsetAtMs;
-  if (dedupeMatched) return false;
-
-  state.micPerformanceOnsetLastRejectedReasonKey = input.reasonKey;
-  state.micPerformanceOnsetLastRejectedNote = input.onsetNote;
-  state.micPerformanceOnsetLastRejectedAtMs = input.onsetAtMs;
-
-  if (input.reasonKey === 'weak_attack') {
-    state.micPerformanceOnsetRejectedWeakAttackCount += 1;
-    return true;
-  }
-  if (input.reasonKey === 'low_confidence') {
-    state.micPerformanceOnsetRejectedLowConfidenceCount += 1;
-    return true;
-  }
-  if (input.reasonKey === 'low_voicing') {
-    state.micPerformanceOnsetRejectedLowVoicingCount += 1;
-    return true;
-  }
-  state.micPerformanceOnsetRejectedShortHoldCount += 1;
-  return true;
-}
-
-function setMicPerformanceOnsetGateStatus(
-  status: 'accepted' | 'rejected',
-  reason: string,
-  input?: {
-    atMs?: number;
-    rejectReasonKey?: MicPerformanceOnsetRejectReasonKey;
-    onsetNote?: string | null;
-    onsetAtMs?: number | null;
-    eventDurationMs?: number | null;
-    holdRequiredMs?: number | null;
-    holdElapsedMs?: number | null;
-    runtimeCalibrationLevel?: PerformanceMicHoldCalibrationLevel | null;
-  }
-) {
-  const atMs = input?.atMs ?? Date.now();
-  state.micPerformanceOnsetGateStatus = status;
-  state.micPerformanceOnsetGateReason = reason;
-  state.micPerformanceOnsetGateAtMs = atMs;
-
-  if (status !== 'rejected' || !input?.rejectReasonKey) return;
-  const recorded = recordMicPerformanceOnsetRejectReason({
-    reasonKey: input.rejectReasonKey,
-    onsetNote: input.onsetNote ?? null,
-    onsetAtMs: input.onsetAtMs ?? atMs,
-  });
-  if (!recorded) return;
-  recordPerformanceOnsetRejectByEvent({
-    reasonKey: input.rejectReasonKey,
-    reason,
-    rejectedAtMs: atMs,
-    onsetNote: input.onsetNote ?? null,
-    onsetAtMs: input.onsetAtMs ?? atMs,
-    eventDurationMs:
-      typeof input.eventDurationMs === 'number' && Number.isFinite(input.eventDurationMs)
-        ? input.eventDurationMs
-        : null,
-    holdRequiredMs:
-      typeof input.holdRequiredMs === 'number' && Number.isFinite(input.holdRequiredMs)
-        ? input.holdRequiredMs
-        : null,
-    holdElapsedMs:
-      typeof input.holdElapsedMs === 'number' && Number.isFinite(input.holdElapsedMs)
-        ? input.holdElapsedMs
-        : null,
-    runtimeCalibrationLevel: input.runtimeCalibrationLevel ?? null,
-  });
-}
-
-function resetMicPerformanceOnsetGateStatus() {
-  state.micPerformanceOnsetGateStatus = 'idle';
-  state.micPerformanceOnsetGateReason = null;
-  state.micPerformanceOnsetGateAtMs = null;
-}
-
-function resetMicPerformanceOnsetRejectTelemetry() {
-  state.micPerformanceOnsetRejectedWeakAttackCount = 0;
-  state.micPerformanceOnsetRejectedLowConfidenceCount = 0;
-  state.micPerformanceOnsetRejectedLowVoicingCount = 0;
-  state.micPerformanceOnsetRejectedShortHoldCount = 0;
-  state.micPerformanceOnsetLastRejectedReasonKey = null;
-  state.micPerformanceOnsetLastRejectedNote = null;
-  state.micPerformanceOnsetLastRejectedAtMs = null;
-}
-
-function resolveSessionPerformanceMicHoldCalibrationLevel(input: {
-  trainingMode: string;
-  inputSource: 'microphone' | 'midi';
-}) {
-  if (!isPerformanceStyleMode(input.trainingMode) || input.inputSource !== 'microphone') {
-    return 'off' as const;
-  }
-  return resolvePerformanceMicHoldCalibrationLevelFromBundle(state.lastSessionAnalysisBundle);
-}
-
-function resolveEffectiveRuntimePerformanceMicHoldCalibrationLevel(performanceAdaptiveMicInput: boolean) {
-  if (!performanceAdaptiveMicInput) return 'off' as const;
-  const runtimeLevel = resolveRuntimePerformanceMicHoldCalibrationLevel({
-    shortHoldRejectCount: state.micPerformanceOnsetRejectedShortHoldCount,
-    weakAttackRejectCount: state.micPerformanceOnsetRejectedWeakAttackCount,
-    lowConfidenceRejectCount: state.micPerformanceOnsetRejectedLowConfidenceCount,
-    lowVoicingRejectCount: state.micPerformanceOnsetRejectedLowVoicingCount,
-  });
-  return mergePerformanceMicHoldCalibrationLevel(state.performanceMicHoldCalibrationLevel, runtimeLevel);
-}
-
-function updatePerformanceTimingBiasFromGrade(grade: PerformanceTimingGrade | null | undefined) {
-  if (!grade) return;
-  const next = updatePerformanceTimingBias({
-    currentBiasMs: state.performanceTimingBiasMs,
-    sampleCount: state.performanceTimingBiasSampleCount,
-    signedOffsetMs: grade.signedOffsetMs,
-    inputSource: state.inputSource,
-  });
-  state.performanceTimingBiasMs = next.nextBiasMs;
-  state.performanceTimingBiasSampleCount = next.nextSampleCount;
-}
-
-function handleRhythmModeStableNote(detectedNote: string) {
-  const timing = evaluateRhythmTiming(
-    Date.now(),
-    getMetronomeTimingSnapshot(),
-    dom.rhythmTimingWindow.value
-  );
-  if (!timing) {
-    setResultMessage('Enable Click to practice rhythm timing.', 'error');
-    return;
-  }
-
-  if (state.rhythmLastJudgedBeatAtMs === timing.beatAtMs) {
-    return;
-  }
-
-  state.rhythmLastJudgedBeatAtMs = timing.beatAtMs;
-  recordRhythmTimingAttempt(
-    state.activeSessionStats,
-    timing.signedOffsetMs,
-    timing.absOffsetMs,
-    timing.tone === 'success'
-  );
-  setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
-}
-
-function updateSessionGoalProgressFromActiveStats() {
-  const goalTargetCorrect = getSessionGoalTargetCorrect(dom.sessionGoal.value);
-  if (goalTargetCorrect === null) return;
-  setSessionGoalProgress(
-    formatSessionGoalProgress(state.activeSessionStats?.correctAttempts ?? 0, goalTargetCorrect)
-  );
-}
-
-function applySessionInitialTimelinePreview(previewLabel: string) {
-  const preview = buildSessionInitialTimelinePreview({
-    trainingMode: dom.trainingMode.value,
-    selectedMelodyId: dom.melodySelector.value,
-    currentInstrument: state.currentInstrument,
-    melodyTransposeSemitones: state.melodyTransposeSemitones,
-    melodyStringShift: state.melodyStringShift,
-    melodyStudyRangeStartIndex: state.melodyStudyRangeStartIndex,
-    melodyStudyRangeEndIndex: state.melodyStudyRangeEndIndex,
-  });
-
-  state.melodyTimelinePreviewIndex = preview?.eventIndex ?? null;
-  state.melodyTimelinePreviewLabel = preview ? previewLabel : null;
-  redrawFretboard();
-  scheduleMelodyTimelineRenderFromState();
-}
-
-function clearSessionInitialTimelinePreview() {
-  if (state.melodyTimelinePreviewIndex === null && state.melodyTimelinePreviewLabel === null) {
-    return;
-  }
-
-  state.melodyTimelinePreviewIndex = null;
-  state.melodyTimelinePreviewLabel = null;
-  redrawFretboard();
-  scheduleMelodyTimelineRenderFromState();
-}
-
-function beginPerformancePrerollTimeline(pulseCount: number, durationMs: number) {
-  state.performancePrerollLeadInVisible = pulseCount > 0;
-  state.performancePrerollStartedAtMs = pulseCount > 0 ? Date.now() : null;
-  state.performancePrerollDurationMs = pulseCount > 0 ? Math.max(0, durationMs) : 0;
-  state.performancePrerollStepIndex = pulseCount > 0 ? 0 : null;
-  redrawFretboard();
-  scheduleMelodyTimelineRenderFromState();
-}
-
-function advancePerformancePrerollTimeline(stepIndex: number, pulseCount: number) {
-  if (!state.isListening) return;
-  if (!state.performancePrerollLeadInVisible || pulseCount <= 0) return;
-  state.performancePrerollStepIndex = Math.max(0, Math.min(pulseCount - 1, stepIndex));
-  redrawFretboard();
-  scheduleMelodyTimelineRenderFromState();
-}
-
-function finishPerformancePrerollTimeline() {
-  state.performancePrerollLeadInVisible = false;
-  state.performancePrerollStartedAtMs = null;
-  state.performancePrerollDurationMs = 0;
-  state.performancePrerollStepIndex = null;
-  redrawFretboard();
-  scheduleMelodyTimelineRenderFromState();
-}
-
-function getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex: number) {
-  const selectedMelodyId = dom.melodySelector.value.trim();
-  const melody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
-  if (!melody || melody.events.length === 0) return 0;
-
-  const rangeStart = Math.max(0, Math.min(state.melodyStudyRangeStartIndex, melody.events.length - 1));
-  const clampedTargetIndex = Math.max(rangeStart, Math.min(Math.round(targetEventIndex), melody.events.length));
-  let totalSec = 0;
-  for (let index = rangeStart; index < clampedTargetIndex; index += 1) {
-    const event = melody.events[index];
-    if (!event) continue;
-    totalSec += getMelodyEventPlaybackDurationExactMs(event, Number(dom.melodyDemoBpm.value), melody) / 1000;
-  }
-  return totalSec;
-}
-
-function startPerformanceRuntimeClock(targetEventIndex = state.melodyStudyRangeStartIndex) {
-  if (!isPerformanceStyleMode(dom.trainingMode.value)) return;
-  const elapsedSec = getPerformanceRuntimeElapsedBeforeEventSec(targetEventIndex);
-  state.performanceRuntimeStartedAtMs = Date.now() - Math.round(elapsedSec * 1000);
-  schedulePerformanceTransportLoop();
-}
-
-function getActivePerformanceTransportContext() {
-  if (!isPerformanceStyleMode(dom.trainingMode.value)) return null;
-  const selectedMelodyId = dom.melodySelector.value.trim();
-  const baseMelody = selectedMelodyId ? getMelodyById(selectedMelodyId, state.currentInstrument) : null;
-  if (!baseMelody) return null;
-  const melody = getMelodyWithPracticeAdjustments(
-    baseMelody,
-    state.melodyTransposeSemitones,
-    state.melodyStringShift,
-    state.currentInstrument
-  );
-  if (melody.events.length === 0) return null;
-
-  return {
-    melody,
-    studyRange: normalizeMelodyStudyRange(state.melodyStudyRangeById?.[melody.id], melody.events.length),
-    bpm: clampMelodyPlaybackBpm(dom.melodyDemoBpm.value),
-  };
-}
-
-function syncPerformanceTransport(nowMs = Date.now()) {
-  if (
-    !isPerformanceStyleMode(dom.trainingMode.value) ||
-    !state.isListening ||
-    state.performanceRuntimeStartedAtMs === null
-  ) {
-    return;
-  }
-
-  const context = getActivePerformanceTransportContext();
-  if (!context) return;
-  state.currentMelodyId = context.melody.id;
-
-  const transportFrame = resolvePerformanceTransportFrame({
-    melody: context.melody,
-    bpm: context.bpm,
-    studyRange: context.studyRange,
-    runtimeStartedAtMs: state.performanceRuntimeStartedAtMs,
-    nowMs,
-  });
-
-  if (transportFrame.isComplete) {
-    if (state.currentPrompt && !state.performancePromptResolved) {
-      performancePromptController.resolveMissed();
-    }
-    if (dom.trainingMode.value === 'performance' && state.activeSessionStats) {
-      state.activeSessionStats.completedRun = true;
-      state.performanceRunCompleted = true;
-    }
-    state.performanceActiveEventIndex = null;
-    state.currentMelodyEventIndex = context.studyRange.endIndex + 1;
-    state.pendingSessionStopResultMessage = {
-      text: isDefaultMelodyStudyRange(context.studyRange, context.melody.events.length)
-        ? `Performance complete! (${context.melody.name})`
-        : `Performance range complete! (${context.melody.name}, ${formatMelodyStudyRange(
-            context.studyRange,
-            context.melody.events.length
-          )})`,
-      tone: 'success',
-    };
-    if (dom.trainingMode.value === 'practice') {
-      state.pendingSessionStopResultMessage = null;
-      clearPerformanceTimelineFeedback();
-      state.currentMelodyEventFoundNotes.clear();
-      state.performanceRuntimeStartedAtMs = Date.now();
-      state.performanceActiveEventIndex = context.studyRange.startIndex;
-      state.currentMelodyEventIndex = context.studyRange.startIndex;
-      nextPrompt();
-      return;
-    }
-    nextPrompt();
-    return;
-  }
-
-  const activeEventIndex = transportFrame.activeEventIndex;
-  if (activeEventIndex === null) return;
-
-  if (state.performanceActiveEventIndex === activeEventIndex && state.currentPrompt) {
-    if (transportFrame.eventStartedAtMs !== null) {
-      state.startTime = transportFrame.eventStartedAtMs;
-    }
-    return;
-  }
-
-  if (state.currentPrompt && !state.performancePromptResolved) {
-    performancePromptController.resolveMissed();
-  }
-
-  state.performanceActiveEventIndex = activeEventIndex;
-  state.currentMelodyEventIndex = activeEventIndex;
-  state.currentMelodyEventFoundNotes.clear();
-  clearWrongDetectedHighlight();
-  nextPrompt();
-  if (transportFrame.eventStartedAtMs !== null) {
-    state.startTime = transportFrame.eventStartedAtMs;
-  }
-}
-
-function stopPerformanceTransportLoop() {
-  if (state.performanceTransportAnimationId) {
-    cancelAnimationFrame(state.performanceTransportAnimationId);
-    state.performanceTransportAnimationId = 0;
-  }
-}
-
-function schedulePerformanceTransportLoop() {
-  if (state.performanceTransportAnimationId) return;
-  const tick = () => {
-    state.performanceTransportAnimationId = 0;
-    if (
-      !state.isListening ||
-      !isPerformanceStyleMode(dom.trainingMode.value) ||
-      state.performanceRuntimeStartedAtMs === null
-    ) {
-      return;
-    }
-
-    syncPerformanceTransport();
-
-    if (
-      state.isListening &&
-      isPerformanceStyleMode(dom.trainingMode.value) &&
-      state.performanceRuntimeStartedAtMs !== null
-    ) {
-      state.performanceTransportAnimationId = requestAnimationFrame(tick);
-    }
-  };
-  state.performanceTransportAnimationId = requestAnimationFrame(tick);
-}
-
-const performancePromptController = createPerformancePromptController({
-  state,
-  getTrainingMode: () => dom.trainingMode.value,
-  clearWrongDetectedHighlight: () => clearWrongDetectedHighlight(),
-  recordPerformanceTimelineSuccess,
-  recordPerformanceTimelineMissed,
-  recordSessionAttempt,
-  recordPerformancePromptResolution: (activeSessionStats, input) => {
-    recordPerformancePromptResolution(activeSessionStats as typeof state.activeSessionStats, input);
-  },
-  updateStats,
-  updateSessionGoalProgress: updateSessionGoalProgressFromActiveStats,
-  recordPerformanceTimingAttempt: (activeSessionStats, grade) => {
-    recordPerformanceTimingAttempt(activeSessionStats as typeof state.activeSessionStats, grade);
-  },
-  recordPerformanceTimingByEvent,
-  setInfoSlots,
-  redrawFretboard,
-  drawFretboard,
-  setResultMessage,
-  scheduleSessionTimeout,
-  nextPrompt,
-});
-
-function updateMicPolyphonicDetectorRuntimeStatusFromResult(
-  result: ReturnType<typeof detectMicPolyphonicFrame>,
-  latencyMs: number
-) {
-  const nowMs = Date.now();
-  if (state.micPolyphonicDetectorTelemetryWindowStartedAtMs <= 0) {
-    state.micPolyphonicDetectorTelemetryWindowStartedAtMs = nowMs;
-  }
-  state.micPolyphonicDetectorTelemetryFrames += 1;
-  state.micPolyphonicDetectorTelemetryTotalLatencyMs += Math.max(0, latencyMs);
-  state.micPolyphonicDetectorTelemetryMaxLatencyMs = Math.max(
-    state.micPolyphonicDetectorTelemetryMaxLatencyMs,
-    Math.max(0, latencyMs)
-  );
-  state.micPolyphonicDetectorTelemetryLastLatencyMs = Math.max(0, latencyMs);
-  if (result.fallbackFrom) state.micPolyphonicDetectorTelemetryFallbackFrames += 1;
-  if ((result.warnings?.length ?? 0) > 0) state.micPolyphonicDetectorTelemetryWarningFrames += 1;
-
-  const nextProvider = result.provider ?? null;
-  const nextFallbackFrom = result.fallbackFrom ?? null;
-  const nextWarning = result.warnings?.[0] ?? null;
-  const changed =
-    state.lastMicPolyphonicDetectorProviderUsed !== nextProvider ||
-    state.lastMicPolyphonicDetectorFallbackFrom !== nextFallbackFrom ||
-    state.lastMicPolyphonicDetectorWarning !== nextWarning;
-
-  state.lastMicPolyphonicDetectorProviderUsed = nextProvider;
-  state.lastMicPolyphonicDetectorFallbackFrom = nextFallbackFrom;
-  state.lastMicPolyphonicDetectorWarning = nextWarning;
-
-  const shouldRefreshTelemetryUi =
-    state.inputSource === 'microphone' &&
-    (changed || nowMs - state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs >= 1000);
-
-  if (shouldRefreshTelemetryUi) {
-    state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = nowMs;
-    refreshMicPolyphonicDetectorAudioInfoUi();
-    refreshMicPerformanceReadinessUi(nowMs);
-  }
 }
 
 function clearWrongDetectedHighlight(redraw = false) {
@@ -799,236 +276,132 @@ function getCurrentPerformanceTimelineFeedbackKey() {
   });
 }
 
-function clearPerformanceTimelineFeedback() {
-  clearPerformanceTimelineFeedbackState(state);
-  state.performanceTimingByEvent = {};
-  state.performanceOnsetRejectsByEvent = {};
-  state.performanceCaptureTelemetryByEvent = {};
-}
+const performanceTimelineFeedbackController = createPerformanceTimelineFeedbackController({
+  state,
+  getCurrentEventIndex: () => getCurrentPerformanceTimelineEventIndex(),
+  getFeedbackKey: () => getCurrentPerformanceTimelineFeedbackKey(),
+  redrawFretboard,
+  scheduleTimelineRender: scheduleMelodyTimelineRenderFromState,
+});
 
-function ensureCurrentPerformanceTimelineFeedbackBucket() {
-  const feedbackKey = getCurrentPerformanceTimelineFeedbackKey();
-  if (!feedbackKey) return false;
-  if (state.performanceTimelineFeedbackKey !== feedbackKey) {
-    state.performanceTimelineFeedbackKey = feedbackKey;
-    state.performanceTimelineFeedbackByEvent = {};
-    state.performanceTimingByEvent = {};
-    state.performanceOnsetRejectsByEvent = {};
-    state.performanceCaptureTelemetryByEvent = {};
-  }
-  return true;
-}
+const performanceMicTelemetryController = createPerformanceMicTelemetryController({
+  state,
+  getCurrentEventIndex: () => getCurrentPerformanceTimelineEventIndex(),
+});
 
-function recordPerformanceTimelineSuccess(prompt: Prompt, redraw = true) {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  if (!ensureCurrentPerformanceTimelineFeedbackBucket()) return;
-  appendPerformanceTimelineAttempts(
-    state.performanceTimelineFeedbackByEvent,
-    eventIndex,
-    buildPerformanceTimelineSuccessAttempts(prompt)
+const micMonophonicAttackTrackingController = createMicMonophonicAttackTrackingController({
+  state,
+  getTrainingMode: () => dom.trainingMode.value,
+  isMelodyWorkflowMode,
+  resolvePerformanceMicDropHoldMs,
+  shouldResetMicAttackTracking,
+  shouldRearmMicOnsetForSameNote,
+  shouldResetStudyMelodyOnsetTrackingOnPromptChange,
+});
+
+const micPerformanceRuntimeStatusController = createMicPerformanceRuntimeStatusController({
+  state,
+  refreshMicPerformanceReadinessUi: (nowMs) => refreshMicPerformanceReadinessUi(nowMs),
+  refreshMicPolyphonicDetectorAudioInfoUi,
+});
+
+const sessionPromptRuntimeController = createSessionPromptRuntimeController({
+  dom: {
+    trainingMode: dom.trainingMode,
+    melodySelector: dom.melodySelector,
+    sessionGoal: dom.sessionGoal,
+    stringSelector: dom.stringSelector,
+  },
+  state,
+  getEnabledStrings,
+  redrawFretboard,
+  scheduleTimelineRender: scheduleMelodyTimelineRenderFromState,
+  setSessionGoalProgress,
+  setPlaySoundDisabled: (disabled) => {
+    setSessionButtonsState({ playSoundDisabled: disabled });
+  },
+  playSound,
+});
+
+const performanceAdaptiveRuntimeController = createPerformanceAdaptiveRuntimeController({
+  state,
+  isPerformanceStyleMode,
+});
+
+function handleRhythmModeStableNote(detectedNote: string) {
+  const timing = evaluateRhythmTiming(
+    Date.now(),
+    getMetronomeTimingSnapshot(),
+    dom.rhythmTimingWindow.value
   );
-  if (redraw) {
-    redrawFretboard();
+  if (!timing) {
+    setResultMessage('Enable Click to practice rhythm timing.', 'error');
     return;
   }
-  scheduleMelodyTimelineRenderFromState();
-}
 
-function recordPerformanceTimelineWrongAttempt(note: string) {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  if (!ensureCurrentPerformanceTimelineFeedbackBucket()) return;
-  state.performancePromptHadWrongAttempt = true;
-  appendPerformanceTimelineAttempts(
-    state.performanceTimelineFeedbackByEvent,
-    eventIndex,
-    buildPerformanceTimelineWrongAttempts(state.currentPrompt, {
-      note,
-      stringName: state.wrongDetectedString,
-      fret: state.wrongDetectedFret,
-    })
-  );
-  scheduleMelodyTimelineRenderFromState();
-}
-
-function recordPerformanceTimelineMissed(prompt: Prompt) {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  if (!ensureCurrentPerformanceTimelineFeedbackBucket()) return;
-  appendPerformanceTimelineAttempts(
-    state.performanceTimelineFeedbackByEvent,
-    eventIndex,
-    buildPerformanceTimelineMissedAttempts(prompt)
-  );
-  scheduleMelodyTimelineRenderFromState();
-}
-
-function recordPerformanceTimingByEvent(grade: PerformanceTimingGrade | null | undefined) {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null || !grade) return;
-  const bucket = state.performanceTimingByEvent[eventIndex] ?? [];
-  bucket.push({
-    bucket: grade.bucket,
-    label: grade.label,
-    weight: grade.weight,
-    signedOffsetMs: grade.signedOffsetMs,
-    judgedAtMs: Date.now(),
-  });
-  state.performanceTimingByEvent[eventIndex] = bucket;
-}
-
-function createEmptyPerformanceCaptureEventTelemetry(): PerformanceCaptureEventTelemetry {
-  return {
-    preStableSeenCount: 0,
-    voicedFrameCount: 0,
-    confidentFrameCount: 0,
-    detectedNoteFrameCount: 0,
-    maxStableRunFrames: 0,
-    maxAttackPeak: 0,
-    avgRms: 0,
-    rmsSampleCount: 0,
-    stableDetectionCount: 0,
-    promptAttemptCount: 0,
-    uncertainFrameCount: 0,
-    uncertainReasonCounts: {
-      weak_attack: 0,
-      low_confidence: 0,
-      low_voicing: 0,
-      short_hold: 0,
-    },
-  };
-}
-
-function ensurePerformanceCaptureEventTelemetry(eventIndex: number) {
-  const existing = state.performanceCaptureTelemetryByEvent[eventIndex];
-  if (existing) return existing;
-  const next = createEmptyPerformanceCaptureEventTelemetry();
-  state.performanceCaptureTelemetryByEvent[eventIndex] = next;
-  return next;
-}
-
-function recordPerformanceStableDetectionByEvent() {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  const telemetry = ensurePerformanceCaptureEventTelemetry(eventIndex);
-  telemetry.stableDetectionCount += 1;
-}
-
-function recordPerformancePromptAttemptByEvent() {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  const telemetry = ensurePerformanceCaptureEventTelemetry(eventIndex);
-  telemetry.promptAttemptCount += 1;
-}
-
-function recordPerformanceCaptureFrameTelemetry(input: {
-  rms: number;
-  detectedNote: string | null;
-  nextStableNoteCounter: number;
-  requiredStableFrames: number;
-  confident: boolean;
-  voiced: boolean;
-  attackPeak: number;
-}) {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  const telemetry = ensurePerformanceCaptureEventTelemetry(eventIndex);
-  telemetry.rmsSampleCount += 1;
-  const nextCount = telemetry.rmsSampleCount;
-  const safeRms = Number.isFinite(input.rms) ? Math.max(0, input.rms) : 0;
-  telemetry.avgRms = ((telemetry.avgRms * (nextCount - 1)) + safeRms) / nextCount;
-  const safeAttackPeak = Number.isFinite(input.attackPeak) ? Math.max(0, input.attackPeak) : 0;
-  telemetry.maxAttackPeak = Math.max(telemetry.maxAttackPeak, safeAttackPeak);
-
-  if (!input.detectedNote?.trim()) return;
-  telemetry.detectedNoteFrameCount += 1;
-  if (input.voiced) telemetry.voicedFrameCount += 1;
-  if (input.confident) telemetry.confidentFrameCount += 1;
-
-  const stableRun = Number.isFinite(input.nextStableNoteCounter)
-    ? Math.max(0, Math.round(input.nextStableNoteCounter))
-    : 0;
-  telemetry.maxStableRunFrames = Math.max(telemetry.maxStableRunFrames, stableRun);
-  if (stableRun > 0 && stableRun < Math.max(1, input.requiredStableFrames)) {
-    telemetry.preStableSeenCount += 1;
-  }
-}
-
-function resolvePerformanceUncertainReasonKey(input: {
-  voicingAccepted: boolean;
-  confidenceAccepted: boolean;
-  attackAccepted: boolean;
-  holdAccepted: boolean;
-}): MicPerformanceOnsetRejectReasonKey | null {
-  if (!input.voicingAccepted) return 'low_voicing';
-  if (!input.confidenceAccepted) return 'low_confidence';
-  if (!input.attackAccepted) return 'weak_attack';
-  if (!input.holdAccepted) return 'short_hold';
-  return null;
-}
-
-function recordPerformanceUncertainFrameByEvent(reasonKey: MicPerformanceOnsetRejectReasonKey | null) {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  const telemetry = ensurePerformanceCaptureEventTelemetry(eventIndex);
-  telemetry.uncertainFrameCount += 1;
-  if (reasonKey) {
-    telemetry.uncertainReasonCounts[reasonKey] += 1;
-  }
-}
-
-function recordPerformanceOnsetRejectByEvent(input: {
-  reasonKey: MicPerformanceOnsetRejectReasonKey;
-  reason: string | null;
-  rejectedAtMs: number;
-  onsetNote: string | null;
-  onsetAtMs: number | null;
-  eventDurationMs: number | null;
-  holdRequiredMs: number | null;
-  holdElapsedMs: number | null;
-  runtimeCalibrationLevel: PerformanceMicHoldCalibrationLevel | null;
-}) {
-  const eventIndex = getCurrentPerformanceTimelineEventIndex();
-  if (eventIndex === null) return;
-  const bucket = state.performanceOnsetRejectsByEvent[eventIndex] ?? [];
-  const lastEntry = bucket[bucket.length - 1];
-  if (
-    lastEntry &&
-    lastEntry.reasonKey === input.reasonKey &&
-    lastEntry.onsetNote === input.onsetNote &&
-    lastEntry.onsetAtMs === input.onsetAtMs
-  ) {
+  if (state.rhythmLastJudgedBeatAtMs === timing.beatAtMs) {
     return;
   }
-  bucket.push({
-    reasonKey: input.reasonKey,
-    reason: input.reason ?? null,
-    rejectedAtMs: input.rejectedAtMs,
-    onsetNote: input.onsetNote ?? null,
-    onsetAtMs: input.onsetAtMs ?? null,
-    eventDurationMs:
-      typeof input.eventDurationMs === 'number' && Number.isFinite(input.eventDurationMs)
-        ? Math.max(0, Math.round(input.eventDurationMs))
-        : null,
-    holdRequiredMs:
-      typeof input.holdRequiredMs === 'number' && Number.isFinite(input.holdRequiredMs)
-        ? Math.max(0, Math.round(input.holdRequiredMs))
-        : null,
-    holdElapsedMs:
-      typeof input.holdElapsedMs === 'number' && Number.isFinite(input.holdElapsedMs)
-        ? Math.max(0, Math.round(input.holdElapsedMs))
-        : null,
-    runtimeCalibrationLevel:
-      input.runtimeCalibrationLevel === 'mild' || input.runtimeCalibrationLevel === 'strong'
-        ? input.runtimeCalibrationLevel
-        : input.runtimeCalibrationLevel === 'off'
-          ? 'off'
-          : null,
-  });
-  state.performanceOnsetRejectsByEvent[eventIndex] = bucket;
+
+  state.rhythmLastJudgedBeatAtMs = timing.beatAtMs;
+  recordRhythmTimingAttempt(
+    state.activeSessionStats,
+    timing.signedOffsetMs,
+    timing.absOffsetMs,
+    timing.tone === 'success'
+  );
+  setResultMessage(formatRhythmFeedback(timing, detectedNote), timing.tone);
 }
 
+const performancePromptController = createPerformancePromptController({
+  state,
+  getTrainingMode: () => dom.trainingMode.value,
+  clearWrongDetectedHighlight: () => clearWrongDetectedHighlight(),
+  recordPerformanceTimelineSuccess: (prompt, redraw) => performanceTimelineFeedbackController.recordSuccess(prompt, redraw),
+  recordPerformanceTimelineMissed: (prompt) => performanceTimelineFeedbackController.recordMissed(prompt),
+  recordSessionAttempt,
+  recordPerformancePromptResolution: (activeSessionStats, input) => {
+    recordPerformancePromptResolution(activeSessionStats as typeof state.activeSessionStats, input);
+  },
+  updateStats,
+  updateSessionGoalProgress: () => sessionPromptRuntimeController.updateSessionGoalProgress(),
+  recordPerformanceTimingAttempt: (activeSessionStats, grade) => {
+    recordPerformanceTimingAttempt(activeSessionStats as typeof state.activeSessionStats, grade);
+  },
+  recordPerformanceTimingByEvent: (grade) => performanceTimelineFeedbackController.recordTiming(grade),
+  setInfoSlots,
+  redrawFretboard,
+  drawFretboard,
+  setResultMessage,
+  scheduleSessionTimeout,
+  nextPrompt,
+});
+
+const performanceTransportRuntimeController = createPerformanceTransportRuntimeController({
+  dom: {
+    trainingMode: dom.trainingMode,
+    melodySelector: dom.melodySelector,
+    melodyDemoBpm: dom.melodyDemoBpm,
+  },
+  state,
+  isPerformanceStyleMode,
+  getMelodyById,
+  getPracticeAdjustedMelody: (melody) =>
+    getMelodyWithPracticeAdjustments(
+      melody,
+      state.melodyTransposeSemitones,
+      state.melodyStringShift,
+      state.currentInstrument
+    ),
+  redrawFretboard,
+  scheduleTimelineRender: scheduleMelodyTimelineRenderFromState,
+  clearPerformanceTimelineFeedback: () => performanceTimelineFeedbackController.clearFeedback(),
+  clearWrongDetectedHighlight: () => clearWrongDetectedHighlight(),
+  onResolveMissedPrompt: () => performancePromptController.resolveMissed(),
+  onAdvancePrompt: () => nextPrompt(),
+  requestAnimationFrame: (callback) => requestAnimationFrame(callback),
+  cancelAnimationFrame: (handle) => cancelAnimationFrame(handle),
+});
 function detectMonophonicOctaveMismatch(
   detectedNote: string,
   detectedFrequency?: number | null
@@ -1061,7 +434,7 @@ function detectMonophonicOctaveMismatch(
 const melodyPolyphonicFeedbackController = createMelodyPolyphonicFeedbackController({
   state,
   recordSessionAttempt,
-  recordPerformanceTimelineWrongAttempt,
+  recordPerformanceTimelineWrongAttempt: (note) => performanceTimelineFeedbackController.recordWrongAttempt(note),
   redrawFretboard,
   drawFretboard,
   setResultMessage,
@@ -1073,26 +446,16 @@ const stableMonophonicDetectionController = createStableMonophonicDetectionContr
   getTrainingMode: () => dom.trainingMode.value,
   clearWrongDetectedHighlight,
   setWrongDetectedHighlight,
-  recordPerformanceTimelineWrongAttempt,
+  recordPerformanceTimelineWrongAttempt: (note) => performanceTimelineFeedbackController.recordWrongAttempt(note),
   markPerformancePromptAttempt: () => {
-    recordPerformancePromptAttemptByEvent();
+    performanceMicTelemetryController.recordPromptAttempt();
     performancePromptController.markPromptAttempt();
   },
   markPerformanceMicOnsetJudged: (detectedNote, onsetAtMs) => {
     state.performanceMicLastJudgedOnsetNote = detectedNote;
     state.performanceMicLastJudgedOnsetAtMs = onsetAtMs;
   },
-  recordPerformanceMicJudgmentLatency: (onsetAtMs, judgedAtMs) => {
-    const latencyMs = Math.max(0, judgedAtMs - onsetAtMs);
-    state.micPerformanceJudgmentCount += 1;
-    state.micPerformanceJudgmentTotalLatencyMs += latencyMs;
-    state.micPerformanceJudgmentLastLatencyMs = latencyMs;
-    state.micPerformanceJudgmentMaxLatencyMs = Math.max(state.micPerformanceJudgmentMaxLatencyMs, latencyMs);
-    if (state.micPerformanceLatencyCalibrationActive && state.micPerformanceJudgmentCount >= 5) {
-      state.micPerformanceLatencyCalibrationActive = false;
-    }
-    refreshMicPerformanceReadinessUiThrottled(judgedAtMs);
-  },
+  recordPerformanceMicJudgmentLatency: (onsetAtMs, judgedAtMs) => micPerformanceRuntimeStatusController.recordJudgmentLatency(onsetAtMs, judgedAtMs),
   isPerformancePitchWithinTolerance: (detectedFrequency) =>
     state.inputSource === 'microphone' &&
     isPerformancePitchWithinToleranceHelper(
@@ -1102,7 +465,7 @@ const stableMonophonicDetectionController = createStableMonophonicDetectionContr
     ),
   detectMonophonicOctaveMismatch,
   performanceResolveSuccess: (elapsedSeconds, timingGrade) => {
-    updatePerformanceTimingBiasFromGrade(timingGrade ?? null);
+    performanceAdaptiveRuntimeController.updateTimingBiasFromGrade(timingGrade ?? null);
     performancePromptController.resolveSuccess(elapsedSeconds, timingGrade ?? null);
   },
   handleMelodyPolyphonicMismatch: (prompt, detectedText, context) => {
@@ -1127,6 +490,84 @@ const stableMonophonicDetectionController = createStableMonophonicDetectionContr
   freqToScientificNoteName,
 });
 
+const monophonicAudioFrameController = createMonophonicAudioFrameController({
+  state,
+  detectPitch,
+  noteResolver: freqToNoteName,
+  detectMonophonicFrame,
+  buildAudioMonophonicReactionPlan,
+  executeAudioMonophonicReaction,
+  updateTuner,
+  refreshReadinessUiThrottled: (nowMs) => micPerformanceRuntimeStatusController.refreshReadinessUiThrottled(nowMs),
+  recordCaptureFrame: (input) => performanceMicTelemetryController.recordCaptureFrame(input),
+  recordStableDetection: () => performanceMicTelemetryController.recordStableDetection(),
+  recordUncertainFrame: (reason) => performanceMicTelemetryController.recordUncertainFrame(reason),
+  setOnsetGateStatus: (status, text, options) => performanceMicTelemetryController.setOnsetGateStatus(status, text, options),
+  resolveUncertainReasonKey: (input) => performanceMicTelemetryController.resolveUncertainReasonKey(input),
+  resolveEffectiveRuntimeMicHoldCalibrationLevel: (enabled) =>
+    performanceAdaptiveRuntimeController.resolveEffectiveRuntimeMicHoldCalibrationLevel(enabled),
+  updateAttackTracking: (detectedNote, volume) => micMonophonicAttackTrackingController.update(detectedNote, volume),
+  clearFreshAttackGuard: (event) => micMonophonicAttackTrackingController.clearFreshAttackGuard(event),
+  resolveMicNoteAttackRequiredPeak,
+  shouldAcceptMicNoteByAttackStrength,
+  resolveMicNoteHoldRequiredDurationMs,
+  shouldAcceptMicNoteByHoldDuration,
+  resolvePerformanceMicJudgingThresholds,
+  shouldReportPerformanceMicUncertainFrame,
+  resolveLatencyCompensatedPromptStartedAtMs,
+  setResultMessage,
+  handleStableDetectedNote: (detectedNote, detectedFrequency) =>
+    stableMonophonicDetectionController.handleDetectedNote(detectedNote, detectedFrequency),
+});
+
+const audioFrameRuntimeController = createAudioFrameRuntimeController({
+  state,
+  getTrainingMode: () => dom.trainingMode.value,
+  getModeDetectionType: (trainingMode) => modes[trainingMode]?.detectionType ?? null,
+  isMelodyWorkflowMode,
+  isPerformanceStyleMode,
+  isPolyphonicMelodyPrompt,
+  resetStabilityTracking: () => {
+    Object.assign(state, createStabilityTrackingResetState());
+  },
+  clearFreeHighlight: () => {
+    clearLiveDetectedHighlight(state, redrawFretboard);
+  },
+  updateAttackTracking: (detectedNote, volume) => {
+    micMonophonicAttackTrackingController.update(detectedNote, volume);
+  },
+  markSilenceDuringFreshAttackWait: () => {
+    micMonophonicAttackTrackingController.markSilenceDuringFreshAttackWait();
+  },
+  resetAttackTracking: () => {
+    micMonophonicAttackTrackingController.reset();
+  },
+  updateTuner,
+  resolveMicVolumeThreshold,
+  resolveStudyMelodyMicVolumeThreshold,
+  resolvePerformanceMicVolumeThreshold,
+  resolvePerformanceSilenceResetAfterFrames,
+  resolveEffectiveStudyMelodySilenceResetFrames,
+  resolveEffectiveStudyMelodyStableFrames,
+  resolvePerformanceRequiredStableFrames,
+  buildProcessAudioFramePreflightPlan,
+  handleMicrophonePolyphonicMelodyFrame,
+  handlePolyphonicChordFrame: (frameVolumeRms) => {
+    polyphonicChordDetectionController.handleAudioChordFrame(frameVolumeRms);
+  },
+  handleMonophonicFrame: (input) => {
+    monophonicAudioFrameController.handleFrame(input);
+  },
+  defaultRequiredStableFrames: REQUIRED_STABLE_FRAMES,
+  calibrationSamples: CALIBRATION_SAMPLES,
+  detectPitch,
+  detectCalibrationFrame,
+  buildCalibrationFrameReactionPlan,
+  executeCalibrationFrameReaction,
+  setCalibrationProgress,
+  finishCalibration,
+});
+
 const melodyRuntimeDetectionController = createMelodyRuntimeDetectionController({
   state,
   requiredStableFrames: REQUIRED_STABLE_FRAMES,
@@ -1136,18 +577,18 @@ const melodyRuntimeDetectionController = createMelodyRuntimeDetectionController(
       ...input,
       provider: normalizeMicPolyphonicDetectorProvider(input.provider),
     }),
-  updateMicPolyphonicDetectorRuntimeStatus: updateMicPolyphonicDetectorRuntimeStatusFromResult,
+  updateMicPolyphonicDetectorRuntimeStatus: micPerformanceRuntimeStatusController.updatePolyphonicDetectorRuntimeStatus,
   now: () => Date.now(),
   performanceNow: () => performance.now(),
   redrawFretboard,
   setResultMessage,
-  recordPerformanceTimelineWrongAttempt,
+  recordPerformanceTimelineWrongAttempt: (note) => performanceTimelineFeedbackController.recordWrongAttempt(note),
   markPerformancePromptAttempt: () => {
-    recordPerformancePromptAttemptByEvent();
+    performanceMicTelemetryController.recordPromptAttempt();
     performancePromptController.markPromptAttempt();
   },
   performanceResolveSuccess: (elapsedSeconds, timingGrade) => {
-    updatePerformanceTimingBiasFromGrade(timingGrade ?? null);
+    performanceAdaptiveRuntimeController.updateTimingBiasFromGrade(timingGrade ?? null);
     performancePromptController.resolveSuccess(elapsedSeconds, timingGrade ?? null);
   },
   displayResult,
@@ -1165,7 +606,7 @@ const polyphonicChordDetectionController = createPolyphonicChordDetectionControl
       ...input,
       provider: normalizeMicPolyphonicDetectorProvider(input.provider),
     }),
-  updateMicPolyphonicDetectorRuntimeStatus: updateMicPolyphonicDetectorRuntimeStatusFromResult,
+  updateMicPolyphonicDetectorRuntimeStatus: micPerformanceRuntimeStatusController.updatePolyphonicDetectorRuntimeStatus,
   performanceNow: () => performance.now(),
   now: () => Date.now(),
   displayResult,
@@ -1229,359 +670,7 @@ function processAudio() {
     state.micLastInputRms = volume;
     setVolumeLevel(volume);
 
-    const trainingMode = dom.trainingMode.value;
-
-    if (
-      !state.isCalibrating &&
-      state.inputSource !== 'midi' &&
-      Date.now() < state.ignorePromptAudioUntilMs
-    ) {
-      Object.assign(state, createStabilityTrackingResetState());
-      if (dom.trainingMode.value === 'free') {
-        clearLiveDetectedHighlight(state, redrawFretboard);
-      }
-      
-      // Preserve an existing onset across the ignore gap, but never seed a new one from prompt audio.
-      const trackedNoteDuringIgnore = state.micMonophonicAttackTrackedNote;
-      updateMicMonophonicAttackTracking(trackedNoteDuringIgnore, volume);
-
-      state.animationId = requestAnimationFrame(processAudio);
-      return;
-    }
-    const mode = modes[trainingMode];
-    const baseMicVolumeThreshold = resolveMicVolumeThreshold(
-      state.micSensitivityPreset,
-      state.micAutoNoiseFloorRms
-    );
-    const studyMelodyMicInput = state.inputSource !== 'midi' && trainingMode === 'melody';
-    const melodyAdaptiveMicInput = state.inputSource !== 'midi' && isMelodyWorkflowMode(trainingMode);
-    const performanceAdaptiveMicInput = state.inputSource !== 'midi' && isPerformanceStyleMode(trainingMode);
-    const automaticSilenceResetFrames = melodyAdaptiveMicInput
-      ? resolvePerformanceSilenceResetAfterFrames(state.currentPrompt?.melodyEventDurationMs ?? null)
-      : undefined;
-    const micVolumeThreshold = studyMelodyMicInput
-      ? resolveStudyMelodyMicVolumeThreshold({
-          baseThreshold: baseMicVolumeThreshold,
-          sensitivityPreset: state.micSensitivityPreset,
-          autoNoiseFloorRms: state.micAutoNoiseFloorRms,
-          gatePercent: state.studyMelodyMicGatePercent,
-          noiseGuardPercent: state.studyMelodyMicNoiseGuardPercent,
-        })
-      : melodyAdaptiveMicInput
-        ? resolvePerformanceMicVolumeThreshold({
-            baseThreshold: baseMicVolumeThreshold,
-            sensitivityPreset: state.micSensitivityPreset,
-            autoNoiseFloorRms: state.micAutoNoiseFloorRms,
-          })
-        : baseMicVolumeThreshold;
-    const preflightPlan = buildProcessAudioFramePreflightPlan({
-      volume,
-      volumeThreshold: micVolumeThreshold,
-      consecutiveSilence: state.consecutiveSilence,
-      silenceResetAfterFrames: studyMelodyMicInput
-        ? resolveEffectiveStudyMelodySilenceResetFrames(
-            automaticSilenceResetFrames ?? 6,
-            state.studyMelodyMicSilenceResetFrames
-          )
-        : automaticSilenceResetFrames,
-      isCalibrating: state.isCalibrating,
-      trainingMode,
-      hasMode: Boolean(mode),
-      hasCurrentPrompt: Boolean(state.currentPrompt),
-    });
-    state.consecutiveSilence = preflightPlan.nextConsecutiveSilence;
-
-    if (preflightPlan.kind === 'silence_wait') {
-      if (studyMelodyMicInput && state.studyMelodyRepeatPromptRequiresFreshAttack) {
-        state.studyMelodyRepeatPromptSawSilence = true;
-      }
-      if (preflightPlan.shouldResetTracking) {
-        Object.assign(state, createStabilityTrackingResetState());
-        resetMicMonophonicAttackTracking();
-        if (preflightPlan.shouldResetTuner) updateTuner(null);
-        if (preflightPlan.shouldClearFreeHighlight) clearLiveDetectedHighlight(state, redrawFretboard);
-      }
-      state.animationId = requestAnimationFrame(processAudio);
-      return;
-    }
-
-    if (preflightPlan.kind === 'missing_mode_or_prompt') {
-      state.animationId = requestAnimationFrame(processAudio);
-      return;
-    }
-
-    const shouldUseMicrophonePolyphonicMelodyDetection =
-      isMelodyWorkflowMode(trainingMode) &&
-      state.inputSource !== 'midi' &&
-      isPolyphonicMelodyPrompt(state.currentPrompt);
-
-    if (shouldUseMicrophonePolyphonicMelodyDetection) {
-      handleMicrophonePolyphonicMelodyFrame(volume);
-    } else if (mode.detectionType === 'polyphonic') {
-      // --- Polyphonic (Chord Strum) Detection ---
-      polyphonicChordDetectionController.handleAudioChordFrame(volume);
-    } else {
-      // --- Monophonic (Single Note) Detection ---
-      const frequency = detectPitch(state.dataArray!, state.audioContext.sampleRate, micVolumeThreshold, {
-        expectedFrequency: melodyAdaptiveMicInput ? state.targetFrequency : null,
-        preferLowLatency: melodyAdaptiveMicInput,
-      });
-      if (state.isCalibrating) {
-        const { expectedFrequency } = getOpenATuningInfoFromTuning(state.currentInstrument.TUNING);
-        const calibrationResult = detectCalibrationFrame({
-          frequency,
-          expectedFrequency,
-          currentSampleCount: state.calibrationFrequencies.length,
-          requiredSamples: CALIBRATION_SAMPLES,
-        });
-        const calibrationReactionPlan = buildCalibrationFrameReactionPlan({
-          accepted: calibrationResult.accepted,
-          progressPercent: calibrationResult.progressPercent,
-          isComplete: calibrationResult.isComplete,
-        });
-        if (calibrationReactionPlan.kind === 'accept_sample') {
-          executeCalibrationFrameReaction({
-            reactionPlan: calibrationReactionPlan,
-            acceptedFrequency: frequency,
-            pushCalibrationFrequency: (value) => {
-              state.calibrationFrequencies.push(value);
-            },
-            setCalibrationProgress,
-            finishCalibration,
-          });
-        }
-      } else {
-        updateTuner(frequency);
-        const requiredStableFrames = studyMelodyMicInput
-          ? resolveEffectiveStudyMelodyStableFrames(
-              resolvePerformanceRequiredStableFrames(state.currentPrompt?.melodyEventDurationMs ?? null),
-              state.studyMelodyMicStableFrames
-            )
-          : melodyAdaptiveMicInput
-            ? resolvePerformanceRequiredStableFrames(state.currentPrompt?.melodyEventDurationMs ?? null)
-            : REQUIRED_STABLE_FRAMES;
-        const monophonicResult = detectMonophonicFrame({
-          frequency,
-          lastPitches: state.lastPitches,
-          lastNote: state.lastNote,
-          stableNoteCounter: state.stableNoteCounter,
-          previousConfidenceEma: state.monophonicConfidenceEma,
-          previousVoicingEma: state.monophonicVoicingEma,
-          requiredStableFrames,
-          targetNote: state.currentPrompt.targetNote,
-          noteResolver: freqToNoteName,
-          emaPreset: melodyAdaptiveMicInput ? 'performance_fast' : 'default',
-        });
-        state.micLastMonophonicConfidence = monophonicResult.confidence;
-        state.micLastMonophonicPitchSpreadCents = monophonicResult.pitchSpreadCents;
-        if (monophonicResult.detectedNote) {
-          state.micLastMonophonicDetectedAtMs = Date.now();
-        }
-        if (state.inputSource === 'microphone') {
-          refreshMicPerformanceReadinessUiThrottled();
-        }
-        state.lastPitches = monophonicResult.nextLastPitches;
-        state.lastNote = monophonicResult.nextLastNote;
-        state.stableNoteCounter = monophonicResult.nextStableNoteCounter;
-        state.monophonicConfidenceEma = monophonicResult.nextConfidenceEma;
-        state.monophonicVoicingEma = monophonicResult.nextVoicingEma;
-        const monophonicReactionPlan = buildAudioMonophonicReactionPlan({
-          detectedNote: monophonicResult.detectedNote,
-          nextStableNoteCounter: monophonicResult.nextStableNoteCounter,
-          requiredStableFrames,
-        });
-        if (performanceAdaptiveMicInput) {
-          recordPerformanceCaptureFrameTelemetry({
-            rms: volume,
-            detectedNote: monophonicResult.detectedNote,
-            nextStableNoteCounter: monophonicResult.nextStableNoteCounter,
-            requiredStableFrames,
-            confident: monophonicResult.isConfident,
-            voiced: monophonicResult.isVoiced,
-            attackPeak: state.micMonophonicAttackPeakVolume,
-          });
-        }
-        executeAudioMonophonicReaction({
-          reactionPlan: monophonicReactionPlan,
-          onStableDetectedNote: (detectedNote) => {
-            if (performanceAdaptiveMicInput) {
-              recordPerformanceStableDetectionByEvent();
-            }
-            const attackTrackingEvent = updateMicMonophonicAttackTracking(detectedNote, volume);
-            clearStudyMelodyRepeatPromptFreshAttackGuard(attackTrackingEvent);
-            const nowMs = Date.now();
-            const performanceHoldCalibrationLevel =
-              resolveEffectiveRuntimePerformanceMicHoldCalibrationLevel(
-                performanceAdaptiveMicInput
-              );
-            const attackRequiredPeak =
-              state.inputSource === 'midi'
-                ? 0
-                : resolveMicNoteAttackRequiredPeak({
-                    preset: state.micNoteAttackFilterPreset,
-                    volumeThreshold: micVolumeThreshold,
-                    performanceAdaptive: performanceAdaptiveMicInput,
-                    smoothedConfidence: monophonicResult.confidence,
-                    smoothedVoicing: monophonicResult.voicingConfidence,
-                  });
-            const attackAccepted =
-              state.inputSource === 'midi' ||
-              shouldAcceptMicNoteByAttackStrength({
-                preset: state.micNoteAttackFilterPreset,
-                peakVolume: state.micMonophonicAttackPeakVolume,
-                volumeThreshold: micVolumeThreshold,
-                performanceAdaptive: performanceAdaptiveMicInput,
-                smoothedConfidence: monophonicResult.confidence,
-                smoothedVoicing: monophonicResult.voicingConfidence,
-              });
-            const holdRequiredMs = resolveMicNoteHoldRequiredDurationMs({
-              preset: state.micNoteHoldFilterPreset,
-              performanceAdaptive: performanceAdaptiveMicInput,
-              eventDurationMs: state.currentPrompt?.melodyEventDurationMs ?? null,
-              performanceCalibrationLevel: performanceHoldCalibrationLevel,
-            });
-            const holdElapsedMs =
-              state.micMonophonicFirstDetectedAtMs === null
-                ? null
-                : Math.max(0, nowMs - state.micMonophonicFirstDetectedAtMs);
-            const holdAccepted =
-              state.inputSource === 'midi' ||
-              shouldAcceptMicNoteByHoldDuration({
-                preset: state.micNoteHoldFilterPreset,
-                noteFirstDetectedAtMs: state.micMonophonicFirstDetectedAtMs,
-                nowMs,
-                performanceAdaptive: performanceAdaptiveMicInput,
-                eventDurationMs: state.currentPrompt?.melodyEventDurationMs ?? null,
-                performanceCalibrationLevel: performanceHoldCalibrationLevel,
-              });
-            const performanceMicThresholds =
-              performanceAdaptiveMicInput
-                ? resolvePerformanceMicJudgingThresholds({
-                    smoothedConfidence: monophonicResult.confidence,
-                    rawConfidence: monophonicResult.rawConfidence,
-                    smoothedVoicing: monophonicResult.voicingConfidence,
-                    rawVoicing: monophonicResult.rawVoicingConfidence,
-                    attackPeakVolume: state.micMonophonicAttackPeakVolume,
-                    attackRequiredPeak,
-                  })
-                : null;
-            const confidenceAccepted =
-              performanceMicThresholds?.confidenceAccepted ?? monophonicResult.isConfident;
-            const voicingAccepted =
-              performanceMicThresholds?.voicingAccepted ?? monophonicResult.isVoiced;
-            if (performanceAdaptiveMicInput) {
-              const onsetAtMs = state.micMonophonicFirstDetectedAtMs;
-              const eventDurationMs = state.currentPrompt?.melodyEventDurationMs ?? null;
-              if (!voicingAccepted) {
-                setMicPerformanceOnsetGateStatus(
-                  'rejected',
-                  `Reason: low voicing (${monophonicResult.voicingConfidence.toFixed(2)}).`,
-                  {
-                    atMs: nowMs,
-                    rejectReasonKey: 'low_voicing',
-                    onsetNote: detectedNote,
-                    onsetAtMs,
-                    eventDurationMs,
-                    runtimeCalibrationLevel: performanceHoldCalibrationLevel,
-                  }
-                );
-              } else if (!confidenceAccepted) {
-                setMicPerformanceOnsetGateStatus(
-                  'rejected',
-                  `Reason: low confidence (${monophonicResult.confidence.toFixed(2)}).`,
-                  {
-                    atMs: nowMs,
-                    rejectReasonKey: 'low_confidence',
-                    onsetNote: detectedNote,
-                    onsetAtMs,
-                    eventDurationMs,
-                    runtimeCalibrationLevel: performanceHoldCalibrationLevel,
-                  }
-                );
-              } else if (!attackAccepted) {
-                setMicPerformanceOnsetGateStatus(
-                  'rejected',
-                  `Reason: weak attack (peak ${state.micMonophonicAttackPeakVolume.toFixed(3)} < ${attackRequiredPeak.toFixed(3)}).`,
-                  {
-                    atMs: nowMs,
-                    rejectReasonKey: 'weak_attack',
-                    onsetNote: detectedNote,
-                    onsetAtMs,
-                    eventDurationMs,
-                    runtimeCalibrationLevel: performanceHoldCalibrationLevel,
-                  }
-                );
-              } else if (!holdAccepted) {
-                setMicPerformanceOnsetGateStatus(
-                  'rejected',
-                  `Reason: hold too short (${Math.round(holdElapsedMs ?? 0)}ms < ${holdRequiredMs}ms).`,
-                  {
-                    atMs: nowMs,
-                    rejectReasonKey: 'short_hold',
-                    onsetNote: detectedNote,
-                    onsetAtMs,
-                    eventDurationMs,
-                    holdRequiredMs,
-                    holdElapsedMs,
-                    runtimeCalibrationLevel: performanceHoldCalibrationLevel,
-                  }
-                );
-              } else {
-                setMicPerformanceOnsetGateStatus(
-                  'accepted',
-                  `Peak ${state.micMonophonicAttackPeakVolume.toFixed(3)}, conf ${monophonicResult.confidence.toFixed(2)}, voicing ${monophonicResult.voicingConfidence.toFixed(2)}.`,
-                  { atMs: nowMs }
-                );
-              }
-              refreshMicPerformanceReadinessUiThrottled(nowMs);
-            }
-            const uncertainReasonKey = resolvePerformanceUncertainReasonKey({
-              voicingAccepted,
-              confidenceAccepted,
-              attackAccepted,
-              holdAccepted,
-            });
-            if (
-              performanceAdaptiveMicInput &&
-              shouldReportPerformanceMicUncertainFrame({
-                detectedNote,
-                noteFirstDetectedAtMs: state.micMonophonicFirstDetectedAtMs,
-                promptStartedAtMs: resolveLatencyCompensatedPromptStartedAtMs(
-                  state.startTime,
-                  state.performanceMicLatencyCompensationMs
-                ) ?? state.startTime,
-                nowMs,
-                attackAccepted,
-                holdAccepted,
-                confidenceAccepted,
-                voicingAccepted,
-                lastReportedOnsetNote: state.performanceMicLastUncertainOnsetNote,
-                lastReportedOnsetAtMs: state.performanceMicLastUncertainOnsetAtMs,
-                eventDurationMs: state.currentPrompt?.melodyEventDurationMs ?? null,
-                leniencyPreset: state.performanceTimingLeniencyPreset ?? 'normal',
-              })
-            ) {
-              state.performanceMicLastUncertainOnsetNote = detectedNote;
-              state.performanceMicLastUncertainOnsetAtMs = state.micMonophonicFirstDetectedAtMs;
-              recordPerformanceUncertainFrameByEvent(uncertainReasonKey);
-              setResultMessage('Low mic confidence. Play a cleaner single-note attack.', 'neutral');
-            }
-            if (
-              performanceAdaptiveMicInput &&
-              state.inputSource !== 'midi' &&
-              (!voicingAccepted || !confidenceAccepted || !attackAccepted || !holdAccepted)
-            ) {
-              return;
-            }
-            handleStableMonophonicDetectedNote(detectedNote, monophonicResult.smoothedFrequency);
-          },
-        });
-        if (monophonicReactionPlan.kind === 'none') {
-          const attackTrackingEvent = updateMicMonophonicAttackTracking(monophonicResult.detectedNote, volume);
-          clearStudyMelodyRepeatPromptFreshAttackGuard(attackTrackingEvent);
-        }
-      }
-    }
+    audioFrameRuntimeController.handleFrame(volume);
 
     state.animationId = requestAnimationFrame(processAudio);
   } catch (error) {
@@ -1598,7 +687,7 @@ export async function startListening(forCalibration = false) {
     const trainingMode = dom.trainingMode.value;
     if (isPerformanceStyleMode(trainingMode)) {
       // Defensive reset so every fresh performance session starts from preroll.
-      stopPerformanceTransportLoop();
+      performanceTransportRuntimeController.stopLoop();
       clearTrackedTimeouts(state.pendingTimeoutIds);
       performancePromptController.invalidatePendingAdvance();
       state.performanceRuntimeStartedAtMs = null;
@@ -1692,7 +781,7 @@ export async function startListening(forCalibration = false) {
     const selectedInputSource = !forCalibration ? state.inputSource : 'microphone';
     state.performanceMicHoldCalibrationLevel = forCalibration
       ? 'off'
-      : resolveSessionPerformanceMicHoldCalibrationLevel({
+      : performanceAdaptiveRuntimeController.resolveSessionMicHoldCalibrationLevel({
           trainingMode: dom.trainingMode.value,
           inputSource: selectedInputSource,
         });
@@ -1705,15 +794,11 @@ export async function startListening(forCalibration = false) {
       state.micLastMonophonicConfidence = null;
       state.micLastMonophonicPitchSpreadCents = null;
       state.micLastMonophonicDetectedAtMs = null;
-      state.micPerformanceReadinessLastUiRefreshAtMs = 0;
-      state.micPerformanceJudgmentCount = 0;
-      state.micPerformanceJudgmentTotalLatencyMs = 0;
-      state.micPerformanceJudgmentLastLatencyMs = null;
-      state.micPerformanceJudgmentMaxLatencyMs = 0;
-      resetMicPerformanceOnsetGateStatus();
-      resetMicPerformanceOnsetRejectTelemetry();
+      micPerformanceRuntimeStatusController.resetReadinessAndJudgmentTelemetry();
+      performanceMicTelemetryController.resetOnsetGateStatus();
+      performanceMicTelemetryController.resetOnsetRejectTelemetry();
       state.currentMelodyId = dom.melodySelector.value.trim() || null;
-      clearPerformanceTimelineFeedback();
+      performanceTimelineFeedbackController.clearFeedback();
       resetMicPolyphonicDetectorTelemetry();
       if (selectedInputSource === 'microphone') {
         clearAudioInputGuidanceError();
@@ -1806,7 +891,7 @@ export async function startListening(forCalibration = false) {
         setStatusText,
         nextPrompt: () => {
           if (initialPromptPlan.delayMs <= 0) {
-            startPerformanceRuntimeClock();
+            performanceTransportRuntimeController.startRuntimeClock();
             nextPrompt();
             return;
           }
@@ -1815,8 +900,8 @@ export async function startListening(forCalibration = false) {
           if (initialPromptPlan.prepMessage) {
             setResultMessage(initialPromptPlan.prepMessage);
           }
-          applySessionInitialTimelinePreview(initialPromptPlan.prepMessage);
-          beginPerformancePrerollTimeline(initialPromptPlan.pulseCount, initialPromptPlan.delayMs);
+          sessionPromptRuntimeController.applyInitialTimelinePreview(initialPromptPlan.prepMessage);
+          performanceTransportRuntimeController.beginPrerollTimeline(initialPromptPlan.pulseCount, initialPromptPlan.delayMs);
           if (initialPromptPlan.pulseCount > 0) {
             void playMetronomeCue(true).catch((error) => {
               showNonBlockingError(formatUserFacingError('Failed to play preroll count-in', error));
@@ -1833,7 +918,7 @@ export async function startListening(forCalibration = false) {
                 ).catch((error) => {
                   showNonBlockingError(formatUserFacingError('Failed to play preroll count-in', error));
                 });
-                advancePerformancePrerollTimeline(pulseIndex, initialPromptPlan.pulseCount);
+                performanceTransportRuntimeController.advancePrerollTimeline(pulseIndex, initialPromptPlan.pulseCount);
               },
               `session initial prompt preroll pulse ${pulseIndex + 1}`
             );
@@ -1842,10 +927,10 @@ export async function startListening(forCalibration = false) {
             initialPromptPlan.delayMs,
             () => {
               if (!state.isListening) return;
-              finishPerformancePrerollTimeline();
-              clearSessionInitialTimelinePreview();
+              performanceTransportRuntimeController.finishPrerollTimeline();
+              sessionPromptRuntimeController.clearInitialTimelinePreview();
               clearResultMessage();
-              startPerformanceRuntimeClock();
+              performanceTransportRuntimeController.startRuntimeClock();
               nextPrompt();
             },
             'session initial prompt preroll'
@@ -2003,7 +1088,7 @@ export function stopListening(keepStreamOpen = false) {
   state.isListening = false;
   stopMetronome();
   if (state.animationId) cancelAnimationFrame(state.animationId);
-  stopPerformanceTransportLoop();
+  performanceTransportRuntimeController.stopLoop();
   clearTrackedTimeouts(state.pendingTimeoutIds);
   performancePromptController.invalidatePendingAdvance();
   if (state.timerId) {
@@ -2012,7 +1097,7 @@ export function stopListening(keepStreamOpen = false) {
   }
   state.cooldown = false;
   state.ignorePromptAudioUntilMs = 0;
-  resetMicMonophonicAttackTracking();
+  micMonophonicAttackTrackingController.reset();
   resetMicPolyphonicDetectorTelemetry();
   stopMidiInput();
   if (!keepStreamOpen) {
@@ -2061,7 +1146,7 @@ export function seekActiveMelodySessionToEvent(eventIndex: number) {
 
   clearTrackedTimeouts(state.pendingTimeoutIds);
   performancePromptController.invalidatePendingAdvance();
-  clearPerformanceTimelineFeedback();
+  performanceTimelineFeedbackController.clearFeedback();
   state.currentMelodyEventIndex = Math.max(0, Math.round(eventIndex));
   state.performanceActiveEventIndex = isPerformanceStyleMode(dom.trainingMode.value)
     ? state.currentMelodyEventIndex
@@ -2071,7 +1156,7 @@ export function seekActiveMelodySessionToEvent(eventIndex: number) {
   state.pendingSessionStopResultMessage = null;
   clearWrongDetectedHighlight();
   if (isPerformanceStyleMode(dom.trainingMode.value)) {
-    startPerformanceRuntimeClock(state.currentMelodyEventIndex);
+    performanceTransportRuntimeController.startRuntimeClock(state.currentMelodyEventIndex);
   }
   nextPrompt();
   return true;
@@ -2152,7 +1237,7 @@ function nextPrompt() {
       state.performanceRuntimeStartedAtMs === null &&
       !state.performancePrerollLeadInVisible
     ) {
-      startPerformanceRuntimeClock();
+      performanceTransportRuntimeController.startRuntimeClock();
     }
     clearResultMessage();
     state.pendingSessionStopResultMessage = null;
@@ -2166,40 +1251,14 @@ function nextPrompt() {
 
     const trainingMode = dom.trainingMode.value;
     if (trainingMode !== 'melody') {
-      resetMicMonophonicAttackTracking();
+      micMonophonicAttackTrackingController.reset();
     }
     Object.assign(state, createPromptCycleTrackingResetState());
     const mode = modes[trainingMode];
-      let prompt: Prompt | null = null;
-      if (isPerformanceStyleMode(trainingMode)) {
-        const performanceContext = getActivePerformanceTransportContext();
-        if (performanceContext) {
-          state.currentMelodyId = performanceContext.melody.id;
-        }
-        let performanceEventIndex = state.performanceActiveEventIndex;
-      if (
-        performanceContext &&
-        (!(typeof performanceEventIndex === 'number') ||
-          performanceEventIndex < performanceContext.studyRange.startIndex ||
-          performanceEventIndex > performanceContext.studyRange.endIndex) &&
-        state.performanceRuntimeStartedAtMs !== null
-      ) {
-        const transportFrame = resolvePerformanceTransportFrame({
-          melody: performanceContext.melody,
-          bpm: performanceContext.bpm,
-          studyRange: performanceContext.studyRange,
-          runtimeStartedAtMs: state.performanceRuntimeStartedAtMs,
-          nowMs: Date.now(),
-        });
-        if (!transportFrame.isComplete && transportFrame.activeEventIndex !== null) {
-          performanceEventIndex = transportFrame.activeEventIndex;
-          state.performanceActiveEventIndex = performanceEventIndex;
-          state.currentMelodyEventIndex = performanceEventIndex;
-          if (transportFrame.eventStartedAtMs !== null) {
-            state.startTime = transportFrame.eventStartedAtMs;
-          }
-        }
-      }
+    let prompt: Prompt | null = null;
+    if (isPerformanceStyleMode(trainingMode)) {
+      const { context: performanceContext, activeEventIndex: performanceEventIndex } =
+        performanceTransportRuntimeController.syncPromptEventFromRuntime();
       if (
         performanceContext &&
         typeof performanceEventIndex === 'number' &&
@@ -2233,18 +1292,13 @@ function nextPrompt() {
       setTunerVisible,
       applyPrompt: (nextPrompt) => {
         const previousPrompt = state.currentPrompt;
-        state.studyMelodyRepeatPromptRequiresFreshAttack =
-          shouldResetStudyMelodyOnsetTrackingOnPromptChange(trainingMode, previousPrompt, nextPrompt);
-        state.studyMelodyRepeatPromptSawSilence = false;
-        if (state.studyMelodyRepeatPromptRequiresFreshAttack) {
-          resetMicMonophonicAttackTracking();
-        }
+        micMonophonicAttackTrackingController.syncPromptTransition(previousPrompt, nextPrompt);
         state.currentPrompt = nextPrompt;
         state.currentMelodyEventFoundNotes.clear();
         setPromptText(nextPrompt.displayText);
         redrawFretboard();
         scheduleMelodyTimelineRenderFromState();
-        configurePromptAudio();
+        sessionPromptRuntimeController.configurePromptAudio();
         state.startTime = Date.now();
         void syncMelodySessionMetronomeToPromptStart();
         if (!isPerformanceStyleMode(trainingMode)) {
@@ -2313,27 +1367,6 @@ async function syncMelodySessionMetronomeToPromptStart() {
   }
 }
 
-/** After a prompt is generated, this configures the audio feedback for the user. */
-function configurePromptAudio() {
-  const audioPlan = buildPromptAudioPlan({
-    prompt: state.currentPrompt,
-    trainingMode: dom.trainingMode.value,
-    autoPlayPromptSoundEnabled: state.autoPlayPromptSound,
-    instrument: state.currentInstrument,
-    calibratedA4: state.calibratedA4,
-    enabledStrings: getEnabledStrings(dom.stringSelector),
-  });
-  executePromptAudioPlan(audioPlan, {
-    setTargetFrequency: (frequency) => {
-      state.targetFrequency = frequency;
-    },
-    setPlaySoundDisabled: (disabled) => {
-      setSessionButtonsState({ playSoundDisabled: disabled });
-    },
-    playSound,
-  });
-}
-
 export function finishCalibration() {
   try {
     const { octave } = getOpenATuningInfoFromTuning(state.currentInstrument.TUNING);
@@ -2365,7 +1398,7 @@ export function finishCalibration() {
 
 export function clearRetainedSessionTimelineFeedback() {
   if (state.isListening) return;
-  clearPerformanceTimelineFeedback();
+  performanceTimelineFeedbackController.clearFeedback();
   scheduleMelodyTimelineRenderFromState();
 }
 
@@ -2402,4 +1435,13 @@ function handleTimeUp() {
     handleSessionRuntimeError('handleTimeUp', error);
   }
 }
+
+
+
+
+
+
+
+
+
 

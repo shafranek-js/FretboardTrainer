@@ -1,4 +1,5 @@
-import { dom, state } from '../state';
+import { dom } from '../dom';
+import { state } from '../state';
 import { startListening, cancelCalibration, clearRetainedSessionTimelineFeedback } from '../logic';
 import { displayStats, handleModeChange, redrawFretboard, updateInstrumentUI } from '../ui';
 import { loadSettings, resetSavedSettings, resetStats, saveSettings } from '../storage';

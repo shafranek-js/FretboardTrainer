@@ -1,4 +1,4 @@
-import { dom } from './state';
+import { dom } from './dom';
 import { getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
 import type { MelodyDefinition } from './melody-library';
 import type { MelodyStudyRange } from './melody-study-range';

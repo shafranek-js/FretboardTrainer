@@ -4,7 +4,8 @@
  */
 import type { ITrainingMode, DetectionType } from './training-mode';
 import type { Prompt, NoteStat } from '../types';
-import { dom, state } from '../state';
+import { dom } from '../dom';
+import { state } from '../state';
 import { NATURAL_NOTES, ALL_NOTES } from '../constants';
 import { getEnabledStrings, getSelectedFretRange } from '../fretboard-ui-state';
 import { notifyUserError } from '../user-feedback-port';

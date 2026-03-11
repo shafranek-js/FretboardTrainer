@@ -69,6 +69,9 @@ function createDeps() {
     registerStudyMelodyMicTuningControls: vi.fn(),
     registerMetronomeControls: vi.fn(),
     registerMetronomeBeatIndicator: vi.fn(),
+    registerModalControls: vi.fn(),
+    registerConfirmControls: vi.fn(),
+    registerProfileControls: vi.fn(),
   };
 }
 
@@ -99,6 +102,17 @@ describe('session-bootstrap-controller', () => {
     expect(deps.registerAudioInputControls).toHaveBeenCalledTimes(1);
     expect(deps.registerStudyMelodyMicTuningControls).toHaveBeenCalledTimes(1);
     expect(deps.registerMetronomeBeatIndicator).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers shared modal/profile controls through the bootstrap seam', () => {
+    const deps = createDeps();
+    const controller = createSessionBootstrapController(deps as never);
+
+    controller.registerSessionControls();
+
+    expect(deps.registerModalControls).toHaveBeenCalledTimes(1);
+    expect(deps.registerConfirmControls).toHaveBeenCalledTimes(1);
+    expect(deps.registerProfileControls).toHaveBeenCalledTimes(1);
   });
 
   it('wires study range commit and seek handlers to the selected melody only', () => {

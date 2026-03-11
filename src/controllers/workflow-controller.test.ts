@@ -18,6 +18,7 @@ function createDeps(overrides?: { melodyIds?: string[] }) {
       getLayout: vi.fn(() => ({ sessionTools: { showPlanSection: true } })),
       updateMelodyActionButtonsForSelection: vi.fn(),
       refreshMelodyEmptyState: vi.fn(),
+      mountWorkspaceControls: vi.fn(),
     },
     listAvailableMelodyIds: vi.fn(() => overrides?.melodyIds ?? []),
   };
@@ -35,14 +36,18 @@ describe('workflow-controller', () => {
     controller.applyUiWorkflow('editor');
     controller.updateMelodyActionButtonsForSelection();
     controller.refreshMelodyEmptyState();
+    controller.mountWorkspaceControls();
     const layout = controller.resolveCurrentWorkflowLayout('perform');
+    const sessionTools = controller.resolveSessionToolsVisibility('perform');
 
     expect(deps.workflowLayoutController.syncUiWorkflowFromTrainingMode).toHaveBeenCalledTimes(1);
     expect(deps.workflowLayoutController.applyUiWorkflowLayout).toHaveBeenCalledWith('practice');
     expect(deps.workflowLayoutController.applyUiWorkflow).toHaveBeenCalledWith('editor');
     expect(deps.workflowLayoutController.updateMelodyActionButtonsForSelection).toHaveBeenCalledTimes(1);
     expect(deps.workflowLayoutController.refreshMelodyEmptyState).toHaveBeenCalledTimes(1);
+    expect(deps.workflowLayoutController.mountWorkspaceControls).toHaveBeenCalledTimes(1);
     expect(layout).toEqual({ sessionTools: { showPlanSection: true } });
+    expect(sessionTools).toEqual({ showPlanSection: true });
   });
 
   it('returns the first available melody id and dispatches a change event when selecting', () => {

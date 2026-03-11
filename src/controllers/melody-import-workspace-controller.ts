@@ -2,6 +2,7 @@ export interface MelodyImportWorkspaceControllerDeps {
   syncModalUi: () => void;
   resetImportDraft: () => void;
   closeModal: () => void;
+  openModal: (options: { mode: 'create' | 'edit-custom' }) => boolean;
   resetImportInputs: () => void;
 }
 
@@ -12,6 +13,14 @@ export function createMelodyImportWorkspaceController(deps: MelodyImportWorkspac
 
   function resetDraft() {
     deps.resetImportDraft();
+  }
+
+  function openCreate() {
+    return deps.openModal({ mode: 'create' });
+  }
+
+  function openEditCustom() {
+    return deps.openModal({ mode: 'edit-custom' });
   }
 
   function close() {
@@ -26,6 +35,8 @@ export function createMelodyImportWorkspaceController(deps: MelodyImportWorkspac
   return {
     syncUi,
     resetDraft,
+    openCreate,
+    openEditCustom,
     close,
     closeAndResetInputs,
   };

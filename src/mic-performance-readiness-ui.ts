@@ -1,4 +1,5 @@
-import { dom, state } from './state';
+import { dom } from './dom';
+import { state } from './state';
 import { buildMicPerformanceReadinessView } from './mic-performance-readiness';
 
 function applyToneClasses(tone: 'neutral' | 'success' | 'warning' | 'error') {

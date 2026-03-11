@@ -2,7 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { dom, state } from '../state';
+import { dom } from '../dom';
+import { state } from '../state';
 import { Prompt, ChordNote } from '../types';
 import { CHORDS } from '../constants';
 import { notifyUserError } from '../user-feedback-port';

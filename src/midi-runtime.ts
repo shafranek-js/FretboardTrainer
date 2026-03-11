@@ -1,4 +1,5 @@
-import { dom, state } from './state';
+import { dom } from './dom';
+import { state } from './state';
 import { updateSessionInputStatusHud } from './input-source-status';
 import { parseMidiMessageData } from './midi-message';
 import { refreshAudioInputGuidanceUi } from './audio-input-guidance-ui';

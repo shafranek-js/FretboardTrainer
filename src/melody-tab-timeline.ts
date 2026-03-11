@@ -1,4 +1,4 @@
-import { dom } from './state';
+import { dom } from './dom';
 import type { MelodyDefinition } from './melody-library';
 import type { IInstrument } from './instruments/instrument';
 import { buildMelodyTabTimelineViewModel } from './melody-tab-timeline-model';

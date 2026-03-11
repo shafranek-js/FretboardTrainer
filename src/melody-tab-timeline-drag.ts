@@ -1,4 +1,4 @@
-import { dom } from './state';
+import { dom } from './dom';
 import type { IInstrument } from './instruments/instrument';
 import type { TimelineStepMetric } from './melody-study-range-drag';
 import { getRenderedTimelineStepMetrics } from './melody-tab-timeline-study-range-renderer';

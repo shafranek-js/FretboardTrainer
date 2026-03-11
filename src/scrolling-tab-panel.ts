@@ -1,4 +1,4 @@
-import { dom } from './state';
+import { dom } from './dom';
 import type { MelodyDefinition } from './melody-library';
 import type { MelodyFingeringLevel, MelodyFingeringStrategy } from './melody-fingering';
 import { buildScrollingTabPanelModel } from './scrolling-tab-panel-model';

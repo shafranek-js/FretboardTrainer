@@ -2,7 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { dom, state } from './state';
+import { dom } from './dom';
+import { state } from './state';
 import { saveSettings, getProfiles, getActiveProfileName } from './storage';
 import {
   setLoadingUi,

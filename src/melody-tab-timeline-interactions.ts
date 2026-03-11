@@ -1,4 +1,4 @@
-import { dom } from './state';
+import { dom } from './dom';
 import { setResultMessage } from './ui-signals';
 import { clearMelodyTimelineContextMenu } from './melody-tab-timeline-context-menu';
 

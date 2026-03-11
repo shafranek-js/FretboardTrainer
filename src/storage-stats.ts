@@ -1,4 +1,5 @@
-import { dom, state } from './state';
+import { dom } from './dom';
+import { state } from './state';
 import type { PerformanceTimingStats, RhythmSessionStats, SessionStats } from './types';
 import type { SessionAnalysisBundle } from './session-analysis-bundle';
 import {

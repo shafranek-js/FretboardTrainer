@@ -1,4 +1,4 @@
-import { dom } from '../state';
+import { dom } from '../dom';
 import { setUserConfirmHandler } from '../user-feedback-port';
 
 let isBound = false;

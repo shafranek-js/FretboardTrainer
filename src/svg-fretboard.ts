@@ -1,4 +1,5 @@
-import { dom, state } from './state';
+import { dom } from './dom';
+import { state } from './state';
 import { isMelodyWorkflowMode } from './training-mode-groups';
 import {
   getEnabledStrings,
