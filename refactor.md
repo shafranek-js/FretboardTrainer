@@ -1699,3 +1699,290 @@ Recommended order now:
 - The application is now past the earlier "thin session controller" phase and into a targeted runtime-decomposition phase.
 - The cheapest remaining wins are no longer in UI composition; they are in isolating mic/performance runtime mutations from the main audio loop and remaining session runtime orchestration glue.
 - logic.ts still remains the largest hotspot, but it is now shrinking through behavior-preserving seams instead of broad rewrites.
+
+## Status Update (2026-03-12)
+
+Since the previous update, the runtime composition work moved one level higher again.
+
+### What is now true in the current tree
+
+- `src/logic.ts` is now down to roughly 736 lines and is much closer to a composition root than a monolithic runtime file.
+- `src/controllers/session-controller.ts` remains around 821 lines and is still primarily session composition/orchestration.
+- `src/ui-signals.ts` remains a thin facade at roughly 15 lines.
+- Two new graph-level runtime seams now exist and are wired in practice:
+  - `src/session-lifecycle-runtime-graph-cluster.ts`
+  - `src/session-audio-runtime-graph-cluster.ts`
+- Both graph seams have focused tests:
+  - `src/session-lifecycle-runtime-graph-cluster.test.ts`
+  - `src/session-audio-runtime-graph-cluster.test.ts`
+
+### What changed architecturally
+
+- The large lifecycle wiring block for `createSessionLifecycleRuntimeCluster(...)` no longer lives inline in `logic.ts`; it is now assembled behind `session-lifecycle-runtime-graph-cluster.ts`.
+- The large audio/metronome/calibration wiring block for `createSessionAudioRuntimeCluster(...)` no longer lives inline in `logic.ts`; it is now assembled behind `session-audio-runtime-graph-cluster.ts`.
+- `logic.ts` is increasingly acting as a top-level composition layer that connects graph clusters instead of directly constructing every nested controller dependency block itself.
+
+### Verification status
+
+- `npm run typecheck` passes after both graph extractions.
+- Focused runtime verification passes for the lifecycle seam:
+  - `src/session-lifecycle-runtime-graph-cluster.test.ts`
+  - `src/session-lifecycle-runtime-cluster.test.ts`
+  - `src/session-start-runtime-controller.test.ts`
+  - `src/session-input-runtime-controller.test.ts`
+  - `src/session-activation-runtime-controller.test.ts`
+  - `src/session-next-prompt-runtime-controller.test.ts`
+  - `src/session-display-result-runtime-controller.test.ts`
+  - `src/session-stop-runtime-controller.test.ts`
+  - `src/session-timeup-runtime-controller.test.ts`
+  - `src/session-seek-runtime-controller.test.ts`
+- Focused runtime verification also passes for the audio seam:
+  - `src/session-audio-runtime-graph-cluster.test.ts`
+  - `src/session-audio-runtime-cluster.test.ts`
+  - `src/audio-process-loop-runtime-controller.test.ts`
+  - `src/session-metronome-sync-runtime-controller.test.ts`
+  - `src/session-calibration-runtime-controller.test.ts`
+  - `src/session-timeout-runtime-controller.test.ts`
+
+### Revised immediate priority from the current state
+
+The best next refactor step is still inside `src/logic.ts`.
+
+Recommended order now:
+
+1. Extract the remaining `createSessionDetectionRuntimeCluster(...)` wiring into its own graph-level seam.
+2. After that, re-evaluate whether `logic.ts` still has worthwhile graph-level extractions left, or whether the file is already thin enough for this phase.
+3. Only then return to `session-controller.ts` or another hotspot if the remaining gain is clearer there.
+
+### Practical implication
+
+- The current refactor phase is no longer about local helper cleanup; it is about flattening top-level runtime composition.
+- The cheapest remaining win is not another micro-controller extraction, but moving the still-dense detection graph out of `logic.ts` the same way lifecycle and audio were moved.
+
+## Status Update (2026-03-12, later)
+
+The runtime decomposition pass continued and the remaining high-density wiring in `src/logic.ts` shrank again.
+
+### What is now true in the current tree
+
+- `src/logic.ts` is now roughly 662 lines.
+- `src/controllers/session-controller.ts` is roughly 821 lines.
+- `src/ui-signals.ts` remains a thin facade at roughly 15 lines.
+- A third graph-level runtime seam now exists and is wired in practice:
+  - `src/session-detection-runtime-graph-cluster.ts`
+- The detection graph seam also has a focused test:
+  - `src/session-detection-runtime-graph-cluster.test.ts`
+
+### What changed architecturally
+
+- The large `createSessionDetectionRuntimeCluster(...)` wiring block no longer lives inline in `logic.ts`.
+- Detection/runtime composition is now split across three graph layers in `logic.ts`:
+  - lifecycle
+  - audio/metronome/calibration
+  - detection
+- `logic.ts` is now much closer to a top-level runtime composition root that assembles graph clusters and exports thin entry points.
+
+### Verification status
+
+- `npm run typecheck` passes after the detection graph extraction.
+- Focused detection/runtime verification passes for:
+  - `src/session-detection-runtime-graph-cluster.test.ts`
+  - `src/session-detection-runtime-cluster.test.ts`
+  - `src/stable-monophonic-detection-controller.test.ts`
+  - `src/monophonic-audio-frame-controller.test.ts`
+  - `src/audio-frame-runtime-controller.test.ts`
+  - `src/melody-runtime-detection-controller.test.ts`
+  - `src/polyphonic-chord-detection-controller.test.ts`
+  - `src/melody-polyphonic-feedback-controller.test.ts`
+
+### Revised immediate priority from the current state
+
+The best next refactor step is no longer another obvious giant builder extraction in `logic.ts`.
+
+Recommended order now:
+
+1. Re-evaluate whether `logic.ts` is already thin enough for this phase.
+2. If more `logic.ts` work is still justified, prefer only small composition-root cleanups or import reduction, not another abstraction layer for its own sake.
+3. Otherwise move the center of gravity back to `src/controllers/session-controller.ts`, which is now the largest remaining orchestration hotspot.
+
+### Practical implication
+
+- The runtime refactor has crossed the point where the main remaining question is boundary quality, not sheer line count.
+- `logic.ts` is no longer the dominant hotspot it was earlier.
+- The next productive pass will likely come either from a fresh `session-controller.ts` orchestration review or from a very selective final cleanup in `logic.ts`.
+
+## Status Update (2026-03-12, session-controller graph pass)
+
+The center of gravity moved back into src/controllers/session-controller.ts, and that file was flattened again with two new graph-level seams.
+
+### What is now true in the current tree
+
+- src/controllers/session-controller.ts is now roughly 825 lines.
+- src/logic.ts is now roughly 697 lines.
+- Two additional composition-level graph seams now exist in the controller layer:
+  - src/controllers/session-configuration-graph-cluster.ts
+  - src/controllers/session-editor-bootstrap-graph-cluster.ts
+- Both seams have focused tests:
+  - src/controllers/session-configuration-graph-cluster.test.ts
+  - src/controllers/session-editor-bootstrap-graph-cluster.test.ts
+
+### What changed architecturally
+
+- The dense middle wiring in session-controller.ts for:
+  - metronome
+  - curriculum preset
+  - input controls
+  - workspace graph
+  is now hidden behind createSessionConfigurationGraphCluster(...).
+- The lower controller-registration section now composes:
+  - editor graph
+  - bootstrap graph
+  through createSessionEditorBootstrapGraphCluster(...) instead of assembling both blocks inline.
+- session-controller.ts is increasingly acting as a top-level composition root that assembles a few graph seams rather than manually wiring every cluster itself.
+
+### Verification status
+
+- 
+- `npm run typecheck` passes after both graph extractions.
+- Focused controller verification passes for the new middle graph seam:
+  - src/controllers/session-configuration-graph-cluster.test.ts
+  - src/controllers/session-metronome-cluster.test.ts
+  - src/controllers/session-curriculum-preset-cluster.test.ts
+  - src/controllers/session-input-controls-cluster.test.ts
+  - src/controllers/session-workspace-graph-cluster.test.ts
+  - src/controllers/melody-setup-controls-controller.test.ts
+  - src/controllers/session-bootstrap-graph-cluster.test.ts
+  - src/controllers/session-transport-controls-controller.test.ts
+- Focused controller verification also passes for the new lower graph seam:
+  - src/controllers/session-editor-bootstrap-graph-cluster.test.ts
+  - src/controllers/session-editor-graph-cluster.test.ts
+  - src/controllers/session-bootstrap-graph-cluster.test.ts
+  - src/controllers/melody-editing-controls-controller.test.ts
+  - src/controllers/melody-playback-controls-controller.test.ts
+  - src/controllers/melody-library-controls-controller.test.ts
+  - src/controllers/session-transport-controls-controller.test.ts
+
+### Revised immediate priority from the current state
+
+The best next refactor step is no longer another small cluster extraction inside logic.ts; it is a final orchestration pass over the remaining top-level controller graph.
+
+Recommended order now:
+
+1. Re-evaluate whether session-controller.ts still needs one more graph-level seam around the remaining import/editor/configuration interplay.
+2. If that seam is still cohesive, hide it behind one more top-level graph layer instead of adding more narrow bridge helpers.
+3. Otherwise stop thinning session-controller.ts mechanically and switch to reviewing boundary quality in the extracted graph cluster APIs.
+
+### Practical implication
+
+- The productive work is now at the graph-boundary level, not at the local helper level.
+- session-controller.ts is close to the point where further cleanup should be justified by clearer top-level structure, not just fewer lines.
+- The next good step should either collapse one last coherent top-level graph or explicitly declare the controller composition phase complete.
+
+## Status Update (2026-03-12, top-level session-controller graph)
+
+A final top-level controller seam was extracted above the existing graph layers.
+
+### What is now true in the current tree
+
+- src/controllers/session-controller.ts is now roughly 809 lines.
+- src/controllers/session-controller-graph-cluster.ts now exists as a thin top-level orchestration graph.
+- src/logic.ts remains roughly 697 lines.
+- The controller layer now has a graph above:
+  - melody runtime graph
+  - import/editor cluster
+  - configuration graph
+  - editor/bootstrap graph
+
+### What changed architecturally
+
+- The remaining cross-wiring between:
+  - workflowController
+  - melodySelectionController
+  - melody runtime
+  - melody import/editor
+  is now hidden behind createSessionControllerGraphCluster(...).
+- session-controller.ts no longer manually connects finalizeImportSelection, stopMelodyDemoPlayback, selected melody access, and workflow callbacks across three separate graph layers.
+- The remaining size in session-controller.ts is now dominated less by controller cycles and more by large raw dependency-object literals passed into the extracted graphs.
+
+### Verification status
+
+- npm run typecheck passes after the top-level graph extraction.
+- Focused controller verification passes for:
+  - src/controllers/session-controller-graph-cluster.test.ts
+  - src/controllers/session-configuration-graph-cluster.test.ts
+  - src/controllers/session-editor-bootstrap-graph-cluster.test.ts
+  - src/controllers/session-melody-runtime-graph-cluster.test.ts
+  - src/controllers/session-bootstrap-graph-cluster.test.ts
+  - src/controllers/melody-setup-controls-controller.test.ts
+  - src/controllers/session-transport-controls-controller.test.ts
+
+### Revised immediate priority from the current state
+
+The next best step is no longer another cycle-breaking graph extraction inside session-controller.ts.
+
+Recommended order now:
+
+1. Decide whether the remaining large dependency-object literals in session-controller.ts should move into dedicated dep-builder modules.
+2. If yes, move one cohesive builder at a time, starting with the top-level session controller graph deps.
+3. Otherwise stop the controller-composition phase here and switch to reviewing the API boundaries and naming of the newly extracted graph cluster files.
+
+### Practical implication
+
+- The main remaining cost in session-controller.ts is now configuration verbosity, not hidden orchestration cycles.
+- Further productive refactoring should optimize graph-input shape and builder ergonomics, not add more thin bridge layers.
+
+
+## Status Update (2026-03-12, runtime dep-builder pass)
+
+The refactor moved from graph extraction into graph-input cleanup.
+
+### What is now true in the current tree
+
+- `src/logic.ts` is now roughly 641 lines.
+- `src/controllers/session-controller.ts` is still roughly 1131 lines and is again the largest orchestration hotspot.
+- `src/ui-signals.ts` remains a thin facade at roughly 15 lines.
+- `logic.ts` now builds all top-level runtime graph seams through dedicated dep-builder modules:
+  - `src/session-performance-feedback-graph-deps.ts`
+  - `src/session-prompt-performance-runtime-graph-deps.ts`
+  - `src/session-detection-runtime-graph-deps.ts`
+  - `src/session-lifecycle-runtime-graph-deps.ts`
+  - `src/session-audio-runtime-graph-deps.ts`
+
+### What changed architecturally
+
+- The remaining large object literals passed into the runtime graph clusters were flattened behind dedicated builder modules.
+- `logic.ts` now reads much more like a composition root:
+  - create a few shared runtime helpers
+  - assemble graph clusters through `build*GraphDeps(...)`
+  - expose thin runtime entry points
+- Repeated runtime lambdas inside `logic.ts` were also collapsed into shared local helpers for:
+  - practice-adjusted melody lookup
+  - mode detection lookup
+  - current mode detection lookup
+  - mode lookup
+
+### Verification status
+
+- `npm run typecheck` passes after the dep-builder pass.
+- Focused runtime verification passes for:
+  - `src/session-performance-feedback-graph-cluster.test.ts`
+  - `src/session-prompt-performance-runtime-graph-cluster.test.ts`
+  - `src/session-detection-runtime-graph-cluster.test.ts`
+  - `src/session-lifecycle-runtime-graph-cluster.test.ts`
+  - `src/session-audio-runtime-graph-cluster.test.ts`
+- Broader runtime verification also passes across lifecycle, prompt, detection, audio, and stable-note controllers.
+
+### Revised immediate priority from the current state
+
+The next best refactor step is no longer in `logic.ts`.
+
+Recommended order now:
+
+1. Return to `src/controllers/session-controller.ts`.
+2. If more work there is justified, prefer the same dep-builder approach used in `logic.ts`.
+3. Keep avoiding broad rewrites of state/runtime behavior while the remaining gain is mostly in composition clarity.
+
+### Practical implication
+
+- `logic.ts` is now in the “thin enough for this phase” category.
+- The refactor bottleneck has shifted back to controller-layer composition and large dependency objects in `session-controller.ts`.

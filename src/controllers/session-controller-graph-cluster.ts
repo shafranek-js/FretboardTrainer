@@ -1,0 +1,81 @@
+import { createMelodyImportEditorCluster } from './melody-import-editor-cluster';
+import { createSessionConfigurationGraphCluster } from './session-configuration-graph-cluster';
+import { createSessionMelodyRuntimeGraphCluster } from './session-melody-runtime-graph-cluster';
+
+interface SessionControllerGraphClusterDeps {
+  melodyRuntime: Omit<Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0], 'melodyDemo'> & {
+    melodyDemo: Omit<Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0]['melodyDemo'], 'sessionTransportControls'> & {
+      sessionTransportControls: Omit<
+        Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0]['melodyDemo']['sessionTransportControls'],
+        'applyUiWorkflow'
+      >;
+    };
+  };
+  importEditor: Omit<
+    Parameters<typeof createMelodyImportEditorCluster>[0],
+    'getSelectedMelodyId' | 'getSelectedMelody' | 'finalizeImportSelection' | 'stopMelodyDemoPlayback'
+  >;
+  configurationGraph: Omit<Parameters<typeof createSessionConfigurationGraphCluster>[0], 'workspaceGraph'> & {
+    workspaceGraph: Omit<
+      Parameters<typeof createSessionConfigurationGraphCluster>[0]['workspaceGraph'],
+      | 'selectedMelodyContextController'
+      | 'melodyPracticeSettingsBridgeController'
+      | 'melodyTimelineEditingBridgeController'
+      | 'melodyImportWorkspaceController'
+      | 'melodyTimelineUiController'
+      | 'melodyDemoRuntimeController'
+    >;
+  };
+}
+
+export function createSessionControllerGraphCluster(deps: SessionControllerGraphClusterDeps) {
+  let workflowControllerRef!: ReturnType<typeof createSessionConfigurationGraphCluster>['workflowController'];
+  let melodySelectionControllerRef!: ReturnType<
+    typeof createSessionConfigurationGraphCluster
+  >['melodySelectionController'];
+
+  const melodyRuntimeGraphCluster = createSessionMelodyRuntimeGraphCluster({
+    ...deps.melodyRuntime,
+    melodyDemo: {
+      ...deps.melodyRuntime.melodyDemo,
+      sessionTransportControls: {
+        ...deps.melodyRuntime.melodyDemo.sessionTransportControls,
+        applyUiWorkflow: (workflow) => workflowControllerRef.applyUiWorkflow(workflow),
+      },
+    },
+  });
+
+  const melodyImportEditorCluster = createMelodyImportEditorCluster({
+    ...deps.importEditor,
+    getSelectedMelodyId: () => melodyRuntimeGraphCluster.selectedMelodyContextController.getSelectedMelodyId(),
+    getSelectedMelody: () => melodyRuntimeGraphCluster.selectedMelodyContextController.getSelectedMelody(),
+    finalizeImportSelection: (melodyId, successMessage) =>
+      melodySelectionControllerRef.finalizeImportSelection(melodyId, successMessage),
+    stopMelodyDemoPlayback: (options) =>
+      melodyRuntimeGraphCluster.melodyDemoRuntimeController.stopPlayback(options),
+  });
+
+  const configurationGraphCluster = createSessionConfigurationGraphCluster({
+    ...deps.configurationGraph,
+    workspaceGraph: {
+      ...deps.configurationGraph.workspaceGraph,
+      selectedMelodyContextController: melodyRuntimeGraphCluster.selectedMelodyContextController,
+      melodyPracticeSettingsBridgeController:
+        melodyRuntimeGraphCluster.melodyPracticeSettingsBridgeController,
+      melodyTimelineEditingBridgeController:
+        melodyRuntimeGraphCluster.melodyTimelineEditingBridgeController,
+      melodyImportWorkspaceController: melodyImportEditorCluster.melodyImportWorkspaceController,
+      melodyTimelineUiController: melodyRuntimeGraphCluster.melodyTimelineUiController,
+      melodyDemoRuntimeController: melodyRuntimeGraphCluster.melodyDemoRuntimeController,
+    },
+  });
+
+  workflowControllerRef = configurationGraphCluster.workflowController;
+  melodySelectionControllerRef = configurationGraphCluster.melodySelectionController;
+
+  return {
+    ...melodyRuntimeGraphCluster,
+    ...melodyImportEditorCluster,
+    ...configurationGraphCluster,
+  };
+}

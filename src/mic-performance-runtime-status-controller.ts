@@ -103,6 +103,20 @@ export function createMicPerformanceRuntimeStatusController(
     refreshReadinessUiThrottled(judgedAtMs);
   }
 
+  function resetPolyphonicDetectorTelemetry() {
+    deps.state.lastMicPolyphonicDetectorProviderUsed = null;
+    deps.state.lastMicPolyphonicDetectorFallbackFrom = null;
+    deps.state.lastMicPolyphonicDetectorWarning = null;
+    deps.state.micPolyphonicDetectorTelemetryFrames = 0;
+    deps.state.micPolyphonicDetectorTelemetryTotalLatencyMs = 0;
+    deps.state.micPolyphonicDetectorTelemetryMaxLatencyMs = 0;
+    deps.state.micPolyphonicDetectorTelemetryLastLatencyMs = null;
+    deps.state.micPolyphonicDetectorTelemetryFallbackFrames = 0;
+    deps.state.micPolyphonicDetectorTelemetryWarningFrames = 0;
+    deps.state.micPolyphonicDetectorTelemetryWindowStartedAtMs = 0;
+    deps.state.micPolyphonicDetectorTelemetryLastUiRefreshAtMs = 0;
+  }
+
   function resetReadinessAndJudgmentTelemetry() {
     deps.state.micPerformanceReadinessLastUiRefreshAtMs = 0;
     deps.state.micPerformanceJudgmentCount = 0;
@@ -115,6 +129,7 @@ export function createMicPerformanceRuntimeStatusController(
     refreshReadinessUiThrottled,
     updatePolyphonicDetectorRuntimeStatus,
     recordJudgmentLatency,
+    resetPolyphonicDetectorTelemetry,
     resetReadinessAndJudgmentTelemetry,
   };
 }

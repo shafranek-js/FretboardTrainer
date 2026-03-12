@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026-03-10
+
+### Product and Workflow UX
+
+- Shipped workflow-first practice surfaces:
+  - `Learn Notes`
+  - `Study Melody`
+  - `Practice`
+  - `Perform`
+  - `Library`
+  - `Editor`
+- Split melody learning into a clear ladder:
+  - `Study Melody` for note-by-note learning
+  - `Practice` for continuous drill runs
+  - `Perform` for the final scored run
+- Separated `Library` and `Editor` so browsing/export and melody authoring are no longer mixed.
+- Moved status, prompt/result, and session info messaging into a bottom `Status Bar`.
+- Reworked top controls into a workflow-first toolbar and removed several legacy top-bar/session-area behaviors.
+
+### Audio, Timing, and Runtime
+
+- Added dynamic melody-preview retiming so live BPM changes affect already-running melody playback.
+- Rebuilt the metronome around audio-clock lookahead scheduling.
+- Replaced per-tick oscillator construction with cached click buffers.
+- Aligned visual metronome pulse timing with scheduled audio beats.
+- Added meter-aware preroll tick cues for `Practice` and `Perform`.
+- Hardened `Study Melody` repeated-note detection so identical adjacent notes require a fresh post-silence attack.
+- Improved `Study Melody` prompt tracking so the TAB timeline highlight follows the current target note rather than the previous one.
+
+### Persistence and Reload Behavior
+
+- Persisted `uiWorkflow` across reload and restored workflow-specific layout more reliably.
+- Fixed reload persistence for `Learn Notes -> Show String Buttons`.
+- Hardened restore so `Library` / `Editor` do not collapse back into `Study Melody` after reload.
+
+### Architecture and Refactor
+
+- Introduced `workflow-controller.ts` and continued shrinking `src/controllers/session-controller.ts`.
+- Removed prompt index mutation from `MelodyPracticeMode.generatePrompt()`.
+- Removed direct DOM BPM reads from melody-mode prompt generation.
+- Moved melody session start validation into preflight.
+- Removed `currentMelodyEventFoundNotes.clear()` side effects from melody prompt generators.
+
 ## 2026-02-21
 
 ### Architecture and UI
@@ -57,3 +100,18 @@
   - fretboard render/view helper modules
 - Added PWA integration (`vite-plugin-pwa`) for offline support.
 - Improved typings around Soundfont usage and removed key `any` gaps.
+
+## 2026-03-12
+
+### Architecture and Refactor
+
+- Reduced `src/logic.ts` to a graph-oriented runtime composition root.
+- Added graph-level runtime seams for:
+  - performance feedback
+  - prompt/performance runtime
+  - detection runtime
+  - lifecycle runtime
+  - audio runtime
+- Added dedicated dep-builder modules for each top-level runtime graph so graph inputs no longer live as giant inline object literals in `src/logic.ts`.
+- Collapsed remaining repeated runtime helper closures in `src/logic.ts` into shared local helpers for mode lookup and practice-adjusted melody lookup.
+- Continued flattening controller/runtime composition while keeping behavior unchanged and backing each seam with focused Vitest coverage.

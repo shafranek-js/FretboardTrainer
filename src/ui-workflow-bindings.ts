@@ -8,20 +8,7 @@ import type { InfoSlotsState, ResultViewState } from './ui-feedback-view';
 import type { TunerReadingState } from './ui-monitoring-view';
 import type { LastSessionViewModel, StatsViewModel } from './stats-view';
 import type { SessionControlsSyncResult } from './ui-session-controls-sync';
-
-interface SessionButtonsState {
-  startDisabled: boolean;
-  stopDisabled: boolean;
-  hintDisabled: boolean;
-  playSoundDisabled: boolean;
-}
-
-interface SessionButtonsRuntimeState {
-  previousSessionActive: boolean;
-  wasAutoCollapsedForSession: boolean;
-  wasAutoCollapsedMelodySetupForSession: boolean;
-  wasAutoCollapsedSessionToolsForSession: boolean;
-}
+import type { SessionButtonsState, UiSignalBindingRuntimeState } from './ui-signal-store';
 
 interface BindUiWorkflowSignalsDeps {
   promptTextSignal: Signal<string>;
@@ -109,7 +96,7 @@ interface BindUiWorkflowSignalsDeps {
   }) => void;
   getShowStringTogglesChecked: () => boolean;
   getMelodySetupToggleHidden: () => boolean;
-  runtimeState: SessionButtonsRuntimeState;
+  runtimeState: UiSignalBindingRuntimeState;
 }
 
 export function bindUiWorkflowSignals({
