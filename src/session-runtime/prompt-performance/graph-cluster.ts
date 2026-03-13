@@ -157,88 +157,29 @@ export function createSessionPromptPerformanceRuntimeGraphCluster(
 function createRhythmModeState(
   state: SessionPromptPerformanceRuntimeGraphState
 ): RhythmModeState {
-  return {
-    rhythmLastJudgedBeatAtMs: state.rhythmLastJudgedBeatAtMs,
-    activeSessionStats: state.activeSessionStats,
-  };
+  return state;
 }
 
 function createMicMonophonicAttackTrackingState(
   state: SessionPromptPerformanceRuntimeGraphState
 ): MicMonophonicAttackTrackingState {
-  return {
-    micMonophonicAttackTrackedNote: state.micMonophonicAttackTrackedNote,
-    micMonophonicAttackPeakVolume: state.micMonophonicAttackPeakVolume,
-    micMonophonicAttackLastVolume: state.micMonophonicAttackLastVolume,
-    micMonophonicFirstDetectedAtMs: state.micMonophonicFirstDetectedAtMs,
-    micLastMonophonicDetectedAtMs: state.micLastMonophonicDetectedAtMs,
-    studyMelodyRepeatPromptRequiresFreshAttack: state.studyMelodyRepeatPromptRequiresFreshAttack,
-    studyMelodyRepeatPromptSawSilence: state.studyMelodyRepeatPromptSawSilence,
-    startTime: state.startTime,
-    currentPrompt: state.currentPrompt,
-  };
+  return state;
 }
 
 function createSessionPromptState(
   state: SessionPromptPerformanceRuntimeGraphState
 ): SessionPromptState {
-  return {
-    activeSessionStats: state.activeSessionStats,
-    melodyTimelinePreviewIndex: state.melodyTimelinePreviewIndex,
-    melodyTimelinePreviewLabel: state.melodyTimelinePreviewLabel,
-    currentPrompt: state.currentPrompt,
-    autoPlayPromptSound: state.autoPlayPromptSound,
-    currentInstrument: state.currentInstrument,
-    calibratedA4: state.calibratedA4,
-    melodyTransposeSemitones: state.melodyTransposeSemitones,
-    melodyStringShift: state.melodyStringShift,
-    melodyStudyRangeStartIndex: state.melodyStudyRangeStartIndex,
-    melodyStudyRangeEndIndex: state.melodyStudyRangeEndIndex,
-    targetFrequency: state.targetFrequency,
-  };
+  return state;
 }
 
 function createPerformancePromptState(
   state: SessionPromptPerformanceRuntimeGraphState
 ): PerformancePromptState {
-  return {
-    currentPrompt: state.currentPrompt,
-    performancePromptResolved: state.performancePromptResolved,
-    performancePromptMatched: state.performancePromptMatched,
-    performancePromptHadAttempt: state.performancePromptHadAttempt,
-    performancePromptHadWrongAttempt: state.performancePromptHadWrongAttempt,
-    pendingTimeoutIds: state.pendingTimeoutIds,
-    isListening: state.isListening,
-    showingAllNotes: state.showingAllNotes,
-    currentMelodyEventFoundNotes: state.currentMelodyEventFoundNotes,
-    activeSessionStats: state.activeSessionStats,
-    currentInstrument: state.currentInstrument,
-  };
+  return state;
 }
 
 function createPerformanceTransportState(
   state: SessionPromptPerformanceRuntimeGraphState
 ): PerformanceTransportState {
-  return {
-    activeSessionStats: state.activeSessionStats,
-    currentInstrument: state.currentInstrument,
-    currentMelodyEventFoundNotes: state.currentMelodyEventFoundNotes,
-    currentMelodyEventIndex: state.currentMelodyEventIndex,
-    currentMelodyId: state.currentMelodyId,
-    currentPrompt: state.currentPrompt,
-    isListening: state.isListening,
-    melodyStudyRangeById: state.melodyStudyRangeById,
-    melodyStudyRangeStartIndex: state.melodyStudyRangeStartIndex,
-    pendingSessionStopResultMessage: state.pendingSessionStopResultMessage,
-    performanceActiveEventIndex: state.performanceActiveEventIndex,
-    performancePromptResolved: state.performancePromptResolved,
-    performancePrerollDurationMs: state.performancePrerollDurationMs,
-    performancePrerollLeadInVisible: state.performancePrerollLeadInVisible,
-    performancePrerollStartedAtMs: state.performancePrerollStartedAtMs,
-    performancePrerollStepIndex: state.performancePrerollStepIndex,
-    performanceRunCompleted: state.performanceRunCompleted,
-    performanceRuntimeStartedAtMs: state.performanceRuntimeStartedAtMs,
-    performanceTransportAnimationId: state.performanceTransportAnimationId,
-    startTime: state.startTime,
-  };
+  return state;
 }

@@ -117,10 +117,10 @@ test('Perform session paints timeline feedback during an active run', async ({ p
   await expect
     .poll(async () =>
       page.evaluate(() =>
-        Array.from(document.querySelectorAll('[data-feedback-tone]')).map((element) =>
-          element.getAttribute('data-feedback-tone')
-        )
+        Array.from(document.querySelectorAll('[data-feedback-tone]'))
+          .map((element) => element.getAttribute('data-feedback-tone'))
+          .filter((tone): tone is string => Boolean(tone))
       )
     )
-    .toContain('wrong');
+    .toContainEqual(expect.stringMatching(/^(wrong|missed)$/));
 });

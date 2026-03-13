@@ -118,11 +118,11 @@ describe('session-prompt-performance-runtime-graph-cluster', () => {
     args.performancePrompt.updateSessionGoalProgress();
     args.performanceTransport.onResolveMissedPrompt();
 
-    expect(args.rhythmMode.state).not.toBe(deps.state);
-    expect(args.micMonophonicAttackTracking.state).not.toBe(deps.state);
-    expect(args.sessionPrompt.state).not.toBe(deps.state);
-    expect(args.performancePrompt.state).not.toBe(deps.state);
-    expect(args.performanceTransport.state).not.toBe(deps.state);
+    expect(args.rhythmMode.state).toBe(deps.state);
+    expect(args.micMonophonicAttackTracking.state).toBe(deps.state);
+    expect(args.sessionPrompt.state).toBe(deps.state);
+    expect(args.performancePrompt.state).toBe(deps.state);
+    expect(args.performanceTransport.state).toBe(deps.state);
     expect(args.rhythmMode.state).toHaveProperty('rhythmLastJudgedBeatAtMs');
     expect(args.performanceTransport.state).toHaveProperty('performanceTransportAnimationId');
     expect(updateSessionGoalProgress).toHaveBeenCalledTimes(1);

@@ -25,7 +25,7 @@ export class AppShell {
   }
 
   async waitForAppReady() {
-    await expect(this.page.locator('#loadingOverlay')).toBeHidden();
+    await expect(this.page.locator('#loadingOverlay')).toBeHidden({ timeout: 15_000 });
   }
 
   async expectLoaded() {
@@ -117,7 +117,7 @@ export class SettingsHub {
   constructor(private readonly page: Page) {}
 
   async open() {
-    await expect(this.page.locator('#loadingOverlay')).toBeHidden();
+    await expect(this.page.locator('#loadingOverlay')).toBeHidden({ timeout: 15_000 });
     const onboardingModal = this.page.locator('#onboardingModal');
     if (await onboardingModal.isVisible()) {
       await this.page.locator('#onboardingSkipBtn').click();

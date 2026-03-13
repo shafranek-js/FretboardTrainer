@@ -374,182 +374,37 @@ export function createSessionLifecycleRuntimeGraphCluster(deps: SessionLifecycle
 }
 
 function createStopState(state: LifecycleGraphState): StopState {
-  return {
-    activeSessionStats: state.activeSessionStats,
-    animationId: state.animationId,
-    cooldown: state.cooldown,
-    ignorePromptAudioUntilMs: state.ignorePromptAudioUntilMs,
-    inputSource: state.inputSource,
-    isCalibrating: state.isCalibrating,
-    isDirectInputMode: state.isDirectInputMode,
-    isListening: state.isListening,
-    isLoadingSamples: state.isLoadingSamples,
-    lastMicPolyphonicDetectorFallbackFrom: state.lastMicPolyphonicDetectorFallbackFrom,
-    lastMicPolyphonicDetectorProviderUsed: state.lastMicPolyphonicDetectorProviderUsed,
-    lastMicPolyphonicDetectorWarning: state.lastMicPolyphonicDetectorWarning,
-    lastSessionAnalysisAutoDownloadKey: state.lastSessionAnalysisAutoDownloadKey,
-    lastSessionAnalysisBundle: state.lastSessionAnalysisBundle,
-    lastSessionPerformanceNoteLog: state.lastSessionPerformanceNoteLog,
-    lastSessionStats: state.lastSessionStats,
-    micLastInputRms: state.micLastInputRms,
-    micLastMonophonicConfidence: state.micLastMonophonicConfidence,
-    micLastMonophonicDetectedAtMs: state.micLastMonophonicDetectedAtMs,
-    micLastMonophonicPitchSpreadCents: state.micLastMonophonicPitchSpreadCents,
-    micNoteAttackFilterPreset: state.micNoteAttackFilterPreset,
-    micNoteHoldFilterPreset: state.micNoteHoldFilterPreset,
-    micPerformanceJudgmentCount: state.micPerformanceJudgmentCount,
-    micPerformanceJudgmentLastLatencyMs: state.micPerformanceJudgmentLastLatencyMs,
-    micPerformanceJudgmentTotalLatencyMs: state.micPerformanceJudgmentTotalLatencyMs,
-    micPerformanceOnsetGateAtMs: state.micPerformanceOnsetGateAtMs,
-    micPerformanceOnsetGateReason: state.micPerformanceOnsetGateReason,
-    micPerformanceOnsetGateStatus: state.micPerformanceOnsetGateStatus,
-    micPerformanceOnsetRejectedLowConfidenceCount: state.micPerformanceOnsetRejectedLowConfidenceCount,
-    micPerformanceOnsetRejectedLowVoicingCount: state.micPerformanceOnsetRejectedLowVoicingCount,
-    micPerformanceOnsetRejectedShortHoldCount: state.micPerformanceOnsetRejectedShortHoldCount,
-    micPerformanceOnsetRejectedWeakAttackCount: state.micPerformanceOnsetRejectedWeakAttackCount,
-    micPerformanceReadinessLastUiRefreshAtMs: state.micPerformanceReadinessLastUiRefreshAtMs,
-    micPerformanceSuggestedLatencyMs: state.micPerformanceSuggestedLatencyMs,
-    micPolyphonicDetectorProvider: state.micPolyphonicDetectorProvider,
-    micPolyphonicDetectorTelemetryFallbackFrames: state.micPolyphonicDetectorTelemetryFallbackFrames,
-    micPolyphonicDetectorTelemetryFrames: state.micPolyphonicDetectorTelemetryFrames,
-    micPolyphonicDetectorTelemetryLastLatencyMs: state.micPolyphonicDetectorTelemetryLastLatencyMs,
-    micPolyphonicDetectorTelemetryMaxLatencyMs: state.micPolyphonicDetectorTelemetryMaxLatencyMs,
-    micPolyphonicDetectorTelemetryTotalLatencyMs: state.micPolyphonicDetectorTelemetryTotalLatencyMs,
-    micPolyphonicDetectorTelemetryWarningFrames: state.micPolyphonicDetectorTelemetryWarningFrames,
-    micPolyphonicDetectorTelemetryWindowStartedAtMs: state.micPolyphonicDetectorTelemetryWindowStartedAtMs,
-    pendingTimeoutIds: state.pendingTimeoutIds,
-    performanceCaptureTelemetryByEvent: state.performanceCaptureTelemetryByEvent,
-    performanceMicLatencyCompensationMs: state.performanceMicLatencyCompensationMs,
-    performanceOnsetRejectsByEvent: state.performanceOnsetRejectsByEvent,
-    performanceRunCompleted: state.performanceRunCompleted,
-    performanceStarsByRunKey: state.performanceStarsByRunKey,
-    performanceTimelineFeedbackByEvent: state.performanceTimelineFeedbackByEvent,
-    performanceTimelineFeedbackKey: state.performanceTimelineFeedbackKey,
-    performanceTimingBiasMs: state.performanceTimingBiasMs,
-    performanceTimingByEvent: state.performanceTimingByEvent,
-    performanceTimingLeniencyPreset: state.performanceTimingLeniencyPreset,
-    performanceTransportAnimationId: state.performanceTransportAnimationId,
-    performanceMicTolerancePreset: state.performanceMicTolerancePreset,
-    requestedAudioInputContentHint: state.requestedAudioInputContentHint,
-    activeAudioInputTrackContentHint: state.activeAudioInputTrackContentHint,
-    activeAudioInputTrackSettings: state.activeAudioInputTrackSettings,
-    showSessionSummaryOnStop: state.showSessionSummaryOnStop,
-    timerId: state.timerId,
-    micSensitivityPreset: state.micSensitivityPreset,
-  };
+  return state;
 }
 
 function createInputState(state: LifecycleGraphState): InputState {
-  return {
-    inputSource: state.inputSource,
-    preferredAudioInputDeviceId: state.preferredAudioInputDeviceId,
-    audioContext: state.audioContext,
-    isListening: state.isListening,
-    cooldown: state.cooldown,
-    isCalibrating: state.isCalibrating,
-    performanceMicHoldCalibrationLevel: state.performanceMicHoldCalibrationLevel,
-    performanceMicLastJudgedOnsetNote: state.performanceMicLastJudgedOnsetNote,
-    performanceMicLastJudgedOnsetAtMs: state.performanceMicLastJudgedOnsetAtMs,
-    performanceMicLastUncertainOnsetNote: state.performanceMicLastUncertainOnsetNote,
-    performanceMicLastUncertainOnsetAtMs: state.performanceMicLastUncertainOnsetAtMs,
-    micLastInputRms: state.micLastInputRms,
-    micLastMonophonicConfidence: state.micLastMonophonicConfidence,
-    micLastMonophonicPitchSpreadCents: state.micLastMonophonicPitchSpreadCents,
-    micLastMonophonicDetectedAtMs: state.micLastMonophonicDetectedAtMs,
-    currentMelodyId: state.currentMelodyId,
-  };
+  return state;
 }
 
 function createStartState(state: LifecycleGraphState): StartState {
-  return {
-    isCalibrating: state.isCalibrating,
-    calibrationFrequencies: state.calibrationFrequencies,
-    pendingTimeoutIds: state.pendingTimeoutIds,
-    performanceRuntimeStartedAtMs: state.performanceRuntimeStartedAtMs,
-    performancePrerollLeadInVisible: state.performancePrerollLeadInVisible,
-    performancePrerollStartedAtMs: state.performancePrerollStartedAtMs,
-    performancePrerollDurationMs: state.performancePrerollDurationMs,
-    performancePrerollStepIndex: state.performancePrerollStepIndex,
-    performanceActiveEventIndex: state.performanceActiveEventIndex,
-    performanceRunCompleted: state.performanceRunCompleted,
-    currentInstrument: state.currentInstrument,
-    melodyTransposeSemitones: state.melodyTransposeSemitones,
-    melodyStringShift: state.melodyStringShift,
-    timeLeft: state.timeLeft,
-    currentScore: state.currentScore,
-    timerId: state.timerId,
-    currentProgression: state.currentProgression,
-    currentProgressionIndex: state.currentProgressionIndex,
-    currentArpeggioIndex: state.currentArpeggioIndex,
-  };
+  return state;
 }
 
 function createActivationState(state: LifecycleGraphState): ActivationState {
-  return {
-    isListening: state.isListening,
-    activeSessionStats: state.activeSessionStats,
-    currentInstrument: state.currentInstrument,
-    currentTuningPresetKey: state.currentTuningPresetKey,
-    melodyStudyRangeStartIndex: state.melodyStudyRangeStartIndex,
-    melodyStudyRangeEndIndex: state.melodyStudyRangeEndIndex,
-    melodyTransposeSemitones: state.melodyTransposeSemitones,
-    melodyStringShift: state.melodyStringShift,
-    pendingTimeoutIds: state.pendingTimeoutIds,
-  };
+  return state;
 }
 
 function createStartErrorState(state: LifecycleGraphState): StartErrorState {
-  return { inputSource: state.inputSource };
+  return state;
 }
 
 function createNextPromptState(state: LifecycleGraphState): NextPromptState {
-  return {
-    isListening: state.isListening,
-    performanceRuntimeStartedAtMs: state.performanceRuntimeStartedAtMs,
-    performancePrerollLeadInVisible: state.performancePrerollLeadInVisible,
-    pendingSessionStopResultMessage: state.pendingSessionStopResultMessage,
-    liveDetectedNote: state.liveDetectedNote,
-    liveDetectedString: state.liveDetectedString,
-    wrongDetectedNote: state.wrongDetectedNote,
-    wrongDetectedString: state.wrongDetectedString,
-    wrongDetectedFret: state.wrongDetectedFret,
-    rhythmLastJudgedBeatAtMs: state.rhythmLastJudgedBeatAtMs,
-    currentMelodyEventFoundNotes: state.currentMelodyEventFoundNotes,
-    currentPrompt: state.currentPrompt,
-    startTime: state.startTime,
-  };
+  return state;
 }
 
 function createDisplayResultState(state: LifecycleGraphState): DisplayResultState {
-  return {
-    currentPrompt: state.currentPrompt,
-    activeSessionStats: state.activeSessionStats,
-    currentInstrument: state.currentInstrument,
-    currentArpeggioIndex: state.currentArpeggioIndex,
-    showingAllNotes: state.showingAllNotes,
-    sessionPace: state.sessionPace,
-    showSessionSummaryOnStop: state.showSessionSummaryOnStop,
-    currentMelodyEventIndex: state.currentMelodyEventIndex,
-    currentScore: state.currentScore,
-  };
+  return state;
 }
 
 function createTimeUpState(state: LifecycleGraphState): TimeUpState {
-  return {
-    currentScore: state.currentScore,
-    stats: state.stats,
-    timerId: state.timerId,
-    showSessionSummaryOnStop: state.showSessionSummaryOnStop,
-  };
+  return state;
 }
 
 function createSeekState(state: LifecycleGraphState): SeekState {
-  return {
-    isListening: state.isListening,
-    pendingTimeoutIds: state.pendingTimeoutIds,
-    currentMelodyEventIndex: state.currentMelodyEventIndex,
-    performanceActiveEventIndex: state.performanceActiveEventIndex,
-    currentMelodyEventFoundNotes: state.currentMelodyEventFoundNotes,
-    pendingSessionStopResultMessage: state.pendingSessionStopResultMessage,
-  };
+  return state;
 }

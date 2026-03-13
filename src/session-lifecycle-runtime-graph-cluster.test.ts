@@ -156,18 +156,15 @@ describe('session-lifecycle-runtime-graph-cluster', () => {
 
     expect(args.stop.dom.melodySelector).toBe(deps.dom.melodySelector);
     expect(args.input.dom.inputSource).toBe(deps.dom.inputSource);
-    expect(args.stop.state).not.toBe(deps.state);
-    expect(args.input.state).not.toBe(deps.state);
-    expect(args.start.state).not.toBe(deps.state);
-    expect(args.activation.state).not.toBe(deps.state);
-    expect(args.startError.state).not.toBe(deps.state);
-    expect(args.nextPrompt.state).not.toBe(deps.state);
-    expect(args.displayResult.state).not.toBe(deps.state);
-    expect(args.timeUp.state).not.toBe(deps.state);
-    expect(args.seek.state).not.toBe(deps.state);
-    expect(args.stop.state).toHaveProperty('performanceTimingLeniencyPreset');
-    expect(args.input.state).toHaveProperty('preferredAudioInputDeviceId');
-    expect(args.nextPrompt.state).toHaveProperty('pendingSessionStopResultMessage');
+    expect(args.stop.state).toBe(deps.state);
+    expect(args.input.state).toBe(deps.state);
+    expect(args.start.state).toBe(deps.state);
+    expect(args.activation.state).toBe(deps.state);
+    expect(args.startError.state).toBe(deps.state);
+    expect(args.nextPrompt.state).toBe(deps.state);
+    expect(args.displayResult.state).toBe(deps.state);
+    expect(args.timeUp.state).toBe(deps.state);
+    expect(args.seek.state).toBe(deps.state);
     expect(args.displayResult.drawFretboard).toBe(deps.drawFretboard);
     expect(args.seek.isMelodyWorkflowMode).toBe(deps.isMelodyWorkflowMode);
     expect(captureMicPerformanceLatencyCalibrationState).toHaveBeenCalledTimes(1);
