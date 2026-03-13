@@ -1,6 +1,5 @@
 import { normalizeMicPolyphonicDetectorProvider } from './mic-polyphonic-detector';
-
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 interface PerformanceRuntimeStatusControllerDeps {
   state: Pick<

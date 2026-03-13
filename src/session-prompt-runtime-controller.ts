@@ -3,8 +3,9 @@ import { executePromptAudioPlan } from './prompt-audio-executor';
 import { buildSessionInitialTimelinePreview } from './session-initial-timeline-preview';
 import { formatSessionGoalProgress, getSessionGoalTargetCorrect } from './session-goal';
 
+import type { AppState } from './state';
+
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 interface SessionPromptRuntimeControllerDeps {
   dom: Pick<AppDom, 'trainingMode' | 'melodySelector' | 'sessionGoal' | 'stringSelector'>;

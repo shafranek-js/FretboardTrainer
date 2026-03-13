@@ -122,6 +122,18 @@ describe('session-detection-runtime-graph-cluster', () => {
 
     expect(args.melodyPolyphonicFeedback.redrawFretboard).toBe(deps.redrawFretboard);
     expect(args.audioFrame.getTrainingMode()).toBe('perform');
+    expect(args.melodyPolyphonicFeedback.state).not.toBe(deps.state);
+    expect(args.stableMonophonicDetection.state).not.toBe(deps.state);
+    expect(args.audioFrame.state).not.toBe(deps.state);
+    expect(args.monophonicAudioFrame.state).not.toBe(deps.state);
+    expect(args.melodyPolyphonicFeedback.state).toHaveProperty('showingAllNotes');
+    expect(args.stableMonophonicDetection.state).toHaveProperty('wrongDetectedNote');
+    expect(args.audioFrame.state).toHaveProperty('inputSource');
+    expect(args.monophonicAudioFrame.state).toHaveProperty('stableNoteCounter');
+    expect(args.melodyRuntimeDetection.state).not.toBe(deps.state);
+    expect(args.polyphonicChordDetection.state).not.toBe(deps.state);
+    expect(args.melodyRuntimeDetection.state).toHaveProperty('currentMelodyEventFoundNotes');
+    expect(args.polyphonicChordDetection.state).toHaveProperty('showingAllNotes');
     expect(handleMismatch).toHaveBeenCalledWith('prompt', 'heard', 'ctx');
     expect(handleDetectedNote).toHaveBeenNthCalledWith(1, 'A', 440);
     expect(handleDetectedNote).toHaveBeenNthCalledWith(2, 'B');

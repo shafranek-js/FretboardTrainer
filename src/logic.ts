@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { dom } from './dom';
-import { state } from './state';
+import { state, type AppState } from './state';
 import {
   flushPendingStatsSave,
   updateStats,
@@ -104,14 +104,14 @@ import { createSessionRuntimeErrorHandler } from './session-runtime-error-handle
 import { buildAudioMonophonicReactionPlan, buildCalibrationFrameReactionPlan } from './session-detection-reactions';
 import { executeSessionNextPromptPlan } from './session-next-prompt-executor';
 import { getTrainingModeLabel } from './training-mode-labels';
-import { createSessionLifecycleRuntimeGraphCluster } from './session-lifecycle-runtime-graph-cluster';
-import { buildSessionLifecycleRuntimeGraphDeps } from './session-lifecycle-runtime-graph-deps';
-import { createSessionAudioRuntimeGraphCluster } from './session-audio-runtime-graph-cluster';
-import { buildSessionAudioRuntimeGraphDeps } from './session-audio-runtime-graph-deps';
-import { createSessionDetectionRuntimeGraphCluster } from './session-detection-runtime-graph-cluster';
-import { buildSessionDetectionRuntimeGraphDeps } from './session-detection-runtime-graph-deps';
-import { createSessionPromptPerformanceRuntimeGraphCluster } from './session-prompt-performance-runtime-graph-cluster';
-import { buildSessionPromptPerformanceRuntimeGraphDeps } from './session-prompt-performance-runtime-graph-deps';
+import { createSessionLifecycleRuntimeGraphCluster } from './session-runtime/lifecycle';
+import { buildSessionLifecycleRuntimeGraphDeps } from './session-runtime/lifecycle';
+import { createSessionAudioRuntimeGraphCluster } from './session-runtime/audio';
+import { buildSessionAudioRuntimeGraphDeps } from './session-runtime/audio';
+import { createSessionDetectionRuntimeGraphCluster } from './session-runtime/detection';
+import { buildSessionDetectionRuntimeGraphDeps } from './session-runtime/detection';
+import { createSessionPromptPerformanceRuntimeGraphCluster } from './session-runtime/prompt-performance';
+import { buildSessionPromptPerformanceRuntimeGraphDeps } from './session-runtime/prompt-performance';
 import { buildFinishCalibrationOutcome } from './calibration-session-flow';
 import {
   executeAudioMonophonicReaction,
@@ -164,8 +164,8 @@ import {
 } from './audio-input-guidance-ui';
 import { isMelodyWorkflowMode, isPerformanceStyleMode } from './training-mode-groups';
 import { isPolyphonicMelodyPrompt } from './melody-prompt-polyphony';
-import { createSessionPerformanceFeedbackGraphCluster } from './session-performance-feedback-graph-cluster';
-import { buildSessionPerformanceFeedbackGraphDeps } from './session-performance-feedback-graph-deps';
+import { createSessionPerformanceFeedbackGraphCluster } from './session-runtime/performance-feedback';
+import { buildSessionPerformanceFeedbackGraphDeps } from './session-runtime/performance-feedback';
 import {
   appendPerformanceTimelineAttempts,
   buildPerformanceTimelineMissedAttempts,
@@ -289,11 +289,11 @@ const {
     recordPerformanceTimelineMissed: (prompt) => performanceTimelineFeedbackController.recordMissed(prompt),
     recordSessionAttempt,
     recordPerformancePromptResolution: (activeSessionStats, input) => {
-      recordPerformancePromptResolution(activeSessionStats as typeof state.activeSessionStats, input);
+      recordPerformancePromptResolution(activeSessionStats as AppState['activeSessionStats'], input);
     },
     updateStats,
     recordPerformanceTimingAttempt: (activeSessionStats, grade) => {
-      recordPerformanceTimingAttempt(activeSessionStats as typeof state.activeSessionStats, grade);
+      recordPerformanceTimingAttempt(activeSessionStats as AppState['activeSessionStats'], grade);
     },
     recordPerformanceTimingByEvent: (grade) => performanceTimelineFeedbackController.recordTiming(grade),
     setInfoSlots,
@@ -468,7 +468,7 @@ const {
     clearAudioInputGuidanceError,
     createMidiSessionMessageHandler,
     startMidiInput,
-    ensureAudioRuntime: (runtimeState, options) => ensureAudioRuntime(runtimeState as typeof state, options),
+    ensureAudioRuntime: (runtimeState, options) => ensureAudioRuntime(runtimeState as AppState, options),
     refreshAudioInputDeviceOptions,
     isPerformanceStyleMode,
     buildSessionStartPlan,

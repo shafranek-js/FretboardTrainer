@@ -1,4 +1,4 @@
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 type MonophonicFrameResult = import('./audio-frame-processing').MonophonicFrameResult;
 type MicMonophonicAttackTrackingEvent = import('./mic-monophonic-attack-tracking-controller').MicMonophonicAttackTrackingEvent;
 type PerformanceMicHoldCalibrationLevel = import('./mic-note-hold-filter').PerformanceMicHoldCalibrationLevel;

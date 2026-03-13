@@ -7,8 +7,7 @@ import {
   buildPerformanceTimelineWrongAttempts,
   clearPerformanceTimelineFeedbackState,
 } from './performance-timeline-feedback';
-
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 interface PerformanceTimelineFeedbackControllerDeps {
   state: Pick<

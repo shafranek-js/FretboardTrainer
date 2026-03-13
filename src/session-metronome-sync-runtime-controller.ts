@@ -1,7 +1,7 @@
 import type { MelodyDefinition } from './melody-library';
+import type { AppState } from './state';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 interface SessionMetronomeSyncRuntimeControllerDeps {
   dom: Pick<AppDom, 'trainingMode' | 'metronomeEnabled' | 'melodyDemoBpm'>;

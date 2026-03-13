@@ -1,7 +1,11 @@
 import { dom } from './dom';
-import { state } from './state';
+import { state, type AppState } from './state';
 import { updateSessionInputStatusHud } from './input-source-status';
 import { refreshAudioInputGuidanceUi } from './audio-input-guidance-ui';
+
+type AudioInputDevicePreferenceState = Pick<AppState, 'preferredAudioInputDeviceId'>;
+
+const audioInputDevicePreferenceState: AudioInputDevicePreferenceState = state;
 
 function buildAudioInputOptionLabel(device: MediaDeviceInfo, index: number) {
   const trimmedLabel = device.label.trim();
@@ -13,7 +17,7 @@ export function normalizeAudioInputDeviceId(value: unknown): string | null {
 }
 
 export function setPreferredAudioInputDeviceId(deviceId: string | null) {
-  state.preferredAudioInputDeviceId = deviceId;
+  audioInputDevicePreferenceState.preferredAudioInputDeviceId = deviceId;
   if (dom.audioInputDevice) {
     dom.audioInputDevice.value = deviceId ?? '';
   }
@@ -34,7 +38,7 @@ export async function refreshAudioInputDeviceOptions() {
   try {
     const devices = await mediaDevices.enumerateDevices();
     const audioInputs = devices.filter((device) => device.kind === 'audioinput');
-    const currentValue = state.preferredAudioInputDeviceId ?? '';
+    const currentValue = audioInputDevicePreferenceState.preferredAudioInputDeviceId ?? '';
 
     dom.audioInputDevice.disabled = false;
     dom.audioInputDevice.innerHTML = '';
@@ -56,7 +60,7 @@ export async function refreshAudioInputDeviceOptions() {
     dom.audioInputDevice.value = hasCurrentValue ? currentValue : '';
 
     if (!hasCurrentValue) {
-      state.preferredAudioInputDeviceId = null;
+      audioInputDevicePreferenceState.preferredAudioInputDeviceId = null;
     }
     updateSessionInputStatusHud();
     refreshAudioInputGuidanceUi();

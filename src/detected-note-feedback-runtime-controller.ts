@@ -2,9 +2,9 @@ import {
   detectMonophonicOctaveMismatch as detectMonophonicOctaveMismatchHelper,
   resolveWrongDetectedHighlight,
 } from './detected-note-feedback';
+import type { AppState } from './state';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 type OctaveMismatch = ReturnType<typeof import('./detected-note-feedback').detectMonophonicOctaveMismatch>;
 

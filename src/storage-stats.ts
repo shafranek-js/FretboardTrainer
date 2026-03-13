@@ -1,5 +1,5 @@
 import { dom } from './dom';
-import { state } from './state';
+import { state, type AppState } from './state';
 import type { PerformanceTimingStats, RhythmSessionStats, SessionStats } from './types';
 import type { SessionAnalysisBundle } from './session-analysis-bundle';
 import {
@@ -88,7 +88,7 @@ export function loadStats() {
   const loadedStats = readStorageJson(
     localStorage,
     STATS_KEY,
-    (value): value is typeof state.stats =>
+    (value): value is AppState['stats'] =>
       !!value &&
       typeof value === 'object' &&
       typeof (value as { highScore?: unknown }).highScore === 'number' &&

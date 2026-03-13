@@ -1,6 +1,5 @@
 import { closeCalibrationSession } from './calibration-session-flow';
-
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 type FinishCalibrationOutcome = ReturnType<typeof import('./calibration-session-flow').buildFinishCalibrationOutcome>;
 

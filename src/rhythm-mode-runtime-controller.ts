@@ -1,5 +1,6 @@
+import type { AppState } from './state';
+
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 interface RhythmModeRuntimeControllerDeps {
   dom: Pick<AppDom, 'rhythmTimingWindow'>;
   state: Pick<AppState, 'rhythmLastJudgedBeatAtMs' | 'activeSessionStats'>;

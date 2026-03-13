@@ -1,4 +1,4 @@
-import { createMelodyImportEditorCluster } from './melody-import-editor-cluster';
+import { createMelodyImportEditorCluster } from './melody-import';
 import { createSessionConfigurationGraphCluster } from './session-configuration-graph-cluster';
 import { createSessionMelodyRuntimeGraphCluster } from './session-melody-runtime-graph-cluster';
 
@@ -9,8 +9,12 @@ interface SessionControllerGraphClusterDeps {
   > & {
     melodyDemo: Omit<
       Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0]['melodyDemo'],
-      'sessionTransportControls'
+      'sessionTransportControls' | 'melodyDemoRuntime'
     > & {
+      melodyDemoRuntime: Omit<
+        Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0]['melodyDemo']['melodyDemoRuntime'],
+        'startMelodyMetronomeIfEnabled' | 'syncMelodyMetronomeRuntime'
+      >;
       sessionTransportControls: Omit<
         Parameters<
           typeof createSessionMelodyRuntimeGraphCluster
@@ -47,6 +51,13 @@ export function createSessionControllerGraphCluster(deps: SessionControllerGraph
     ...deps.melodyRuntime,
     melodyDemo: {
       ...deps.melodyRuntime.melodyDemo,
+      melodyDemoRuntime: {
+        ...deps.melodyRuntime.melodyDemo.melodyDemoRuntime,
+        startMelodyMetronomeIfEnabled: (options) =>
+          configurationGraphCluster.metronomeBridgeController.startMelodyMetronomeIfEnabled(options),
+        syncMelodyMetronomeRuntime: () =>
+          configurationGraphCluster.metronomeBridgeController.syncMelodyMetronomeRuntime(),
+      },
       sessionTransportControls: {
         ...deps.melodyRuntime.melodyDemo.sessionTransportControls,
         applyUiWorkflow: (workflow) =>

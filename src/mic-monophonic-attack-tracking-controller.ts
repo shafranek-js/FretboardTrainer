@@ -1,6 +1,5 @@
+import type { AppState } from './state';
 import type { Prompt } from './types';
-
-type AppState = typeof import('./state').state;
 
 export type MicMonophonicAttackTrackingEvent = 'reset' | 'started' | 'rearmed' | 'continued' | 'ignored';
 

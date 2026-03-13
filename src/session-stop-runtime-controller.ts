@@ -2,9 +2,9 @@ import { buildPerformanceSessionNoteLogSnapshot } from './performance-session-no
 import { buildPerformanceStarsRunKey, resolvePerformanceStarView } from './performance-stars';
 import { buildSessionAnalysisBundle } from './session-analysis-bundle';
 import { finalizeSessionStats } from './session-stats';
+import type { AppState } from './state';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 type PreservedMicLatencyCalibrationState =
   ReturnType<typeof import('./mic-performance-latency-calibration-state').captureMicPerformanceLatencyCalibrationState>;

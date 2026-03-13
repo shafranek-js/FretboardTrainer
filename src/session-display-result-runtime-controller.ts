@@ -1,9 +1,9 @@
 import { getSessionGoalTargetCorrect } from './session-goal';
 import { executeDisplayResultSuccessFlow } from './display-result-success-flow-executor';
 import type { Prompt } from './types';
+import type { AppState } from './state';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 type ModeConfig = {
   detectionType: import('./modes/training-mode').DetectionType | null;

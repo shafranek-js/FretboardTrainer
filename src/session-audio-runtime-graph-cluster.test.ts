@@ -29,8 +29,23 @@ describe('session-audio-runtime-graph-cluster', () => {
         melodySelector: { value: ' melody-1 ' },
       },
       state: {
+        analyser: null,
+        animationId: 1,
+        audioContext: null,
+        calibratedA4: 440,
+        calibrationFrequencies: [],
+        cooldown: false,
         currentInstrument: { id: 'guitar' },
-      } as any,
+        currentSessionPromptIndex: 0,
+        dataArray: new Float32Array(0),
+        isCalibrating: false,
+        isListening: false,
+        metronomePendingStart: false,
+        micLastInputRms: 0,
+        pendingTimeoutIds: new Set(),
+        performancePrerollLeadInVisible: false,
+        performanceRuntimeStartedAtMs: null,
+      },
       requestAnimationFrame: vi.fn(() => 1),
       calculateRmsLevel: vi.fn(() => 0.4),
       setVolumeLevel: vi.fn(),
@@ -68,6 +83,14 @@ describe('session-audio-runtime-graph-cluster', () => {
     args.calibration.stopListening(true);
 
     expect(args.audioProcessLoop.calculateRmsLevel).toBe(deps.calculateRmsLevel);
+    expect(args.audioProcessLoop.state).not.toBe(deps.state);
+    expect(args.metronome.state).not.toBe(deps.state);
+    expect(args.calibration.state).not.toBe(deps.state);
+    expect(args.timeout.state).not.toBe(deps.state);
+    expect(args.audioProcessLoop.state).toHaveProperty('micLastInputRms');
+    expect(args.metronome.state).toHaveProperty('performanceRuntimeStartedAtMs');
+    expect(args.calibration.state).toHaveProperty('calibrationFrequencies');
+    expect(args.timeout.state).toHaveProperty('pendingTimeoutIds');
     expect(args.metronome.dom.trainingMode).toBe(deps.dom.trainingMode);
     expect(getMelodyById).toHaveBeenCalledWith('melody-1', deps.state.currentInstrument);
     expect(getPracticeAdjustedMelody).toHaveBeenCalledWith({ id: 'melody-1', events: [], sourceTimeSignature: '4/4' });

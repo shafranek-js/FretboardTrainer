@@ -15,12 +15,14 @@ describe('session-performance-feedback-graph-cluster', () => {
 
     const { createSessionPerformanceFeedbackGraphCluster } = await import('./session-performance-feedback-graph-cluster');
 
+    type GraphDeps = Parameters<typeof createSessionPerformanceFeedbackGraphCluster>[0];
+
     const deps = {
       dom: {
         trainingMode: { value: 'perform' },
         stringSelector: {},
       },
-      state: {} as any,
+      state: {},
       isPerformanceStyleMode: vi.fn(() => true),
       buildPerformanceTimelineFeedbackKey: vi.fn(() => 'feedback-key'),
       redrawFretboard: vi.fn(),
@@ -30,13 +32,19 @@ describe('session-performance-feedback-graph-cluster', () => {
       getEnabledStrings: vi.fn(() => new Set(['E'])),
       freqToScientificNoteName: vi.fn(() => 'A4'),
       shouldIgnorePerformanceOctaveMismatch: vi.fn(() => false),
-    };
+    } as unknown as GraphDeps;
 
-    const result = createSessionPerformanceFeedbackGraphCluster(deps as any);
+    const result = createSessionPerformanceFeedbackGraphCluster(deps);
     const args = createSessionPerformanceFeedbackCluster.mock.calls[0][0];
 
     expect(args.performanceTimelineContext.dom.trainingMode).toBe(deps.dom.trainingMode);
     expect(args.detectedNoteFeedback.dom.stringSelector).toBe(deps.dom.stringSelector);
+    expect(args.performanceTimelineContext.state).toBe(deps.state);
+    expect(args.performanceTimelineFeedback.state).toBe(deps.state);
+    expect(args.performanceMicTelemetry.state).toBe(deps.state);
+    expect(args.micPerformanceRuntimeStatus.state).toBe(deps.state);
+    expect(args.detectedNoteFeedback.state).toBe(deps.state);
+    expect(args.performanceAdaptive.state).toBe(deps.state);
     expect(args.performanceTimelineFeedback.scheduleTimelineRender).toBe(
       deps.scheduleMelodyTimelineRenderFromState
     );

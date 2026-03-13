@@ -1,7 +1,7 @@
 import type { MidiNoteEvent } from './midi-runtime';
+import type { AppState } from './state';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 type InputSource = 'microphone' | 'midi';
 

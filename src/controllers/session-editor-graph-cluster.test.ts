@@ -1,3 +1,4 @@
+import type { createSessionEditorGraphCluster as CreateSessionEditorGraphCluster } from './session-editor-graph-cluster';
 import { describe, expect, it, vi } from 'vitest';
 
 const { createSessionEditorControlsCluster } = vi.hoisted(() => ({
@@ -9,6 +10,8 @@ vi.mock('../state', () => ({ state: {} }));
 vi.mock('./session-editor-controls-cluster', () => ({
   createSessionEditorControlsCluster,
 }));
+
+type SessionEditorGraphClusterDeps = Parameters<typeof CreateSessionEditorGraphCluster>[0];
 
 describe('session-editor-graph-cluster', () => {
   it('wires editor and library graph callbacks through the session editor graph', async () => {
@@ -22,11 +25,24 @@ describe('session-editor-graph-cluster', () => {
     const dom = {
       trainingMode: { value: 'practice' },
       exportMelodyMidiBtn: {}, bakePracticeMelodyBtn: {}, deleteMelodyBtn: {},
-    } as any;
+    } as unknown as SessionEditorGraphClusterDeps['dom'];
 
     const deps = {
       dom,
-      state: { uiWorkflow: 'editor' } as any,
+      state: {
+        uiWorkflow: 'editor',
+        isListening: false,
+        melodyTimelineSelectedEventIndex: null,
+        melodyTimelineSelectedNoteIndex: null,
+        melodyTimelineViewMode: 'classic',
+        preEmphasisFilter: null,
+        studyMelodyMicGatePercent: 50,
+        studyMelodyMicNoiseGuardPercent: 25,
+        studyMelodyMicSilenceResetFrames: 4,
+        studyMelodyMicStableFrames: 3,
+        studyMelodyPreEmphasisFrequencyHz: 1800,
+        studyMelodyPreEmphasisGainDb: 6,
+      } as unknown as SessionEditorGraphClusterDeps['state'],
       maxFret: 24,
       saveSettings: vi.fn(),
       stopListening: vi.fn(),
@@ -102,14 +118,27 @@ describe('session-editor-graph-cluster', () => {
       },
     };
 
-    const result = createSessionEditorGraphCluster(deps as any);
+    const result = createSessionEditorGraphCluster(deps as SessionEditorGraphClusterDeps);
     const args = createSessionEditorControlsCluster.mock.calls[0][0];
 
+    expect(args.studyMelodyMicTuning.state).not.toBe(deps.state);
+    expect(args.melodyControls.melodyEditingControls.state).not.toBe(deps.state);
+    expect(args.melodyControls.melodyPlaybackControls.state).not.toBe(deps.state);
+    expect(args.melodyControls.melodyLibraryControls.state).not.toBe(deps.state);
+
+    expect(args.melodyTimelineEditing.isEditorWorkflowActive()).toBe(true);
+
+    args.studyMelodyMicTuning.state.studyMelodyMicGatePercent = 55;
+    deps.state.uiWorkflow = 'practice';
+    args.melodyControls.melodyEditingControls.state.melodyTimelineViewMode = 'grid';
     args.melodyTimelineEditing.stopPlaybackForEditing();
     args.melodyControls.melodyLibraryControls.refreshMelodyOptionsForCurrentInstrument();
 
     expect(stopPlaybackForEditing).toHaveBeenCalledTimes(1);
     expect(refreshMelodyOptionsForCurrentInstrument).toHaveBeenCalledTimes(1);
+    expect(deps.state.studyMelodyMicGatePercent).toBe(55);
+    expect(deps.state.uiWorkflow).toBe('practice');
+    expect(deps.state.melodyTimelineViewMode).toBe('grid');
     expect(result).toBe(clusterResult);
   });
 });

@@ -4,9 +4,9 @@ import { getTrainingModeLabel } from './training-mode-labels';
 import { clampMelodyPlaybackBpm } from './melody-timeline-duration';
 import { resolveMelodyMetronomeMeterProfile } from './melody-meter';
 import { getMelodyById } from './melody-library';
+import type { AppState } from './state';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 type InputSource = 'microphone' | 'midi';
 

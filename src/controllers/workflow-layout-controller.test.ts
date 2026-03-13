@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createWorkflowLayoutController } from './workflow-layout-controller';
+import type { AppState } from '../state';
 
 class FakeClassList {
   private values = new Set<string>();
@@ -139,7 +140,7 @@ function createDeps(overrides?: {
 
   const deps = {
     dom,
-    state: state as { uiWorkflow: typeof state.uiWorkflow },
+    state: state as Pick<AppState, 'uiWorkflow'>,
     setUiWorkflow: vi.fn(),
     setPracticeSetupCollapsed: vi.fn(),
     setMelodySetupCollapsed: vi.fn(),

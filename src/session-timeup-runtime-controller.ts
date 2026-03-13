@@ -1,7 +1,6 @@
 import { buildSessionTimeUpPlan } from './session-timeup-plan';
 import { executeSessionTimeUpPlan } from './session-timeup-executor';
-
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 interface SessionTimeUpRuntimeControllerDeps {
   state: Pick<AppState, 'currentScore' | 'stats' | 'timerId' | 'showSessionSummaryOnStop'>;

@@ -1,6 +1,5 @@
 import type { Prompt } from './types';
-
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 type ModeConfig = {
   detectionType: import('./modes/training-mode').DetectionType | null;

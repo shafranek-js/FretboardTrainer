@@ -1,5 +1,6 @@
+import type { AppState } from './state';
+
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 interface PerformanceTimelineContextRuntimeControllerDeps {
   dom: Pick<AppDom, 'trainingMode'>;

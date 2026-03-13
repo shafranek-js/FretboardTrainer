@@ -1,4 +1,4 @@
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 interface SessionSeekRuntimeControllerDeps {
   state: Pick<

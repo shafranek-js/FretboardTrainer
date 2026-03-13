@@ -2,30 +2,25 @@
 
 ## Purpose
 
-This file is the current handoff for continuing work on another machine or in a new Codex session.
+This is the current handoff for resuming work in a new Codex session or on another machine.
 
-The reliable recovery path is still:
+Reliable recovery path:
 
 1. Pull the repository.
 2. Read `handoff.md`.
 3. Read `refactor.md`.
-4. Continue from the latest pushed state on `main`.
+4. Run `git status` before making changes.
 
-Do not rely on Desktop session history alone.
+Do not rely on chat history alone.
 
 ## Project Location
 
-Current local path:
+- Local path: `C:\Projects\FretboardTrainer`
+- Repository: `https://github.com/shafranek-js/FretboardTrainer`
 
-- `C:\Projects\FretboardTrainer`
+## Current Product Baseline
 
-Repository:
-
-- `https://github.com/shafranek-js/FretboardTrainer`
-
-## Current Product State
-
-The app is currently organized around these workflows:
+The product is already organized around these workflows:
 
 - `Learn Notes`
 - `Study Melody`
@@ -34,155 +29,125 @@ The app is currently organized around these workflows:
 - `Library`
 - `Editor`
 
-Recent product-level work that is already in `main`:
+That workflow-first structure should be treated as the current product baseline, not an experiment.
 
-- workflow-first top toolbar and panel layout
-- `Study Melody -> Practice -> Perform` split
-- dedicated `Library` vs `Editor` behavior
-- bottom `Status Bar`
-- metronome refactor with audio-clock lookahead scheduling
-- `Study Melody` repeated-note hardening (`same note -> same note`)
-- persisted workflow restore across reload
-- persisted `Show String Buttons` visibility across reload in `Learn Notes`
+## Latest Pushed State
 
-## Current Refactor Goal
+Latest pushed commit known from this machine:
 
-The active architectural goal is still the incremental refactor of:
+- `09e7dc6` — `Fix dom mocking in unit tests`
 
-- `src/controllers/session-controller.ts`
+That pushed state already had green CI and a successful GitHub Pages deploy.
 
-Target shape:
+## Current Local State (Ahead Of Push)
 
-- thinner composition root
-- more explicit controller ownership
-- fewer hidden side-effects in mode/runtime modules
+The local working tree is ahead of `origin/main` in controller-layer refactoring. Those code changes are currently local and not committed yet.
 
-Detailed roadmap:
+### Main local architectural progress
 
-- `refactor.md`
+`src/controllers/session-controller.ts` has been reduced significantly and is now around `661` lines.
 
-## What Has Already Been Improved Structurally
+The latest local pass moved large portions of controller composition onto graph/cluster seams:
 
-Significant completed changes already in `main`:
+- `session-configuration-graph-cluster`
+- `session-configuration-graph-deps`
+- `session-editor-bootstrap-graph-cluster`
+- `session-editor-bootstrap-graph-deps`
 
-- extracted multiple focused controllers from `session-controller.ts`
-- introduced `workflow-controller.ts`
-- moved `MelodyPracticeMode` away from unsafe prompt mutation
-- removed `state.currentMelodyEventIndex++` from `generatePrompt()`
-- removed direct BPM reads from DOM in melody mode generation
-- moved melody mode start validation into preflight
-- removed `currentMelodyEventFoundNotes.clear()` from melody prompt generators
-- persisted `uiWorkflow` in settings/profiles
-- hardened workflow restore so `Library` / `Editor` do not collapse back into `Study Melody` on reload
+The current local tree now routes major controller composition through these graph layers instead of keeping giant inline wiring blocks in `session-controller.ts`.
 
-## Most Recent Pushed Commits
+### Current hotspot sizes
 
-Latest relevant commits on `main`:
+At the time this handoff was updated:
 
-- `4c804f4` — `Preserve workflow and string button state on reload`
-- `3df4cb1` — `Improve melody playback retiming and harden metronome scheduling`
-- `26e66b1` — `Harden study melody repeated-note detection`
-- `9be54be` — `Fix study melody prompt tracking and timeline highlight`
-- `de81293` — `Fix unit test regressions after melody refactor`
+- `src/controllers/session-controller.ts` — about `661` lines
+- `src/logic.ts` — about `641` lines
+- `src/ui-signals.ts` — about `15` lines
 
-## What The Latest Fix (`4c804f4`) Actually Changed
+Interpretation:
 
-This commit fixed reload persistence around workflow state and Learn Notes string buttons.
+- `ui-signals.ts` is no longer a hotspot.
+- `logic.ts` and `session-controller.ts` are now the two remaining major composition roots.
+- `session-controller.ts` is still the most active controller-layer refactor target.
 
-Files involved:
+## What Was Verified Locally In The Current Tree
 
-- `src/storage.ts`
-- `src/storage-profiles.ts`
-- `src/ui.ts`
-- `src/ui-signals.ts`
-- `src/controllers/practice-setup-controls-controller.ts`
-- `src/controllers/workflow-layout-controller.ts`
-- `src/storage.test.ts`
-- `e2e/helpers/app-shell.ts`
-- `e2e/app-smoke.spec.ts`
-
-Important behavior now expected:
-
-1. `Practice -> reload` stays in `Practice`.
-2. `Library -> reload` stays in `Library`.
-3. `Editor -> reload` stays in `Editor`.
-4. In `Learn Notes`, if `Training Focus = random` and `Show String Buttons` is enabled, the fretboard string buttons stay visible after reload.
-
-## Latest Verification Status
-
-Latest pushed state (`4c804f4`) was verified with:
+These checks passed after the latest local `session-controller` refactor pass:
 
 - `npm run typecheck`
-- `npm run test:e2e -- e2e/app-smoke.spec.ts`
+- `npm run test -- src/controllers/session-editor-bootstrap-graph-cluster.test.ts src/controllers/session-editor-graph-cluster.test.ts src/controllers/session-bootstrap-graph-cluster.test.ts src/controllers/session-bootstrap-controller.test.ts src/controllers/melody-editing-controls-controller.test.ts src/controllers/melody-playback-controls-controller.test.ts src/controllers/melody-library-controls-controller.test.ts src/controllers/practice-preset-controls-controller.test.ts src/controllers/practice-setup-controls-controller.test.ts src/controllers/instrument-display-controls-controller.test.ts`
+- `npm run test -- src/controllers/session-metronome-cluster.test.ts src/controllers/metronome-bridge-controller.test.ts src/controllers/metronome-controls-controller.test.ts src/controllers/metronome-controller.test.ts src/controllers/melody-tempo-controller.test.ts src/controllers/session-editor-bootstrap-graph-cluster.test.ts src/controllers/session-editor-graph-cluster.test.ts src/controllers/session-bootstrap-graph-cluster.test.ts src/controllers/session-bootstrap-controller.test.ts src/controllers/session-transport-controls-controller.test.ts`
+- `npm run test -- src/controllers/session-curriculum-preset-cluster.test.ts src/controllers/curriculum-preset-bridge-controller.test.ts src/controllers/curriculum-preset-controller.test.ts src/controllers/practice-setup-controls-controller.test.ts src/controllers/instrument-display-controls-controller.test.ts src/controllers/session-bootstrap-controller.test.ts`
+- `npm run test -- src/controllers/session-configuration-graph-cluster.test.ts src/controllers/session-metronome-cluster.test.ts src/controllers/session-curriculum-preset-cluster.test.ts src/controllers/session-input-controls-cluster.test.ts src/controllers/session-workspace-graph-cluster.test.ts src/controllers/session-workflow-layout-cluster.test.ts src/controllers/session-melody-workflow-cluster.test.ts src/controllers/session-practice-controls-cluster.test.ts src/controllers/melody-setup-controls-controller.test.ts src/controllers/melody-selection-controller.test.ts src/controllers/practice-preset-controls-controller.test.ts src/controllers/practice-setup-controls-controller.test.ts src/controllers/instrument-display-controls-controller.test.ts src/controllers/input-device-controller.test.ts src/controllers/mic-settings-controller.test.ts src/controllers/audio-input-controls-controller.test.ts src/controllers/session-transport-controls-controller.test.ts src/controllers/session-editor-bootstrap-graph-cluster.test.ts src/controllers/session-bootstrap-controller.test.ts`
 
-GitHub Actions after push:
+Important environment rule on this machine:
 
-- `CI Smoke / test-and-smoke` — success
-- `Deploy To GitHub Pages` — success
+- run `npm run test -- ...` outside the sandbox
+- sandboxed Vitest is not reliable here because it consistently hits `spawn EPERM`
 
-The new smoke coverage now includes a regression for:
+## Current Refactor Direction
 
-- `Learn Notes`
-- `Training Focus = random`
-- `Layout -> Show String Buttons`
-- reload
-- string buttons still visible after reload
+The architectural goal is still behavior-preserving composition cleanup, not a product rewrite.
 
-## Known Environment Constraints
+### What is already true now
 
-On this machine / sandbox:
+- `logic.ts` is already graph-oriented and much thinner than before.
+- `ui-signals.ts` is already a thin facade.
+- `session-controller.ts` is flatter than before, but it is still the main controller-layer composition root.
 
-- `vitest` sometimes fails to start with `spawn EPERM`
-- `playwright` is usually fine through `npm run test:e2e`, but targeted runs may still hit environment-specific issues occasionally
-- `typecheck` has been the most reliable local gate
-- GitHub Actions has been the final source of truth after push
+### Best next step from the current tree
 
-Practical rule:
+Recommended order:
 
-1. Run `npm run typecheck` locally.
-2. Run `npm run test:e2e -- e2e/app-smoke.spec.ts` locally.
-3. After every push, check `CI Smoke / test-and-smoke` on GitHub.
+1. Continue shrinking the upper runtime seam in `src/controllers/session-controller.ts`.
+2. Prefer migrating that remaining seam onto `session-melody-runtime-graph-cluster`.
+3. Only after that, evaluate whether it is worth routing the top-level `selectedMelodyContext + import/editor + configuration graph` wiring through `session-controller-graph-cluster` directly.
 
-## Local Run Commands
+### What not to do next
 
-From project root:
+Do not:
 
-```powershell
-npm install
-npm run typecheck
-npm run test:e2e -- e2e/app-smoke.spec.ts
-npm run dev
-```
-
-If port `3000` is occupied, restart dev server explicitly.
+- start a broad `state.ts` rewrite
+- restart a broad `logic.ts` rewrite
+- mix product behavior changes into the next refactor pass
+- revert unrelated user file changes in docs or local artifacts
 
 ## Current Working Tree Notes
 
-At the moment this handoff was updated:
+At the moment this file was updated, the working tree included unrelated user-side changes and local artifacts that should not be reverted automatically.
 
-- `main` is clean for tracked files
-- there are still unrelated untracked local artifacts that should not be committed automatically:
-  - `.orchids/`
-  - `Automated Guitar Fingering Algorithms.md`
-  - `Automated Guitar Fingering Algorithms.pdf`
-  - `bun.lock`
-  - `fretflow-session-analysis-latest.json`
-  - `tmp/`
-  - `x2scrap.png`
+Tracked but unrelated modified files:
 
-## Best Next Step
+- `README.md`
+- `TODO.md`
+- `IMPROVEMENTS_TODO.md`
 
-Best next engineering move:
+Tracked refactor/code file currently modified:
 
-1. Continue shrinking `src/controllers/session-controller.ts`.
-2. Prefer small bridge/orchestration extractions.
-3. Do not start a broad `state.ts` rewrite and `logic.ts` rewrite in the same step.
+- `src/controllers/session-controller.ts`
 
-Recommended immediate direction:
+Untracked local artifacts still present:
 
-- keep following `refactor.md`
-- focus on remaining thin orchestration/helpers around session/workflow wiring
-- keep each refactor step behavior-preserving and small
+- `.orchids/`
+- `Automated Guitar Fingering Algorithms.md`
+- `Automated Guitar Fingering Algorithms.pdf`
+- `bun.lock`
+- `fretflow-session-analysis-latest.json`
+- `tmp/`
+- `x2scrap.png`
+
+## Practical Resume Checklist
+
+If resuming from this handoff:
+
+1. Run `git status`.
+2. Read `handoff.md` and `refactor.md`.
+3. Inspect `src/controllers/session-controller.ts` around:
+   - `sessionConfigurationGraphDeps`
+   - `createSessionConfigurationGraphCluster(...)`
+   - `createSessionEditorBootstrapGraphCluster(...)`
+4. Continue with the next behavior-preserving cluster extraction.
+5. After each step, run `npm run typecheck` and the smallest relevant `npm run test -- ...` suite outside the sandbox.
 
 ## Starter Prompt For A New Session
 
@@ -195,58 +160,44 @@ First read:
 1. handoff.md
 2. refactor.md
 
-Current state:
-- The app already uses workflow-first UI (`Learn Notes`, `Study Melody`, `Practice`, `Perform`, `Library`, `Editor`).
-- Recent pushed work includes metronome audio-clock scheduling, Study Melody repeated-note hardening, and reload persistence for workflows and Learn Notes string buttons.
-- The latest pushed commit is `4c804f4` (`Preserve workflow and string button state on reload`).
-- The active architectural goal remains shrinking `src/controllers/session-controller.ts` incrementally.
+Current local state:
+- The latest pushed commit is 09e7dc6 (`Fix dom mocking in unit tests`).
+- The local tree is ahead of push in refactoring `src/controllers/session-controller.ts`.
+- `src/controllers/session-controller.ts` is around 661 lines.
+- `src/logic.ts` is around 641 lines.
+- `src/ui-signals.ts` is around 15 lines.
+- `session-controller.ts` already routes large sections through `session-configuration-graph-cluster` and `session-editor-bootstrap-graph-cluster`.
 
 Rules:
-- Keep behavior unchanged unless explicitly fixing a confirmed bug.
-- Prefer small extractions over broad rewrites.
-- After each meaningful step, verify with `npm run typecheck` and `npm run test:e2e -- e2e/app-smoke.spec.ts`.
-- After each push, check GitHub `CI Smoke / test-and-smoke`.
-- Do not revert unrelated user changes.
+- Keep behavior unchanged unless fixing a confirmed bug.
+- Prefer composition cleanup and graph/cluster transitions over new helper noise.
+- Run `npm run typecheck` after each meaningful step.
+- Run `npm run test -- ...` outside the sandbox on this machine because sandboxed Vitest hits `spawn EPERM`.
+- Do not revert unrelated user changes in README/TODO/IMPROVEMENTS_TODO or local artifacts.
 
-Please inspect the current codebase, confirm the current state, and continue with the next best small refactor or bugfix step.
+Please inspect the current tree and continue with the next best behavior-preserving refactor step.
 ```
 
-## Status Update (2026-03-12, post-runtime graph pass)
 
-The current local tree is materially ahead of the older handoff sections above.
+## Superseding Update (2026-03-13, final local stabilization)
 
-### Current architecture snapshot
+This update supersedes the earlier handoff guidance that suggested continuing the same controller-thinning pass.
 
-- `src/logic.ts` is now a graph-based runtime composition root at roughly 641 lines.
-- `src/ui-signals.ts` is now a thin facade at roughly 15 lines.
-- `src/controllers/session-controller.ts` is again the main remaining controller-layer hotspot at roughly 1131 lines.
-- Runtime composition is now split through graph + dep-builder layers:
-  - `session-performance-feedback-graph-cluster` + `session-performance-feedback-graph-deps`
-  - `session-prompt-performance-runtime-graph-cluster` + `session-prompt-performance-runtime-graph-deps`
-  - `session-detection-runtime-graph-cluster` + `session-detection-runtime-graph-deps`
-  - `session-lifecycle-runtime-graph-cluster` + `session-lifecycle-runtime-graph-deps`
-  - `session-audio-runtime-graph-cluster` + `session-audio-runtime-graph-deps`
+### Current local state now
 
-### Verification rule on this machine
+- the local tree is ahead of `origin/main` in a largely completed behavior-preserving refactor
+- the main controller/runtime paths now rely on graph/deps/context seams and narrower state contracts
+- the remaining work is no longer "keep shrinking the big file"; it is selective maintenance-level review only if justified
 
-For local verification in this environment:
+### Resume recommendation now
 
-1. Run `npm run typecheck`.
-2. Run targeted `npm run test -- ...` suites outside the sandbox.
-3. Do not rely on sandboxed Vitest here; this machine consistently hits `spawn EPERM` for Vitest in the sandbox.
+1. Read `handoff.md` and `refactor.md`.
+2. Assume the current refactor phase is complete unless a new task exposes a concrete seam problem.
+3. Prefer feature work or bug fixing over additional mechanical cleanup.
+4. Treat physical folder restructuring as a separate future phase.
 
-### Best next step from the current tree
+### Verification rule remains the same on this machine
 
-The next best engineering move is now:
-
-1. Return to `src/controllers/session-controller.ts`.
-2. Continue only with behavior-preserving composition cleanup.
-3. Prefer dep-builder extraction for large controller graph literals over introducing more thin bridge layers.
-
-### Updated starter prompt note
-
-If starting a new session, update the old starter prompt mentally with this correction:
-
-- `logic.ts` is no longer the main hotspot.
-- `session-controller.ts` is again the main remaining orchestration hotspot.
-- Use `npm run typecheck` plus targeted `npm run test -- ...` suites for verification.
+- run `npm run typecheck`
+- run targeted `npm run test -- ...` outside the sandbox
+- sandboxed Vitest is still expected to fail with `spawn EPERM`

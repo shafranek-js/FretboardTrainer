@@ -4,8 +4,7 @@ import type {
   PerformanceOnsetRejectEventLogEntry,
 } from './session-analysis-bundle';
 import type { PerformanceMicHoldCalibrationLevel } from './mic-note-hold-filter';
-
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 interface PerformanceMicTelemetryControllerDeps {
   state: Pick<

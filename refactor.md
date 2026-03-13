@@ -1986,3 +1986,32 @@ Recommended order now:
 
 - `logic.ts` is now in the “thin enough for this phase” category.
 - The refactor bottleneck has shifted back to controller-layer composition and large dependency objects in `session-controller.ts`.
+
+## Status Update (2026-03-13, final local stabilization)
+
+This update supersedes the earlier recommendation to keep thinning `session-controller.ts` mechanically.
+
+### Current conclusion
+
+- the high-ROI behavior-preserving refactor is effectively complete in the local tree
+- `session-controller.ts` and `logic.ts` are no longer the main architectural bottlenecks for this phase
+- controller/runtime seams now consistently route through graph, deps, context, and proxy-state boundaries
+- any physical `src/` folder restructuring should be treated as a separate future phase
+
+### What was finalized locally
+
+- controller graph/deps cleanup around `session-controller`, `session-configuration`, `session-workspace`, and `session-editor`
+- runtime graph boundary cleanup around audio, detection, prompt-performance, performance-feedback, and lifecycle paths
+- cleanup of historical `typeof state` / `typeof import('./state').state` typing noise along this refactor path
+
+### Verification baseline
+
+- `npm run typecheck`
+- targeted controller and runtime suites for the changed graph paths
+- local dev server health-check on `http://127.0.0.1:3001`
+
+### Best next step now
+
+Do not continue mechanical cleanup by default.
+Only continue architecture work if a concrete feature or bug exposes a real seam problem.
+Otherwise move on to feature work, bug fixing, or a separately-scoped documentation/physical-structure phase.

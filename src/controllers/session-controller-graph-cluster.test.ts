@@ -13,7 +13,7 @@ const {
 vi.mock('./session-melody-runtime-graph-cluster', () => ({
   createSessionMelodyRuntimeGraphCluster,
 }));
-vi.mock('./melody-import-editor-cluster', () => ({
+vi.mock('./melody-import', () => ({
   createMelodyImportEditorCluster,
 }));
 vi.mock('./session-configuration-graph-cluster', () => ({
@@ -25,6 +25,8 @@ describe('session-controller-graph-cluster', () => {
     const applyUiWorkflow = vi.fn();
     const finalizeImportSelection = vi.fn();
     const stopPlayback = vi.fn();
+    const startMelodyMetronomeIfEnabled = vi.fn();
+    const syncMelodyMetronomeRuntime = vi.fn();
 
     createSessionMelodyRuntimeGraphCluster.mockReturnValue({
       selectedMelodyContextController: {
@@ -48,6 +50,11 @@ describe('session-controller-graph-cluster', () => {
     createSessionConfigurationGraphCluster.mockReturnValue({
       workflowController: { applyUiWorkflow, id: 'workflow' },
       melodySelectionController: { finalizeImportSelection, id: 'selection' },
+      metronomeBridgeController: {
+        startMelodyMetronomeIfEnabled,
+        syncMelodyMetronomeRuntime,
+        id: 'metronomeBridge',
+      },
       refreshMelodyOptionsForCurrentInstrument: vi.fn(),
       workflowLayoutControlsController: { id: 'workflowLayout' },
       practicePresetControlsController: { id: 'practicePreset' },
@@ -58,7 +65,6 @@ describe('session-controller-graph-cluster', () => {
       melodyPracticeControlsController: { id: 'practiceControls' },
       metronomeController: { id: 'metronome' },
       metronomeRuntimeBridgeController: { id: 'metronomeRuntime' },
-      metronomeBridgeController: { id: 'metronomeBridge' },
       metronomeControlsController: { id: 'metronomeControls' },
       curriculumPresetBridgeController: { id: 'curriculumBridge' },
       micSettingsController: { id: 'micSettings' },
@@ -123,10 +129,14 @@ describe('session-controller-graph-cluster', () => {
     const configArgs = createSessionConfigurationGraphCluster.mock.calls[0][0];
 
     runtimeArgs.melodyDemo.sessionTransportControls.applyUiWorkflow('perform');
+    runtimeArgs.melodyDemo.melodyDemoRuntime.startMelodyMetronomeIfEnabled({ alignToPerformanceTimeMs: 42 });
+    runtimeArgs.melodyDemo.melodyDemoRuntime.syncMelodyMetronomeRuntime();
     importArgs.finalizeImportSelection('melody-1', 'saved');
     importArgs.stopMelodyDemoPlayback({ clearUi: true });
 
     expect(applyUiWorkflow).toHaveBeenCalledWith('perform');
+    expect(startMelodyMetronomeIfEnabled).toHaveBeenCalledWith({ alignToPerformanceTimeMs: 42 });
+    expect(syncMelodyMetronomeRuntime).toHaveBeenCalledTimes(1);
     expect(finalizeImportSelection).toHaveBeenCalledWith('melody-1', 'saved');
     expect(stopPlayback).toHaveBeenCalledWith({ clearUi: true });
     expect(configArgs.workspaceGraph.selectedMelodyContextController.getSelectedMelodyId()).toBe('melody-1');

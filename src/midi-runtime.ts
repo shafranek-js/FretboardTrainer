@@ -1,5 +1,5 @@
 import { dom } from './dom';
-import { state } from './state';
+import { state, type AppState } from './state';
 import { updateSessionInputStatusHud } from './input-source-status';
 import { parseMidiMessageData } from './midi-message';
 import { refreshAudioInputGuidanceUi } from './audio-input-guidance-ui';
@@ -17,6 +17,12 @@ export interface MidiNoteEvent {
 
 type MidiNoteHandler = (event: MidiNoteEvent) => void;
 
+type MidiRuntimeState = Pick<
+  AppState,
+  'inputSource' | 'preferredMidiInputDeviceId' | 'midiAccess' | 'midiInput'
+>;
+
+const midiRuntimeState: MidiRuntimeState = state;
 const heldMidiNoteNumbers = new Set<number>();
 
 function getRequestMIDIAccess():
@@ -41,13 +47,13 @@ export function refreshInputSourceAvailabilityUi() {
   midiOption.disabled = !supported;
   midiOption.textContent = supported ? 'MIDI (Web MIDI)' : 'MIDI (Web MIDI - Unsupported)';
 
-  if (!supported && state.inputSource === 'midi') {
+  if (!supported && midiRuntimeState.inputSource === 'midi') {
     setInputSourcePreference('microphone');
   }
 }
 
 function updateMidiConnectionStatusUi() {
-  const isMidiSelected = state.inputSource === 'midi';
+  const isMidiSelected = midiRuntimeState.inputSource === 'midi';
   dom.midiConnectionStatus.classList.toggle('hidden', !isMidiSelected);
   if (!isMidiSelected) return;
 
@@ -56,29 +62,30 @@ function updateMidiConnectionStatusUi() {
     return;
   }
 
-  if (!state.midiAccess) {
+  if (!midiRuntimeState.midiAccess) {
     dom.midiConnectionStatus.textContent = 'MIDI Connection: Not initialized';
     return;
   }
 
-  const inputs = Array.from(state.midiAccess.inputs.values());
+  const inputs = Array.from(midiRuntimeState.midiAccess.inputs.values());
   if (inputs.length === 0) {
     dom.midiConnectionStatus.textContent = 'MIDI Connection: No devices detected';
     return;
   }
 
   const activeInputName =
-    state.midiInput?.name?.trim() ||
-    inputs.find((input) => input.id === (state.preferredMidiInputDeviceId ?? ''))?.name?.trim() ||
+    midiRuntimeState.midiInput?.name?.trim() ||
+    inputs.find((input) => input.id === (midiRuntimeState.preferredMidiInputDeviceId ?? ''))?.name?.trim() ||
     inputs[0]?.name?.trim() ||
     'Default MIDI device';
 
-  const isLiveBound = Boolean(state.midiInput);
-  dom.midiConnectionStatus.textContent = `MIDI Connection: ${isLiveBound ? 'Listening' : 'Ready'} (${activeInputName})`;
+  const isLiveBound = Boolean(midiRuntimeState.midiInput);
+  dom.midiConnectionStatus.textContent =
+    `MIDI Connection: ${isLiveBound ? 'Listening' : 'Ready'} (${activeInputName})`;
 }
 
 function updateMidiFallbackActionVisibility() {
-  const isMidiSelected = state.inputSource === 'midi';
+  const isMidiSelected = midiRuntimeState.inputSource === 'midi';
   if (!isMidiSelected) {
     dom.switchToMicrophoneFromMidiBtn.classList.add('hidden');
     return;
@@ -89,7 +96,9 @@ function updateMidiFallbackActionVisibility() {
     return;
   }
 
-  const inputCount = state.midiAccess ? Array.from(state.midiAccess.inputs.values()).length : 0;
+  const inputCount = midiRuntimeState.midiAccess
+    ? Array.from(midiRuntimeState.midiAccess.inputs.values()).length
+    : 0;
   dom.switchToMicrophoneFromMidiBtn.classList.toggle('hidden', inputCount > 0);
 }
 
@@ -102,9 +111,10 @@ export function normalizeMidiInputDeviceId(value: unknown): string | null {
 }
 
 export function setInputSourcePreference(inputSource: InputSourceKind) {
-  state.inputSource = inputSource === 'midi' && !supportsWebMidi() ? 'microphone' : inputSource;
-  dom.inputSource.value = state.inputSource;
-  const usingMidi = state.inputSource === 'midi';
+  midiRuntimeState.inputSource =
+    inputSource === 'midi' && !supportsWebMidi() ? 'microphone' : inputSource;
+  dom.inputSource.value = midiRuntimeState.inputSource;
+  const usingMidi = midiRuntimeState.inputSource === 'midi';
   dom.audioInputRow.classList.toggle('hidden', usingMidi);
   dom.micSensitivityRow.classList.toggle('hidden', usingMidi);
   dom.practiceInputPresetRow.classList.toggle('hidden', usingMidi);
@@ -125,14 +135,14 @@ export function setInputSourcePreference(inputSource: InputSourceKind) {
 }
 
 export function setPreferredMidiInputDeviceId(deviceId: string | null) {
-  state.preferredMidiInputDeviceId = deviceId;
+  midiRuntimeState.preferredMidiInputDeviceId = deviceId;
   dom.midiInputDevice.value = deviceId ?? '';
   updateSessionInputStatusHud();
   updateMidiConnectionStatusUi();
 }
 
 function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
-  const currentValue = state.preferredMidiInputDeviceId ?? '';
+  const currentValue = midiRuntimeState.preferredMidiInputDeviceId ?? '';
   dom.midiInputDevice.innerHTML = '';
 
   const defaultOption = document.createElement('option');
@@ -142,7 +152,8 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
 
   if (!midiAccess) {
     dom.midiInputDevice.disabled = true;
-    dom.midiInputInfo.textContent = 'Web MIDI is unsupported in this browser. Use Chrome or Edge desktop, or switch to microphone input.';
+    dom.midiInputInfo.textContent =
+      'Web MIDI is unsupported in this browser. Use Chrome or Edge desktop, or switch to microphone input.';
     updateMidiConnectionStatusUi();
     updateMidiFallbackActionVisibility();
     return;
@@ -158,18 +169,20 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
 
   dom.midiInputDevice.disabled = inputs.length === 0;
   if (inputs.length === 0) {
-    dom.midiInputInfo.textContent = 'No MIDI devices detected. Connect a controller and reopen Settings, or switch to microphone input.';
+    dom.midiInputInfo.textContent =
+      'No MIDI devices detected. Connect a controller and reopen Settings, or switch to microphone input.';
     dom.midiInputDevice.value = '';
-    state.preferredMidiInputDeviceId = null;
+    midiRuntimeState.preferredMidiInputDeviceId = null;
     updateMidiConnectionStatusUi();
     updateMidiFallbackActionVisibility();
     return;
   }
 
-  const hasCurrentValue = currentValue === '' || inputs.some((input) => input.id === currentValue);
+  const hasCurrentValue =
+    currentValue === '' || inputs.some((input) => input.id === currentValue);
   dom.midiInputDevice.value = hasCurrentValue ? currentValue : '';
   if (!hasCurrentValue) {
-    state.preferredMidiInputDeviceId = null;
+    midiRuntimeState.preferredMidiInputDeviceId = null;
   }
   dom.midiInputInfo.textContent = 'Supports note and chord practice via note-on + held notes.';
   updateSessionInputStatusHud();
@@ -179,36 +192,36 @@ function populateMidiInputOptions(midiAccess: MIDIAccess | null) {
 
 export async function refreshMidiInputDevices(requestAccess = true) {
   if (!supportsWebMidi()) {
-    state.midiAccess = null;
+    midiRuntimeState.midiAccess = null;
     populateMidiInputOptions(null);
     return;
   }
 
   try {
-    if (!state.midiAccess && requestAccess) {
+    if (!midiRuntimeState.midiAccess && requestAccess) {
       const requestMIDIAccess = getRequestMIDIAccess();
       if (!requestMIDIAccess) {
         populateMidiInputOptions(null);
         return;
       }
-      state.midiAccess = await requestMIDIAccess({ sysex: false });
-      state.midiAccess.onstatechange = () => {
-        populateMidiInputOptions(state.midiAccess);
+      midiRuntimeState.midiAccess = await requestMIDIAccess({ sysex: false });
+      midiRuntimeState.midiAccess.onstatechange = () => {
+        populateMidiInputOptions(midiRuntimeState.midiAccess);
       };
     }
 
-    populateMidiInputOptions(state.midiAccess);
+    populateMidiInputOptions(midiRuntimeState.midiAccess);
   } catch (error) {
     console.warn('Failed to initialize Web MIDI access:', error);
-    state.midiAccess = null;
+    midiRuntimeState.midiAccess = null;
     populateMidiInputOptions(null);
   }
 }
 
 function detachMidiInputListener() {
-  if (state.midiInput) {
-    state.midiInput.onmidimessage = null;
-    state.midiInput = null;
+  if (midiRuntimeState.midiInput) {
+    midiRuntimeState.midiInput.onmidimessage = null;
+    midiRuntimeState.midiInput = null;
   }
 }
 
@@ -216,8 +229,8 @@ function getSelectedMidiInput(midiAccess: MIDIAccess): MIDIInput | null {
   const inputs = Array.from(midiAccess.inputs.values());
   if (inputs.length === 0) return null;
 
-  if (state.preferredMidiInputDeviceId) {
-    const preferred = inputs.find((input) => input.id === state.preferredMidiInputDeviceId);
+  if (midiRuntimeState.preferredMidiInputDeviceId) {
+    const preferred = inputs.find((input) => input.id === midiRuntimeState.preferredMidiInputDeviceId);
     if (preferred) return preferred;
   }
 
@@ -235,24 +248,23 @@ function parseMidiNoteEvent(event: MIDIMessageEvent): MidiNoteEvent | null {
 export async function startMidiInput(noteHandler: MidiNoteHandler) {
   await refreshMidiInputDevices(true);
 
-  if (!state.midiAccess) {
+  if (!midiRuntimeState.midiAccess) {
     throw new Error('Web MIDI API is not available in this browser.');
   }
 
-  const selectedInput = getSelectedMidiInput(state.midiAccess);
+  const selectedInput = getSelectedMidiInput(midiRuntimeState.midiAccess);
   if (!selectedInput) {
     throw new Error('No MIDI input device found.');
   }
 
   detachMidiInputListener();
-  state.midiInput = selectedInput;
-  state.midiInput.onmidimessage = (event) => {
+  midiRuntimeState.midiInput = selectedInput;
+  midiRuntimeState.midiInput.onmidimessage = (event) => {
     const parsed = parseMidiNoteEvent(event);
     if (!parsed) return;
     noteHandler(parsed);
   };
 
-  // Keep UI selection aligned if we auto-selected the first device.
   setPreferredMidiInputDeviceId(selectedInput.id);
   updateMidiConnectionStatusUi();
 }

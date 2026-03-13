@@ -1,6 +1,10 @@
 import { dom } from './dom';
-import { state } from './state';
+import { state, type AppState } from './state';
 import { buildInputStatusText } from './input-source-status-format';
+
+type InputStatusState = Pick<AppState, 'inputSource'>;
+
+const inputStatusState: InputStatusState = state;
 
 function getSelectedOptionLabel(select: HTMLSelectElement) {
   const option = select.selectedOptions?.[0];
@@ -10,7 +14,7 @@ function getSelectedOptionLabel(select: HTMLSelectElement) {
 export function updateSessionInputStatusHud() {
   if (!dom.inputStatusBar) return;
 
-  if (state.inputSource === 'midi') {
+  if (inputStatusState.inputSource === 'midi') {
     const statusText = buildInputStatusText('midi', getSelectedOptionLabel(dom.midiInputDevice));
     dom.inputStatusBar.textContent = statusText.fullText;
     dom.inputStatusBar.title = statusText.fullText;
@@ -21,4 +25,3 @@ export function updateSessionInputStatusHud() {
   dom.inputStatusBar.textContent = statusText.fullText;
   dom.inputStatusBar.title = statusText.fullText;
 }
-

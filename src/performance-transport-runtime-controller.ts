@@ -4,7 +4,7 @@ import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationExactMs } from '.
 import { formatMelodyStudyRange, isDefaultMelodyStudyRange, normalizeMelodyStudyRange } from './melody-study-range';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 type PerformanceTransportContext = {
   melody: MelodyDefinition;
@@ -14,7 +14,29 @@ type PerformanceTransportContext = {
 
 interface PerformanceTransportRuntimeControllerDeps {
   dom: Pick<AppDom, 'trainingMode' | 'melodySelector' | 'melodyDemoBpm'>;
-  state: AppState;
+  state: Pick<
+    AppState,
+    | 'activeSessionStats'
+    | 'currentInstrument'
+    | 'currentMelodyEventFoundNotes'
+    | 'currentMelodyEventIndex'
+    | 'currentMelodyId'
+    | 'currentPrompt'
+    | 'isListening'
+    | 'melodyStudyRangeById'
+    | 'melodyStudyRangeStartIndex'
+    | 'pendingSessionStopResultMessage'
+    | 'performanceActiveEventIndex'
+    | 'performancePromptResolved'
+    | 'performancePrerollDurationMs'
+    | 'performancePrerollLeadInVisible'
+    | 'performancePrerollStartedAtMs'
+    | 'performancePrerollStepIndex'
+    | 'performanceRunCompleted'
+    | 'performanceRuntimeStartedAtMs'
+    | 'performanceTransportAnimationId'
+    | 'startTime'
+  >;
   isPerformanceStyleMode: (trainingMode: string) => boolean;
   getMelodyById: (melodyId: string, instrument: AppState['currentInstrument']) => MelodyDefinition | null;
   getPracticeAdjustedMelody: (melody: MelodyDefinition) => MelodyDefinition;

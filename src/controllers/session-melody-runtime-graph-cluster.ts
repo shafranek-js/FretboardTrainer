@@ -14,20 +14,28 @@ interface SessionMelodyRuntimeGraphClusterDeps {
     >;
   };
   melodyTimelineEditing: Parameters<typeof createSessionMelodyTimelineEditingCluster>[0];
-  runtimeUi: Omit<Parameters<typeof createSessionRuntimeUiCluster>[0], 'sessionStart'> & {
+  runtimeUi: {
+    melodyTimelineUi: Omit<
+      Parameters<typeof createSessionRuntimeUiCluster>[0]['melodyTimelineUi'],
+      'syncMelodyTimelineEditingState' | 'isMelodyDemoPlaybackActive' | 'stopMelodyDemoPlayback'
+    >;
     sessionStart: Omit<
       Parameters<typeof createSessionRuntimeUiCluster>[0]['sessionStart'],
       'refreshMelodyTimelineUi'
     >;
+    interactionGuards: Parameters<typeof createSessionRuntimeUiCluster>[0]['interactionGuards'];
   };
   melodyDemo: Omit<
     Parameters<typeof createSessionMelodyDemoCluster>[0],
     'melodyDemoRuntime' | 'sessionTransportControls'
   > & {
-    melodyDemoRuntime: Parameters<typeof createSessionMelodyDemoCluster>[0]['melodyDemoRuntime'];
+    melodyDemoRuntime: Omit<
+      Parameters<typeof createSessionMelodyDemoCluster>[0]['melodyDemoRuntime'],
+      'getSelectedMelodyId' | 'getStoredMelodyStudyRange' | 'syncMelodyLoopRangeDisplay'
+    >;
     sessionTransportControls: Omit<
       Parameters<typeof createSessionMelodyDemoCluster>[0]['sessionTransportControls'],
-      'startSessionFromUi'
+      'startSessionFromUi' | 'getSelectedMelodyId'
     >;
   };
 }
@@ -49,14 +57,31 @@ export function createSessionMelodyRuntimeGraphCluster(deps: SessionMelodyRuntim
     createSessionMelodyTimelineEditingCluster(deps.melodyTimelineEditing);
 
   const { melodyTimelineUiController, sessionStartController, interactionGuardsController } =
-    createSessionRuntimeUiCluster(deps.runtimeUi);
+    createSessionRuntimeUiCluster({
+      ...deps.runtimeUi,
+      melodyTimelineUi: {
+        ...deps.runtimeUi.melodyTimelineUi,
+        syncMelodyTimelineEditingState: () => melodyTimelineEditingBridgeController.syncState(),
+        isMelodyDemoPlaybackActive: () => melodyDemoCluster.melodyDemoRuntimeController.isActive(),
+        stopMelodyDemoPlayback: (options) =>
+          melodyDemoCluster.melodyDemoRuntimeController.stopPlayback(options),
+      },
+    });
 
   const melodyDemoCluster = createSessionMelodyDemoCluster({
     ...deps.melodyDemo,
-    melodyDemoRuntime: deps.melodyDemo.melodyDemoRuntime,
+    melodyDemoRuntime: {
+      ...deps.melodyDemo.melodyDemoRuntime,
+      getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
+      getStoredMelodyStudyRange: (melodyId, totalEvents) =>
+        melodyPracticeSettingsBridgeController.getStoredMelodyStudyRange(melodyId, totalEvents),
+      syncMelodyLoopRangeDisplay: () =>
+        melodyPracticeSettingsBridgeController.syncMelodyLoopRangeDisplay(),
+    },
     sessionTransportControls: {
       ...deps.melodyDemo.sessionTransportControls,
       startSessionFromUi: () => sessionStartController.startSessionFromUi(),
+      getSelectedMelodyId: () => selectedMelodyContextController.getSelectedMelodyId(),
     },
   });
 

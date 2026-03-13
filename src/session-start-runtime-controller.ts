@@ -1,7 +1,7 @@
 import { formatSessionGoalProgress, getSessionGoalTargetCorrect } from './session-goal';
+import type { AppState } from './state';
 
 type AppDom = typeof import('./dom').dom;
-type AppState = typeof import('./state').state;
 
 type SessionStartPlan = ReturnType<typeof import('./session-start-preflight').buildSessionStartPlan>;
 type SessionStartPlanInput = Parameters<typeof import('./session-start-preflight').buildSessionStartPlan>[0];

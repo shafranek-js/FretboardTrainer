@@ -33,7 +33,49 @@ describe('session-prompt-performance-runtime-graph-cluster', () => {
         stringSelector: {},
         melodyDemoBpm: { value: '120' },
       },
-      state: {} as any,
+      state: {
+        rhythmLastJudgedBeatAtMs: null,
+        activeSessionStats: null,
+        micMonophonicAttackTrackedNote: null,
+        micMonophonicAttackPeakVolume: 0,
+        micMonophonicAttackLastVolume: 0,
+        micMonophonicFirstDetectedAtMs: null,
+        micLastMonophonicDetectedAtMs: null,
+        studyMelodyRepeatPromptRequiresFreshAttack: false,
+        studyMelodyRepeatPromptSawSilence: false,
+        startTime: 0,
+        currentPrompt: null,
+        melodyTimelinePreviewIndex: null,
+        melodyTimelinePreviewLabel: null,
+        autoPlayPromptSound: false,
+        currentInstrument: { name: 'guitar' },
+        calibratedA4: 440,
+        melodyTransposeSemitones: 0,
+        melodyStringShift: 0,
+        melodyStudyRangeStartIndex: 0,
+        melodyStudyRangeEndIndex: 1,
+        targetFrequency: null,
+        performancePromptResolved: false,
+        performancePromptMatched: false,
+        performancePromptHadAttempt: false,
+        performancePromptHadWrongAttempt: false,
+        pendingTimeoutIds: new Set(),
+        isListening: false,
+        showingAllNotes: false,
+        currentMelodyEventFoundNotes: new Set(),
+        currentMelodyEventIndex: 0,
+        currentMelodyId: null,
+        melodyStudyRangeById: {},
+        pendingSessionStopResultMessage: null,
+        performanceActiveEventIndex: null,
+        performancePrerollDurationMs: 0,
+        performancePrerollLeadInVisible: false,
+        performancePrerollStartedAtMs: null,
+        performancePrerollStepIndex: null,
+        performanceRunCompleted: false,
+        performanceRuntimeStartedAtMs: null,
+        performanceTransportAnimationId: 0,
+      },
       nextPrompt: vi.fn(),
       getMetronomeTimingSnapshot: vi.fn(),
       evaluateRhythmTiming: vi.fn(),
@@ -76,6 +118,13 @@ describe('session-prompt-performance-runtime-graph-cluster', () => {
     args.performancePrompt.updateSessionGoalProgress();
     args.performanceTransport.onResolveMissedPrompt();
 
+    expect(args.rhythmMode.state).not.toBe(deps.state);
+    expect(args.micMonophonicAttackTracking.state).not.toBe(deps.state);
+    expect(args.sessionPrompt.state).not.toBe(deps.state);
+    expect(args.performancePrompt.state).not.toBe(deps.state);
+    expect(args.performanceTransport.state).not.toBe(deps.state);
+    expect(args.rhythmMode.state).toHaveProperty('rhythmLastJudgedBeatAtMs');
+    expect(args.performanceTransport.state).toHaveProperty('performanceTransportAnimationId');
     expect(updateSessionGoalProgress).toHaveBeenCalledTimes(1);
     expect(resolveMissed).toHaveBeenCalledTimes(1);
     expect(result).toBe(clusterResult);

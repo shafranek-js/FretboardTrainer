@@ -6,8 +6,7 @@ import {
   resolvePerformanceMicHoldCalibrationLevelFromBundle,
   resolveRuntimePerformanceMicHoldCalibrationLevel,
 } from './performance-mic-hold-calibration';
-
-type AppState = typeof import('./state').state;
+import type { AppState } from './state';
 
 interface PerformanceAdaptiveRuntimeControllerDeps {
   state: Pick<
