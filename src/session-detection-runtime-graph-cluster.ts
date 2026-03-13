@@ -21,11 +21,17 @@ interface SessionDetectionRuntimeGraphClusterDeps {
   markPerformanceMicOnsetJudged: (detectedNote: string, onsetAtMs: number) => void;
   recordPerformanceMicJudgmentLatency: (onsetAtMs: number, judgedAtMs: number) => void;
   isPerformancePitchWithinTolerance: (detectedFrequency?: number | null) => boolean;
-  detectMonophonicOctaveMismatch: (detectedNote: string, detectedFrequency?: number | null) => {
+  detectMonophonicOctaveMismatch: (
+    detectedNote: string,
+    detectedFrequency?: number | null
+  ) => {
     detectedScientific: string;
     targetScientific: string;
   } | null;
-  performanceResolveSuccess: (elapsedSeconds: number, timingGrade?: PerformanceTimingGrade | null) => void;
+  performanceResolveSuccess: (
+    elapsedSeconds: number,
+    timingGrade?: PerformanceTimingGrade | null
+  ) => void;
   displayResult: (correct: boolean, elapsedSeconds: number) => void;
   handleRhythmModeStableNote: (detectedNote: string) => void;
   updateFreePlayLiveHighlight: (detectedNote: string) => void;
@@ -68,8 +74,13 @@ interface SessionDetectionRuntimeGraphClusterDeps {
     attackAccepted: boolean;
     holdAccepted: boolean;
   }) => MicPerformanceOnsetRejectReasonKey | null;
-  resolveEffectiveRuntimeMicHoldCalibrationLevel: (performanceAdaptiveMicInput: boolean) => typeof state.performanceMicHoldCalibrationLevel;
-  updateAttackTracking: (detectedNote: string | null, volume: number) => MicMonophonicAttackTrackingEvent;
+  resolveEffectiveRuntimeMicHoldCalibrationLevel: (
+    performanceAdaptiveMicInput: boolean
+  ) => typeof state.performanceMicHoldCalibrationLevel;
+  updateAttackTracking: (
+    detectedNote: string | null,
+    volume: number
+  ) => MicMonophonicAttackTrackingEvent;
   clearFreshAttackGuard: (event: MicMonophonicAttackTrackingEvent) => void;
   resolveMicNoteAttackRequiredPeak: typeof import('./mic-note-attack-filter').resolveMicNoteAttackRequiredPeak;
   shouldAcceptMicNoteByAttackStrength: typeof import('./mic-note-attack-filter').shouldAcceptMicNoteByAttackStrength;
@@ -124,29 +135,24 @@ interface SessionDetectionRuntimeGraphClusterDeps {
     fallbackFrom?: string | null;
     warnings?: string[];
   };
-  updateMicPolyphonicDetectorRuntimeStatus: (result: {
-    detectedNotesText: string;
-    nextStableChordCounter: number;
-    isStableMatch: boolean;
-    isStableMismatch: boolean;
-    fallbackFrom?: string | null;
-    warnings?: string[];
-  }, latencyMs: number) => void;
+  updateMicPolyphonicDetectorRuntimeStatus: (
+    result: {
+      detectedNotesText: string;
+      nextStableChordCounter: number;
+      isStableMatch: boolean;
+      isStableMismatch: boolean;
+      fallbackFrom?: string | null;
+      warnings?: string[];
+    },
+    latencyMs: number
+  ) => void;
   now: () => number;
   performanceNow: () => number;
 }
 
-export function createSessionDetectionRuntimeGraphCluster(deps: SessionDetectionRuntimeGraphClusterDeps) {
-  let melodyPolyphonicFeedbackController: { handleMismatch: (prompt: any, detectedText: string, context: string) => void };
-  let stableMonophonicDetectionController: { handleDetectedNote: (detectedNote: string, detectedFrequency?: number | null) => void };
-  let monophonicAudioFrameController: { handleFrame: (input: any) => void };
-  let melodyRuntimeDetectionController: {
-    handleMicrophonePolyphonicMelodyFrame: (frameVolumeRms: number) => void;
-  };
-  let polyphonicChordDetectionController: {
-    handleAudioChordFrame: (frameVolumeRms: number) => void;
-  };
-
+export function createSessionDetectionRuntimeGraphCluster(
+  deps: SessionDetectionRuntimeGraphClusterDeps
+) {
   const cluster = createSessionDetectionRuntimeCluster({
     melodyPolyphonicFeedback: {
       state: deps.state,
@@ -170,7 +176,7 @@ export function createSessionDetectionRuntimeGraphCluster(deps: SessionDetection
       detectMonophonicOctaveMismatch: deps.detectMonophonicOctaveMismatch,
       performanceResolveSuccess: deps.performanceResolveSuccess,
       handleMelodyPolyphonicMismatch: (prompt, detectedText, context) => {
-        melodyPolyphonicFeedbackController.handleMismatch(prompt, detectedText, context);
+        cluster.melodyPolyphonicFeedbackController.handleMismatch(prompt, detectedText, context);
       },
       displayResult: deps.displayResult,
       setResultMessage: deps.setResultMessage,
@@ -196,7 +202,8 @@ export function createSessionDetectionRuntimeGraphCluster(deps: SessionDetection
       recordUncertainFrame: deps.recordUncertainFrame,
       setOnsetGateStatus: deps.setOnsetGateStatus,
       resolveUncertainReasonKey: deps.resolveUncertainReasonKey,
-      resolveEffectiveRuntimeMicHoldCalibrationLevel: deps.resolveEffectiveRuntimeMicHoldCalibrationLevel,
+      resolveEffectiveRuntimeMicHoldCalibrationLevel:
+        deps.resolveEffectiveRuntimeMicHoldCalibrationLevel,
       updateAttackTracking: deps.updateAttackTracking,
       clearFreshAttackGuard: deps.clearFreshAttackGuard,
       resolveMicNoteAttackRequiredPeak: deps.resolveMicNoteAttackRequiredPeak,
@@ -208,7 +215,10 @@ export function createSessionDetectionRuntimeGraphCluster(deps: SessionDetection
       resolveLatencyCompensatedPromptStartedAtMs: deps.resolveLatencyCompensatedPromptStartedAtMs,
       setResultMessage: deps.setResultMessage,
       handleStableDetectedNote: (detectedNote, detectedFrequency) => {
-        stableMonophonicDetectionController.handleDetectedNote(detectedNote, detectedFrequency);
+        cluster.stableMonophonicDetectionController.handleDetectedNote(
+          detectedNote,
+          detectedFrequency
+        );
       },
     },
     audioFrame: {
@@ -230,18 +240,21 @@ export function createSessionDetectionRuntimeGraphCluster(deps: SessionDetection
       resolveStudyMelodyMicVolumeThreshold: deps.resolveStudyMelodyMicVolumeThreshold,
       resolvePerformanceMicVolumeThreshold: deps.resolvePerformanceMicVolumeThreshold,
       resolvePerformanceSilenceResetAfterFrames: deps.resolvePerformanceSilenceResetAfterFrames,
-      resolveEffectiveStudyMelodySilenceResetFrames: deps.resolveEffectiveStudyMelodySilenceResetFrames,
+      resolveEffectiveStudyMelodySilenceResetFrames:
+        deps.resolveEffectiveStudyMelodySilenceResetFrames,
       resolveEffectiveStudyMelodyStableFrames: deps.resolveEffectiveStudyMelodyStableFrames,
       resolvePerformanceRequiredStableFrames: deps.resolvePerformanceRequiredStableFrames,
       buildProcessAudioFramePreflightPlan: deps.buildProcessAudioFramePreflightPlan,
       handleMicrophonePolyphonicMelodyFrame: (frameVolumeRms) => {
-        melodyRuntimeDetectionController.handleMicrophonePolyphonicMelodyFrame(frameVolumeRms);
+        cluster.melodyRuntimeDetectionController.handleMicrophonePolyphonicMelodyFrame(
+          frameVolumeRms
+        );
       },
       handlePolyphonicChordFrame: (frameVolumeRms) => {
-        polyphonicChordDetectionController.handleAudioChordFrame(frameVolumeRms);
+        cluster.polyphonicChordDetectionController.handleAudioChordFrame(frameVolumeRms);
       },
       handleMonophonicFrame: (input) => {
-        monophonicAudioFrameController.handleFrame(input);
+        cluster.monophonicAudioFrameController.handleFrame(input);
       },
       defaultRequiredStableFrames: deps.defaultRequiredStableFrames,
       calibrationSamples: deps.calibrationSamples,
@@ -267,10 +280,10 @@ export function createSessionDetectionRuntimeGraphCluster(deps: SessionDetection
       performanceResolveSuccess: deps.performanceResolveSuccess,
       displayResult: deps.displayResult,
       handleMelodyPolyphonicMismatch: (prompt, detectedText, context) => {
-        melodyPolyphonicFeedbackController.handleMismatch(prompt, detectedText, context);
+        cluster.melodyPolyphonicFeedbackController.handleMismatch(prompt, detectedText, context);
       },
       handleStableMonophonicDetectedNote: (detectedNote) => {
-        stableMonophonicDetectionController.handleDetectedNote(detectedNote);
+        cluster.stableMonophonicDetectionController.handleDetectedNote(detectedNote);
       },
     },
     polyphonicChordDetection: {
@@ -288,12 +301,6 @@ export function createSessionDetectionRuntimeGraphCluster(deps: SessionDetection
       redrawFretboard: deps.redrawFretboard,
     },
   });
-
-  melodyPolyphonicFeedbackController = cluster.melodyPolyphonicFeedbackController;
-  stableMonophonicDetectionController = cluster.stableMonophonicDetectionController;
-  monophonicAudioFrameController = cluster.monophonicAudioFrameController;
-  melodyRuntimeDetectionController = cluster.melodyRuntimeDetectionController;
-  polyphonicChordDetectionController = cluster.polyphonicChordDetectionController;
 
   return cluster;
 }

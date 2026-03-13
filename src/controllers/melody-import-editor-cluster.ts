@@ -56,8 +56,6 @@ interface MelodyImportEditorClusterDeps {
 }
 
 export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterDeps) {
-  let melodyImportWorkspaceController!: ReturnType<typeof createMelodyImportWorkspaceController>;
-
   const melodyEventEditorController = createMelodyEventEditorController({
     dom: {
       melodyPreviewStatus: deps.dom.melodyPreviewStatus,
@@ -81,9 +79,12 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
 
   const melodyEventEditorBridgeController = createMelodyEventEditorBridgeController({
     clearPreview: () => melodyEventEditorController.clearPreview(),
-    renderPreviewError: (prefix: string, error: unknown) => melodyEventEditorController.renderPreviewError(prefix, error),
-    renderPreviewFromEvents: (parsedEvents: MelodyEvent[], options?: MelodyImportPreviewRenderOptions) =>
-      melodyEventEditorController.renderPreviewFromEvents(parsedEvents, options),
+    renderPreviewError: (prefix: string, error: unknown) =>
+      melodyEventEditorController.renderPreviewError(prefix, error),
+    renderPreviewFromEvents: (
+      parsedEvents: MelodyEvent[],
+      options?: MelodyImportPreviewRenderOptions
+    ) => melodyEventEditorController.renderPreviewFromEvents(parsedEvents, options),
     renderInspector: () => melodyEventEditorController.renderInspector(),
     updateSelectedNotePosition: (stringName: string, fretValue: number) =>
       melodyEventEditorController.updateSelectedNotePosition(stringName, fretValue),
@@ -93,7 +94,8 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
     redo: () => melodyEventEditorController.redo(),
     hasDraft: () => melodyEventEditorController.hasDraft(),
     getDraft: () => melodyEventEditorController.getDraft(),
-    getSourceMetadata: () => melodyEventEditorController.getSourceMetadata() as MelodyImportEditorMetadata | null,
+    getSourceMetadata: () =>
+      melodyEventEditorController.getSourceMetadata() as MelodyImportEditorMetadata | null,
   });
 
   const melodyImportPreviewController = createMelodyImportPreviewController({
@@ -121,7 +123,8 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
     convertLoadedMusescoreTrackToImportedMelody: deps.convertLoadedMusescoreTrackToImportedMelody,
     renderPreviewFromEvents: (parsedEvents, options) =>
       melodyEventEditorBridgeController.renderPreviewFromEvents(parsedEvents, options),
-    renderPreviewError: (prefix, error) => melodyEventEditorBridgeController.renderPreviewError(prefix, error),
+    renderPreviewError: (prefix, error) =>
+      melodyEventEditorBridgeController.renderPreviewError(prefix, error),
     clearPreview: () => melodyEventEditorBridgeController.clearPreview(),
   });
 
@@ -130,16 +133,23 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
     resetImportPreviewDraft: () => melodyImportPreviewController.reset(),
     updatePreview: () => melodyImportPreviewController.updatePreview(),
     schedulePreviewUpdate: () => melodyImportPreviewController.schedulePreviewUpdate(),
-    loadGpImportDraftFromFile: (file) => melodyImportPreviewController.loadGpImportDraftFromFile(file),
-    loadMidiImportDraftFromFile: (file) => melodyImportPreviewController.loadMidiImportDraftFromFile(file),
-    refreshMidiTrackPreviewFromSelection: () => melodyImportPreviewController.refreshMidiTrackPreviewFromSelection(),
+    loadGpImportDraftFromFile: (file) =>
+      melodyImportPreviewController.loadGpImportDraftFromFile(file),
+    loadMidiImportDraftFromFile: (file) =>
+      melodyImportPreviewController.loadMidiImportDraftFromFile(file),
+    refreshMidiTrackPreviewFromSelection: () =>
+      melodyImportPreviewController.refreshMidiTrackPreviewFromSelection(),
     hasPendingMidiImport: () => melodyImportPreviewController.hasPendingMidiImport(),
-    refreshGpTrackPreviewFromSelection: () => melodyImportPreviewController.refreshGpTrackPreviewFromSelection(),
-    resolvePendingGpImportedPreview: () => melodyImportPreviewController.resolvePendingGpImportedPreview(),
-    resolvePendingMidiImportedPreview: () => melodyImportPreviewController.resolvePendingMidiImportedPreview(),
+    refreshGpTrackPreviewFromSelection: () =>
+      melodyImportPreviewController.refreshGpTrackPreviewFromSelection(),
+    resolvePendingGpImportedPreview: () =>
+      melodyImportPreviewController.resolvePendingGpImportedPreview(),
+    resolvePendingMidiImportedPreview: () =>
+      melodyImportPreviewController.resolvePendingMidiImportedPreview(),
     renderStructuredPreview: (parsedEvents, options) =>
       melodyEventEditorBridgeController.renderPreviewFromEvents(parsedEvents, options),
-    renderPreviewError: (prefix, error) => melodyEventEditorBridgeController.renderPreviewError(prefix, error),
+    renderPreviewError: (prefix, error) =>
+      melodyEventEditorBridgeController.renderPreviewError(prefix, error),
     clearPreview: () => melodyEventEditorBridgeController.clearPreview(),
     getDraft: () => melodyEventEditorBridgeController.getDraft(),
     getSourceMetadata: () => melodyEventEditorBridgeController.getSourceMetadata(),
@@ -187,7 +197,7 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
     },
   });
 
-  melodyImportWorkspaceController = createMelodyImportWorkspaceController({
+  const melodyImportWorkspaceController = createMelodyImportWorkspaceController({
     syncModalUi: () => melodyImportModalController.syncUi(),
     resetImportDraft: () => melodyImportModalController.resetDraft(),
     closeModal: () => melodyImportModalController.close(),
@@ -204,8 +214,10 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
     getAsciiTabInputValue: () => deps.dom.melodyAsciiTabInput.value,
     getEventEditorDraft: () => melodyImportEditorBridgeController.getDraft(),
     getEventEditorMetadata: () => melodyImportEditorBridgeController.getSourceMetadata(),
-    resolvePendingGpImportedPreview: () => melodyImportEditorBridgeController.resolvePendingGpImportedPreview(),
-    resolvePendingMidiImportedPreview: () => melodyImportEditorBridgeController.resolvePendingMidiImportedPreview(),
+    resolvePendingGpImportedPreview: () =>
+      melodyImportEditorBridgeController.resolvePendingGpImportedPreview(),
+    resolvePendingMidiImportedPreview: () =>
+      melodyImportEditorBridgeController.resolvePendingMidiImportedPreview(),
     getPracticeAdjustedMelody: deps.getPracticeAdjustedMelody,
     getPracticeAdjustedBakeBpm: deps.getPracticeAdjustedBakeBpm,
     saveCustomEventMelody: deps.saveCustomEventMelody,
@@ -217,7 +229,8 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
     downloadBytesAsFile: (bytes, fileName, mimeType) =>
       melodyImportIoController.downloadBytesAsFile(bytes, fileName, mimeType),
     getPracticeAdjustmentSummary: deps.getPracticeAdjustmentSummary,
-    finalizeImportSelection: (melodyId, successMessage) => deps.finalizeImportSelection(melodyId, successMessage),
+    finalizeImportSelection: (melodyId, successMessage) =>
+      deps.finalizeImportSelection(melodyId, successMessage),
   });
 
   const melodyImportControlsController = createMelodyImportControlsController({
@@ -227,11 +240,13 @@ export function createMelodyImportEditorCluster(deps: MelodyImportEditorClusterD
     resetMelodyMidiFileInput: () => melodyImportIoController.resetMidiFileInput(),
     melodyImportWorkspaceController,
     melodyImportPreviewController: melodyImportEditorBridgeController,
-    savePendingMidiImportedTrack: () => melodyLibraryActionsController.savePendingMidiImportedTrack(),
+    savePendingMidiImportedTrack: () =>
+      melodyLibraryActionsController.savePendingMidiImportedTrack(),
     savePendingGpImportedTrack: () => melodyLibraryActionsController.savePendingGpImportedTrack(),
     saveFromModal: () => melodyLibraryActionsController.saveFromModal(),
     setResultMessage: deps.setResultMessage,
-    renderMelodyEditorPreviewError: (prefix, error) => melodyImportEditorBridgeController.renderPreviewError(prefix, error),
+    renderMelodyEditorPreviewError: (prefix, error) =>
+      melodyImportEditorBridgeController.renderPreviewError(prefix, error),
     formatUserFacingError: deps.formatUserFacingError,
     showNonBlockingError: deps.showNonBlockingError,
   });

@@ -1,8 +1,5 @@
 type AppDom = typeof import('./dom').dom;
 type AppState = typeof import('./state').state;
-
-type RhythmTiming = ReturnType<typeof import('./rhythm-timing').evaluateRhythmTiming>;
-
 interface RhythmModeRuntimeControllerDeps {
   dom: Pick<AppDom, 'rhythmTimingWindow'>;
   state: Pick<AppState, 'rhythmLastJudgedBeatAtMs' | 'activeSessionStats'>;
@@ -13,7 +10,6 @@ interface RhythmModeRuntimeControllerDeps {
   formatRhythmFeedback: typeof import('./rhythm-timing').formatRhythmFeedback;
   setResultMessage: (message: string, tone?: 'neutral' | 'success' | 'error') => void;
 }
-
 export function createRhythmModeRuntimeController(deps: RhythmModeRuntimeControllerDeps) {
   function handleStableNote(detectedNote: string) {
     const timing = deps.evaluateRhythmTiming(
@@ -25,11 +21,9 @@ export function createRhythmModeRuntimeController(deps: RhythmModeRuntimeControl
       deps.setResultMessage('Enable Click to practice rhythm timing.', 'error');
       return;
     }
-
     if (deps.state.rhythmLastJudgedBeatAtMs === timing.beatAtMs) {
       return;
     }
-
     deps.state.rhythmLastJudgedBeatAtMs = timing.beatAtMs;
     deps.recordRhythmTimingAttempt(
       deps.state.activeSessionStats,
@@ -39,8 +33,5 @@ export function createRhythmModeRuntimeController(deps: RhythmModeRuntimeControl
     );
     deps.setResultMessage(deps.formatRhythmFeedback(timing, detectedNote), timing.tone);
   }
-
-  return {
-    handleStableNote,
-  };
+  return { handleStableNote };
 }

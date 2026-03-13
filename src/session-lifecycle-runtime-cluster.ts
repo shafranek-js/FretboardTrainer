@@ -32,9 +32,6 @@ export function createSessionLifecycleRuntimeCluster(deps: SessionLifecycleRunti
 
   const sessionInputRuntimeController = createSessionInputRuntimeController(deps.input);
 
-  let sessionNextPromptRuntimeController: ReturnType<typeof createSessionNextPromptRuntimeController>;
-  let sessionTimeUpRuntimeController: ReturnType<typeof createSessionTimeUpRuntimeController>;
-
   function nextPrompt() {
     sessionNextPromptRuntimeController.advance();
   }
@@ -58,7 +55,7 @@ export function createSessionLifecycleRuntimeCluster(deps: SessionLifecycleRunti
     stopListening,
   });
 
-  sessionNextPromptRuntimeController = createSessionNextPromptRuntimeController({
+  const sessionNextPromptRuntimeController = createSessionNextPromptRuntimeController({
     ...deps.nextPrompt,
     stopListening,
   });
@@ -69,7 +66,7 @@ export function createSessionLifecycleRuntimeCluster(deps: SessionLifecycleRunti
     nextPrompt,
   });
 
-  sessionTimeUpRuntimeController = createSessionTimeUpRuntimeController({
+  const sessionTimeUpRuntimeController = createSessionTimeUpRuntimeController({
     ...deps.timeUp,
     stopListening,
   });
@@ -104,4 +101,3 @@ export function createSessionLifecycleRuntimeCluster(deps: SessionLifecycleRunti
     seekActiveMelodySessionToEvent,
   };
 }
-

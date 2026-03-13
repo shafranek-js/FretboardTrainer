@@ -1,5 +1,3 @@
-import type { MelodyDefinition } from '../melody-library';
-
 interface MelodyLibraryActionsBridgeControllerDeps {
   savePendingMidiImportedTrack: () => void;
   savePendingGpImportedTrack: () => void;
@@ -7,7 +5,6 @@ interface MelodyLibraryActionsBridgeControllerDeps {
   exportSelectedMelodyAsMidi: () => Promise<void>;
   bakeSelectedPracticeAdjustedMelodyAsCustom: () => void;
 }
-
 export function createMelodyLibraryActionsBridgeController(
   deps: MelodyLibraryActionsBridgeControllerDeps
 ) {
@@ -16,6 +13,7 @@ export function createMelodyLibraryActionsBridgeController(
     savePendingGpImportedTrack: () => deps.savePendingGpImportedTrack(),
     saveFromModal: () => deps.saveFromModal(),
     exportSelectedMelodyAsMidi: () => deps.exportSelectedMelodyAsMidi(),
-    bakeSelectedPracticeAdjustedMelodyAsCustom: () => deps.bakeSelectedPracticeAdjustedMelodyAsCustom(),
+    bakeSelectedPracticeAdjustedMelodyAsCustom: () =>
+      deps.bakeSelectedPracticeAdjustedMelodyAsCustom(),
   };
 }

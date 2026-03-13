@@ -4,7 +4,10 @@ import { createSessionRuntimeUiCluster } from './session-runtime-ui-cluster';
 import { createSessionMelodyDemoCluster } from './session-melody-demo-cluster';
 
 interface SessionMelodyRuntimeGraphClusterDeps {
-  melodySettings: Omit<Parameters<typeof createSessionMelodySettingsCluster>[0], 'melodyPracticeSettings'> & {
+  melodySettings: Omit<
+    Parameters<typeof createSessionMelodySettingsCluster>[0],
+    'melodyPracticeSettings'
+  > & {
     melodyPracticeSettings: Omit<
       Parameters<typeof createSessionMelodySettingsCluster>[0]['melodyPracticeSettings'],
       'clearPreviewState'
@@ -29,11 +32,7 @@ interface SessionMelodyRuntimeGraphClusterDeps {
   };
 }
 
-export function createSessionMelodyRuntimeGraphCluster(
-  deps: SessionMelodyRuntimeGraphClusterDeps
-) {
-  let melodyDemoRuntimeController!: ReturnType<typeof createSessionMelodyDemoCluster>['melodyDemoRuntimeController'];
-
+export function createSessionMelodyRuntimeGraphCluster(deps: SessionMelodyRuntimeGraphClusterDeps) {
   const {
     selectedMelodyContextController,
     melodyPracticeSettingsController,
@@ -42,20 +41,15 @@ export function createSessionMelodyRuntimeGraphCluster(
     ...deps.melodySettings,
     melodyPracticeSettings: {
       ...deps.melodySettings.melodyPracticeSettings,
-      clearPreviewState: () => melodyDemoRuntimeController.clearPreviewState(),
+      clearPreviewState: () => melodyDemoCluster.melodyDemoRuntimeController.clearPreviewState(),
     },
   });
 
-  const {
-    melodyTimelineEditingOrchestrator,
-    melodyTimelineEditingBridgeController,
-  } = createSessionMelodyTimelineEditingCluster(deps.melodyTimelineEditing);
+  const { melodyTimelineEditingOrchestrator, melodyTimelineEditingBridgeController } =
+    createSessionMelodyTimelineEditingCluster(deps.melodyTimelineEditing);
 
-  const {
-    melodyTimelineUiController,
-    sessionStartController,
-    interactionGuardsController,
-  } = createSessionRuntimeUiCluster(deps.runtimeUi);
+  const { melodyTimelineUiController, sessionStartController, interactionGuardsController } =
+    createSessionRuntimeUiCluster(deps.runtimeUi);
 
   const melodyDemoCluster = createSessionMelodyDemoCluster({
     ...deps.melodyDemo,
@@ -65,8 +59,6 @@ export function createSessionMelodyRuntimeGraphCluster(
       startSessionFromUi: () => sessionStartController.startSessionFromUi(),
     },
   });
-
-  melodyDemoRuntimeController = melodyDemoCluster.melodyDemoRuntimeController;
 
   return {
     selectedMelodyContextController,
@@ -81,4 +73,3 @@ export function createSessionMelodyRuntimeGraphCluster(
     sessionTransportControlsController: melodyDemoCluster.sessionTransportControlsController,
   };
 }
-

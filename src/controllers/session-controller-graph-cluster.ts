@@ -3,19 +3,33 @@ import { createSessionConfigurationGraphCluster } from './session-configuration-
 import { createSessionMelodyRuntimeGraphCluster } from './session-melody-runtime-graph-cluster';
 
 interface SessionControllerGraphClusterDeps {
-  melodyRuntime: Omit<Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0], 'melodyDemo'> & {
-    melodyDemo: Omit<Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0]['melodyDemo'], 'sessionTransportControls'> & {
+  melodyRuntime: Omit<
+    Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0],
+    'melodyDemo'
+  > & {
+    melodyDemo: Omit<
+      Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0]['melodyDemo'],
+      'sessionTransportControls'
+    > & {
       sessionTransportControls: Omit<
-        Parameters<typeof createSessionMelodyRuntimeGraphCluster>[0]['melodyDemo']['sessionTransportControls'],
+        Parameters<
+          typeof createSessionMelodyRuntimeGraphCluster
+        >[0]['melodyDemo']['sessionTransportControls'],
         'applyUiWorkflow'
       >;
     };
   };
   importEditor: Omit<
     Parameters<typeof createMelodyImportEditorCluster>[0],
-    'getSelectedMelodyId' | 'getSelectedMelody' | 'finalizeImportSelection' | 'stopMelodyDemoPlayback'
+    | 'getSelectedMelodyId'
+    | 'getSelectedMelody'
+    | 'finalizeImportSelection'
+    | 'stopMelodyDemoPlayback'
   >;
-  configurationGraph: Omit<Parameters<typeof createSessionConfigurationGraphCluster>[0], 'workspaceGraph'> & {
+  configurationGraph: Omit<
+    Parameters<typeof createSessionConfigurationGraphCluster>[0],
+    'workspaceGraph'
+  > & {
     workspaceGraph: Omit<
       Parameters<typeof createSessionConfigurationGraphCluster>[0]['workspaceGraph'],
       | 'selectedMelodyContextController'
@@ -29,28 +43,29 @@ interface SessionControllerGraphClusterDeps {
 }
 
 export function createSessionControllerGraphCluster(deps: SessionControllerGraphClusterDeps) {
-  let workflowControllerRef!: ReturnType<typeof createSessionConfigurationGraphCluster>['workflowController'];
-  let melodySelectionControllerRef!: ReturnType<
-    typeof createSessionConfigurationGraphCluster
-  >['melodySelectionController'];
-
   const melodyRuntimeGraphCluster = createSessionMelodyRuntimeGraphCluster({
     ...deps.melodyRuntime,
     melodyDemo: {
       ...deps.melodyRuntime.melodyDemo,
       sessionTransportControls: {
         ...deps.melodyRuntime.melodyDemo.sessionTransportControls,
-        applyUiWorkflow: (workflow) => workflowControllerRef.applyUiWorkflow(workflow),
+        applyUiWorkflow: (workflow) =>
+          configurationGraphCluster.workflowController.applyUiWorkflow(workflow),
       },
     },
   });
 
   const melodyImportEditorCluster = createMelodyImportEditorCluster({
     ...deps.importEditor,
-    getSelectedMelodyId: () => melodyRuntimeGraphCluster.selectedMelodyContextController.getSelectedMelodyId(),
-    getSelectedMelody: () => melodyRuntimeGraphCluster.selectedMelodyContextController.getSelectedMelody(),
+    getSelectedMelodyId: () =>
+      melodyRuntimeGraphCluster.selectedMelodyContextController.getSelectedMelodyId(),
+    getSelectedMelody: () =>
+      melodyRuntimeGraphCluster.selectedMelodyContextController.getSelectedMelody(),
     finalizeImportSelection: (melodyId, successMessage) =>
-      melodySelectionControllerRef.finalizeImportSelection(melodyId, successMessage),
+      configurationGraphCluster.melodySelectionController.finalizeImportSelection(
+        melodyId,
+        successMessage
+      ),
     stopMelodyDemoPlayback: (options) =>
       melodyRuntimeGraphCluster.melodyDemoRuntimeController.stopPlayback(options),
   });
@@ -69,9 +84,6 @@ export function createSessionControllerGraphCluster(deps: SessionControllerGraph
       melodyDemoRuntimeController: melodyRuntimeGraphCluster.melodyDemoRuntimeController,
     },
   });
-
-  workflowControllerRef = configurationGraphCluster.workflowController;
-  melodySelectionControllerRef = configurationGraphCluster.melodySelectionController;
 
   return {
     ...melodyRuntimeGraphCluster,

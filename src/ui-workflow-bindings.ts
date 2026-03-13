@@ -2,14 +2,8 @@ import type { Signal } from './reactive/signal';
 import type { UiWorkflow } from './training-workflows';
 import type { UiMode } from './ui-mode';
 import type { LoadingViewState } from './ui-loading-view';
-import type { CalibrationViewState } from './ui-modal-views';
-import type { ProfileActionsState, ModalVisibilityState } from './ui-modal-views';
-import type { InfoSlotsState, ResultViewState } from './ui-feedback-view';
-import type { TunerReadingState } from './ui-monitoring-view';
-import type { LastSessionViewModel, StatsViewModel } from './stats-view';
 import type { SessionControlsSyncResult } from './ui-session-controls-sync';
 import type { SessionButtonsState, UiSignalBindingRuntimeState } from './ui-signal-store';
-
 interface BindUiWorkflowSignalsDeps {
   promptTextSignal: Signal<string>;
   timedInfoVisibleSignal: Signal<boolean>;
@@ -25,7 +19,11 @@ interface BindUiWorkflowSignalsDeps {
   practiceSetupSummarySignal: Signal<string>;
   melodySetupSummarySignal: Signal<string>;
   sessionToolsSummarySignal: Signal<string>;
-  syncPromptUiState: (state: { promptText: string; workflow: UiWorkflow; sessionActive: boolean }) => void;
+  syncPromptUiState: (state: {
+    promptText: string;
+    workflow: UiWorkflow;
+    sessionActive: boolean;
+  }) => void;
   syncTimedInfoUiState: (state: {
     mode: string;
     workflow: UiWorkflow;
@@ -86,9 +84,21 @@ interface BindUiWorkflowSignalsDeps {
     stopDisabled: boolean;
     workflow: UiWorkflow;
   }) => void;
-  syncPracticeSetupCollapsedState: (state: { mode: string; workflow: UiWorkflow; collapsed: boolean }) => void;
-  syncMelodySetupCollapsedState: (state: { mode: string; workflow: UiWorkflow; collapsed: boolean }) => void;
-  syncSessionToolsCollapsedState: (state: { mode: string; workflow: UiWorkflow; collapsed: boolean }) => void;
+  syncPracticeSetupCollapsedState: (state: {
+    mode: string;
+    workflow: UiWorkflow;
+    collapsed: boolean;
+  }) => void;
+  syncMelodySetupCollapsedState: (state: {
+    mode: string;
+    workflow: UiWorkflow;
+    collapsed: boolean;
+  }) => void;
+  syncSessionToolsCollapsedState: (state: {
+    mode: string;
+    workflow: UiWorkflow;
+    collapsed: boolean;
+  }) => void;
   syncDisplayControlsVisibilityState: (state: {
     mode: string;
     workflow: UiWorkflow;
@@ -98,7 +108,6 @@ interface BindUiWorkflowSignalsDeps {
   getMelodySetupToggleHidden: () => boolean;
   runtimeState: UiSignalBindingRuntimeState;
 }
-
 export function bindUiWorkflowSignals({
   promptTextSignal,
   timedInfoVisibleSignal,
@@ -136,43 +145,44 @@ export function bindUiWorkflowSignals({
       sessionActive: !sessionButtonsSignal.get().stopDisabled,
     });
   });
-
-  sessionButtonsSignal.subscribe(({ startDisabled, stopDisabled, hintDisabled, playSoundDisabled }) => {
-    const transition = syncSessionControlsState({
-      startDisabled,
-      stopDisabled,
-      hintDisabled,
-      playSoundDisabled,
-      isLoading: loadingViewSignal.get().isLoading,
-      mode: trainingModeUiSignal.get(),
-      workflow: uiWorkflowSignal.get(),
-      hasPromptText: promptTextSignal.get().trim().length > 0,
-      timedInfoVisible: timedInfoVisibleSignal.get(),
-      practiceSetupCollapsed: practiceSetupCollapsedSignal.get(),
-      melodySetupCollapsed: melodySetupCollapsedSignal.get(),
-      sessionToolsCollapsed: sessionToolsCollapsedSignal.get(),
-      melodySetupToggleHidden: getMelodySetupToggleHidden(),
-      previousSessionActive: runtimeState.previousSessionActive,
-      wasAutoCollapsedForSession: runtimeState.wasAutoCollapsedForSession,
-      wasAutoCollapsedMelodySetupForSession: runtimeState.wasAutoCollapsedMelodySetupForSession,
-      wasAutoCollapsedSessionToolsForSession: runtimeState.wasAutoCollapsedSessionToolsForSession,
-    });
-
-    if (transition.nextPracticeSetupCollapsed !== null) {
-      practiceSetupCollapsedSignal.set(transition.nextPracticeSetupCollapsed);
+  sessionButtonsSignal.subscribe(
+    ({ startDisabled, stopDisabled, hintDisabled, playSoundDisabled }) => {
+      const transition = syncSessionControlsState({
+        startDisabled,
+        stopDisabled,
+        hintDisabled,
+        playSoundDisabled,
+        isLoading: loadingViewSignal.get().isLoading,
+        mode: trainingModeUiSignal.get(),
+        workflow: uiWorkflowSignal.get(),
+        hasPromptText: promptTextSignal.get().trim().length > 0,
+        timedInfoVisible: timedInfoVisibleSignal.get(),
+        practiceSetupCollapsed: practiceSetupCollapsedSignal.get(),
+        melodySetupCollapsed: melodySetupCollapsedSignal.get(),
+        sessionToolsCollapsed: sessionToolsCollapsedSignal.get(),
+        melodySetupToggleHidden: getMelodySetupToggleHidden(),
+        previousSessionActive: runtimeState.previousSessionActive,
+        wasAutoCollapsedForSession: runtimeState.wasAutoCollapsedForSession,
+        wasAutoCollapsedMelodySetupForSession: runtimeState.wasAutoCollapsedMelodySetupForSession,
+        wasAutoCollapsedSessionToolsForSession: runtimeState.wasAutoCollapsedSessionToolsForSession,
+      });
+      if (transition.nextPracticeSetupCollapsed !== null) {
+        practiceSetupCollapsedSignal.set(transition.nextPracticeSetupCollapsed);
+      }
+      if (transition.nextMelodySetupCollapsed !== null) {
+        melodySetupCollapsedSignal.set(transition.nextMelodySetupCollapsed);
+      }
+      if (transition.nextSessionToolsCollapsed !== null) {
+        sessionToolsCollapsedSignal.set(transition.nextSessionToolsCollapsed);
+      }
+      runtimeState.previousSessionActive = transition.previousSessionActive;
+      runtimeState.wasAutoCollapsedForSession = transition.wasAutoCollapsedForSession;
+      runtimeState.wasAutoCollapsedMelodySetupForSession =
+        transition.wasAutoCollapsedMelodySetupForSession;
+      runtimeState.wasAutoCollapsedSessionToolsForSession =
+        transition.wasAutoCollapsedSessionToolsForSession;
     }
-    if (transition.nextMelodySetupCollapsed !== null) {
-      melodySetupCollapsedSignal.set(transition.nextMelodySetupCollapsed);
-    }
-    if (transition.nextSessionToolsCollapsed !== null) {
-      sessionToolsCollapsedSignal.set(transition.nextSessionToolsCollapsed);
-    }
-    runtimeState.previousSessionActive = transition.previousSessionActive;
-    runtimeState.wasAutoCollapsedForSession = transition.wasAutoCollapsedForSession;
-    runtimeState.wasAutoCollapsedMelodySetupForSession = transition.wasAutoCollapsedMelodySetupForSession;
-    runtimeState.wasAutoCollapsedSessionToolsForSession = transition.wasAutoCollapsedSessionToolsForSession;
-  });
-
+  );
   trainingModeUiSignal.subscribe((mode) => {
     syncTrainingModeUiState({
       mode,
@@ -186,7 +196,6 @@ export function bindUiWorkflowSignals({
       showStringTogglesChecked: getShowStringTogglesChecked(),
     });
   });
-
   uiWorkflowSignal.subscribe((workflow) => {
     syncWorkflowUiState({
       workflow,
@@ -205,14 +214,9 @@ export function bindUiWorkflowSignals({
       isLoading: loadingViewSignal.get().isLoading,
     });
   });
-
   uiModeSignal.subscribe((uiMode) => {
-    syncUiModeState({
-      uiMode,
-      workflow: uiWorkflowSignal.get(),
-    });
+    syncUiModeState({ uiMode, workflow: uiWorkflowSignal.get() });
   });
-
   loadingViewSignal.subscribe(({ isLoading, message }) => {
     syncLoadingUiState({
       isLoading,
@@ -222,7 +226,6 @@ export function bindUiWorkflowSignals({
       workflow: uiWorkflowSignal.get(),
     });
   });
-
   timedInfoVisibleSignal.subscribe(() => {
     syncTimedInfoUiState({
       mode: trainingModeUiSignal.get(),
@@ -231,7 +234,6 @@ export function bindUiWorkflowSignals({
       timedInfoVisible: timedInfoVisibleSignal.get(),
     });
   });
-
   practiceSetupCollapsedSignal.subscribe((collapsed) => {
     syncPracticeSetupCollapsedState({
       mode: trainingModeUiSignal.get(),
@@ -239,7 +241,6 @@ export function bindUiWorkflowSignals({
       collapsed,
     });
   });
-
   melodySetupCollapsedSignal.subscribe((collapsed) => {
     syncMelodySetupCollapsedState({
       mode: trainingModeUiSignal.get(),
@@ -247,7 +248,6 @@ export function bindUiWorkflowSignals({
       collapsed,
     });
   });
-
   sessionToolsCollapsedSignal.subscribe((collapsed) => {
     syncSessionToolsCollapsedState({
       mode: trainingModeUiSignal.get(),
@@ -255,7 +255,6 @@ export function bindUiWorkflowSignals({
       collapsed,
     });
   });
-
   layoutControlsExpandedSignal.subscribe(() => {
     syncDisplayControlsVisibilityState({
       mode: trainingModeUiSignal.get(),

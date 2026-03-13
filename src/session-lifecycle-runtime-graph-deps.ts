@@ -1,10 +1,8 @@
-import { dom } from './dom';
-import { state } from './state';
 import type { MidiNoteEvent } from './midi-runtime';
 import { createSessionLifecycleRuntimeGraphCluster } from './session-lifecycle-runtime-graph-cluster';
-
-type SessionLifecycleRuntimeGraphDeps = Parameters<typeof createSessionLifecycleRuntimeGraphCluster>[0];
-
+type SessionLifecycleRuntimeGraphDeps = Parameters<
+  typeof createSessionLifecycleRuntimeGraphCluster
+>[0];
 interface SessionLifecycleRuntimeGraphDepsBuilderArgs {
   dom: SessionLifecycleRuntimeGraphDeps['dom'];
   state: SessionLifecycleRuntimeGraphDeps['state'];
@@ -103,12 +101,8 @@ interface SessionLifecycleRuntimeGraphDepsBuilderArgs {
   performanceAdaptiveRuntimeController: {
     resolveSessionMicHoldCalibrationLevel: SessionLifecycleRuntimeGraphDeps['resolveSessionMicHoldCalibrationLevel'];
   };
-  melodyRuntimeDetectionController: {
-    handleMidiMelodyUpdate: (event: MidiNoteEvent) => void;
-  };
-  polyphonicChordDetectionController: {
-    handleMidiChordUpdate: (event: MidiNoteEvent) => void;
-  };
+  melodyRuntimeDetectionController: { handleMidiMelodyUpdate: (event: MidiNoteEvent) => void };
+  polyphonicChordDetectionController: { handleMidiChordUpdate: (event: MidiNoteEvent) => void };
   detectedNoteFeedbackRuntimeController: {
     clearWrongDetectedHighlight: SessionLifecycleRuntimeGraphDeps['clearWrongDetectedHighlight'];
   };
@@ -127,7 +121,6 @@ interface SessionLifecycleRuntimeGraphDepsBuilderArgs {
   requestSessionSummaryOnStop: SessionLifecycleRuntimeGraphDeps['requestSessionSummaryOnStop'];
   warn: SessionLifecycleRuntimeGraphDeps['warn'];
 }
-
 export function buildSessionLifecycleRuntimeGraphDeps(
   args: SessionLifecycleRuntimeGraphDepsBuilderArgs
 ): SessionLifecycleRuntimeGraphDeps {
@@ -148,7 +141,8 @@ export function buildSessionLifecycleRuntimeGraphDeps(
     clearTrackedTimeouts: args.clearTrackedTimeouts,
     invalidatePendingAdvance: () => args.performancePromptController.invalidatePendingAdvance(),
     resetAttackTracking: () => args.micMonophonicAttackTrackingController.reset(),
-    resetMicPolyphonicDetectorTelemetry: () => args.micPerformanceRuntimeStatusController.resetPolyphonicDetectorTelemetry(),
+    resetMicPolyphonicDetectorTelemetry: () =>
+      args.micPerformanceRuntimeStatusController.resetPolyphonicDetectorTelemetry(),
     stopMidiInput: args.stopMidiInput,
     teardownAudioRuntime: args.teardownAudioRuntime,
     setStatusText: args.setStatusText,
@@ -173,8 +167,10 @@ export function buildSessionLifecycleRuntimeGraphDeps(
     resetReadinessAndJudgmentTelemetry: () =>
       args.micPerformanceRuntimeStatusController.resetReadinessAndJudgmentTelemetry(),
     resetOnsetGateStatus: () => args.performanceMicTelemetryController.resetOnsetGateStatus(),
-    resetOnsetRejectTelemetry: () => args.performanceMicTelemetryController.resetOnsetRejectTelemetry(),
-    clearPerformanceTimelineFeedback: () => args.performanceTimelineFeedbackController.clearFeedback(),
+    resetOnsetRejectTelemetry: () =>
+      args.performanceMicTelemetryController.resetOnsetRejectTelemetry(),
+    clearPerformanceTimelineFeedback: () =>
+      args.performanceTimelineFeedbackController.clearFeedback(),
     clearAudioInputGuidanceError: args.clearAudioInputGuidanceError,
     createMidiSessionMessageHandler: args.createMidiSessionMessageHandler,
     startMidiInput: args.startMidiInput,
@@ -182,10 +178,13 @@ export function buildSessionLifecycleRuntimeGraphDeps(
     refreshAudioInputDeviceOptions: args.refreshAudioInputDeviceOptions,
     isPerformanceStyleMode: args.isPerformanceStyleMode,
     getCurrentModeDetectionType: args.getCurrentModeDetectionType,
-    handleMelodyUpdate: (event) => args.melodyRuntimeDetectionController.handleMidiMelodyUpdate(event),
-    handlePolyphonicUpdate: (event) => args.polyphonicChordDetectionController.handleMidiChordUpdate(event),
+    handleMelodyUpdate: (event) =>
+      args.melodyRuntimeDetectionController.handleMidiMelodyUpdate(event),
+    handlePolyphonicUpdate: (event) =>
+      args.polyphonicChordDetectionController.handleMidiChordUpdate(event),
     clearLiveDetectedHighlight: args.clearLiveDetectedHighlight,
-    clearWrongDetectedHighlight: () => args.detectedNoteFeedbackRuntimeController.clearWrongDetectedHighlight(),
+    clearWrongDetectedHighlight: () =>
+      args.detectedNoteFeedbackRuntimeController.clearWrongDetectedHighlight(),
     handleStableMonophonicDetectedNote: (detectedNote, detectedFrequency) =>
       args.stableMonophonicDetectionController.handleDetectedNote(detectedNote, detectedFrequency),
     onRuntimeError: args.handleSessionRuntimeError,
@@ -203,10 +202,14 @@ export function buildSessionLifecycleRuntimeGraphDeps(
     resetPromptCycleTracking: args.resetPromptCycleTracking,
     processAudio: args.processAudio,
     setResultMessage: args.setResultMessage,
-    applyInitialTimelinePreview: (previewLabel) => args.sessionPromptRuntimeController.applyInitialTimelinePreview(previewLabel),
-    clearInitialTimelinePreview: () => args.sessionPromptRuntimeController.clearInitialTimelinePreview(),
-    startRuntimeClock: (targetEventIndex) => args.performanceTransportRuntimeController.startRuntimeClock(targetEventIndex),
-    beginPrerollTimeline: (pulseCount, delayMs) => args.performanceTransportRuntimeController.beginPrerollTimeline(pulseCount, delayMs),
+    applyInitialTimelinePreview: (previewLabel) =>
+      args.sessionPromptRuntimeController.applyInitialTimelinePreview(previewLabel),
+    clearInitialTimelinePreview: () =>
+      args.sessionPromptRuntimeController.clearInitialTimelinePreview(),
+    startRuntimeClock: (targetEventIndex) =>
+      args.performanceTransportRuntimeController.startRuntimeClock(targetEventIndex),
+    beginPrerollTimeline: (pulseCount, delayMs) =>
+      args.performanceTransportRuntimeController.beginPrerollTimeline(pulseCount, delayMs),
     advancePrerollTimeline: (pulseIndex, pulseCount) =>
       args.performanceTransportRuntimeController.advancePrerollTimeline(pulseIndex, pulseCount),
     finishPrerollTimeline: () => args.performanceTransportRuntimeController.finishPrerollTimeline(),
@@ -216,7 +219,8 @@ export function buildSessionLifecycleRuntimeGraphDeps(
     formatUserFacingError: args.formatUserFacingError,
     setAudioInputGuidanceError: args.setAudioInputGuidanceError,
     getMode: args.getMode,
-    syncPromptEventFromRuntime: () => args.performanceTransportRuntimeController.syncPromptEventFromRuntime(),
+    syncPromptEventFromRuntime: () =>
+      args.performanceTransportRuntimeController.syncPromptEventFromRuntime(),
     buildPerformancePromptForEvent: args.buildPerformancePromptForEvent,
     buildSessionNextPromptPlan: args.buildSessionNextPromptPlan,
     executeSessionNextPromptPlan: args.executeSessionNextPromptPlan,
@@ -225,7 +229,8 @@ export function buildSessionLifecycleRuntimeGraphDeps(
       args.micMonophonicAttackTrackingController.syncPromptTransition(previousPrompt, nextPrompt),
     configurePromptAudio: () => args.sessionPromptRuntimeController.configurePromptAudio(),
     syncMetronomeToPromptStart: args.syncMetronomeToPromptStart,
-    schedulePerformancePromptAdvance: (prompt) => args.performancePromptController.scheduleAdvance(prompt),
+    schedulePerformancePromptAdvance: (prompt) =>
+      args.performancePromptController.scheduleAdvance(prompt),
     recordSessionAttempt: args.recordSessionAttempt,
     updateStats: args.updateStats,
     setSessionGoalProgress: args.setSessionGoalProgress,
@@ -236,4 +241,3 @@ export function buildSessionLifecycleRuntimeGraphDeps(
     isMelodyWorkflowMode: args.isMelodyWorkflowMode,
   };
 }
-

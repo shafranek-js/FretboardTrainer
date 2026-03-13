@@ -1,6 +1,4 @@
 import { createSessionBootstrapController } from './session-bootstrap-controller';
-import type { UiWorkflow } from '../training-workflows';
-
 interface SessionBootstrapClusterDeps {
   dom: Parameters<typeof createSessionBootstrapController>[0]['dom'];
   state: Parameters<typeof createSessionBootstrapController>[0]['state'];
@@ -77,7 +75,6 @@ interface SessionBootstrapClusterDeps {
     | 'registerProfileControls'
   >;
 }
-
 export function createSessionBootstrapCluster(deps: SessionBootstrapClusterDeps) {
   const sessionBootstrapController = createSessionBootstrapController({
     dom: deps.dom,
@@ -89,8 +86,5 @@ export function createSessionBootstrapCluster(deps: SessionBootstrapClusterDeps)
     ...deps.ui,
     ...deps.registrations,
   });
-
-  return {
-    sessionBootstrapController,
-  };
+  return { sessionBootstrapController };
 }
