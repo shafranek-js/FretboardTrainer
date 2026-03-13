@@ -23,6 +23,10 @@ vi.mock('./state', () => ({
   state: harness.state,
 }));
 
+vi.mock('./dom', () => ({
+  dom: harness.dom,
+}));
+
 import {
   clearAudioInputGuidanceError,
   refreshAudioInputGuidanceUi,
@@ -62,3 +66,4 @@ describe('audio-input-guidance-ui', () => {
     expect(harness.dom.audioInputInfo.textContent).toContain('Choose a microphone');
   });
 });
+

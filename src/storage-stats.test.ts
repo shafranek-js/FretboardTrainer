@@ -29,6 +29,10 @@ vi.mock('./state', () => ({
   state: mocked.state,
 }));
 
+vi.mock('./dom', () => ({
+  dom: mocked.dom,
+}));
+
 function createStorage(initial?: Record<string, string>) {
   const map = new Map(Object.entries(initial ?? {}));
   return {
@@ -170,3 +174,4 @@ describe('storage-stats', () => {
     expect(localStorage.getItem('fretflow-last-session-stats')).toBeNull();
   });
 });
+

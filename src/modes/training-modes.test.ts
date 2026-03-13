@@ -59,6 +59,10 @@ vi.mock('../state', () => ({
   state: mockState,
 }));
 
+vi.mock('../dom', () => ({
+  dom: mockDom,
+}));
+
 vi.mock('../melody-library', () => ({
   getMelodyById: getMelodyByIdMock,
 }));
@@ -513,6 +517,7 @@ describe('MelodyPracticeMode', () => {
     expect(prompt?.melodyEventDurationMs).toBe(667);
   });
 });
+
 
 
 

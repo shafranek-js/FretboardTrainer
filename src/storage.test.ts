@@ -213,6 +213,10 @@ vi.mock('./state', () => ({
   state: mocked.state,
 }));
 
+vi.mock('./dom', () => ({
+  dom: mocked.dom,
+}));
+
 vi.mock('./ui', () => mocked.ui);
 vi.mock('./ui-signals', () => ({
   getPracticeSetupCollapsed: () => mocked.panelState.practiceSetupCollapsed,
@@ -585,6 +589,7 @@ describe('storage', () => {
     expect(mocked.state.preferredMelodyId).toBe('builtin:guitar:ode_to_joy_intro');
   });
 });
+
 
 
 

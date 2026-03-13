@@ -60,6 +60,10 @@ vi.mock('../state', () => ({
   state: testHarness.mockState,
 }));
 
+vi.mock('../dom', () => ({
+  dom: testHarness.mockDom,
+}));
+
 vi.mock('../melody-tab-timeline', () => ({
   setMelodyTimelineNoteSelectHandler: vi.fn((handler: typeof testHarness.noteSelectHandler) => {
     testHarness.noteSelectHandler = handler;
@@ -370,3 +374,4 @@ describe('melody-timeline-editing-controller', () => {
     expect(testHarness.mockState.melodyTimelineSelectedNoteIndex).toBeNull();
   });
 });
+

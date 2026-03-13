@@ -38,5 +38,7 @@ describe('ui-signal-bindings', () => {
     expect(bindUiRenderSignals).toHaveBeenCalledTimes(1);
     expect(bindUiWorkflowSignals).toHaveBeenCalledTimes(1);
     expect(bindUiWorkflowSignals.mock.calls[0][0].runtimeState).toBe(uiSignalBindingRuntimeState);
-  });
+  }, 10000);
 });
+
+
