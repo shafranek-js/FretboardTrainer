@@ -1,9 +1,13 @@
-import { createSessionControllerGraphCluster } from './session-controller-graph-cluster';
-import { buildSessionControllerGraphDeps } from './session-controller-graph-deps';
-import { buildSessionControllerGraphEntrypointDeps } from './session-controller-entrypoint-graph-deps';
-import { createSessionEditorBootstrapGraphCluster } from './session-editor-bootstrap-graph-cluster';
-import { buildSessionEditorBootstrapGraphDeps } from './session-editor-bootstrap-graph-deps';
-import { buildSessionEditorBootstrapGraphEntrypointDeps } from './session-editor-bootstrap-entrypoint-graph-deps';
+import {
+  buildSessionControllerGraphDeps,
+  buildSessionControllerGraphEntrypointDeps,
+  createSessionControllerGraphCluster,
+} from './session-controller-graph';
+import {
+  buildSessionEditorBootstrapGraphDeps,
+  buildSessionEditorBootstrapGraphEntrypointDeps,
+  createSessionEditorBootstrapGraphCluster,
+} from './session-editor-bootstrap';
 
 const sessionControllerGraphDeps = buildSessionControllerGraphDeps(
   buildSessionControllerGraphEntrypointDeps({
