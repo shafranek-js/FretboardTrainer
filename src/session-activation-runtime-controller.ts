@@ -1,5 +1,4 @@
 import { buildSessionInitialPromptPlan } from './session-initial-prompt-plan';
-import { executeSessionRuntimeActivation } from './session-runtime-activation-executor';
 import { getTrainingModeLabel } from './training-mode-labels';
 import { clampMelodyPlaybackBpm } from './melody-timeline-duration';
 import { resolveMelodyMetronomeMeterProfile } from './melody-meter';

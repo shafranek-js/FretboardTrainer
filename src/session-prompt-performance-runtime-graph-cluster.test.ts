@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionPromptPerformanceRuntimeGraphClusterDeps = Parameters<
+  typeof import('./session-prompt-performance-runtime-graph-cluster').createSessionPromptPerformanceRuntimeGraphCluster
+>[0];
+
 const { createSessionPromptPerformanceRuntimeCluster } = vi.hoisted(() => ({
   createSessionPromptPerformanceRuntimeCluster: vi.fn(),
 }));
@@ -24,7 +28,7 @@ describe('session-prompt-performance-runtime-graph-cluster', () => {
       './session-prompt-performance-runtime-graph-cluster'
     );
 
-    const deps = {
+    const deps: SessionPromptPerformanceRuntimeGraphClusterDeps = {
       dom: {
         rhythmTimingWindow: { value: 'tight' },
         trainingMode: { value: 'perform' },
@@ -112,7 +116,7 @@ describe('session-prompt-performance-runtime-graph-cluster', () => {
       cancelAnimationFrame: vi.fn(),
     };
 
-    const result = createSessionPromptPerformanceRuntimeGraphCluster(deps as any);
+    const result = createSessionPromptPerformanceRuntimeGraphCluster(deps);
     const args = createSessionPromptPerformanceRuntimeCluster.mock.calls[0][0];
 
     args.performancePrompt.updateSessionGoalProgress();

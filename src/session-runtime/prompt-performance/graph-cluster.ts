@@ -1,5 +1,4 @@
 import { dom } from '../../dom';
-import { state } from '../../state';
 import { createSessionPromptPerformanceRuntimeCluster } from '../../session-prompt-performance-runtime-cluster';
 import type { Prompt } from '../../types';
 import type { PerformanceTimingGrade } from '../../performance-timing-grade';

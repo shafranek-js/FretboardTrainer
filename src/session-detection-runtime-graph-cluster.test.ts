@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionDetectionRuntimeGraphClusterDeps = Parameters<
+  typeof import('./session-detection-runtime-graph-cluster').createSessionDetectionRuntimeGraphCluster
+>[0];
+
 const { createSessionDetectionRuntimeCluster } = vi.hoisted(() => ({
   createSessionDetectionRuntimeCluster: vi.fn(),
 }));
@@ -29,11 +33,11 @@ describe('session-detection-runtime-graph-cluster', () => {
 
     const { createSessionDetectionRuntimeGraphCluster } = await import('./session-detection-runtime-graph-cluster');
 
-    const deps = {
+    const deps: SessionDetectionRuntimeGraphClusterDeps = {
       dom: {
         trainingMode: { value: 'perform' },
       },
-      state: {} as any,
+      state: {} as SessionDetectionRuntimeGraphClusterDeps['state'],
       recordSessionAttempt: vi.fn(),
       recordPerformanceTimelineWrongAttempt: vi.fn(),
       redrawFretboard: vi.fn(),
@@ -110,7 +114,7 @@ describe('session-detection-runtime-graph-cluster', () => {
       performanceNow: vi.fn(() => 1),
     };
 
-    const result = createSessionDetectionRuntimeGraphCluster(deps as any);
+    const result = createSessionDetectionRuntimeGraphCluster(deps);
     const args = createSessionDetectionRuntimeCluster.mock.calls[0][0];
 
     args.stableMonophonicDetection.handleMelodyPolyphonicMismatch('prompt', 'heard', 'ctx');

@@ -4,7 +4,6 @@ import { createSessionLifecycleRuntimeCluster } from '../../session-lifecycle-ru
 import type { MidiNoteEvent } from '../../midi-runtime';
 import type { MicPerformanceLatencyCalibrationState } from '../../mic-performance-latency-calibration-state';
 import type { Prompt } from '../../types';
-import type { PerformanceTimingGrade } from '../../performance-timing-grade';
 import type { DetectionType } from '../../modes/training-mode';
 
 type SessionLifecycleRuntimeClusterDeps = Parameters<typeof createSessionLifecycleRuntimeCluster>[0];

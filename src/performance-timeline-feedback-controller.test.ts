@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPerformanceTimelineFeedbackController } from './performance-timeline-feedback-controller';
 import type { Prompt } from './types';
 
-function createState() {
+type PerformanceTimelineFeedbackState = Parameters<
+  typeof createPerformanceTimelineFeedbackController
+>[0]['state'];
+
+function createState(): PerformanceTimelineFeedbackState {
   return {
     performanceTimelineFeedbackKey: null,
     performanceTimelineFeedbackByEvent: { 1: [{ status: 'correct' }] },
@@ -20,7 +24,7 @@ function createState() {
     } as Prompt,
     wrongDetectedString: 'E',
     wrongDetectedFret: 7,
-  } as any;
+  };
 }
 
 describe('performance-timeline-feedback-controller', () => {

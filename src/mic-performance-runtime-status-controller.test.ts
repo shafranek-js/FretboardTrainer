@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createMicPerformanceRuntimeStatusController } from './mic-performance-runtime-status-controller';
 
-function createState() {
+type MicPerformanceRuntimeStatusState = Parameters<
+  typeof createMicPerformanceRuntimeStatusController
+>[0]['state'];
+
+function createState(): MicPerformanceRuntimeStatusState {
   return {
     inputSource: 'microphone',
     micPerformanceReadinessLastUiRefreshAtMs: 0,
@@ -21,7 +25,7 @@ function createState() {
     lastMicPolyphonicDetectorProviderUsed: null,
     lastMicPolyphonicDetectorFallbackFrom: null,
     lastMicPolyphonicDetectorWarning: null,
-  } as any;
+  };
 }
 
 describe('mic-performance-runtime-status-controller', () => {

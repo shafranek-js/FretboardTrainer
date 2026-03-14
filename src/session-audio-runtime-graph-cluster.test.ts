@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionAudioRuntimeGraphClusterDeps = Parameters<
+  typeof import('./session-audio-runtime-graph-cluster').createSessionAudioRuntimeGraphCluster
+>[0];
+
 const { createSessionAudioRuntimeCluster } = vi.hoisted(() => ({
   createSessionAudioRuntimeCluster: vi.fn(),
 }));
@@ -21,7 +25,7 @@ describe('session-audio-runtime-graph-cluster', () => {
     const getPracticeAdjustedMelody = vi.fn((melody) => ({ ...melody, adjusted: true }));
     const stopListening = vi.fn();
 
-    const deps = {
+    const deps: SessionAudioRuntimeGraphClusterDeps = {
       dom: {
         trainingMode: { value: 'perform' },
         metronomeEnabled: { checked: true },
@@ -42,7 +46,7 @@ describe('session-audio-runtime-graph-cluster', () => {
         isListening: false,
         metronomePendingStart: false,
         micLastInputRms: 0,
-        pendingTimeoutIds: new Set(),
+        pendingTimeoutIds: new Set<number>(),
         performancePrerollLeadInVisible: false,
         performanceRuntimeStartedAtMs: null,
       },
@@ -76,7 +80,7 @@ describe('session-audio-runtime-graph-cluster', () => {
       scheduleTrackedCooldown: vi.fn(),
     };
 
-    const result = createSessionAudioRuntimeGraphCluster(deps as any);
+    const result = createSessionAudioRuntimeGraphCluster(deps);
     const args = createSessionAudioRuntimeCluster.mock.calls[0][0];
     const selectedAdjustedMelody = args.metronome.getSelectedAdjustedMelody();
 

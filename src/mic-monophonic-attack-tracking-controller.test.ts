@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createMicMonophonicAttackTrackingController } from './mic-monophonic-attack-tracking-controller';
+import type { Prompt } from './types';
 
-function createState() {
+type MicMonophonicAttackTrackingState = Parameters<
+  typeof createMicMonophonicAttackTrackingController
+>[0]['state'];
+
+function createState(): MicMonophonicAttackTrackingState {
   return {
     micMonophonicAttackTrackedNote: null,
     micMonophonicAttackPeakVolume: 0,
@@ -12,7 +17,7 @@ function createState() {
     studyMelodyRepeatPromptSawSilence: false,
     startTime: 0,
     currentPrompt: null,
-  } as any;
+  };
 }
 
 describe('mic-monophonic-attack-tracking-controller', () => {
@@ -79,8 +84,8 @@ describe('mic-monophonic-attack-tracking-controller', () => {
     });
 
     controller.syncPromptTransition(
-      { targetNote: 'E', targetString: 'A', displayText: 'Prev', targetChordNotes: [] } as any,
-      { targetNote: 'E', targetString: 'A', displayText: 'Next', targetChordNotes: [] } as any
+      { targetNote: 'E', targetString: 'A', displayText: 'Prev', targetChordNotes: [] } as Prompt,
+      { targetNote: 'E', targetString: 'A', displayText: 'Next', targetChordNotes: [] } as Prompt
     );
 
     expect(state.studyMelodyRepeatPromptRequiresFreshAttack).toBe(true);

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPerformanceTransportRuntimeController } from './performance-transport-runtime-controller';
 import type { MelodyDefinition } from './melody-library';
+import type { Prompt } from './types';
+
+type PerformanceTransportRuntimeDeps = Parameters<
+  typeof createPerformanceTransportRuntimeController
+>[0];
+type PerformanceTransportRuntimeState = PerformanceTransportRuntimeDeps['state'];
+type PerformanceTransportRuntimeDom = PerformanceTransportRuntimeDeps['dom'];
 
 function createMelody(): MelodyDefinition {
   return {
@@ -15,7 +22,7 @@ function createMelody(): MelodyDefinition {
   };
 }
 
-function createState() {
+function createState(): PerformanceTransportRuntimeState {
   return {
     isListening: true,
     currentInstrument: { name: 'guitar' },
@@ -39,15 +46,15 @@ function createState() {
     startTime: 0,
     melodyTransposeSemitones: 0,
     melodyStringShift: 0,
-  } as any;
+  };
 }
 
-function createDom(trainingMode = 'performance') {
+function createDom(trainingMode = 'performance'): PerformanceTransportRuntimeDom {
   return {
     trainingMode: { value: trainingMode },
     melodySelector: { value: 'melody:test' },
     melodyDemoBpm: { value: '120' },
-  } as any;
+  };
 }
 
 describe('performance-transport-runtime-controller', () => {
@@ -121,8 +128,10 @@ describe('performance-transport-runtime-controller', () => {
     const onResolveMissedPrompt = vi.fn();
     const onAdvancePrompt = vi.fn();
     state.performanceRuntimeStartedAtMs = 1_000;
-    state.currentPrompt = { displayText: 'Play', targetNote: 'C' } as any;
-    state.activeSessionStats = { completedRun: false } as any;
+    state.currentPrompt = { displayText: 'Play', targetNote: 'C' } as Prompt;
+    state.activeSessionStats = {
+      completedRun: false,
+    } as NonNullable<PerformanceTransportRuntimeState['activeSessionStats']>;
     const controller = createPerformanceTransportRuntimeController({
       dom,
       state,

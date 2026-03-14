@@ -81,7 +81,7 @@ describe('session-start-runtime-controller', () => {
   });
 
   it('prepares calibration sessions by resetting calibration capture state', () => {
-    const { state, deps, plan } = createDeps();
+    const { state, deps } = createDeps();
     const controller = createSessionStartRuntimeController(deps);
 
     const result = controller.prepare(true);

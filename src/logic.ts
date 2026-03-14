@@ -69,7 +69,6 @@ import {
   setInputSourcePreference,
   startMidiInput,
   stopMidiInput,
-  type MidiNoteEvent,
 } from './midi-runtime';
 import { buildSessionNextPromptPlan } from './session-next-prompt-plan';
 import {
@@ -103,7 +102,6 @@ import { clearLiveDetectedHighlight, updateLiveDetectedHighlight } from './live-
 import { createSessionRuntimeErrorHandler } from './session-runtime-error-handler';
 import { buildAudioMonophonicReactionPlan, buildCalibrationFrameReactionPlan } from './session-detection-reactions';
 import { executeSessionNextPromptPlan } from './session-next-prompt-executor';
-import { getTrainingModeLabel } from './training-mode-labels';
 import { createSessionLifecycleRuntimeGraphCluster } from './session-runtime/lifecycle';
 import { buildSessionLifecycleRuntimeGraphDeps } from './session-runtime/lifecycle';
 import { createSessionAudioRuntimeGraphCluster } from './session-runtime/audio';
@@ -121,7 +119,6 @@ import { buildProcessAudioFramePreflightPlan } from './process-audio-frame-prefl
 import { executeSessionRuntimeActivation } from './session-runtime-activation-executor';
 import { createMidiSessionMessageHandler } from './midi-session-message-handler';
 import { createTimedSessionIntervalHandler } from './timed-session-interval-handler';
-import type { Prompt } from './types';
 import { resolveMicVolumeThreshold } from './mic-input-sensitivity';
 import {
   resolveMicNoteAttackRequiredPeak,
@@ -130,7 +127,6 @@ import {
 import {
   resolveMicNoteHoldRequiredDurationMs,
   shouldAcceptMicNoteByHoldDuration,
-  type PerformanceMicHoldCalibrationLevel,
 } from './mic-note-hold-filter';
 import { shouldResetMicAttackTracking } from './mic-attack-tracking';
 import { shouldRearmMicOnsetForSameNote } from './mic-note-reattack';
@@ -138,7 +134,6 @@ import { shouldResetStudyMelodyOnsetTrackingOnPromptChange } from './study-melod
 import { shouldReportPerformanceMicUncertainFrame } from './performance-mic-uncertain';
 import { resolveLatencyCompensatedPromptStartedAtMs } from './performance-mic-latency-compensation';
 import { resolvePerformanceMicJudgingThresholds } from './performance-mic-judging-thresholds';
-import type { PerformanceTimingGrade } from './performance-timing-grade';
 import {
   resolvePerformanceMicVolumeThreshold,
   resolveStudyMelodyMicVolumeThreshold,
@@ -167,29 +162,18 @@ import { isPolyphonicMelodyPrompt } from './melody-prompt-polyphony';
 import { createSessionPerformanceFeedbackGraphCluster } from './session-runtime/performance-feedback';
 import { buildSessionPerformanceFeedbackGraphDeps } from './session-runtime/performance-feedback';
 import {
-  appendPerformanceTimelineAttempts,
-  buildPerformanceTimelineMissedAttempts,
   buildPerformanceTimelineFeedbackKey,
-  buildPerformanceTimelineSuccessAttempts,
-  buildPerformanceTimelineWrongAttempts,
-  clearPerformanceTimelineFeedbackState,
 } from './performance-timeline-feedback';
-import { buildSessionInitialPromptPlan } from './session-initial-prompt-plan';
 import { shouldIgnorePerformanceOctaveMismatch } from './performance-octave-policy';
 import { isPerformancePitchWithinTolerance as isPerformancePitchWithinToleranceHelper } from './performance-pitch-tolerance';
 import { getMelodyById } from './melody-library';
-import { clampMelodyPlaybackBpm, getMelodyEventPlaybackDurationExactMs } from './melody-timeline-duration';
+import { clampMelodyPlaybackBpm } from './melody-timeline-duration';
 import { getMelodyWithPracticeAdjustments } from './melody-string-shift';
 import { resolveMelodyMetronomeMeterProfile } from './melody-meter';
-import { formatMelodyStudyRange, isDefaultMelodyStudyRange, normalizeMelodyStudyRange } from './melody-study-range';
 import {
   captureMicPerformanceLatencyCalibrationState,
   restoreMicPerformanceLatencyCalibrationState,
 } from './mic-performance-latency-calibration-state';
-import {
-  type MicPerformanceOnsetRejectReasonKey,
-  type PerformanceCaptureEventTelemetry,
-} from './session-analysis-bundle';
 
 const handleSessionRuntimeError = createSessionRuntimeErrorHandler({
   stopSession: () => {
@@ -308,9 +292,7 @@ const {
   })
 );
 const {
-  melodyPolyphonicFeedbackController,
   stableMonophonicDetectionController,
-  monophonicAudioFrameController,
   audioFrameRuntimeController,
   melodyRuntimeDetectionController,
   polyphonicChordDetectionController,
@@ -412,7 +394,6 @@ const {
   stopListening: stopSessionRuntime,
   nextPrompt: advanceSessionPromptRuntime,
   displayResult: displaySessionResultRuntime,
-  handleTimeUp: handleSessionTimeUpRuntime,
   seekActiveMelodySessionToEvent: seekActiveMelodySessionRuntimeToEvent,
 } = createSessionLifecycleRuntimeGraphCluster(
   buildSessionLifecycleRuntimeGraphDeps({
@@ -651,14 +632,6 @@ export function cancelCalibration() {
     cancelCalibrationRuntime();
   } catch (error) {
     handleSessionRuntimeError('cancelCalibration', error);
-  }
-}
-
-function handleTimeUp() {
-  try {
-    handleSessionTimeUpRuntime();
-  } catch (error) {
-    handleSessionRuntimeError('handleTimeUp', error);
   }
 }
 

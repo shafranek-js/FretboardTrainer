@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionLifecycleRuntimeGraphClusterDeps = Parameters<
+  typeof import('./session-lifecycle-runtime-graph-cluster').createSessionLifecycleRuntimeGraphCluster
+>[0];
+
 const { createSessionLifecycleRuntimeCluster } = vi.hoisted(() => ({
   createSessionLifecycleRuntimeCluster: vi.fn(),
 }));
@@ -29,7 +33,7 @@ describe('session-lifecycle-runtime-graph-cluster', () => {
     const startRuntimeClock = vi.fn();
     const syncPromptTransition = vi.fn();
 
-    const deps = {
+    const deps: SessionLifecycleRuntimeGraphClusterDeps = {
       dom: {
         trainingMode: { value: 'perform' },
         inputSource: { value: 'microphone' },
@@ -46,7 +50,7 @@ describe('session-lifecycle-runtime-graph-cluster', () => {
         endFret: { value: '5' },
         stringSelector: {},
       },
-      state: {} as any,
+      state: {} as SessionLifecycleRuntimeGraphClusterDeps['state'],
       timedDurationSeconds: 90,
       captureMicPerformanceLatencyCalibrationState,
       restoreMicPerformanceLatencyCalibrationState,
@@ -144,7 +148,7 @@ describe('session-lifecycle-runtime-graph-cluster', () => {
       isMelodyWorkflowMode: vi.fn(() => true),
     };
 
-    const result = createSessionLifecycleRuntimeGraphCluster(deps as any);
+    const result = createSessionLifecycleRuntimeGraphCluster(deps);
     const args = createSessionLifecycleRuntimeCluster.mock.calls[0][0];
     const snapshot = args.stop.captureMicPerformanceLatencyCalibrationState();
 

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createPerformanceMicTelemetryController } from './performance-mic-telemetry-controller';
 
-function createState() {
+type PerformanceMicTelemetryState = Parameters<
+  typeof createPerformanceMicTelemetryController
+>[0]['state'];
+
+function createState(): PerformanceMicTelemetryState {
   return {
     performanceOnsetRejectsByEvent: {},
     performanceCaptureTelemetryByEvent: {},
@@ -15,7 +19,7 @@ function createState() {
     micPerformanceOnsetLastRejectedReasonKey: null,
     micPerformanceOnsetLastRejectedNote: null,
     micPerformanceOnsetLastRejectedAtMs: null,
-  } as any;
+  };
 }
 
 describe('performance-mic-telemetry-controller', () => {
