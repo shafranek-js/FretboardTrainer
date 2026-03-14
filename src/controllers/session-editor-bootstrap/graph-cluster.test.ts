@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionEditorBootstrapGraphClusterDeps = Parameters<
+  typeof import('./graph-cluster').createSessionEditorBootstrapGraphCluster
+>[0];
+
 const {
   createSessionEditorGraphCluster,
   createSessionBootstrapGraphCluster,
@@ -32,9 +36,9 @@ describe('session-editor-bootstrap-graph-cluster', () => {
     const { createSessionEditorBootstrapGraphCluster } = await import('./graph-cluster');
 
     const result = createSessionEditorBootstrapGraphCluster({
-      editorGraph: {} as any,
+      editorGraph: {} as SessionEditorBootstrapGraphClusterDeps['editorGraph'],
       bootstrapGraph: {
-        bootstrap: {} as any,
+        bootstrap: {} as SessionEditorBootstrapGraphClusterDeps['bootstrapGraph']['bootstrap'],
         controllers: {
           melodyImportControlsController: { id: 'import' },
           workflowLayoutControlsController: { id: 'workflowLayout' },
@@ -48,7 +52,8 @@ describe('session-editor-bootstrap-graph-cluster', () => {
           metronomeControlsController: { id: 'metronomeControls' },
           metronomeController: { id: 'metronome' },
         },
-        registrations: {} as any,
+        registrations:
+          {} as SessionEditorBootstrapGraphClusterDeps['bootstrapGraph']['registrations'],
       },
     });
 

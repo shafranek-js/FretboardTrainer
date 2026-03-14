@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionMelodyRuntimeGraphClusterDeps = Parameters<
+  typeof import('./graph-cluster').createSessionMelodyRuntimeGraphCluster
+>[0];
+
 const {
   createSessionMelodySettingsCluster,
   createSessionMelodyTimelineEditingCluster,
@@ -52,29 +56,36 @@ describe('session-melody-runtime-graph-cluster', () => {
 
     const { createSessionMelodyRuntimeGraphCluster } = await import('./graph-cluster');
 
-    const deps = {
+    const deps: SessionMelodyRuntimeGraphClusterDeps = {
       melodySettings: {
-        selectedMelodyContext: {} as any,
-        melodyPracticeSettings: {} as any,
-        melodyPracticeSettingsBridge: {} as any,
+        selectedMelodyContext:
+          {} as SessionMelodyRuntimeGraphClusterDeps['melodySettings']['selectedMelodyContext'],
+        melodyPracticeSettings:
+          {} as SessionMelodyRuntimeGraphClusterDeps['melodySettings']['melodyPracticeSettings'],
+        melodyPracticeSettingsBridge:
+          {} as SessionMelodyRuntimeGraphClusterDeps['melodySettings']['melodyPracticeSettingsBridge'],
       },
       melodyTimelineEditing: {
-        melodyTimelineEditingOrchestrator: {} as any,
+        melodyTimelineEditingOrchestrator:
+          {} as SessionMelodyRuntimeGraphClusterDeps['melodyTimelineEditing']['melodyTimelineEditingOrchestrator'],
       },
       runtimeUi: {
-        melodyTimelineUi: {} as any,
-        sessionStart: {} as any,
-        interactionGuards: {} as any,
+        melodyTimelineUi:
+          {} as SessionMelodyRuntimeGraphClusterDeps['runtimeUi']['melodyTimelineUi'],
+        sessionStart: {} as SessionMelodyRuntimeGraphClusterDeps['runtimeUi']['sessionStart'],
+        interactionGuards:
+          {} as SessionMelodyRuntimeGraphClusterDeps['runtimeUi']['interactionGuards'],
       },
       melodyDemo: {
-        melodyDemoRuntime: {} as any,
+        melodyDemoRuntime:
+          {} as SessionMelodyRuntimeGraphClusterDeps['melodyDemo']['melodyDemoRuntime'],
         sessionTransportControls: {
           applyUiWorkflow: vi.fn(),
-        } as any,
+        } as SessionMelodyRuntimeGraphClusterDeps['melodyDemo']['sessionTransportControls'],
       },
     };
 
-    const result = createSessionMelodyRuntimeGraphCluster(deps as any);
+    const result = createSessionMelodyRuntimeGraphCluster(deps);
     const settingsArgs = createSessionMelodySettingsCluster.mock.calls[0][0];
     const runtimeUiArgs = createSessionRuntimeUiCluster.mock.calls[0][0];
     const demoArgs = createSessionMelodyDemoCluster.mock.calls[0][0];

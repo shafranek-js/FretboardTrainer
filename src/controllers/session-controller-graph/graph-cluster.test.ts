@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionControllerGraphClusterDeps = Parameters<
+  typeof import('./graph-cluster').createSessionControllerGraphCluster
+>[0];
+
 const {
   createSessionMelodyRuntimeGraphCluster,
   createMelodyImportEditorCluster,
@@ -76,53 +80,38 @@ describe('session-controller-graph-cluster', () => {
 
     const { createSessionControllerGraphCluster } = await import('./graph-cluster');
 
-    const result = createSessionControllerGraphCluster({
+    const deps: SessionControllerGraphClusterDeps = {
       melodyRuntime: {
-        melodySettings: {} as any,
-        melodyTimelineEditing: {} as any,
-        runtimeUi: {} as any,
+        melodySettings: {} as SessionControllerGraphClusterDeps['melodyRuntime']['melodySettings'],
+        melodyTimelineEditing:
+          {} as SessionControllerGraphClusterDeps['melodyRuntime']['melodyTimelineEditing'],
+        runtimeUi: {} as SessionControllerGraphClusterDeps['melodyRuntime']['runtimeUi'],
         melodyDemo: {
-          melodyDemoRuntime: {} as any,
-          sessionTransportControls: {} as any,
+          melodyDemoRuntime:
+            {} as SessionControllerGraphClusterDeps['melodyRuntime']['melodyDemo']['melodyDemoRuntime'],
+          sessionTransportControls:
+            {} as SessionControllerGraphClusterDeps['melodyRuntime']['melodyDemo']['sessionTransportControls'],
         },
       },
-      importEditor: {
-        dom: {} as any,
-        state: {} as any,
-        cloneDraft: vi.fn(),
-        formatUserFacingError: vi.fn(),
-        setResultMessage: vi.fn(),
-        getCurrentInstrument: vi.fn(),
-        setMelodyImportModalVisible: vi.fn(),
-        getSelectedMidiImportQuantize: vi.fn(),
-        parseAsciiTabToEvents: vi.fn(),
-        loadGpScoreFromBytes: vi.fn(),
-        convertLoadedGpScoreTrackToImportedMelody: vi.fn(),
-        loadMidiFileFromBytes: vi.fn(),
-        loadMusescoreFileFromBytes: vi.fn(),
-        convertLoadedMidiTrackToImportedMelody: vi.fn(),
-        convertLoadedMusescoreTrackToImportedMelody: vi.fn(),
-        saveCustomEventMelody: vi.fn(),
-        updateCustomEventMelody: vi.fn(),
-        saveCustomAsciiTabMelody: vi.fn(),
-        updateCustomAsciiTabMelody: vi.fn(),
-        exportMelodyToMidiBytes: vi.fn(),
-        buildExportMidiFileName: vi.fn(),
-        getPracticeAdjustedMelody: vi.fn(),
-        getPracticeAdjustedBakeBpm: vi.fn(),
-        getPracticeAdjustmentSummary: vi.fn(),
-        showNonBlockingError: vi.fn(),
-      },
+      importEditor: {} as SessionControllerGraphClusterDeps['importEditor'],
       configurationGraph: {
-        metronome: {} as any,
-        curriculumPreset: {} as any,
-        inputControls: {} as any,
-        workspaceGraph: {
-          dom: {} as any,
-          state: {} as any,
-        } as any,
+        metronome: {} as SessionControllerGraphClusterDeps['configurationGraph']['metronome'],
+        curriculumPreset:
+          {} as SessionControllerGraphClusterDeps['configurationGraph']['curriculumPreset'],
+        inputControls:
+          {
+            micSettings:
+              {} as SessionControllerGraphClusterDeps['configurationGraph']['inputControls']['micSettings'],
+            audioInputControls: {
+              dom: {} as SessionControllerGraphClusterDeps['configurationGraph']['inputControls']['audioInputControls']['dom'],
+            },
+          } as SessionControllerGraphClusterDeps['configurationGraph']['inputControls'],
+        workspaceGraph:
+          {} as SessionControllerGraphClusterDeps['configurationGraph']['workspaceGraph'],
       },
-    } as any);
+    };
+
+    const result = createSessionControllerGraphCluster(deps);
 
     const runtimeArgs = createSessionMelodyRuntimeGraphCluster.mock.calls[0][0];
     const importArgs = createMelodyImportEditorCluster.mock.calls[0][0];

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+type SessionConfigurationGraphClusterDeps = Parameters<
+  typeof import('./graph-cluster').createSessionConfigurationGraphCluster
+>[0];
+
 const {
   createSessionMetronomeCluster,
   createSessionCurriculumPresetCluster,
@@ -71,21 +75,20 @@ describe('session-configuration-graph-cluster', () => {
     const { createSessionConfigurationGraphCluster } = await import('./graph-cluster');
 
     const result = createSessionConfigurationGraphCluster({
-      metronome: {} as any,
-      curriculumPreset: {} as any,
+      metronome: {} as SessionConfigurationGraphClusterDeps['metronome'],
+      curriculumPreset: {} as SessionConfigurationGraphClusterDeps['curriculumPreset'],
       inputControls: {
-        micSettings: {} as any,
-        inputDevice: {} as any,
-        micPolyphonicBenchmark: {} as any,
-        micPolyphonicTelemetry: {} as any,
+        micSettings: {} as SessionConfigurationGraphClusterDeps['inputControls']['micSettings'],
+        inputDevice: {} as SessionConfigurationGraphClusterDeps['inputControls']['inputDevice'],
+        micPolyphonicBenchmark:
+          {} as SessionConfigurationGraphClusterDeps['inputControls']['micPolyphonicBenchmark'],
+        micPolyphonicTelemetry:
+          {} as SessionConfigurationGraphClusterDeps['inputControls']['micPolyphonicTelemetry'],
         audioInputControls: {
-          dom: {} as any,
+          dom: {} as SessionConfigurationGraphClusterDeps['inputControls']['audioInputControls']['dom'],
         },
       },
-      workspaceGraph: {
-        dom: {} as any,
-        state: {} as any,
-      } as any,
+      workspaceGraph: {} as SessionConfigurationGraphClusterDeps['workspaceGraph'],
     });
 
     const inputArgs = createSessionInputControlsCluster.mock.calls[0][0];
